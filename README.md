@@ -1,30 +1,35 @@
-# Minds3d
+# Mind Arena 3D
 
-3D voxel fighters for the 3,333 MDG (minds.games) NFTs. Every fighter is built from its real trait layers, so it matches the NFT.
+A 3v3 card-battle game (Axie-style) for the 3,333 MDG (minds.games) NFTs. Every fighter is built in 3D straight from its NFT layer art, so the front view matches the NFT 1:1, with toon shading and outlines.
 
-## Run locally
+## Play locally
 ```bash
 python -m http.server 5173 --directory web
 ```
-Open http://localhost:5173/?a=1&b=3327 (`a` / `b` = token ids, `slow=0.2` = slow motion).
+Open http://localhost:5173
 
-Move tester: keys 1-4 = punch / kick / slash / smash (hold Shift for the right fighter).
+## Game
+- **Team:** pick any 3 MDGs (front / middle / back). The front fighter takes most hits.
+- **Energy:** 3 to start, +2 per round (max 10), unused energy carries over.
+- **Cards:** each round every fighter draws 2 cards from its deck. Every trait gives a card (Face, Hand item, Headwear, Emote), everyone has Bonk, and legendaries have 2 signature cards. A 2nd card on the same fighter is a +15% combo.
+- **Classes** (from skin): Blaze > Bloom > Tide > Blaze (+20% / -15%). Legendaries are Mythic.
+- **Stats:** rarity sets HP / ATK / speed / crit (same table as Mind Arena). The shirt gives a small bonus, the necklace a passive.
+- **Status:** stun, burn, shield, dodge, taunt, ATK/DEF/speed buffs. Sudden death from round 10.
+- **Modes:** Adventure (12 stages over 3 worlds with bosses and stars), Quick Battle. Wins give XP; fighters level to 10 (+4% stats per level).
+- **Settings:** music, SFX, battle speed, graphics quality. Progress is saved in the browser.
 
-## Rebuild the data (after layer or metadata changes)
-```bash
-pip install pillow numpy
-python tools/build_data.py "D:/ANIMOCA MINDS/MINDS.GAMES/minds games v4"
-```
-Writes `web/data/layers.json` (traits as 10px voxel grids), `tokens.json` (traits per token) and `thumbs/`.
+## Code
+- `tools/build_data.py`: samples every layer PNG at 6px into `web/data/layers.json`, cuts the legendaries out of their art, and writes `tokens.json` + thumbnails.
+  `python tools/build_data.py "D:/ANIMOCA MINDS/MINDS.GAMES/minds games v4"`
+- `web/src/nft.js`: stacks a token's layers and extrudes them into rounded voxel slabs per body part (greedy-meshed, toon material).
+- `web/src/render.js`: renderer, toon outline post-process, bloom, particles, camera rig.
+- `web/src/env.js`: 3 arenas (Sunny Isles, Neon Night, Frost Peaks).
+- `web/src/fighter.js`: fighter animation (punch / kick / slash / smash / cast / skill / hit / KO / win), projectiles, status visuals.
+- `web/src/game/data.js`: classes, stats, every card. `web/src/game/battle.js`: battle engine + AI.
+- `web/src/audio.js`: synthesized SFX and chiptune music (no audio files).
+- `web/src/main.js`: screens, save data, battle presenter.
 
-## How it works
-- `web/src/model.js` builds every trait as a hand-made voxel model (no outlines): base body coloured by Skin / Shirt / Pants, 12 faces, 8 hats, 7 hand items, 7 emotes, 3 necklaces and the 10 legendaries. Colours are sampled from the original layers.
-- `web/src/voxel.js` meshes those models and rigs them (head, torso, arms, legs, held item, emote).
-- `web/src/main.js` is the arena: Mind Arena stat table (rarity sets HP/ATK/SPD/crit, crits 1.75x), punch / kick / slash / smash moves, voxel debris, slow-mo crits.
-- `tools/build_data.py` only provides `tokens.json` (traits per token) and the NFT thumbnails now.
-
-Trait check: `?gallery=1913,1914,1915` lines up any tokens side by side.
+Trait check: `?gallery=1913,2190,3329&theme=neon` lines up any tokens.
 
 ## Deploy
 Static site: on Vercel set the root directory to `web` (no build step).
-
