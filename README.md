@@ -6,7 +6,9 @@
 ```bash
 python -m http.server 5173 --directory web
 ```
-Open http://localhost:5173/?a=1&b=3327 (`a` / `b` = token ids).
+Open http://localhost:5173/?a=1&b=3327 (`a` / `b` = token ids, `slow=0.2` = slow motion).
+
+Move tester: keys 1-4 = punch / kick / slash / smash (hold Shift for the right fighter).
 
 ## Rebuild the data (after layer or metadata changes)
 ```bash
