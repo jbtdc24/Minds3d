@@ -32,4 +32,4 @@ Open http://localhost:5173
 Trait check: `?gallery=1913,2190,3329&theme=neon` lines up any tokens.
 
 ## Deploy
-Static site: on Vercel set the root directory to `web` (no build step).
+Import the GitHub repo on vercel.com (Add New → Project). `vercel.json` already points Vercel at `web/` with no build step.
