@@ -69,13 +69,14 @@ const ringGeo = new THREE.TorusGeometry(0.62, 0.035, 6, 32);
 const bubbleGeo = new THREE.IcosahedronGeometry(1.1, 1);
 
 export class Fighter {
-  constructor(unit, home, team) {
+  constructor(unit, home, team, mode = '3d') {
     this.unit = unit; this.team = team; this.dir = team === 0 ? 1 : -1;
     this.home = home.clone();
-    this.root = buildFighter(unit.id, team === 1);
+    this.mode = mode;
+    this.root = buildFighter(unit.id, team === 1, mode);
     this.p = this.root.userData.parts;
     this.root.position.copy(home);
-    this.face = this.dir * 0.32;
+    this.turn = this.dir * 0.32;                 // 3D: turned a little toward the enemy
     this.root.rotation.y = this.face;
     this.act = null; this.flash = 0; this.ko = false; this.drop = 0; this.status = {};
     scene.add(this.root);
@@ -90,15 +91,39 @@ export class Fighter {
       s.scale.setScalar(VOX * 6); this.stars.add(s);
     }
     this.stars.visible = false;
-    scene.add(this.ring, this.bubble, this.stars);
+    // soft blob shadow (2D sprites don't cast real shadows)
+    this.blob = new THREE.Mesh(new THREE.CircleGeometry(0.5, 24), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.28, depthWrite: false }));
+    this.blob.rotation.x = -Math.PI / 2;
+    scene.add(this.ring, this.bubble, this.stars, this.blob);
     this.colors = this.sampleColors();
     this.stopFrame = onFrame((dt, t) => this.update(dt, t));
   }
-  get head() { return this.root.position.clone().add(new THREE.Vector3(0, 1.5, 0)); }
-  get chest() { return this.root.position.clone().add(new THREE.Vector3(0, 0.9, 0.2)); }
+  get face() { return this.mode === '2d' ? 0 : this.turn; }
+  set face(v) { this.turn = v; }
+  get s() { return this.root.scale.y; }
+  get head() { return this.root.position.clone().add(new THREE.Vector3(0, 1.5 * this.s, 0)); }
+  get chest() { return this.root.position.clone().add(new THREE.Vector3(0, 0.9 * this.s, 0.2)); }
+  // swap between the 3D model and 2D sprites without touching the battle state
+  rebuild(mode) {
+    if (mode === this.mode) return;
+    const old = this.root;
+    this.mode = mode;
+    this.root = buildFighter(this.unit.id, this.team === 1, mode);
+    this.p = this.root.userData.parts;
+    this.root.position.copy(old.position);
+    scene.remove(old);
+    old.userData.materials.forEach(m => m.dispose());
+    scene.add(this.root);
+  }
   sampleColors() {
     const out = [], src = this.p.head?.userData.mesh?.geometry.attributes.color;
-    if (!src) return ['#ffffff'];
+    if (!src) {                       // 2D: sample the sprite pixels instead
+      const img = this.p.head?.userData.mesh?.material.map?.image;
+      if (!img) return ['#ffffff'];
+      const d = img.getContext('2d').getImageData(0, 0, img.width, img.height).data;
+      for (let i = 0; i < 40 && out.length < 20; i++) { const k = ((Math.random() * d.length / 4) | 0) * 4; if (d[k + 3]) out.push(new THREE.Color(`rgb(${d[k]},${d[k + 1]},${d[k + 2]})`)); }
+      return out.length ? out : ['#ffffff'];
+    }
     for (let i = 0; i < 20; i++) { const k = ((Math.random() * src.count) | 0) * 3; out.push(new THREE.Color(src.array[k], src.array[k + 1], src.array[k + 2])); }
     return out;
   }
@@ -183,11 +208,14 @@ export class Fighter {
     if (p.emote) { p.emote.position.y = (p.emote.userData.y0 ??= p.emote.position.y) + Math.sin(t * 3) * 0.06; p.emote.rotation.z = Math.sin(t * 2) * 0.2; }
     // status visuals
     this.ring.position.set(this.home.x, 0.03, this.home.z);
-    this.ring.scale.setScalar(1 + Math.sin(t * 6) * 0.05);
-    this.bubble.position.copy(this.root.position).add(new THREE.Vector3(0, 1.05, 0));
-    this.bubble.scale.setScalar(1 + Math.sin(t * 4) * 0.03);
+    this.blob.visible = this.mode === '2d';
+    this.blob.position.set(this.root.position.x, 0.02, this.root.position.z);
+    this.blob.scale.set(this.s * (1 - Math.min(0.5, this.root.position.y * 0.3)), this.s * 0.55, 1);
+    this.ring.scale.setScalar((1 + Math.sin(t * 6) * 0.05) * this.s);
+    this.bubble.position.copy(this.root.position).add(new THREE.Vector3(0, 1.05 * this.s, 0));
+    this.bubble.scale.setScalar((1 + Math.sin(t * 4) * 0.03) * this.s);
     if (this.stars.visible) {
-      this.stars.position.copy(this.root.position).add(new THREE.Vector3(0, 2.25, 0));
+      this.stars.position.copy(this.root.position).add(new THREE.Vector3(0, 2.25 * this.s, 0));
       this.stars.children.forEach((s, i) => { const ang = t * 4 + i * 2.1; s.position.set(Math.cos(ang) * 0.45, Math.sin(t * 3 + i) * 0.05, Math.sin(ang) * 0.3); });
     }
     if (this.status.burn && !this.ko && Math.random() < dt * 14)
@@ -205,11 +233,11 @@ export class Fighter {
       }
     }
     this.flash = Math.max(0, this.flash - dt * 6);
-    this.root.userData.material.emissive.setScalar(this.flash * 0.6);
+    for (const m of this.root.userData.materials) m.emissive.setScalar(this.flash * 0.6);
   }
   dispose() {
     this.stopFrame();
-    scene.remove(this.root, this.ring, this.bubble, this.stars);
-    this.root.userData.material.dispose();
+    scene.remove(this.root, this.ring, this.bubble, this.stars, this.blob);
+    this.root.userData.materials.forEach(m => m.dispose());
   }
 }

@@ -169,9 +169,28 @@ ramp.minFilter = ramp.magFilter = THREE.NearestFilter;
 ramp.needsUpdate = true;
 export const toonRamp = ramp;
 
+// 2D mode: one flat pixel-art sprite per body part (same rig, same pivots)
+function flatPart(cells, pivot, mirror) {
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+  for (const c of cells) { x0 = Math.min(x0, c.x); y0 = Math.min(y0, c.y); x1 = Math.max(x1, c.x); y1 = Math.max(y1, c.y); }
+  const W = x1 - x0 + 1, H = y1 - y0 + 1, cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const g = cv.getContext('2d');
+  for (const c of cells) {
+    g.fillStyle = '#' + DATA.palette[c.front].toString(16).padStart(6, '0');
+    g.fillRect(mirror ? W - 1 - (c.x - x0) : c.x - x0, c.y - y0, 1, 1);
+  }
+  const tex = new THREE.CanvasTexture(cv);
+  tex.magFilter = tex.minFilter = THREE.NearestFilter;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const geo = new THREE.PlaneGeometry(W * VOX, H * VOX);
+  geo.translate((mirror ? -1 : 1) * (x0 + W / 2 - pivot.x) * VOX, (pivot.y - (y0 + H / 2)) * VOX, 0);
+  return { geo, tex };
+}
+
 const cache = new Map();
-function buildGeometries(id, mirror) {
-  const key = `${id}:${mirror}`;
+function buildGeometries(id, mirror, flat = false) {
+  const key = `${id}:${mirror}:${flat}`;
   if (cache.has(key)) return cache.get(key);
   const traits = DATA.tokens[id], n = DATA.n, { body, front, part, isArm } = compose(traits);
   const bodyMask = new Uint8Array(n * n);
@@ -218,22 +237,36 @@ function buildGeometries(id, mirror) {
     pivots.emote = { x: e.reduce((s, c) => s + c.x, 0) / e.length, y: e.reduce((s, c) => s + c.y, 0) / e.length };
   }
   const out = { pivots, geos: {} };
-  for (const [name, cells] of Object.entries(groups)) out.geos[name] = meshPart(cells, pivots[name], mirror);
+  for (const [name, cells] of Object.entries(groups)) out.geos[name] = flat ? flatPart(cells, pivots[name], mirror) : meshPart(cells, pivots[name], mirror);
   cache.set(key, out);
   return out;
 }
 
-export function buildFighter(id, mirror = false) {
+// Fighters are drawn at this size on stage (legendaries a bit bigger)
+export const FIGHTER_SCALE = 0.8;
+// flat sprites stack front-to-back in this order
+const FLAT_Z = { legL: -0.02, legR: -0.02, torso: 0, armL: 0.01, head: 0.02, armR: 0.03, item: 0.01, emote: 0.04 };
+
+export function buildFighter(id, mirror = false, mode = '3d') {
   const traits = DATA.tokens[id];
   if (!traits) throw new Error(`No token #${id}`);
-  const { pivots, geos } = buildGeometries(id, mirror);
+  const flat = mode === '2d';
+  const { pivots, geos } = buildGeometries(id, mirror, flat);
   const material = new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: ramp });
+  const materials = flat ? [] : [material];
   const sx = mirror ? -1 : 1;
   const world = pv => new THREE.Vector3(sx * (pv.x - MID_X) * VOX, (GROUND - pv.y) * VOX, 0);
   const parts = {};
   for (const [name, geo] of Object.entries(geos)) {
-    const mesh = new THREE.Mesh(geo, material);
-    mesh.castShadow = true;
+    let mesh;
+    if (flat) {
+      const m = new THREE.MeshToonMaterial({ map: geo.tex, alphaTest: 0.5, side: THREE.DoubleSide, gradientMap: ramp });
+      materials.push(m);
+      mesh = new THREE.Mesh(geo.geo, m);
+      mesh.position.z = FLAT_Z[name] || 0;
+      mesh.userData.depthMat = new THREE.MeshBasicMaterial({ map: geo.tex, alphaTest: 0.5, colorWrite: false, side: THREE.DoubleSide });
+    } else mesh = new THREE.Mesh(geo, material);
+    mesh.castShadow = !flat;
     const g = new THREE.Group();
     g.add(mesh);
     g.userData.mesh = mesh;
@@ -250,12 +283,12 @@ export function buildFighter(id, mirror = false) {
   };
   attach('legL', root); attach('legR', root);
   for (const name of ['torso', 'head', 'armL', 'armR', 'emote']) attach(name, torso, pivots.torso);
-  if (parts.item) { attach('item', parts.armR || torso, parts.armR ? pivots.armR : pivots.torso); parts.item.position.z += 4 * VOX; }
-  if (parts.head) parts.head.position.z += 2 * VOX;      // head sits a touch forward of the body
+  if (parts.item) { attach('item', parts.armR || torso, parts.armR ? pivots.armR : pivots.torso); if (!flat) parts.item.position.z += 4 * VOX; }
+  if (parts.head && !flat) parts.head.position.z += 2 * VOX;      // head sits a touch forward of the body
   parts.root = root; parts.body = torso;
-  if (traits.Legendary) root.scale.setScalar(1.12);
+  root.scale.setScalar(FIGHTER_SCALE * (traits.Legendary ? 1.12 : 1));
   const fx = traits.Legendary && LEGEND_FX[traits.Legendary];
-  root.userData = { id, traits, parts, mirror, material, aura: fx && { ...fx, spread: 1.0, at: [0, fx.top ? 3 : 1.0, 0], glow: true } };
+  root.userData = { id, traits, parts, mirror, flat, materials, aura: fx && { ...fx, spread: 0.8, at: [0, fx.top ? 2.4 : 0.8, 0], glow: true } };
   return root;
 }
 

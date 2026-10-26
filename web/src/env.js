@@ -91,7 +91,7 @@ export function buildEnv(name) {
   rim.color.set(th.light.rim[0]); rim.intensity = th.light.rim[1];
 
   // main stage (wide ellipse for 3v3) + satellite islands
-  const [top, body] = island(th, 20, 11);
+  const [top, body] = island(th, 24, 11);
   const extra = [], glows = [];
   for (const [cx, cz, rx, rz, y] of [[-9, -9, 5, 4, -1.6], [10, -11, 6, 4, -0.8], [-14, -3, 3, 3, 1.4], [15, -2, 4, 3, -2.4], [2, -18, 7, 5, 0.6]]) {
     const [t2, b2] = island(th, rx, rz, cx, cz, y, false);
@@ -103,11 +103,11 @@ export function buildEnv(name) {
   const animated = [];
   if (name === 'meadow' || name === 'frost') {
     const snowy = name === 'frost';
-    for (const [x, z, y] of [[-6.2, -2, 0], [6.4, -1.6, 0], [-4.8, -3.0, 0], [5.0, -3.1, 0], [-9, -9, -1.6], [9.5, -11, -0.8], [11, -12, -0.8], [-14, -3, 1.4], [2, -18, 0.6], [4, -19, 0.6]])
+    for (const [x, z, y] of [[-7.4, -1.6, 0], [7.5, -1.4, 0], [-5.4, -2.9, 0], [5.8, -3.0, 0], [-9, -9, -1.6], [9.5, -11, -0.8], [11, -12, -0.8], [-14, -3, 1.4], [2, -18, 0.6], [4, -19, 0.6]])
       decor.push(...tree(x, z, y, snowy));
     for (let i = 0; i < 26; i++) {           // flowers / rocks along the stage rim
-      const a = Math.random() * Math.PI * 2, x = Math.cos(a) * 5.4, z = Math.sin(a) * 2.9;
-      if (z > 0.5 && Math.abs(x) < 4.5) continue;
+      const a = Math.random() * Math.PI * 2, x = Math.cos(a) * 6.6, z = Math.sin(a) * 2.9;
+      if (z > 0.5 && Math.abs(x) < 5.8) continue;
       decor.push(snowy ? { p: [x, 0.08, z], s: [0.18, 0.16, 0.18], c: '#ffffff' } : { p: [x, 0.08, z], s: 0.12, c: ['#ff8fb0', '#fff2a8', '#ffffff', '#c9a6ff'][i % 4] });
     }
     // clouds
@@ -119,13 +119,13 @@ export function buildEnv(name) {
     const cm = cubes(cloud, toon(), false);
     g.add(cm); animated.push(t => { cm.position.x = Math.sin(t * 0.03) * 6; });
     if (snowy) {                              // glowing ice crystals
-      for (const [x, z, h] of [[-5.6, -2.4, 1.2], [5.8, -2.0, 1.5], [-3.2, -3.2, 0.8], [3.4, -3.3, 1.0], [-9.4, -8.6, 1.8], [10.6, -10.4, 1.4]])
+      for (const [x, z, h] of [[-6.8, -2.2, 1.2], [6.9, -1.9, 1.5], [-4.0, -3.1, 0.8], [4.2, -3.2, 1.0], [-9.4, -8.6, 1.8], [10.6, -10.4, 1.4]])
         glows.push({ p: [x, h / 2 - 0.05, z], s: [0.25, h, 0.25], c: '#a8ecff', boost: 1.6, tilt: R(-0.3, 0.3) });
     }
   } else if (name === 'neon') {
     // grid lines on the stage + skyline with lit windows
-    for (let x = -20; x <= 20; x += 4) glows.push({ p: [x * T, 0.005, 0], s: [0.03, 0.02, 6.4], c: th.grid, boost: 1.4 });
-    for (let z = -10; z <= 10; z += 4) glows.push({ p: [0, 0.005, z * T], s: [11.8, 0.02, 0.03], c: th.grid, boost: 1.4 });
+    for (let x = -24; x <= 24; x += 4) glows.push({ p: [x * T, 0.005, 0], s: [0.03, 0.02, 6.4], c: th.grid, boost: 1.4 });
+    for (let z = -10; z <= 10; z += 4) glows.push({ p: [0, 0.005, z * T], s: [14.2, 0.02, 0.03], c: th.grid, boost: 1.4 });
     for (let i = 0; i < 46; i++) {
       const a = R(Math.PI * 1.05, Math.PI * 1.95), r = R(18, 34), x = Math.cos(a) * r, z = Math.sin(a) * r, h = R(4, 18), w = R(1.5, 3.5);
       decor.push({ p: [x, h / 2 - 6, z], s: [w, h, w], c: i % 3 ? '#181430' : '#221a40', rot: R(0, 1) });

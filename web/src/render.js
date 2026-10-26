@@ -69,7 +69,7 @@ export function setQuality(q) {
   resize();
 }
 export function resize() {
-  const w = innerWidth, h = innerHeight;
+  const w = Math.max(1, innerWidth), h = Math.max(1, innerHeight);
   renderer.setSize(w, h);
   composer.setSize(w, h);
   const pr = renderer.getPixelRatio();
@@ -185,6 +185,8 @@ function frame() {
   simTime += dt;
   for (const h of hooks) h(dt, simTime, raw);
   updateBits(dt);
+  if (!Number.isFinite(camera.position.x + camera.position.y + camera.position.z)) camera.position.set(0, 4, 14);   // recover from a bad frame
+  if (!Number.isFinite(curLook.x + curLook.y + curLook.z)) curLook.set(0, 1, 0);
   if (controls.enabled) controls.update();
   else {
     camera.position.lerp(rig.pos, rig.k);
@@ -196,11 +198,13 @@ function frame() {
     shakeAmt *= 0.86;
   }
   // depth pre-pass for the outline
-  scene.overrideMaterial = depthMat;
+  // (2D sprites use their own alpha-tested depth material so only the drawn pixels get outlined)
+  const swapped = [];
+  scene.traverse(o => { if (o.isMesh || o.isInstancedMesh) { swapped.push([o, o.material]); o.material = o.userData.depthMat || depthMat; } });
   renderer.setRenderTarget(depthRT);
   renderer.render(scene, camera);
   renderer.setRenderTarget(null);
-  scene.overrideMaterial = null;
+  for (const [o, m] of swapped) o.material = m;
   composer.render();
 }
 resize();

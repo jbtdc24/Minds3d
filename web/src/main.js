@@ -25,23 +25,23 @@ const RARITIES = ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary'];
 
 // ---------- save data ----------
 const SAVE_KEY = 'mindarena3d.v1';
-const save = { team: null, levels: {}, stars: {}, settings: { music: 0.5, sfx: 0.8, speed: 1, quality: 'high' } };
-try { Object.assign(save, JSON.parse(localStorage.getItem(SAVE_KEY) || '{}')); } catch { /* fresh save */ }
+const save = { team: null, levels: {}, stars: {}, settings: { music: 0.5, sfx: 0.8, speed: 1, quality: 'high', view: '3d' } };
+try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || '{}'); Object.assign(save, s, { settings: { ...save.settings, ...s.settings } }); } catch { /* fresh save */ }
 const persist = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch { /* storage blocked */ } };
 const lvl = id => save.levels[id]?.lvl || 1;
 
 // ---------- stage (3D fighters on the island) ----------
 let onStage = [];
 function clearStage() { onStage.forEach(f => f.dispose()); onStage = []; }
-const SLOTS = [[-1.5, 0.75], [-2.85, -0.65], [-4.2, 0.55]];
+const SLOTS = [[-1.9, 0.8], [-3.55, -0.75], [-5.2, 0.6]];
 const slotPos = (team, slot) => new THREE.Vector3(SLOTS[slot][0] * (team ? -1 : 1), 0, SLOTS[slot][1]);
 let showcaseOrbit = false;
 function showcase(ids, theme = 'meadow') {
   clearStage();
   buildEnv(theme);
-  const n = ids.length, gap = n > 3 ? 1.9 : 1.75;
+  const n = ids.length, gap = n > 3 ? 2.0 : 1.9;
   ids.forEach((id, i) => {
-    const f = new Fighter(makeUnit(id, traitsOf(id), rarityOf(id)), new THREE.Vector3((i - (n - 1) / 2) * gap, 0, i % 2 ? -0.5 : 0.2), 0);
+    const f = new Fighter(makeUnit(id, traitsOf(id), rarityOf(id)), new THREE.Vector3((i - (n - 1) / 2) * gap, 0, i % 2 ? -0.5 : 0.2), 0, save.settings.view);
     f.face = 0;
     f.dropIn(i * 0.15);
     onStage.push(f);
@@ -206,8 +206,11 @@ function quickBattle() {
 let F = {}, battle = null, quitFlag = false, bars = {};
 const banner = (html, ms = 900) => { const b = $('#banner'); b.innerHTML = html; b.classList.add('on'); return wait(ms).then(() => b.classList.remove('on')); };
 // distance that fits `half` world units left/right of centre on this screen
-const fitDist = half => half / (Math.tan(THREE.MathUtils.degToRad(innerWidth / innerHeight < 0.8 ? 50 : 36) / 2) * innerWidth / innerHeight);
-const battleCam = () => { const d = Math.max(9, fitDist(5.6)); camTo(new THREE.Vector3(0, 2.2 + d * 0.13, d), new THREE.Vector3(0, 0.95, -0.2), 0.05); };
+const fitDist = half => {
+  const asp = innerWidth / Math.max(1, innerHeight), d = half / (Math.tan(THREE.MathUtils.degToRad(asp < 0.8 ? 50 : 36) / 2) * asp);
+  return Number.isFinite(d) && d > 0 ? d : 12;          // hidden / zero-size window
+};
+const battleCam = () => { const d = Math.max(10, fitDist(6.9)); camTo(new THREE.Vector3(0, 2.2 + d * 0.13, d), new THREE.Vector3(0, 0.95, -0.2), 0.05); };
 
 let inBattle = false;
 async function startBattle(opts) {
@@ -223,7 +226,7 @@ async function startBattle(opts) {
   battle = new Battle(teamA, teamB);
   F = {};
   for (const u of battle.units) {
-    const f = new Fighter(u, slotPos(u.team, u.slot), u.team);
+    const f = new Fighter(u, slotPos(u.team, u.slot), u.team, save.settings.view);
     f.dropIn(0.25 + u.slot * 0.18 + u.team * 0.08);
     F[u.uid] = f; onStage.push(f);
     const b = el('div', `fbar t${u.team}`, '<div class="st"></div><div class="hp"><i></i><b></b></div>');
@@ -358,6 +361,16 @@ function playerTurn() {
 }
 let quitResolve = null;
 $('#b-quit').onclick = async () => { if (await ask('Quit this battle?')) { quitFlag = true; quitResolve?.(); } };
+// 2D / 3D switch: rebuilds every fighter on stage in place
+function setView(v) {
+  save.settings.view = v; persist();
+  onStage.forEach(f => f.rebuild(v));
+  $('#b-view').textContent = v === '2d' ? '2D' : '3D';
+  $$('#set-view button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+}
+$('#b-view').onclick = () => setView(save.settings.view === '2d' ? '3d' : '2d');
+$('#m-view').onclick = () => { setView(save.settings.view === '2d' ? '3d' : '2d'); $('#m-view-v').textContent = save.settings.view.toUpperCase(); };
+$('#set-view').onclick = e => { const v = e.target.dataset.v; if (v) setView(v); };
 $('#b-speed').onclick = () => {
   const order = [1, 1.5, 2], s = order[(order.indexOf(save.settings.speed) + 1) % 3];
   save.settings.speed = s; setSpeed(s); persist();
@@ -414,7 +427,7 @@ async function present(ev) {
   popText(card.name.toUpperCase(), up(af.root.position, 3.0), 'status');
   // camera leans toward the action
   const focus = enemyFirst ? af.home.clone().lerp(F[enemyFirst.uid].home, 0.5) : af.home.clone();
-  const d = Math.max(8.5, fitDist(4.8));
+  const d = Math.max(9, fitDist(5.6));
   camTo(new THREE.Vector3(focus.x * 0.5, 2.0 + d * 0.12, d), new THREE.Vector3(focus.x * 0.7, 1.0, focus.z * 0.3), 0.06);
   const prevEnergy = shownEnergy;
   let move = card.move;
@@ -508,6 +521,9 @@ function applySettings() {
   $('#set-music').value = s.music; $('#set-sfx').value = s.sfx;
   $$('#set-speed button').forEach(b => b.classList.toggle('on', +b.dataset.v === s.speed));
   $$('#set-quality button').forEach(b => b.classList.toggle('on', b.dataset.v === s.quality));
+  $$('#set-view button').forEach(b => b.classList.toggle('on', b.dataset.v === s.view));
+  $('#b-view').textContent = s.view === '2d' ? '2D' : '3D';
+  $('#m-view-v').textContent = s.view.toUpperCase();
 }
 $('#set-music').oninput = e => { save.settings.music = +e.target.value; applySettings(); persist(); };
 $('#set-sfx').oninput = e => { save.settings.sfx = +e.target.value; applySettings(); persist(); sfx('select'); };
