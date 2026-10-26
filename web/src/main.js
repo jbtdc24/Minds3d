@@ -10,7 +10,7 @@ const STATS = {
   Uncommon: { hp: 407, atk: 41, spd: 12, crit: 0.07 },
   Common: { hp: 400, atk: 40, spd: 10, crit: 0.05 },
 };
-const GAP = 1.55;          // fighters stand at +-GAP
+const GAP = 1.8;          // fighters stand at +-GAP
 const SLOW = +new URLSearchParams(location.search).get("slow") || 1;   // ?slow=0.2 for checking poses
 const $ = s => document.querySelector(s);
 
@@ -125,7 +125,7 @@ class Fighter {
     // fighting stance (idle)
     const pose = {
       go: 0, back: 0, y: bob * 0.035, lean: 0.05, head: Math.sin(t * 2.1 + this.side) * 0.06, sq: 1 - bob * 0.03,
-      armF: 0.55 + Math.sin(ph) * 0.12, armB: 0.35 - Math.sin(ph) * 0.12, armFx: 0, armZ: 0.04, item: 0.2,
+      armF: 0.28 + Math.sin(ph) * 0.1, armB: 0.18 - Math.sin(ph) * 0.1, armFx: 0, armZ: 0.04, item: 0.2,
       legF: 0.18, legB: -0.18, legFy: 0, legBy: 0, roll: 0, run: 0,
     };
     if (this.drop > 0) {     // falling in from the sky
@@ -156,7 +156,7 @@ class Fighter {
       pose.legF += r * 0.8; pose.legB -= r * 0.8; pose.armB += r * 0.9; pose.y += Math.abs(r) * 0.06;
       if (!a || a.type !== 'slash') pose.armF -= r * 0.6;
     }
-    const reach = a?.target ? a.target.home + a.target.dir * 1.5 : this.home;
+    const reach = a?.target ? a.target.home + a.target.dir * 1.65 : this.home;
     this.root.position.set(this.home + (reach - this.home) * pose.go - dir * pose.back, Math.max(0, pose.y) + (this.ko ? 0.25 * Math.min(1, pose.roll) : 0), 0);
     this.root.rotation.z = dir * pose.roll;
     p.body.rotation.z = -dir * pose.lean;
@@ -164,7 +164,8 @@ class Fighter {
     if (p.head) p.head.rotation.z = dir * pose.head;
     if (p.armR) { p.armR.rotation.z = dir * pose.armF; p.armR.position.x = (p.armR.userData.x0 ??= p.armR.position.x) + dir * pose.armFx; p.armR.position.z = pose.armZ; }
     if (p.armL) p.armL.rotation.z = dir * pose.armB;
-    if (p.item) p.item.rotation.z = dir * pose.item;
+    if (p.item) p.item.rotation.z = dir * (pose.item - 0.8);
+    if (p.fx) { p.fx.rotation.y = t * 0.9; p.fx.scale.y = 1 + Math.sin(t * 9) * 0.04; }
     if (p.legR) { p.legR.rotation.z = dir * pose.legF; p.legR.position.y = (p.legR.userData.y0 ??= p.legR.position.y) + pose.legFy; }
     if (p.legL) { p.legL.rotation.z = dir * pose.legB; p.legL.position.y = (p.legL.userData.y0 ??= p.legL.position.y) + pose.legBy; }
     if (p.emote) { p.emote.position.y = (p.emote.userData.y0 ??= p.emote.position.y) + Math.sin(t * 3) * 0.06; p.emote.rotation.z = Math.sin(t * 2) * 0.2; }
@@ -337,7 +338,7 @@ function resize() {
 }
 addEventListener('resize', resize);
 resize();
-camera.position.set(0, 2.2, camera.aspect < 0.8 ? 10.5 : 8.5);
+camera.position.set(0, 2.4, camera.aspect < 0.8 ? 12.5 : 10);
 
 const clock = new THREE.Clock();
 let simT = 0;
@@ -350,7 +351,7 @@ function frame() {
   A?.update(simT, dt); B?.update(simT, dt);
   updateBits(dt);
   if (camMode === 'fight') {
-    const far = camera.aspect < 0.8 ? 11 : 9;
+    const far = camera.aspect < 0.8 ? 12.5 : 10;
     camPos.set(camFocus.x * 0.6 + Math.sin(simT * 0.4) * 0.8, 2.2, far - (timeScale < 0.9 ? 1.6 : 0));
     camera.position.lerp(camPos, 0.06);
     controls.target.lerp(camFocus, 0.08);
@@ -367,5 +368,18 @@ await loadData();
 const q = new URLSearchParams(location.search);
 load(0, +q.get('a') || rnd());
 load(1, +q.get('b') || rnd());
+// ?gallery=1,2,3 lines up many fighters (for checking traits); the arena fighters are hidden.
+if (q.get('gallery')) {
+  A.root.visible = B.root.visible = false;
+  document.querySelectorAll('.hud, .controls').forEach(e => e.style.display = 'none');
+  const ids = q.get('gallery').split(',').map(Number).filter(Boolean), per = Math.ceil(Math.sqrt(ids.length * 1.6));
+  ids.forEach((id, i) => {
+    const r = buildFighter(id);
+    r.position.set((i % per - (per - 1) / 2) * 2.2, 0, Math.floor(i / per) * -2.6);
+    scene.add(r);
+  });
+  controls.target.set(0, 1.2, -Math.floor((ids.length - 1) / per) * 1.3);
+  camera.position.set(0, 4, per * 3.6);
+}
 $('#loading').remove();
 frame();
