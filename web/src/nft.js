@@ -1,6 +1,7 @@
 // 1:1 NFT fighters: a token's layer art (6px cells) stacked and extruded into rounded slabs per body part.
 // Front view = the NFT. Rig: root > legL, legR, body(hip pivot) > torso, head, armL, armR > item, emote.
 import * as THREE from 'three';
+import { DATA_VERSION } from './config.js';
 
 export const VOX = 0.015;           // world units per cell (6 source px)
 const GROUND = 187.5;               // ground line (1125 px)
@@ -33,7 +34,7 @@ export const LEGEND_FX = {
 
 let DATA = null;
 export async function loadData() {
-  const [layers, tokens] = await Promise.all([fetch('data/layers.json').then(r => r.json()), fetch('data/tokens.json').then(r => r.json())]);
+  const [layers, tokens] = await Promise.all([fetch(`data/layers.json?v=${DATA_VERSION}`).then(r => r.json()), fetch(`data/tokens.json?v=${DATA_VERSION}`).then(r => r.json())]);
   for (const l of Object.values(layers.layers)) {
     const bin = atob(l.d), u = new Uint16Array(l.w * l.h);
     for (let i = 0; i < u.length; i++) u[i] = bin.charCodeAt(2 * i) | (bin.charCodeAt(2 * i + 1) << 8);

@@ -10,3 +10,6 @@ export const SUPABASE = {
   url: 'https://yohvqlblzejgfzujxotm.supabase.co',
   publishableKey: 'sb_publishable_w1utMzXIm4RnzbEwRgGamQ_GEaoBglD',   // safe to be public
 };
+
+// bump when web/data changes so browsers never show stale Minds (old cached files)
+export const DATA_VERSION = '2026-10-29';

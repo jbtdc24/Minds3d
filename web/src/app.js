@@ -5,13 +5,14 @@ import { camTo, camSnap, shake, slowmo, flash, burst, rise, ring, popText, onFra
 import { buildEnv, envUpdate } from './env.js';
 import { Fighter, shoot } from './fighter.js';
 import { SPELLS, SPELL_INFO, RULES, CARD_VALUES } from './duel/engine.js';
+import { DATA_VERSION } from './config.js';
 import { api, session, walletLogin, guestLogin, logout, hasWallet, watch, serverOnline, LocalMatch, setTokenIds } from './net.js';
 import { initAudio, sfx, music, setVolume } from './audio.js';
 
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
 const wait = ms => new Promise(r => setTimeout(r, ms / speedSetting));
-const thumb = id => id ? `data/thumbs/${id}.webp` : 'data/thumbs/1.webp';
+const thumb = id => `data/thumbs/${id || 1}.webp?v=${DATA_VERSION}`;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const RAR_COLOR = { Legendary: '#d68a00', Epic: '#9b6bff', Rare: '#2f8fd0', Uncommon: '#3a9a00', Common: '#6d6987' };
 const CARD_COLOR = { 1: '#7fd6ff', 2: '#5ee08a', 3: '#c3f03a', 4: '#ffe14a', 5: '#ffb03d', 6: '#ff7a5c', 7: '#ff5fc8' };

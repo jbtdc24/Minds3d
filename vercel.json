@@ -5,7 +5,7 @@
     { "source": "/api/:path*", "destination": "/api/router?route=:path*" }
   ],
   "headers": [
-    { "source": "/data/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=86400" }] },
+    { "source": "/data/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=300, must-revalidate" }] },
     { "source": "/(.*)", "headers": [
       { "key": "X-Frame-Options", "value": "DENY" },
       { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
