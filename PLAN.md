@@ -51,5 +51,5 @@
 
 ## Needed from the owner before starting
 - [x] Contract 0x947c1501fdeb97d2aa0642c14afbd8a99427d227 on Robinhood Chain · https://opensea.io/collection/mindsdotgames
-- [~] Supabase: publishable key received (web/src/config.js). Still needed: Project URL + secret key in Vercel env var SUPABASE_SECRET_KEY
+- [~] Supabase: https://yohvqlblzejgfzujxotm.supabase.co + publishable key (web/src/config.js), connection OK. Still needed: secret key in Vercel env var SUPABASE_SECRET_KEY
 - [x] Free trial: YES — demo Minds for non-holders, playable vs bots/players, not on the leaderboard

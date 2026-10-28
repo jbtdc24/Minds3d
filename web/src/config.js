@@ -7,6 +7,6 @@ export const COLLECTION = {
   supply: 3333,
 };
 export const SUPABASE = {
-  url: '',   // Project URL from Supabase -> Project Settings -> API (https://xxxx.supabase.co)
+  url: 'https://yohvqlblzejgfzujxotm.supabase.co',
   publishableKey: 'sb_publishable_w1utMzXIm4RnzbEwRgGamQ_GEaoBglD',   // safe to be public
 };
