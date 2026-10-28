@@ -1,7 +1,7 @@
 // Client networking: API calls with the session token, wallet sign-in, live match updates,
 // and a fully local practice match (engine + bot in the browser) for offline / trial play.
 import { SUPABASE } from './config.js';
-import { createMatch, submit, viewFor, mustLockFirst, allowedMoves, SKILL_IDS, RULES } from './duel/engine.js';
+import { createMatch, submit, viewFor, forfeitMatch } from './duel/engine.js';
 import { Bot } from './duel/bot.js';
 
 const TOKEN_KEY = 'mindclash.session';
@@ -62,9 +62,8 @@ export async function watch(topic, onPing) {
 
 // ---------- local match (practice offline / when the server is unreachable) ----------
 export class LocalMatch {
-  constructor({ name, minds, loadout, level = 'normal' }) {
-    const botLoadout = [...SKILL_IDS].sort(() => Math.random() - 0.5).slice(0, RULES.loadoutSize);
-    this.state = createMatch({ seed: (Math.random() * 2 ** 31) | 0, players: [{ name, minds, loadout }, { name: `BOT · ${level}`, minds: randomMinds(), loadout: botLoadout }] });
+  constructor({ name, minds, level = 'normal' }) {
+    this.state = createMatch({ seed: (Math.random() * 2 ** 31) | 0, players: [{ name, minds }, { name: `BOT · ${level}`, minds: randomMinds() }] });
     this.bot = new Bot(level, (Math.random() * 2 ** 31) | 0);
     this.level = level;
     this.id = 'local';
@@ -72,23 +71,21 @@ export class LocalMatch {
   }
   botAct() {
     const s = this.state;
-    if (s.over || s.p[1].pending || (mustLockFirst(s) === 0 && !s.p[0].pending)) return;
-    let r = submit(s, 1, this.bot.decide(viewFor(s, 1)));
-    if (r.error) r = submit(s, 1, { move: allowedMoves(s, 1)[0] });
-    if (r.resolved) this.bot.observe(r.resolved, 1);
+    if (s.over || s.p[1].pending) return;
+    const r = submit(s, 1, this.bot.decide(viewFor(s, 1)));
+    if (r.error) submit(s, 1, { card: s.p[1].cards[0] });
   }
   view() {
     return { id: 'local', seat: 0, status: this.state.over ? 'done' : 'live', ranked: false, vsBot: true, botLevel: this.level, local: true,
       deadline: null, winner: this.state.winner, view: viewFor(this.state, 0), delta: 0 };
   }
   async act(action) {
-    const r = submit(this.state, 0, action);
+    const r = submit(this.state, 0, { card: action.card, spell: action.spell ?? null });
     if (r.error) throw new Error(r.error);
-    if (r.resolved) this.bot.observe(r.resolved, 1);
     this.botAct();
     return this.view();
   }
-  async forfeit() { this.state.over = true; this.state.winner = 1; return this.view(); }
+  async forfeit() { forfeitMatch(this.state, 0); return this.view(); }
 }
 let tokenIdsCache = null;
 export function setTokenIds(ids) { tokenIdsCache = ids; }

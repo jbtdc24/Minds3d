@@ -202,7 +202,10 @@ function frame() {
   const swapped = [];
   scene.traverse(o => { if (o.isMesh || o.isInstancedMesh) { swapped.push([o, o.material]); o.material = o.userData.depthMat || depthMat; } });
   renderer.setRenderTarget(depthRT);
+  renderer.clear();                 // post passes can leave autoClear off; stale depth = ghost outlines over the painted backdrop
+  const bg = scene.background; scene.background = null;
   renderer.render(scene, camera);
+  scene.background = bg;
   renderer.setRenderTarget(null);
   for (const [o, m] of swapped) o.material = m;
   composer.render();

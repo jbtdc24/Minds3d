@@ -5,19 +5,19 @@ import { toonRamp, VOX } from './nft.js';
 
 export const THEMES = {
   meadow: {
-    name: 'Sunny Isles', sky: ['#5fb4ff', '#dff3ff'], fog: ['#cfe8ff', 22, 80],
+    name: 'Sunny Isles', backdrop: 'assets/arena_day.webp', sky: ['#5fb4ff', '#dff3ff'], fog: ['#cfe8ff', 22, 80],
     tiles: ['#86cf6e', '#77c060'], edge: '#fff2a8', dirt: ['#7a5434', '#5e3f27'],
     light: { hemi: ['#eef7ff', '#5a7a3a', 1.35], sun: ['#fff1d6', 2.5], rim: ['#cfe2ff', 1.2] },
     motes: { colors: ['#ffffff', '#fff3a0'], rate: 4, fall: false },
   },
   neon: {
-    name: 'Neon Night', sky: ['#07051a', '#3a1660'], fog: ['#1c0f3c', 16, 60],
+    name: 'Neon Night', backdrop: 'assets/arena_night.webp', sky: ['#07051a', '#3a1660'], fog: ['#1c0f3c', 16, 60],
     tiles: ['#211d42', '#2a2552'], edge: '#ff3bd4', dirt: ['#2a2440', '#1b1730'], grid: '#29f0ff',
     light: { hemi: ['#e6e0ff', '#2a2050', 1.25], sun: ['#ffffff', 1.9], rim: ['#ff5ad8', 2.0] },
     motes: { colors: ['#29f0ff', '#ff3bd4'], rate: 6, fall: false },
   },
   frost: {
-    name: 'Frost Peaks', sky: ['#7fbfff', '#f4fbff'], fog: ['#e4f3ff', 18, 70],
+    name: 'Frost Peaks', backdrop: 'assets/arena_crystal.webp', sky: ['#7fbfff', '#f4fbff'], fog: ['#e4f3ff', 18, 70],
     tiles: ['#eaf6ff', '#d3ebfb'], edge: '#a8ecff', dirt: ['#8fb4cc', '#6f93ab'],
     light: { hemi: ['#f2f9ff', '#7da0c0', 1.4], sun: ['#ffffff', 2.2], rim: ['#a8d8ff', 1.4] },
     motes: { colors: ['#ffffff', '#e2f4ff'], rate: 14, fall: true },
@@ -73,6 +73,26 @@ function tree(x, z, y, snowy) {
   return out;
 }
 
+// painted pixel-art backdrops (OpenArt) drawn behind the voxel stage, cropped to cover the screen
+const backdrops = {};
+const loader = new THREE.TextureLoader();
+function backdrop(url) {
+  if (!backdrops[url]) {
+    const tex = loader.load(url, () => fitBackdrop());
+    tex.colorSpace = THREE.SRGBColorSpace;
+    backdrops[url] = tex;
+  }
+  return backdrops[url];
+}
+function fitBackdrop() {
+  const tex = scene.background;
+  if (!tex?.isTexture || !tex.image) return;
+  const img = tex.image.width / tex.image.height, view = innerWidth / Math.max(1, innerHeight);
+  if (view > img) { tex.repeat.set(1, img / view); tex.offset.set(0, (1 - img / view) * 0.6); }
+  else { tex.repeat.set(view / img, 1); tex.offset.set((1 - view / img) / 2, 0); }
+}
+addEventListener('resize', fitBackdrop);
+
 let current = null;
 export function buildEnv(name) {
   if (current) { scene.remove(current.group); current.group.traverse(o => { o.geometry?.dispose(); }); }
@@ -84,8 +104,10 @@ export function buildEnv(name) {
     vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }',
     fragmentShader: 'uniform vec3 top; uniform vec3 bot; varying vec3 vP; void main(){ float h = smoothstep(-0.25, 0.6, vP.y); gl_FragColor = vec4(mix(bot, top, h), 1.); }',
   }));
-  g.add(sky);
-  scene.fog = new THREE.Fog(th.fog[0], th.fog[1], th.fog[2]);
+  const painted = !!th.backdrop;
+  if (painted) { scene.background = backdrop(th.backdrop); fitBackdrop(); }
+  else { scene.background = null; g.add(sky); }
+  scene.fog = new THREE.Fog(th.fog[0], th.fog[1] * (th.backdrop ? 1.6 : 1), th.fog[2] * (th.backdrop ? 1.6 : 1));
   hemi.color.set(th.light.hemi[0]); hemi.groundColor.set(th.light.hemi[1]); hemi.intensity = th.light.hemi[2];
   sun.color.set(th.light.sun[0]); sun.intensity = th.light.sun[1];
   rim.color.set(th.light.rim[0]); rim.intensity = th.light.rim[1];
@@ -97,13 +119,13 @@ export function buildEnv(name) {
     const [t2, b2] = island(th, rx, rz, cx, cz, y, false);
     extra.push(...t2, ...b2);
   }
-  g.add(cubes(top), cubes([...body, ...extra], toon(), false));
+  g.add(cubes(top), cubes(painted ? body : [...body, ...extra], toon(), false));
 
   const decor = [];
   const animated = [];
   if (name === 'meadow' || name === 'frost') {
     const snowy = name === 'frost';
-    for (const [x, z, y] of [[-7.4, -1.6, 0], [7.5, -1.4, 0], [-5.4, -2.9, 0], [5.8, -3.0, 0], [-9, -9, -1.6], [9.5, -11, -0.8], [11, -12, -0.8], [-14, -3, 1.4], [2, -18, 0.6], [4, -19, 0.6]])
+    for (const [x, z, y] of [[-7.4, -1.6, 0], [7.5, -1.4, 0], [-5.4, -2.9, 0], [5.8, -3.0, 0], ...(painted ? [] : [[-9, -9, -1.6], [9.5, -11, -0.8], [11, -12, -0.8], [-14, -3, 1.4], [2, -18, 0.6], [4, -19, 0.6]])])
       decor.push(...tree(x, z, y, snowy));
     for (let i = 0; i < 26; i++) {           // flowers / rocks along the stage rim
       const a = Math.random() * Math.PI * 2, x = Math.cos(a) * 6.6, z = Math.sin(a) * 2.9;
@@ -116,17 +138,17 @@ export function buildEnv(name) {
       const cx = R(-30, 30), cy = R(6, 14), cz = R(-40, -12);
       for (let i = 0; i < 9; i++) cloud.push({ p: [cx + R(-2.5, 2.5), cy + R(-0.4, 0.6), cz + R(-1, 1)], s: [R(1.2, 2.4), R(0.8, 1.2), R(1, 2)], c: '#ffffff' });
     }
-    const cm = cubes(cloud, toon(), false);
+    const cm = cubes(painted ? [] : cloud, toon(), false);
     g.add(cm); animated.push(t => { cm.position.x = Math.sin(t * 0.03) * 6; });
     if (snowy) {                              // glowing ice crystals
-      for (const [x, z, h] of [[-6.8, -2.2, 1.2], [6.9, -1.9, 1.5], [-4.0, -3.1, 0.8], [4.2, -3.2, 1.0], [-9.4, -8.6, 1.8], [10.6, -10.4, 1.4]])
+      for (const [x, z, h] of [[-6.8, -2.2, 1.2], [6.9, -1.9, 1.5], [-4.0, -3.1, 0.8], [4.2, -3.2, 1.0], ...(painted ? [] : [[-9.4, -8.6, 1.8], [10.6, -10.4, 1.4]])])
         glows.push({ p: [x, h / 2 - 0.05, z], s: [0.25, h, 0.25], c: '#a8ecff', boost: 1.6, tilt: R(-0.3, 0.3) });
     }
   } else if (name === 'neon') {
     // grid lines on the stage + skyline with lit windows
     for (let x = -24; x <= 24; x += 4) glows.push({ p: [x * T, 0.005, 0], s: [0.03, 0.02, 6.4], c: th.grid, boost: 1.4 });
     for (let z = -10; z <= 10; z += 4) glows.push({ p: [0, 0.005, z * T], s: [14.2, 0.02, 0.03], c: th.grid, boost: 1.4 });
-    for (let i = 0; i < 46; i++) {
+    for (let i = 0; i < (painted ? 0 : 46); i++) {
       const a = R(Math.PI * 1.05, Math.PI * 1.95), r = R(18, 34), x = Math.cos(a) * r, z = Math.sin(a) * r, h = R(4, 18), w = R(1.5, 3.5);
       decor.push({ p: [x, h / 2 - 6, z], s: [w, h, w], c: i % 3 ? '#181430' : '#221a40', rot: R(0, 1) });
       for (let k = 0; k < 6; k++) glows.push({ p: [x + R(-w / 2, w / 2) * 0.8, R(-5, h - 6), z + w / 2 + 0.02], s: [0.25, 0.18, 0.05], c: Math.random() < 0.5 ? '#29f0ff' : '#ff3bd4', boost: 1.8 });

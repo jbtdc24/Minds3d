@@ -1,55 +1,31 @@
-# Mindclash (Mind Duel) — locked design + task list (2026-10-28)
+# Mindclash — locked design + task list (updated 2026-10-29)
 
-## Game design (locked)
-- **1v1 duels, one queue.** Bring 1–3 Minds. Best of 3 rounds; pick which Mind fights each round (1 Mind = it fights every round).
-- **Every Mind has the same stats and skills.** Traits = looks, victory pose, emote, legendary aura only. No pay-to-win.
-- **Each turn (~10 s):** both secretly pick ⚔️ Strike / 🛡️ Guard / 🌀 Trick (+ optional 1 skill), then reveal.
-  Strike > Trick > Guard > Strike. Winner deals 20 dmg; tie = both take 5. 100 HP per round.
-- **Focus ⚡:** 0 at round start, +1 per turn, +1 extra when you lose a clash (comeback). Skills cost 1–3 ⚡.
-- **Loadout:** pick 4 of 12 shared skills before the match; each usable 2× per match.
-  - 1 ⚡: Peek, Bluff, Heal (+10 HP), Drain (steal 2 ⚡; replaced Swap, which acted as a free heal) · 2 ⚡: Freeze, Mirror, Quick Draw, Iron Mind · 3 ⚡: Overcharge, Counter (2.5x), Mind Lock, Chaos
-  - Balance (tools/sim_duel.mjs, 6,000 bot matches): every skill 47–55% win rate, seat 1 49.6%, ~26 turns / 2.6 rounds per match.
-  - Bots: easy / normal / hard (hard reads habits 3 levels deep; beats human-like habits ~90%, easy ~70%).
-- **Leaderboard points:** rating from wins; rarity bonus on wins only (Common +0%, Uncommon +5%, Rare +10%, Epic +15%, Legendary +20%).
-- **Bot:** if no human in ~20 s, a rating-matched bot, clearly labelled BOT; bot wins count less.
+## Game design: Prize Duel (locked)
+- **1v1, best of 3 rounds.** Bring 1–3 Minds; they take turns, one per round. Every Mind plays the same (traits = looks only).
+- **A round:** 7 crowns worth 1–7 come up in a random order, one per turn. Both players hold cards 1–7.
+- **A turn:** both secretly play one card (+ optional spell). Cards are shown first: higher card takes the crown.
+  Tie = the crown carries over to the next turn (pot). Every card is used once per round.
+- **Spells** (revealed after the cards, in this order). Same spell on both sides cancels, except Double + Double = crown x3.
+  - Boost: +2 to your card (once per round)
+  - Reverse: the lower card wins (once per MATCH)
+  - Trap: if the rival wins this crown with a 7, you steal it (once per round)
+  - Double: crown x2 if you win, and you win ties (once per round)
+- **Round winner:** most points (tie-break: crowns won, then biggest crown). Unused round spells are lost.
+- **Timer:** 20 s per turn (+ reveal time). No pick in time = you lose that round. Both late = drawn round.
+- **Balance** (`node tools/sim_duel.mjs`, real engine + bot): random vs random 50/50; easy/normal/hard bot vs random 82/89/90%;
+  hard vs hard 47.3/47.3 (5% draws); ~16–23 turns per match.
+- **Leaderboard points:** 10 per ranked win + rarity bonus (Uncommon +5%, Rare +10%, Epic +15%, Legendary +20%). Rating = Elo.
+- **Bot:** if no human in 20 s, a bot clearly labelled BOT; bot games count half.
 
-## Tasks
-### A. NFT accuracy
-1. Read the collection on-chain (token IDs, tokenURI metadata, images).
-2. Map game IDs to the real on-chain / OpenSea IDs.
-3. Auto-check all 3,333: render each Mind and pixel-compare with its OpenSea image; report mismatches.
+## Done
+- NFT accuracy: all 3,333 on-chain IDs mapped to the art by trait set; 60/60 random sample pixel-identical, full check 864/864 identical (rest = IPFS gateway timeouts, 0 mismatches).
+- Wallet login (sign-only), owned Minds read from Robinhood Chain, demo Minds for the free trial.
+- Server-authoritative matches (Vercel + Supabase), hidden picks, rate limits, signed sessions, optimistic locking. 28 server tests pass.
+- Matchmaking + bot fallback, live updates (Supabase Realtime + polling), ratings, points, streaks, history, live leaderboard, profiles.
+- Prize Duel engine + bot + balance sim.
+- Art (OpenArt GPT Image 2.5): 3 arena backdrops, 4 mode banners, card back, crown + 4 spell icons (`tools/process_art.py`).
+- Pixel UI rewrite: hub with modes, Coming Soon (Train Your Mind, Auto Battle), card table, reveal sequence, codex, settings.
 
-### B. Wallet + accounts
-4. Wallet login (sign-a-message, no gas, no transactions) — MetaMask / WalletConnect.
-5. Read which Minds the wallet owns + how many; only owned Minds are playable (re-checked on the server).
-6. Profile: custom name (filtered, unique), owned Mind as profile picture.
-
-### C. Backend + anti-cheat
-7. Vercel serverless API + Supabase database.
-8. Server-authoritative matches: the server runs every turn; clients only send their secret pick (commit → reveal), so no peeking or faking.
-9. Signed sessions, rate limits, input validation, ownership checks, replay protection.
-10. Matchmaking queue by rating + bot fallback.
-11. Live PvP over realtime channel (Supabase Realtime), turn timer, disconnect = auto-pick / forfeit.
-
-### D. Game
-12. ✅ Rewrite the engine for Mind Duel (moves, Focus, 12 skills, rounds, swap).
-13. ✅ Bot AI (pattern-reading, rating-scaled).
-14. ✅ Balance: thousands of simulated matches; no skill/move dominant.
-15. Battle presentation: 3D/2D face-off, secret-pick UI, reveal cinematic per clash (Strike vs Guard, etc.), skill FX.
-16. Skill codex + tooltips + How to Play / tutorial match vs bot.
-
-### E. Leaderboard + history
-17. Rating, wins, losses, win rate, streaks, match history — stored server-side only (tamper-proof).
-18. Live leaderboard page (global, weekly), player profile pages with history.
-
-### F. Polish
-19. Professional start flow: splash → wallet login → profile → main menu.
-20. Real settings: audio, graphics, view 2D/3D, battle speed, account, sign out.
-21. Clean UI pass everywhere, loading progress bar, mobile layout.
-22. SFX + music for the new mechanics.
-23. Deploy + final test on Vercel.
-
-## Needed from the owner before starting
-- [x] Contract 0x947c1501fdeb97d2aa0642c14afbd8a99427d227 on Robinhood Chain · https://opensea.io/collection/mindsdotgames
-- [~] Supabase: https://yohvqlblzejgfzujxotm.supabase.co + publishable key (web/src/config.js), connection OK. Still needed: secret key in Vercel env var SUPABASE_SECRET_KEY
-- [x] Free trial: YES — demo Minds for non-holders, playable vs bots/players, not on the leaderboard
+## Next
+- Custom domain `play.minds.games` (CNAME from the domain owner) → then report the Coinbase/Blockaid false positive.
+- Train Your Mind / Auto Battle modes.
