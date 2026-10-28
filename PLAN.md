@@ -1,4 +1,4 @@
-# Mind Duel — locked design + task list (2026-10-28)
+# Mindclash (Mind Duel) — locked design + task list (2026-10-28)
 
 ## Game design (locked)
 - **1v1 duels, one queue.** Bring 1–3 Minds. Best of 3 rounds; pick which Mind fights each round (1 Mind = it fights every round).
@@ -50,6 +50,6 @@
 23. Deploy + final test on Vercel.
 
 ## Needed from the owner before starting
-- [ ] Contract address + chain (Robinhood Chain?) + OpenSea collection link
-- [ ] Supabase account: project URL + keys (anon + service role) added to Vercel env vars
+- [x] Contract 0x947c1501fdeb97d2aa0642c14afbd8a99427d227 on Robinhood Chain · https://opensea.io/collection/mindsdotgames
+- [~] Supabase: publishable key received (web/src/config.js). Still needed: Project URL + secret key in Vercel env var SUPABASE_SECRET_KEY
 - [x] Free trial: YES — demo Minds for non-holders, playable vs bots/players, not on the leaderboard

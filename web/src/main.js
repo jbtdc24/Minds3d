@@ -1,4 +1,4 @@
-// Mind Arena 3D: app flow, screens, save data and the battle presenter.
+// Mindclash: app flow, screens, save data and the battle presenter.
 import * as THREE from 'three';
 import { loadData, tokenIds, traitsOf, rarityOf } from './nft.js';
 import { camTo, camSnap, shake, slowmo, flash, burst, rise, ring, popText, toScreen, onFrame, setQuality, setSpeed, speedSetting, controls } from './render.js';

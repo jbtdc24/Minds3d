@@ -1,6 +1,6 @@
-# Mind Arena 3D
+# Mindclash
 
-A 3v3 card-battle game (Axie-style) for the 3,333 MDG (minds.games) NFTs. Every fighter is built in 3D straight from its NFT layer art, so the front view matches the NFT 1:1, with toon shading and outlines.
+A mind-reading duel game for the 3,333 MDG (minds.games) NFTs. Every fighter is built in 3D straight from its NFT layer art, so the front view matches the NFT 1:1, with toon shading and outlines.
 
 ## Play locally
 ```bash
