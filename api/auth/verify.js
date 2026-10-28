@@ -1,0 +1,25 @@
+// Step 2 of wallet login: check the signature, create the player if new, return a session.
+import { route, fail, publicPlayer } from '../../lib/http.js';
+import { db } from '../../lib/db.js';
+import { signSession, loginMessage, checkSignature } from '../../lib/auth.js';
+import { ownedMinds } from '../../lib/owned.js';
+import { isAddress, getAddress } from 'viem';
+
+export default route(async ({ req, body }) => {
+  if (!isAddress(body.address || '') || typeof body.signature !== 'string') fail(400, 'invalid login');
+  const address = getAddress(body.address);
+  const row = await db.one('nonces', `address=eq.${address}`);
+  if (!row || Date.now() - new Date(row.created_at) > 10 * 60_000) fail(400, 'login expired, try again');
+  const ok = await checkSignature(address, loginMessage(address, row.nonce, req.headers.host), body.signature);
+  await db.remove('nonces', `address=eq.${address}`);                 // one use only (no replay)
+  if (!ok) fail(401, 'signature did not match this wallet');
+  let player = await db.one('players', `address=eq.${address}`);
+  const minds = await ownedMinds(address);
+  let isNew = false;
+  if (!player) {
+    const name = `Mind_${address.slice(2, 8)}`;
+    player = await db.insert('players', { address, name, name_key: name.toLowerCase(), pfp: minds[0] ?? null });
+    isNew = true;
+  }
+  return { token: signSession(player), player: publicPlayer(player), minds, isNew };
+}, { auth: false, limit: [20, 60] });

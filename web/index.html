@@ -2,172 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>Mindclash</title>
+<meta name="description" content="Mindclash: outsmart your rival in 1v1 mind duels with your minds.games NFTs.">
+<meta name="theme-color" content="#07080c">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
-<style>
-  :root { --lime: #d4ff1f; --ink: #0b0d08; --panel: rgba(12, 14, 20, .78); --panel2: rgba(255,255,255,.06); --line: rgba(255,255,255,.1); --text: #f2f2ea; --muted: #9aa08c; --red: #ff4d5e; --blue: #4dc3ff; --gold: #ffb020; }
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #000; color: var(--text); font-family: 'JetBrains Mono', monospace; user-select: none; }
-  #view, #view canvas { position: fixed; inset: 0; display: block; }
-  button { font: inherit; font-weight: 800; border: 0; border-radius: 10px; padding: 10px 16px; cursor: pointer; background: #222832; color: var(--text); letter-spacing: .04em; transition: transform .08s, background .15s, opacity .15s; }
-  button:hover { background: #2c3440; } button:active { transform: scale(.96); }
-  button.go { background: var(--lime); color: #000; } button.go:hover { background: #e4ff6a; }
-  button:disabled { opacity: .35; cursor: default; transform: none; }
-  .screen { position: fixed; inset: 0; z-index: 10; display: none; }
-  .screen.on { display: block; }
-  .glass { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; backdrop-filter: blur(10px); }
-  .title { font-family: 'Anton', sans-serif; letter-spacing: .04em; line-height: .95; }
-  h2 { font-family: 'Anton', sans-serif; font-weight: 400; letter-spacing: .05em; margin: 0 0 12px; font-size: 28px; }
-  .muted { color: var(--muted); } .lime { color: var(--lime); }
-  #flash { position: fixed; inset: 0; z-index: 30; background: #fff; opacity: 0; pointer-events: none; }
-  #pops, #bars { position: fixed; inset: 0; z-index: 8; pointer-events: none; }
-  .pop { position: absolute; font-family: 'Anton', sans-serif; font-size: 30px; color: #fff; text-shadow: 0 3px 0 #000, 0 0 10px rgba(0,0,0,.7); transform: translate(-50%, -50%); animation: pop 1.2s ease-out forwards; white-space: nowrap; }
-  .pop.crit { color: var(--lime); font-size: 46px; } .pop.heal { color: #7dff9a; } .pop.shield { color: var(--blue); font-size: 24px; }
-  .pop.miss { color: #ddd; font-size: 24px; } .pop.status { font-size: 18px; color: #ffd84a; } .pop.adv { font-size: 16px; color: #7dff9a; } .pop.weak { font-size: 16px; color: #ff9aa0; }
-  @keyframes pop { 0% { transform: translate(-50%, -10%) scale(.4); opacity: 0; } 14% { transform: translate(-50%, -60%) scale(1.15); opacity: 1; } 100% { transform: translate(-50%, -170%) scale(1); opacity: 0; } }
-  #banner { position: fixed; inset: 0; z-index: 25; display: grid; place-items: center; pointer-events: none; font-family: 'Anton', sans-serif; font-size: clamp(48px, 12vw, 140px); color: var(--lime); text-shadow: 0 0 30px rgba(212,255,31,.5), 0 6px 0 #000; opacity: 0; transform: scale(1.5); transition: opacity .15s, transform .25s; text-align: center; line-height: .95; letter-spacing: .04em; }
-  #banner.on { opacity: 1; transform: scale(1); } #banner small { display: block; font-size: .3em; color: #fff; letter-spacing: .15em; }
-  /* floating hp bars over fighters */
-  .fbar { position: absolute; width: 74px; transform: translate(-50%, -100%); transition: opacity .3s; }
-  .fbar .hp { height: 8px; background: rgba(0,0,0,.6); border-radius: 4px; overflow: hidden; border: 1px solid rgba(0,0,0,.6); position: relative; }
-  .fbar .hp i { position: absolute; inset: 0; transform-origin: left; transition: transform .3s; }
-  .fbar .hp b { position: absolute; inset: 0; background: var(--blue); opacity: .85; transform-origin: left; transition: transform .3s; }
-  .fbar .st { display: flex; gap: 2px; justify-content: center; font-size: 12px; height: 15px; margin-bottom: 2px; }
-  .fbar.t0 .hp i { background: var(--lime); } .fbar.t1 .hp i { background: var(--red); }
-  /* title */
-  #s-title { display: none; place-items: center; text-align: center; }
-  #s-title.on { display: grid; }
-  #s-title .logo { font-size: clamp(64px, 15vw, 170px); text-shadow: 0 8px 0 #000, 0 0 50px rgba(0,0,0,.4); }
-  #s-title .logo span { color: var(--lime); }
-  #s-title .tag { margin-top: 10px; letter-spacing: .3em; font-size: 13px; color: #fff; text-shadow: 0 2px 0 #000; }
-  #s-title .press { margin-top: 44px; font-family: 'Anton', sans-serif; font-size: 26px; letter-spacing: .2em; animation: blink 1.2s infinite; text-shadow: 0 3px 0 #000; }
-  @keyframes blink { 50% { opacity: .35; } }
-  /* menu */
-  .menu { position: absolute; left: clamp(16px, 5vw, 70px); top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 10px; width: min(330px, calc(100% - 32px)); }
-  .menu .logo { font-size: 56px; margin-bottom: 10px; text-shadow: 0 5px 0 #000; } .menu .logo span { color: var(--lime); }
-  .menu button { text-align: left; font-family: 'Anton', sans-serif; font-weight: 400; font-size: 24px; padding: 14px 18px; letter-spacing: .06em; background: var(--panel); border: 1px solid var(--line); backdrop-filter: blur(8px); display: flex; justify-content: space-between; align-items: center; }
-  .menu button small { font-family: 'JetBrains Mono'; font-size: 11px; color: var(--muted); letter-spacing: 0; }
-  .menu button.go { background: var(--lime); color: #000; } .menu button.go small { color: #334; }
-  .teamstrip { position: absolute; right: 16px; bottom: 16px; display: flex; gap: 8px; padding: 8px; }
-  .chip { display: flex; gap: 8px; align-items: center; padding: 6px 10px 6px 6px; background: var(--panel2); border-radius: 10px; }
-  .chip img { width: 38px; height: 38px; border-radius: 8px; image-rendering: pixelated; }
-  .chip div { font-size: 11px; line-height: 1.35; }
-  /* generic panel screen */
-  .page { position: absolute; inset: 16px; display: flex; flex-direction: column; gap: 12px; }
-  .topbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
-  .scroll { overflow: auto; }
-  /* team builder */
-  #s-team .cols { display: grid; grid-template-columns: minmax(300px, 420px) 1fr; gap: 12px; flex: 1; min-height: 0; }
-  .slots { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
-  .slot { background: var(--panel2); border-radius: 12px; padding: 10px; display: flex; gap: 10px; border: 2px solid transparent; cursor: pointer; }
-  .slot.active { border-color: var(--lime); }
-  .slot img { width: 64px; height: 64px; border-radius: 10px; image-rendering: pixelated; flex: none; }
-  .slot .info { flex: 1; min-width: 0; font-size: 11px; }
-  .slot .nm { font-family: 'Anton'; font-size: 18px; letter-spacing: .03em; }
-  .slot .pos { font-size: 10px; color: var(--muted); letter-spacing: .15em; }
-  .tagrow { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
-  .tag { font-size: 10px; padding: 2px 6px; border-radius: 6px; background: rgba(255,255,255,.08); }
-  .coll { padding: 12px; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
-  .filters { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-  .filters input { background: #000; color: var(--text); border: 1px solid #333; border-radius: 8px; padding: 8px 10px; font: inherit; width: 110px; }
-  .filters button { padding: 7px 10px; font-size: 11px; }
-  .filters button.on { background: var(--lime); color: #000; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; overflow: auto; flex: 1; align-content: start; padding-right: 4px; }
-  .nft { background: var(--panel2); border-radius: 10px; padding: 5px; cursor: pointer; border: 2px solid transparent; position: relative; }
-  .nft:hover { border-color: rgba(212,255,31,.5); } .nft.picked { border-color: var(--lime); }
-  .nft img { width: 100%; aspect-ratio: 1; border-radius: 7px; image-rendering: pixelated; display: block; }
-  .nft .lb { font-size: 10px; display: flex; justify-content: space-between; margin-top: 4px; }
-  .rar { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-  .pager { display: flex; gap: 8px; align-items: center; justify-content: center; font-size: 12px; }
-  /* adventure */
-  .worlds { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
-  .world { padding: 14px; }
-  .world h3 { font-family: 'Anton'; font-weight: 400; margin: 0 0 4px; font-size: 22px; letter-spacing: .05em; }
-  .stages { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px; }
-  .stage { aspect-ratio: 1; border-radius: 14px; background: var(--panel2); display: grid; place-items: center; cursor: pointer; border: 2px solid var(--line); position: relative; font-family: 'Anton'; font-size: 26px; }
-  .stage.boss { border-color: var(--gold); } .stage.locked { opacity: .3; cursor: default; }
-  .stage .st { position: absolute; bottom: 4px; font-size: 11px; letter-spacing: 1px; font-family: 'JetBrains Mono'; color: var(--gold); }
-  .stage:not(.locked):hover { background: rgba(212,255,31,.12); }
-  /* battle hud */
-  #s-battle { pointer-events: none; }
-  #s-battle > * { pointer-events: auto; }
-  .bt-top { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; pointer-events: none; }
-  .tpanel { display: flex; flex-direction: column; gap: 4px; width: min(30vw, 270px); pointer-events: auto; }
-  .tpanel.r { align-items: stretch; }
-  .unit { display: flex; gap: 6px; align-items: center; padding: 5px 7px; font-size: 10px; background: var(--panel); border-radius: 10px; border: 1px solid var(--line); }
-  .tpanel.r .unit { flex-direction: row-reverse; text-align: right; }
-  .unit.dead { opacity: .35; filter: grayscale(1); }
-  .unit img { width: 32px; height: 32px; border-radius: 7px; image-rendering: pixelated; flex: none; }
-  .unit .mid { flex: 1; min-width: 0; }
-  .unit .nm { display: flex; gap: 4px; align-items: center; justify-content: space-between; font-weight: 800; }
-  .tpanel.r .unit .nm { flex-direction: row-reverse; }
-  .unit .hp { height: 7px; border-radius: 4px; background: rgba(255,255,255,.1); overflow: hidden; position: relative; margin-top: 3px; }
-  .unit .hp i { position: absolute; inset: 0; background: var(--lime); transform-origin: left; transition: transform .3s; }
-  .tpanel.r .unit .hp i, .tpanel.r .unit .hp b { transform-origin: right; }
-  .tpanel.r .unit .hp i { background: var(--red); }
-  .unit .hp b { position: absolute; inset: 0; background: var(--blue); opacity: .8; transform-origin: left; transition: transform .3s; }
-  .center { text-align: center; pointer-events: auto; }
-  .round { font-family: 'Anton'; font-size: 22px; letter-spacing: .1em; text-shadow: 0 2px 0 #000; }
-  .bt-btns { display: flex; gap: 6px; justify-content: center; margin-top: 4px; }
-  .bt-btns button { padding: 6px 10px; font-size: 11px; }
-  .bt-bottom { position: absolute; left: 0; right: 0; bottom: 0; padding: 10px; display: flex; gap: 10px; align-items: flex-end; justify-content: center; background: linear-gradient(transparent, rgba(0,0,0,.6) 40%); }
-  .energy { width: 84px; height: 84px; border-radius: 50%; display: grid; place-items: center; flex: none; background: radial-gradient(circle at 35% 30%, #f6ff9a, var(--lime) 45%, #7aa100); color: #000; font-family: 'Anton'; font-size: 34px; line-height: 1; box-shadow: 0 0 30px rgba(212,255,31,.5), inset 0 -6px 0 rgba(0,0,0,.2); text-align: center; position: relative; }
-  .energy small { display: block; font-size: 11px; font-family: 'JetBrains Mono'; font-weight: 800; }
-  .energy.low { animation: pulse .4s 2; } @keyframes pulse { 50% { transform: scale(1.12); } }
-  .hand { display: flex; gap: 10px; overflow-x: auto; padding: 4px 2px; max-width: calc(100vw - 220px); }
-  .fcol { display: flex; flex-direction: column; gap: 4px; align-items: center; }
-  .fcol .who { font-size: 10px; display: flex; align-items: center; gap: 4px; color: var(--muted); }
-  .fcol .who img { width: 20px; height: 20px; border-radius: 5px; image-rendering: pixelated; }
-  .fcol.stunned .cards { opacity: .3; pointer-events: none; } .fcol.stunned .who::after { content: '💫 STUNNED'; color: #ffd84a; }
-  .cards { display: flex; gap: 6px; }
-  .card { width: 108px; height: 146px; border-radius: 12px; background: linear-gradient(170deg, #2a2f3c, #151820); border: 2px solid #3a4152; padding: 7px; position: relative; cursor: pointer; transition: transform .12s, border-color .12s, box-shadow .12s; display: flex; flex-direction: column; }
-  .card:hover { transform: translateY(-6px); }
-  .card.sel { border-color: var(--lime); transform: translateY(-14px); box-shadow: 0 0 24px rgba(212,255,31,.45); }
-  .card.na { opacity: .45; }
-  .card .cost { position: absolute; top: -8px; left: -8px; width: 28px; height: 28px; border-radius: 50%; background: var(--lime); color: #000; font-family: 'Anton'; font-size: 17px; display: grid; place-items: center; box-shadow: 0 2px 0 rgba(0,0,0,.4); }
-  .card .ico { height: 46px; display: grid; place-items: center; font-size: 30px; border-radius: 8px; margin-bottom: 4px; }
-  .card .cn { font-family: 'Anton'; font-size: 14px; letter-spacing: .03em; line-height: 1.05; }
-  .card .cd { font-size: 9px; color: #c9cdd6; line-height: 1.3; margin-top: 3px; flex: 1; overflow: hidden; }
-  .card .src { font-size: 8px; color: var(--muted); letter-spacing: .1em; text-transform: uppercase; }
-  .card .order { position: absolute; top: -8px; right: -8px; width: 22px; height: 22px; border-radius: 50%; background: #fff; color: #000; font-weight: 800; font-size: 12px; display: none; place-items: center; }
-  .card.sel .order { display: grid; }
-  .endturn { flex: none; font-family: 'Anton'; font-weight: 400; font-size: 22px; padding: 16px 20px; letter-spacing: .08em; }
-  .log { position: absolute; left: 50%; transform: translateX(-50%); bottom: 186px; font-size: 12px; text-shadow: 0 1px 0 #000; color: #fff; white-space: nowrap; pointer-events: none; }
-  /* result */
-  #s-result .box { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(560px, calc(100% - 32px)); padding: 22px; text-align: center; }
-  #s-result .big { font-size: clamp(56px, 12vw, 96px); }
-  .stars { font-size: 38px; letter-spacing: 8px; margin: 6px 0 14px; color: #444; } .stars .on { color: var(--gold); text-shadow: 0 0 16px rgba(255,176,32,.6); }
-  .xprow { display: flex; align-items: center; gap: 10px; text-align: left; margin: 8px 0; font-size: 12px; }
-  .xprow img { width: 40px; height: 40px; border-radius: 8px; image-rendering: pixelated; }
-  .xpbar { height: 8px; background: rgba(255,255,255,.1); border-radius: 4px; overflow: hidden; margin-top: 4px; } .xpbar i { display: block; height: 100%; background: var(--lime); transition: width 1s; }
-  .lvup { color: var(--lime); font-weight: 800; }
-  /* settings + howto */
-  .modal { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(560px, calc(100% - 32px)); max-height: calc(100% - 32px); overflow: auto; padding: 22px; }
-  .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
-  .row input[type=range] { width: 180px; accent-color: var(--lime); }
-  .seg { display: flex; gap: 4px; } .seg button { padding: 6px 10px; font-size: 11px; } .seg button.on { background: var(--lime); color: #000; }
-  .howto p { font-size: 13px; line-height: 1.55; margin: 8px 0; } .howto b { color: var(--lime); }
-  .clsrow { display: flex; gap: 10px; justify-content: center; font-size: 13px; margin: 10px 0; flex-wrap: wrap; }
-  .askbox { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: rgba(0,0,0,.45); }
-  .askbox > div { padding: 22px; text-align: center; min-width: 260px; } .askbox p { font-family: 'Anton'; font-size: 22px; letter-spacing: .04em; margin: 0 0 16px; }
-  #loading { position: fixed; inset: 0; display: grid; place-items: center; z-index: 50; background: #07080c; font-family: 'Anton'; font-size: 28px; letter-spacing: .1em; }
-  @media (max-height: 620px) {
-    .unit { padding: 3px 6px; } .unit img { width: 22px; height: 22px; } .tpanel { gap: 2px; width: min(26vw, 230px); }
-    .card { width: 88px; height: 112px; padding: 5px; } .card .ico { height: 28px; font-size: 20px; } .card .cd { font-size: 8px; }
-    .energy { width: 60px; height: 60px; font-size: 24px; } .endturn { font-size: 16px; padding: 10px 14px; }
-    .bt-bottom { padding: 6px; background: linear-gradient(transparent, rgba(0,0,0,.5) 50%); } .log { bottom: 140px; }
-  }
-  @media (max-width: 760px) {
-    #s-team .cols { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
-    .slots { flex-direction: row; overflow-x: auto; } .slot { min-width: 230px; }
-    .tpanel { width: 44vw; } .unit img { width: 24px; height: 24px; }
-    .bt-bottom { flex-wrap: wrap; } .hand { max-width: 100vw; order: -1; width: 100%; justify-content: flex-start; }
-    .card { width: 92px; height: 128px; } .card .ico { height: 34px; font-size: 24px; }
-    .energy { width: 64px; height: 64px; font-size: 26px; } .log { bottom: 250px; }
-  }
-</style>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
@@ -177,109 +18,193 @@
 </head>
 <body>
 <div id="view"></div>
-<div id="bars"></div>
+<div id="vignette"></div>
 <div id="pops"></div>
 <div id="flash"></div>
 <div id="banner"></div>
+<div id="toast"></div>
 
-<section id="s-title" class="screen">
-  <div>
-    <div class="logo title">MIND<span>CLASH</span></div>
-    <div class="tag">3V3 · 3,333 MDG FIGHTERS · CARD BATTLES</div>
-    <div class="press">TAP TO START</div>
+<!-- BOOT -->
+<section id="s-boot" class="screen on">
+  <div class="boot">
+    <div class="logo">MIND<span>CLASH</span></div>
+    <div class="bar"><i id="boot-bar"></i></div>
+    <div class="muted small" id="boot-msg">Loading the arena…</div>
   </div>
 </section>
 
-<section id="s-menu" class="screen">
-  <div class="menu">
-    <div class="logo title">MIND<span>CLASH</span></div>
-    <button class="go" data-go="adventure">ADVENTURE <small id="advprog"></small></button>
-    <button data-go="quick">QUICK BATTLE <small>random rivals</small></button>
-    <button data-go="team">MY TEAM <small>pick 3 MDGs</small></button>
-    <button id="m-view">VIEW: <span id="m-view-v">3D</span> <small>tap to switch 2D / 3D</small></button>
-    <button data-go="howto">HOW TO PLAY</button>
-    <button data-go="settings">SETTINGS</button>
+<!-- LOGIN -->
+<section id="s-login" class="screen">
+  <div class="login card-xl">
+    <div class="logo">MIND<span>CLASH</span></div>
+    <p class="tagline">Read their mind. Win the clash.</p>
+    <ul class="pitch">
+      <li><b>1v1 mind duels.</b> Strike, Guard or Trick: pick in secret, then reveal.</li>
+      <li><b>Fair for everyone.</b> Every Mind has the same stats. Skill decides.</li>
+      <li><b>Play with the Minds you own.</b> 1, 2 or 3, they all work.</li>
+    </ul>
+    <button class="btn primary big" id="btn-wallet"><span class="ico">◈</span> Connect wallet</button>
+    <button class="btn ghost" id="btn-guest">Try free with demo Minds</button>
+    <p class="fine">Signing in only proves you own your wallet: no transaction, no gas, nothing leaves your wallet.</p>
   </div>
-  <div class="teamstrip glass" id="menuteam"></div>
 </section>
 
-<section id="s-team" class="screen">
+<!-- FIRST-TIME NAME -->
+<section id="s-setup" class="screen">
+  <div class="panel center-panel">
+    <h2>Welcome to Mindclash</h2>
+    <p class="muted">Pick a name and a profile picture. You can change them later.</p>
+    <label class="field">Display name <input id="setup-name" maxlength="16" placeholder="3–16 letters, numbers or _"></label>
+    <div class="label">Profile picture: one of your Minds</div>
+    <div class="mindgrid small" id="setup-pfp"></div>
+    <div class="err" id="setup-err"></div>
+    <button class="btn primary" id="setup-save">Let's go</button>
+  </div>
+</section>
+
+<!-- HUB -->
+<section id="s-hub" class="screen">
+  <header class="topbar">
+    <button class="me" id="hub-me"><img id="hub-pfp" alt=""><div><b id="hub-name"></b><span id="hub-sub"></span></div></button>
+    <div class="topbtns">
+      <button class="iconbtn" data-go="codex" title="How to play">?</button>
+      <button class="iconbtn" data-go="settings" title="Settings">⚙</button>
+    </div>
+  </header>
+  <div class="hub">
+    <div class="logo hub-logo">MIND<span>CLASH</span></div>
+    <button class="tile primary" id="hub-ranked"><b>Play ranked</b><span id="hub-ranked-sub">1v1 vs real players · bot after 20 s</span></button>
+    <button class="tile" id="hub-practice"><b>Practice vs bot</b><span>No rating change · pick a difficulty</span></button>
+    <div class="tile-row">
+      <button class="tile small" data-go="leaderboard"><b>Leaderboard</b><span>Live rankings</span></button>
+      <button class="tile small" id="hub-profile"><b>Profile</b><span>Stats &amp; history</span></button>
+    </div>
+    <div class="guest-note" id="guest-note">Trial mode: demo Minds, not on the leaderboard. <a href="#" id="guest-connect">Connect a wallet</a> to play ranked with your own Minds.</div>
+  </div>
+</section>
+
+<!-- PREP: minds + loadout -->
+<section id="s-prep" class="screen">
   <div class="page">
-    <div class="topbar"><h2>MY TEAM</h2><div style="display:flex;gap:8px"><button id="t-random">🎲 RANDOM TEAM</button><button class="go" id="t-done">DONE</button></div></div>
-    <div class="cols">
-      <div class="slots glass" id="slots"></div>
-      <div class="coll glass">
-        <div class="filters">
-          <input id="t-search" type="number" min="1" max="3333" placeholder="Token #">
-          <span id="t-rar"></span><span id="t-cls"></span>
-        </div>
-        <div class="grid" id="t-grid"></div>
-        <div class="pager"><button id="t-prev">◀</button><span id="t-page"></span><button id="t-next">▶</button></div>
+    <div class="pagehead"><button class="back" data-go="hub">‹ Back</button><h2 id="prep-title">Ranked match</h2><span></span></div>
+    <div class="prep">
+      <div class="panel">
+        <div class="label">1 · Your Minds <span class="muted" id="prep-mind-count"></span></div>
+        <p class="muted small">Bring 1 to 3. Your Minds take turns, one per round. They all have the same stats.</p>
+        <div class="mindgrid" id="prep-minds"></div>
       </div>
+      <div class="panel">
+        <div class="label">2 · Your 4 skills <span class="muted" id="prep-skill-count"></span></div>
+        <p class="muted small">Everyone picks from the same 12. Each skill can be used 2 times per match.</p>
+        <div class="skillgrid" id="prep-skills"></div>
+      </div>
+    </div>
+    <div class="prep-foot">
+      <div class="seg" id="prep-level"><button data-v="easy">Easy</button><button data-v="normal" class="on">Normal</button><button data-v="hard">Hard</button></div>
+      <div class="err" id="prep-err"></div>
+      <button class="btn primary big" id="prep-go">Find match</button>
     </div>
   </div>
 </section>
 
-<section id="s-adventure" class="screen">
-  <div class="page">
-    <div class="topbar"><h2>ADVENTURE</h2><button data-go="menu">BACK</button></div>
-    <div class="worlds scroll" id="worlds"></div>
+<!-- QUEUE -->
+<section id="s-queue" class="screen">
+  <div class="queue">
+    <div class="radar"><i></i><i></i><i></i><img id="queue-pfp" alt=""></div>
+    <h2>Finding a rival…</h2>
+    <p class="muted" id="queue-msg">Searching players near your rating</p>
+    <button class="btn ghost" id="queue-cancel">Cancel</button>
   </div>
 </section>
 
-<section id="s-battle" class="screen">
-  <div class="bt-top">
-    <div class="tpanel" id="p0"></div>
-    <div class="center"><div class="round" id="b-round">ROUND 1</div><div class="bt-btns"><button id="b-view" title="Switch 2D / 3D">3D</button><button id="b-speed">1x</button><button id="b-quit">✕ QUIT</button></div></div>
-    <div class="tpanel r" id="p1"></div>
+<!-- DUEL -->
+<section id="s-duel" class="screen">
+  <div class="duel-top">
+    <div class="side me-side"><img class="pfp" id="d-pfp0" alt=""><div class="info"><b id="d-name0"></b><div class="hp"><i id="d-hp0"></i><span id="d-hpt0"></span></div><div class="pips"><span class="focus" id="d-focus0"></span><span class="rounds" id="d-rounds0"></span></div></div></div>
+    <div class="mid"><div class="roundlbl" id="d-round">ROUND 1</div><div class="timer" id="d-timer"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="17"/><circle id="d-timer-ring" cx="20" cy="20" r="17"/></svg><span id="d-timer-t">25</span></div><div class="turnlbl" id="d-turn">Turn 1</div></div>
+    <div class="side rv-side"><div class="info"><b id="d-name1"></b><div class="hp"><i id="d-hp1"></i><span id="d-hpt1"></span></div><div class="pips"><span class="rounds" id="d-rounds1"></span><span class="focus" id="d-focus1"></span></div></div><img class="pfp" id="d-pfp1" alt=""></div>
   </div>
-  <div class="log" id="b-log"></div>
-  <div class="bt-bottom">
-    <div class="energy" id="b-energy">3<small>ENERGY</small></div>
-    <div class="hand" id="b-hand"></div>
-    <button class="go endturn" id="b-end">END<br>TURN</button>
+  <div class="duel-hints" id="d-hints"></div>
+  <div class="duel-bottom" id="d-controls">
+    <div class="skills" id="d-skills"></div>
+    <div class="moves" id="d-moves">
+      <button class="move" data-move="strike"><i>⚔️</i><b>Strike</b><span>beats Trick</span></button>
+      <button class="move" data-move="guard"><i>🛡️</i><b>Guard</b><span>beats Strike</span></button>
+      <button class="move" data-move="trick"><i>🌀</i><b>Trick</b><span>beats Guard</span></button>
+    </div>
+    <div class="target" id="d-target"><span>Name a move for <b id="d-target-skill"></b>:</span><button data-t="strike">⚔️ Strike</button><button data-t="guard">🛡️ Guard</button><button data-t="trick">🌀 Trick</button></div>
+    <button class="btn primary lock" id="d-lock" disabled>Lock in</button>
+    <div class="waiting" id="d-wait">Locked in · waiting for your rival…</div>
   </div>
+  <button class="corner" id="d-menu" title="Menu">☰</button>
 </section>
 
+<!-- RESULT -->
 <section id="s-result" class="screen">
-  <div class="box glass">
-    <div class="big title" id="r-title">VICTORY</div>
-    <div class="stars" id="r-stars"></div>
-    <div id="r-xp"></div>
-    <div style="display:flex;gap:8px;justify-content:center;margin-top:16px;flex-wrap:wrap" id="r-btns"></div>
+  <div class="panel center-panel result">
+    <div class="big" id="r-title">VICTORY</div>
+    <div class="r-score" id="r-score"></div>
+    <div class="r-stats" id="r-stats"></div>
+    <div class="r-btns"><button class="btn primary" id="r-again">Play again</button><button class="btn ghost" data-go="hub">Home</button></div>
   </div>
 </section>
 
+<!-- LEADERBOARD -->
+<section id="s-leaderboard" class="screen">
+  <div class="page">
+    <div class="pagehead"><button class="back" data-go="hub">‹ Back</button><h2>Leaderboard <span class="live">● LIVE</span></h2><div class="seg" id="lb-by"><button data-v="rating" class="on">Rating</button><button data-v="points">Points</button></div></div>
+    <div class="panel lb"><table><thead><tr><th>#</th><th>Player</th><th id="lb-col">Rating</th><th>W</th><th>L</th><th>Win %</th><th>Streak</th></tr></thead><tbody id="lb-rows"></tbody></table><div class="muted small" id="lb-note">Points = 10 per ranked win, +0–20% rarity bonus (bot wins count half).</div></div>
+  </div>
+</section>
+
+<!-- PROFILE -->
+<section id="s-profile" class="screen">
+  <div class="page">
+    <div class="pagehead"><button class="back" data-go="hub">‹ Back</button><h2>Profile</h2><span></span></div>
+    <div class="profile">
+      <div class="panel prof-card">
+        <img id="pf-pfp" alt="">
+        <div><div class="pf-name" id="pf-name"></div><div class="muted small" id="pf-addr"></div></div>
+        <div class="pf-stats" id="pf-stats"></div>
+        <div id="pf-edit">
+          <label class="field">Display name <input id="pf-name-in" maxlength="16"></label>
+          <div class="label">Profile picture</div>
+          <div class="mindgrid small" id="pf-pfps"></div>
+          <div class="err" id="pf-err"></div>
+          <button class="btn primary" id="pf-save">Save</button>
+        </div>
+      </div>
+      <div class="panel"><div class="label">Match history</div><div id="pf-history" class="history"></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- CODEX -->
+<section id="s-codex" class="screen">
+  <div class="page">
+    <div class="pagehead"><button class="back" data-go="back">‹ Back</button><h2>How to play</h2><span></span></div>
+    <div class="panel codex" id="codex"></div>
+  </div>
+</section>
+
+<!-- SETTINGS -->
 <section id="s-settings" class="screen">
-  <div class="modal glass">
-    <h2>SETTINGS</h2>
-    <div class="row">Music <input type="range" id="set-music" min="0" max="1" step="0.05"></div>
-    <div class="row">Sound FX <input type="range" id="set-sfx" min="0" max="1" step="0.05"></div>
-    <div class="row">Battle speed <div class="seg" id="set-speed"><button data-v="1">1x</button><button data-v="1.5">1.5x</button><button data-v="2">2x</button></div></div>
-    <div class="row">View <div class="seg" id="set-view"><button data-v="3d">3D</button><button data-v="2d">2D</button></div></div>
-    <div class="row">Graphics <div class="seg" id="set-quality"><button data-v="high">HIGH</button><button data-v="medium">MEDIUM</button><button data-v="low">LOW</button></div></div>
-    <div class="row">Reset progress <button id="set-reset">RESET</button></div>
-    <div style="text-align:right;margin-top:14px"><button class="go" data-go="back">DONE</button></div>
+  <div class="page narrow">
+    <div class="pagehead"><button class="back" data-go="back">‹ Back</button><h2>Settings</h2><span></span></div>
+    <div class="panel">
+      <div class="row">Music <input type="range" id="set-music" min="0" max="1" step="0.05"></div>
+      <div class="row">Sound effects <input type="range" id="set-sfx" min="0" max="1" step="0.05"></div>
+      <div class="row">View <div class="seg" id="set-view"><button data-v="3d">3D</button><button data-v="2d">2D</button></div></div>
+      <div class="row">Graphics <div class="seg" id="set-quality"><button data-v="high">High</button><button data-v="medium">Medium</button><button data-v="low">Low</button></div></div>
+      <div class="row">Animation speed <div class="seg" id="set-speed"><button data-v="1">1x</button><button data-v="1.5">1.5x</button><button data-v="2">2x</button></div></div>
+      <div class="row">Account <span class="muted small" id="set-account"></span></div>
+      <div class="row"><span></span><button class="btn ghost" id="set-logout">Sign out</button></div>
+    </div>
   </div>
 </section>
 
-<section id="s-howto" class="screen">
-  <div class="modal glass howto">
-    <h2>HOW TO PLAY</h2>
-    <p><b>3 vs 3.</b> Pick 3 MDGs. The first slot stands in front and takes most hits.</p>
-    <p><b>Energy.</b> You start with 3 and get +2 every round (max 10). Unused energy carries over.</p>
-    <p><b>Cards.</b> Every round each fighter draws 2 cards from its deck. Every trait gives a card: face, hand item, headwear and emote. Everyone also has <b>Bonk</b>. Legendaries get 2 signature cards.</p>
-    <p><b>Combo.</b> Play 2 cards on the same fighter and the second hits 15% harder.</p>
-    <p><b>Speed.</b> When you press END TURN, everyone acts in speed order. Rarity sets HP, ATK, speed and crit.</p>
-    <div class="clsrow"><span>🔥 Blaze beats 🌿 Bloom</span><span>🌿 Bloom beats 💧 Tide</span><span>💧 Tide beats 🔥 Blaze</span></div>
-    <p style="text-align:center" class="muted">Skin colour sets the class: warm = Blaze, green = Bloom, cool = Tide. Legendaries are ✦ Mythic.</p>
-    <p><b>Status.</b> 💫 stun skips a turn · 🔥 burn hurts each round · 🛡 shield absorbs damage · 👻 dodge avoids hits · 🎯 taunt pulls attacks.</p>
-    <p><b>Win</b> by knocking out all 3 rivals. From round 10, sudden death hurts everyone. Wins give XP; fighters level up to 10.</p>
-    <div style="text-align:right;margin-top:14px"><button class="go" data-go="back">GOT IT</button></div>
-  </div>
-</section>
-
-<div id="loading">LOADING ARENA…</div>
-<script type="module" src="src/main.js"></script>
+<div class="modal-wrap" id="modal"><div class="panel modal"><div id="modal-body"></div><div class="modal-btns" id="modal-btns"></div></div></div>
+<div id="tip"></div>
+<script type="module" src="src/app.js"></script>
 </body>
 </html>

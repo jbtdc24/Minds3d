@@ -25,9 +25,10 @@ const MOVES = {
   hitBig: [[0, {}], [0.2, { back: 0.75, y: 0.35, lean: -0.6, head: 0.7, armF: 2.3, armB: 2.5, legF: 0.7, legB: 0.3, sq: 0.8 }], [0.55, { back: 0.5, lean: -0.3 }], [1, {}]],
   dodge: [[0, {}], [0.3, { back: 0.6, y: 0.25, lean: -0.3, sq: 0.9 }], [1, {}]],
   stunned: [[0, {}], [0.5, { head: 0.4, lean: -0.15, armF: 0.1, armB: 0.1 }], [1, {}]],
+  guard: [[0, {}], [0.2, { armF: 2.3, armB: 2.1, armZ: 0.25, lean: -0.12, sq: 0.9, legF: 0.3, legB: -0.3 }], [0.8, { armF: 2.3, armB: 2.1, armZ: 0.25, lean: -0.12, sq: 0.9, legF: 0.3, legB: -0.3 }], [1, {}]],
 };
 const HIT_AT = { punch: 0.55, kick: 0.55, slash: 0.55, smash: 0.56, cast: 0.45, skill: 0.5 };
-const DUR = { punch: 0.85, kick: 0.85, slash: 0.9, smash: 1.1, cast: 0.9, skill: 0.85, hit: 0.45, hitBig: 0.7, dodge: 0.45, stunned: 0.6 };
+const DUR = { guard: 1.1, punch: 0.85, kick: 0.85, slash: 0.9, smash: 1.1, cast: 0.9, skill: 0.85, hit: 0.45, hitBig: 0.7, dodge: 0.45, stunned: 0.6 };
 function sample(keys, k, base) {
   let i = 0;
   while (i < keys.length - 2 && k > keys[i + 1][0]) i++;
@@ -128,6 +129,9 @@ export class Fighter {
     return out;
   }
   play(type, extra = {}) {
+    // a new animation interrupts the current one: finish the old one so nobody waits on it forever
+    const prev = this.act;
+    if (prev) { if (!prev.hit && prev.onHit) { prev.hit = true; prev.onHit(); } prev.res?.(); }
     return new Promise(res => { this.act = { type, t: 0, dur: DUR[type] || 0.8, hitAt: HIT_AT[type], ...extra, res }; });
   }
   // melee/cast/skill with a callback at the impact frame; resolves when the animation ends
