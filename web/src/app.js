@@ -475,7 +475,8 @@ async function revealTurn(ev, seat, side) {
     rvMsg(`${w === 0 ? 'You take' : 'Rival takes'} ${ev.points} 👑`, w === 0 ? 'good' : 'bad');
     flyCrown(w); sfx(w === 0 ? 'star' : 'hit');
   }
-  await clash(w, ev);
+  // the fighters' animation runs on requestAnimationFrame, which stops in hidden tabs: never let it block the game
+  await Promise.race([clash(w, ev), new Promise(r => setTimeout(r, 2600))]);
   paintPlates(D.v.view, scores);
   await wait(450);
   R.classList.remove('on');
