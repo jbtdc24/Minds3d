@@ -919,6 +919,17 @@ $('#set-logout').onclick = async () => {
 // ---------- boot ----------
 const legendIds = () => { const l = tokenIds().filter(i => rarityOf(i) === 'Legendary').sort(() => Math.random() - 0.5).slice(0, 3); return l.length ? l : tokenIds().slice(0, 3); };
 const bootBar = p => { $('#boot-bar').style.width = `${p}%`; };
+// unlock sound on the very first tap / key anywhere (browsers block audio before that)
+for (const ev of ['pointerdown', 'keydown', 'touchstart']) addEventListener(ev, () => initAudio(), { capture: true, passive: true });
+// start screen: one tap that also turns the sound on, like a console game's "press start"
+function tapToStart() {
+  $('#boot-msg').textContent = 'Ready!'; $('.boot .bar').style.display = 'none';
+  $('#boot-start').classList.add('on');
+  return new Promise(res => {
+    const go = () => { removeEventListener('keydown', go); initAudio(); sfx('levelup'); res(); };
+    $('#boot-start').onclick = go; $('#s-boot').onclick = go; addEventListener('keydown', go);
+  });
+}
 (async () => {
   bootBar(10);
   preload(['lobby', ...BATTLE_STAGES]);
@@ -929,6 +940,8 @@ const bootBar = p => { $('#boot-bar').style.width = `${p}%`; };
   applySettings();
   lobbyScene(legendIds());
   bootBar(100);
+  music('title');
+  await tapToStart();
   if (online && session.token) {
     try {
       const r = await refreshMe();

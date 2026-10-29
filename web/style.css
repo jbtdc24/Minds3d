@@ -501,3 +501,9 @@ p, li, .muted, .fine, .pitch, .coach p, .codex, .modal p, .guest-note { line-hei
   .me { max-width: 46vw; }
   .mindgrid.big { grid-template-columns: repeat(3, 1fr); gap: 10px; }
 }
+
+/* start screen */
+.tapstart { display: none; margin-top: 6px; animation: tappulse 1.2s ease-in-out infinite; }
+.tapstart.on { display: inline-flex; }
+@keyframes tappulse { 50% { transform: scale(1.06); } }
+#s-boot { cursor: pointer; }

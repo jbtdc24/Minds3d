@@ -1,9 +1,12 @@
 // All sound is synthesized with WebAudio: chiptune music loops + punchy SFX. No files to load.
-let ctx = null, master, musicBus, sfxBus, noiseBuf;
+// Browsers only allow sound after the player's first tap/key press, so the song asked for before that is
+// remembered and starts the moment audio is unlocked.
+let ctx = null, master, musicBus, sfxBus, noiseBuf, wanted = null;
 const vol = { music: 0.5, sfx: 0.8 };
 
 export function initAudio() {
   if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
+  setTimeout(() => { if (wanted) music(wanted); }, 0);
   ctx = new (window.AudioContext || window.webkitAudioContext)();
   master = ctx.createGain(); master.connect(ctx.destination);
   const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 4; comp.connect(master);
@@ -105,6 +108,7 @@ const SONGS = {
 };
 let song = null, step = 0, nextTime = 0, timer = null;
 export function music(name) {
+  wanted = name;
   if (!ctx) return;
   if (song === SONGS[name]) return;
   song = SONGS[name] || null;
