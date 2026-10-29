@@ -1,12 +1,12 @@
 /* Mindclash: bright, friendly pixel-game UI. Cream panels, ink outlines with notched pixel corners, lime accents.
-   Fonts: Nunito (bold, very readable) for text, Pixelify Sans for titles, buttons and numbers. */
+   Fonts: Nunito (bold, very readable) for text, Lilita One (chunky, clear game titles) for titles and big numbers. */
 :root {
   --ink: #1d1b2f; --ink-2: #3a3656; --paper: #fff8e4; --paper-2: #f4e9c8; --paper-3: #e8d9ad;
   --lime: #d4ff1f; --lime-d: #92b800; --sky: #5ec8ff; --sky-d: #2f8fd0; --pink: #ff6fae; --gold: #ffc53d; --gold-d: #d68a00;
   --red: #ff5263; --violet: #9b6bff; --green: #3fcf6a; --muted: #6d6987; --text: #1d1b2f;
   --b: 3px;
   --font: 'Nunito', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --pix: 'Pixelify Sans', 'Nunito', system-ui, sans-serif;
+  --pix: 'Lilita One', 'Nunito', system-ui, sans-serif;
   --ps: 0 calc(-1 * var(--b)) 0 0 var(--ink), 0 var(--b) 0 0 var(--ink), calc(-1 * var(--b)) 0 0 0 var(--ink), var(--b) 0 0 0 var(--ink);
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; min-width: 0; }
@@ -304,7 +304,7 @@ img.vi { width: .9em; height: .9em; object-fit: contain; vertical-align: -.1em; 
 .result { text-align: center; align-items: center; padding-top: 26px; }
 .r-crown { width: 96px; animation: bob 2s ease-in-out infinite; filter: drop-shadow(3px 4px 0 var(--ink)); }
 .result.lost .r-crown { filter: grayscale(1) drop-shadow(3px 4px 0 var(--ink)); }
-.result .big { font-size: clamp(55px, 14vw, 86px); line-height: .9; text-shadow: 4px 4px 0 var(--ink), -3px -3px 0 var(--ink), 3px -3px 0 var(--ink), -3px 3px 0 var(--ink); }
+#r-title { font-size: clamp(55px, 14vw, 86px); line-height: .9; text-shadow: 4px 4px 0 var(--ink), -3px -3px 0 var(--ink), 3px -3px 0 var(--ink), -3px 3px 0 var(--ink); }
 .r-score { font-size: 25px; color: var(--muted); }
 .r-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; }
 .r-stats div { background: var(--paper-2); padding: 10px 6px; } .r-stats b { display: block; font-size: clamp(17px, 6.4vw, 23px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .r-stats span { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
@@ -423,9 +423,9 @@ img.vi { width: .9em; height: .9em; object-fit: contain; vertical-align: -.1em; 
   .plate .pfp { display: none; } .plate { padding: 4px 6px; } .pts span { display: none; }
 }
 
-/* ---------- fonts: pixel only for the logo, big titles and big numbers; everything you read is Nunito ---------- */
-.logo, h2, h3, .mode-txt b, #banner .bt, .result .big, .card b, .rc-face b, .crownbox b, .pod-base, .pf-name, .roundlbl, .timer span, .pop {
-  font-family: var(--pix); font-weight: 700; letter-spacing: .01em; }
+/* ---------- fonts: Lilita One for the logo, big titles and big numbers; everything you read is Nunito ---------- */
+.logo, h2, h3, .mode-txt b, #banner .bt, #r-title, .card b, .rc-face b, .crownbox b, .pod-base, .pf-name, .roundlbl, .timer span, .pop {
+  font-family: var(--pix); font-weight: 400 !important; letter-spacing: .02em; }
 .btn, .seg button, .tag, .label, .rv-msg, .duel-hint, .waiting, .potline, .sp b, .me b, .coach b, .rv-who, .r-stats b, .pf-stats b, .pts b,
 .brow .rk, .lb .rank, .pod-vl, .brow .vl, .live, .badge, .order, .sp .lim, .ri-lock, .board-tab span, .r-score, #banner small, .crownsleft i, .minis i,
 .card::before, .card::after, .nametag, .bubble, .phrases button, .msg, .frow .fn {

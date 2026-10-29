@@ -31,14 +31,14 @@
 - Lobby (Mind Plaza) with your showcase Minds, always-visible leaderboard with a top-3 podium, Jersey 10 pixel font, text sized to fit its boxes.
 - Interactive tutorial (coach-guided scripted duel), quick chat (preset lines, in-match + friends), friends list, profile showcase (pick up to 3 Minds).
 
-- Popup windows (profile, leaderboard, settings, rules, Mind picker) over the lobby; collapsible leaderboard tab; Nunito + Pixelify Sans fonts.
+- Popup windows (profile, leaderboard, settings, rules, Mind picker) over the lobby; collapsible leaderboard tab; Nunito + Lilita One fonts.
 - Backdrops are anchored to the world origin (platform always under the Minds, never blank edges).
 - Fair play: trial accounts practice only; ranked bots always Hard (bot games count half); two accounts on the same connection are never paired;
   the same two players are rated max 3 times per 24 h; matches with fewer than 3 real turns (idle / instant forfeit) give no rating or points.
   Stale or old-version live matches are closed automatically. Ownership checks fall back to the cached chain scan when the RPC is slow.
 
 - Classic mode: real-player duels open to everyone (trial accounts + holders together), unrated, Normal bot after 20 s. Unranked games (classic, practice) don't change wins/losses.
-- Fonts: Nunito for everything you read; Pixelify Sans only on the logo, big titles and big numbers.
+- Fonts: Nunito for everything you read; Lilita One (no pixel font) on the logo, big titles and big numbers.
 - `supabase/002_social.sql` applied in Supabase (2026-10-29): friends, messages, showcase, match chat live.
 
 ## Next
