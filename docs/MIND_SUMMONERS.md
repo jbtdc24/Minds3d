@@ -1,4 +1,14 @@
-# Mind Summoners — full design (v1, for review)
+# Mind Summoners — full design
+
+> **Update (live-feel rounds, shipped):** duels now run in rounds: a secret deploy (30 s), then a **6-second live
+> battle** simulated on the server. Creatures walk down their lane (speed and reach by family), trade hits when they
+> meet (HP = 4 × power + 2, hit = power about once a second, counters 1.5×, affinity 1.75×, tough −25%, guard −40%,
+> storm family is ranged) and hit the summoner at the end of the lane (half power per hit). Summoners have **30 HP**.
+> Hero Skills: Mend heal 10 + block 2 · Battle Cry +2 power this round · Focus +2 · Rage +2 and −40% damage taken ·
+> Hex −4 power · Bolt 12 damage · Ward block 12 · Curse 4 damage and −1 power for good. Creature stats were re-tuned;
+> `web/src/summon/cards.js` is the source of truth. Re-balanced with the simulator: families 46–53%, skills 45–55%,
+> starter decks 48–59%, ~10 rounds a game (`tools/sim_summon_report.txt`). The tables below are the first, turn-based
+> version and are kept for history where numbers differ.
 
 Status: **design only, nothing built yet.** Battle numbers are tuned with the bot simulator
 (`node tools/sim_summon.mjs 12` and `--hero`, results in `tools/sim_summon_report.txt`).
