@@ -31,7 +31,7 @@ def save(img, name, **kw):
     img.save(p, **kw)
     print(f'{name:22s} {img.size[0]}x{img.size[1]}  {os.path.getsize(p) // 1024} KB')
 
-for n in ['arena_day', 'arena_night', 'arena_crystal']:
+for n in ['arena_day', 'arena_night', 'arena_crystal', 'stage_meadow', 'stage_crystal', 'stage_night', 'stage_beach', 'lobby']:
     if os.path.exists(os.path.join(RAW, n + '.png')):
         save(Image.open(os.path.join(RAW, n + '.png')).convert('RGB').resize((1920, 1080), Image.LANCZOS), n + '.webp', quality=86, method=6)
 for n in ['mode_ranked', 'mode_practice', 'mode_train', 'mode_auto']:
@@ -44,3 +44,12 @@ for n in ['crown', 'spell_boost', 'spell_double', 'spell_trap', 'spell_reverse']
         img = key_magenta(Image.open(os.path.join(RAW, n + '.png')))
         img.thumbnail((256, 256), Image.LANCZOS)
         save(img, n + '.png', optimize=True)
+# icon sheet: 4 x 2 grid on magenta -> one transparent png per icon
+if os.path.exists(os.path.join(RAW, 'icons.png')):
+    sheet = Image.open(os.path.join(RAW, 'icons.png')).convert('RGB')
+    W, H = sheet.size
+    for i, n in enumerate(['trophy', 'chat', 'friends', 'gear', 'book', 'swords', 'coin', 'bolt']):
+        cell = sheet.crop((i % 4 * W // 4, i // 4 * H // 2, (i % 4 + 1) * W // 4, (i // 4 + 1) * H // 2))
+        img = key_magenta(cell)
+        img.thumbnail((160, 160), Image.LANCZOS)
+        save(img, f'icon_{n}.png', optimize=True)

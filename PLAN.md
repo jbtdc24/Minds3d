@@ -26,6 +26,14 @@
 - Art (OpenArt GPT Image 2.5): 3 arena backdrops, 4 mode banners, card back, crown + 4 spell icons (`tools/process_art.py`).
 - Pixel UI rewrite: hub with modes, Coming Soon (Train Your Mind, Auto Battle), card table, reveal sequence, codex, settings.
 
+- 2D rewrite (no 3D library): canvas stage with NFT sprites (same rig, 1:1 with the NFTs), particles, camera punches, screen FX; chiptune music + SFX composed in code.
+- 7 battlegrounds: Sunny Meadow, Crystal Peaks, Night Market, Sunset Beach, Sky Arena, Moonlit Arena, Blossom Arena (`?stage=<name>` previews one). Arena floor sits above the card tray so Minds are never hidden.
+- Lobby (Mind Plaza) with your showcase Minds, always-visible leaderboard with a top-3 podium, Jersey 10 pixel font, text sized to fit its boxes.
+- Interactive tutorial (coach-guided scripted duel), quick chat (preset lines, in-match + friends), friends list, profile showcase (pick up to 3 Minds).
+
+## Needs doing once
+- Run `supabase/002_social.sql` in Supabase → SQL Editor (friends, messages, showcase, match chat). Until then friends show "being set up" and match chat fails.
+
 ## Next
 - Custom domain `play.minds.games` (CNAME from the domain owner) → then report the Coinbase/Blockaid false positive.
 - Train Your Mind / Auto Battle modes.

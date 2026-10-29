@@ -2,7 +2,7 @@
 process.env.SUPABASE_SECRET_KEY = 'test-secret';
 const { db } = await import('../lib/db.js');
 const { signSession, readSession, loginMessage, checkSignature, checkName } = await import('../lib/auth.js');
-const { startMatch, act, getView, forfeit } = await import('../lib/game.js');
+const { startMatch, act, getView, forfeit, chatLine } = await import('../lib/game.js');
 const { privateKeyToAccount } = await import('viem/accounts');
 import { randomUUID } from 'node:crypto';
 
@@ -117,6 +117,21 @@ ok(v.status === 'done' && v.winner === 1, 'idle player loses the match after 2 t
 m = await startMatch({ player: A, minds: [1] }, null, { ranked: false, botLevel: 'easy' });
 v = await forfeit(m.id, A.id);
 ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
+// ---- quick chat ----
+{
+  const C = await db.insert('players', { name: 'Chatty', name_key: 'chatty', address: '0x00000000000000000000000000000000000000c1' });
+  const cm = await startMatch({ player: C, minds: [1] }, null, { ranked: false, botLevel: 'easy' });
+  const r1 = await chatLine(cm.id, C.id, 0);
+  ok(r1.chat.length >= 1 && r1.chat[0].phrase === 0 && r1.chat[0].seat === 0, 'chat line stored with seat');
+  let bad = null; try { await chatLine(cm.id, C.id, 999); } catch (e) { bad = e.status; }
+  ok(bad === 400, 'unknown chat line rejected');
+  let spam = null; try { await chatLine(cm.id, C.id, 1); await chatLine(cm.id, C.id, 2); } catch (e) { spam = e.status; }
+  ok(spam === 429, 'chat spam limited');
+  let outsider = null; try { await chatLine(cm.id, A.id, 0); } catch (e) { outsider = e.status; }
+  ok(outsider === 403, 'cannot chat in a match you are not in');
+  const v = await getView(cm.id, C.id);
+  ok(Array.isArray(v.chat) && v.chat.length >= 1, 'chat is part of the match view');
+}
 console.log(`
 ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

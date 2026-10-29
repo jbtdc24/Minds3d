@@ -69,6 +69,14 @@ const SFX = {
   victory: t => [523, 659, 784, 1046, 784, 1046].forEach((f, i) => tone(f, t + i * 0.12, i === 5 ? 0.6 : 0.14, { gain: 0.2 })),
   defeat: t => [392, 349, 311, 262].forEach((f, i) => tone(f, t + i * 0.22, 0.3, { gain: 0.18, type: 'triangle' })),
   levelup: t => [523, 784, 1046, 1568].forEach((f, i) => tone(f, t + i * 0.07, 0.2, { type: 'triangle', gain: 0.18 })),
+  flip: t => { noise(t, 0.06, { gain: 0.3, hp: 2500, lp: 9000 }); tone(1200, t, 0.05, { type: 'triangle', gain: 0.08, slide: 1.5 }); },
+  coin: t => { tone(988, t, 0.08, { type: 'square', gain: 0.12 }); tone(1319, t + 0.07, 0.25, { type: 'square', gain: 0.12 }); },
+  pop: t => { tone(600, t, 0.08, { type: 'sine', gain: 0.25, slide: 2.2 }); },
+  notify: t => { tone(784, t, 0.1, { type: 'triangle', gain: 0.18 }); tone(1047, t + 0.1, 0.18, { type: 'triangle', gain: 0.18 }); },
+  tick: t => tone(1800, t, 0.03, { type: 'square', gain: 0.06 }),
+  magic: t => [523, 784, 1047, 1568, 2093].forEach((f, i) => tone(f, t + i * 0.04, 0.3, { type: 'sine', gain: 0.1 })),
+  trap: t => { tone(200, t, 0.25, { type: 'sawtooth', gain: 0.3, slide: 0.5 }); noise(t, 0.15, { gain: 0.5, hp: 600 }); tone(90, t + 0.05, 0.3, { type: 'sine', gain: 0.6, slide: 0.5 }); },
+  reverse: t => { tone(300, t, 0.4, { type: 'sawtooth', gain: 0.12, slide: 3 }); tone(900, t + 0.2, 0.4, { type: 'sawtooth', gain: 0.1, slide: 0.33 }); },
   star: t => { tone(1568, t, 0.15, { type: 'triangle', gain: 0.18 }); tone(2093, t + 0.08, 0.3, { type: 'triangle', gain: 0.15 }); },
 };
 export function sfx(name, delay = 0) {
@@ -76,12 +84,24 @@ export function sfx(name, delay = 0) {
   SFX[name](ctx.currentTime + delay);
 }
 
-// ---------- music: a tiny step sequencer ----------
+// ---------- music: a small chiptune sequencer (chords, bass, arp, lead, drums) ----------
 const N = n => 440 * Math.pow(2, (n - 69) / 12);
 const SONGS = {
-  title: { bpm: 104, bars: [[57, 60, 64, 67], [53, 57, 60, 64], [55, 59, 62, 67], [52, 55, 59, 64]], drums: 'x...o...x...o...', lead: [76, 0, 72, 0, 74, 76, 0, 79, 77, 0, 76, 0, 72, 0, 74, 0] },
-  battle: { bpm: 142, bars: [[57, 60, 64, 69], [53, 57, 60, 65], [55, 59, 62, 67], [56, 59, 64, 68]], drums: 'x.h.o.h.x.xho.h.', lead: [81, 0, 79, 81, 0, 76, 0, 79, 81, 0, 84, 0, 83, 81, 79, 0] },
-  menu: { bpm: 96, bars: [[60, 64, 67, 71], [57, 60, 64, 67], [53, 57, 60, 64], [55, 59, 62, 67]], drums: 'x.......o.......', lead: [72, 0, 0, 74, 76, 0, 0, 0, 79, 0, 76, 0, 74, 0, 0, 0] },
+  // bright and bouncy for the plaza (C - Am - F - G)
+  menu: { bpm: 112, bass: 'x...x.x.x...x.x.', drums: 'x...o..hx.x.o..h',
+    chords: [[60, 64, 67, 71], [57, 60, 64, 67], [53, 57, 60, 64], [55, 59, 62, 67]],
+    lead: [[76, 0, 79, 0, 84, 0, 79, 0, 81, 0, 79, 0, 76, 0, 0, 0], [72, 0, 76, 0, 81, 0, 76, 0, 79, 0, 76, 0, 72, 0, 0, 0],
+      [77, 0, 81, 0, 84, 0, 81, 0, 79, 0, 77, 0, 76, 0, 74, 0], [74, 0, 79, 0, 83, 0, 79, 0, 86, 0, 83, 0, 79, 0, 0, 0]] },
+  // driving duel theme (Am - F - C - G)
+  battle: { bpm: 146, bass: 'x.x.x.x.x.x.x.xx', drums: 'x.h.o.h.x.xho.h.',
+    chords: [[57, 60, 64, 69], [53, 57, 60, 65], [60, 64, 67, 72], [55, 59, 62, 67]],
+    lead: [[81, 0, 84, 81, 0, 79, 0, 76, 79, 0, 81, 0, 84, 0, 88, 0], [89, 0, 88, 84, 0, 81, 0, 84, 0, 0, 81, 0, 77, 0, 79, 0],
+      [76, 0, 79, 84, 0, 88, 0, 84, 86, 0, 84, 0, 79, 0, 76, 0], [79, 0, 83, 86, 0, 91, 0, 86, 83, 0, 79, 0, 86, 84, 83, 79]] },
+  // calm title loop
+  title: { bpm: 96, bass: 'x.......x...x...', drums: 'x.......o.......',
+    chords: [[60, 64, 67, 72], [55, 59, 62, 67], [57, 60, 64, 69], [53, 57, 60, 65]],
+    lead: [[79, 0, 0, 76, 0, 0, 72, 0, 74, 0, 76, 0, 0, 0, 0, 0], [74, 0, 0, 71, 0, 0, 67, 0, 69, 0, 71, 0, 0, 0, 0, 0],
+      [76, 0, 0, 72, 0, 0, 69, 0, 71, 0, 72, 0, 0, 0, 0, 0], [72, 0, 0, 69, 0, 0, 65, 0, 67, 0, 69, 0, 71, 0, 0, 0]] },
 };
 let song = null, step = 0, nextTime = 0, timer = null;
 export function music(name) {
@@ -95,16 +115,17 @@ function schedule() {
   if (!song || !ctx) return;
   const spb = 60 / song.bpm / 4;                 // 16th notes
   while (nextTime < ctx.currentTime + 0.12) {
-    const bar = song.bars[Math.floor(step / 16) % song.bars.length], s = step % 16, t = nextTime;
-    const o = { bus: musicBus };
-    if (s % 4 === 0) tone(N(bar[0] - 24), t, spb * 3.5, { ...o, type: 'triangle', gain: 0.5 });       // bass
-    if (s % 2 === 0) tone(N(bar[(s / 2) % 4] + 12), t, spb * 0.9, { ...o, type: 'square', gain: 0.07 }); // arp
-    const L = song.lead[s];
-    if (L && Math.floor(step / 32) % 2) tone(N(L), t, spb * 1.8, { ...o, type: 'square', gain: 0.08 });
+    const bar = Math.floor(step / 16) % song.chords.length, ch = song.chords[bar], s = step % 16, t = nextTime, o = { bus: musicBus };
+    const swing = s % 2 ? spb * 0.08 : 0;
+    if (s === 0) ch.forEach(n => tone(N(n), t, spb * 15, { ...o, type: 'triangle', gain: 0.035, attack: 0.08 }));     // soft pad
+    if (song.bass[s] === 'x') tone(N(ch[0] - 24), t, spb * 1.8, { ...o, type: 'triangle', gain: 0.5 });
+    if (s % 2 === 0) tone(N(ch[(s / 2) % 4] + 12), t + swing, spb * 0.9, { ...o, type: 'square', gain: 0.05 });
+    const L = song.lead[bar][s], cycle = Math.floor(step / 64) % 4;
+    if (L && cycle !== 0) tone(N(L - (cycle === 3 ? 12 : 0)), t + swing, spb * 1.7, { ...o, type: 'square', gain: 0.07 });
     const d = song.drums[s];
     if (d === 'x') tone(150, t, 0.18, { ...o, type: 'sine', gain: 0.8, slide: 0.3 });
-    if (d === 'o') noise(t, 0.12, { ...o, gain: 0.35, hp: 1200 });
-    if (d === 'h') noise(t, 0.04, { ...o, gain: 0.12, hp: 7000 });
+    if (d === 'o') noise(t, 0.12, { ...o, gain: 0.32, hp: 1200 });
+    if (d === 'h') noise(t + swing, 0.04, { ...o, gain: 0.1, hp: 7000 });
     nextTime += spb; step++;
   }
 }

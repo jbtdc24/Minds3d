@@ -9,19 +9,13 @@
 <link rel="icon" href="assets/crown.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Jersey+10&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
-<script type="importmap">
-{ "imports": {
-  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
-} }
-</script>
 </head>
 <body>
 <div id="view"></div>
+<div id="tags"></div>
 <div id="pops"></div>
-<div id="flash"></div>
 <div id="banner"></div>
 <div id="toast" class="px"></div>
 
@@ -30,7 +24,7 @@
   <div class="boot">
     <div class="logo"><img src="assets/crown.png" alt="">MIND<span>CLASH</span></div>
     <div class="bar px"><i id="boot-bar"></i></div>
-    <div class="small shadow" id="boot-msg">Loading the arena…</div>
+    <div class="shadow" id="boot-msg">Loading the plaza…</div>
   </div>
 </section>
 
@@ -42,7 +36,7 @@
     <ul class="pitch">
       <li><img src="assets/crown.png" alt=""><span><b>1v1 card duels.</b> Both play a secret card. Higher card takes the crown.</span></li>
       <li><img src="assets/spell_reverse.png" alt=""><span><b>4 sneaky spells</b> can flip the result after the cards are shown.</span></li>
-      <li><img src="assets/spell_boost.png" alt=""><span><b>Fair for all.</b> Same cards for everyone. Rarity only adds leaderboard points.</span></li>
+      <li><img src="assets/icon_trophy.png" alt=""><span><b>Fair for all.</b> Same cards for everyone. Rarity only adds leaderboard points.</span></li>
     </ul>
     <button class="btn primary big" id="btn-wallet">Connect wallet</button>
     <button class="btn" id="btn-guest">Try free with demo Minds</button>
@@ -57,47 +51,57 @@
     <p class="muted">Pick a name and a profile picture. You can change them later.</p>
     <label class="field">Display name <input id="setup-name" maxlength="16" placeholder="3–16 letters, numbers or _"></label>
     <div class="label">Profile picture: one of your Minds</div>
-    <div class="mindgrid small" id="setup-pfp"></div>
+    <div class="mindgrid" id="setup-pfp"></div>
     <div class="err" id="setup-err"></div>
-    <button class="btn primary" id="setup-save">Let's go!</button>
+    <button class="btn primary big" id="setup-save">Let's go!</button>
   </div>
 </section>
 
-<!-- HUB -->
+<!-- LOBBY -->
 <section id="s-hub" class="screen">
   <header class="topbar">
-    <button class="me px" id="hub-me"><img id="hub-pfp" alt=""><div><b id="hub-name"></b><span id="hub-sub"></span></div></button>
+    <button class="me px" id="hub-me"><img id="hub-pfp" alt=""><div class="me-txt"><b id="hub-name"></b><span id="hub-sub"></span></div></button>
     <div class="topbtns">
-      <button class="iconbtn px" data-go="leaderboard" title="Leaderboard">🏆</button>
-      <button class="iconbtn px" data-go="codex" title="How to play">?</button>
-      <button class="iconbtn px" data-go="settings" title="Settings">⚙</button>
+      <button class="iconbtn px" data-go="leaderboard" title="Leaderboard"><img src="assets/icon_trophy.png" alt="Leaderboard"></button>
+      <button class="iconbtn px" id="hub-friends" title="Friends"><img src="assets/icon_friends.png" alt="Friends"><i class="badge" id="friends-badge"></i></button>
+      <button class="iconbtn px" id="hub-tutorial" title="Tutorial"><img src="assets/icon_book.png" alt="Tutorial"></button>
+      <button class="iconbtn px" data-go="settings" title="Settings"><img src="assets/icon_gear.png" alt="Settings"></button>
     </div>
   </header>
-  <div class="hub">
-    <div class="logo hub-logo"><img src="assets/crown.png" alt="">MIND<span>CLASH</span></div>
-    <div class="modes">
+  <div class="lobby">
+    <div class="col-play">
+      <div class="logo hub-logo"><img src="assets/crown.png" alt="">MIND<span>CLASH</span></div>
       <button class="mode px big" id="hub-ranked" style="--bg:url(assets/mode_ranked.webp)">
-        <div class="mode-minds" id="hub-ranked-minds"></div>
+        <img class="mode-ico" src="assets/icon_swords.png" alt="">
         <div class="mode-txt"><b>Ranked Duel</b><span id="hub-ranked-sub">1v1 vs real players</span></div>
         <em class="tag lime">PLAY</em>
       </button>
-      <button class="mode px" id="hub-practice" style="--bg:url(assets/mode_practice.webp)">
-        <div class="mode-txt"><b>Practice</b><span>vs bot · no rating</span></div>
-        <em class="tag sky">TRAIN</em>
-      </button>
-      <button class="mode px" id="hub-profile" style="--bg:url(assets/arena_crystal.webp)">
-        <div class="mode-txt"><b>Profile</b><span>Stats &amp; match history</span></div>
-      </button>
-      <button class="mode px soon" id="hub-train" style="--bg:url(assets/mode_train.webp)">
-        <div class="mode-txt"><b>Train Your Mind</b><span>Teach your Mind to play on its own</span></div>
-        <em class="tag">COMING SOON</em>
-      </button>
-      <button class="mode px soon" id="hub-auto" style="--bg:url(assets/mode_auto.webp)">
-        <div class="mode-txt"><b>Auto Battle</b><span>Your trained Minds fight for you</span></div>
-        <em class="tag">COMING SOON</em>
-      </button>
+      <div class="mode-row">
+        <button class="mode px" id="hub-practice" style="--bg:url(assets/mode_practice.webp)">
+          <div class="mode-txt"><b>Practice</b><span>vs bot</span></div>
+        </button>
+        <button class="mode px" id="hub-learn" style="--bg:url(assets/stage_meadow.webp)">
+          <div class="mode-txt"><b>Tutorial</b><span>Learn in 2 min</span></div>
+        </button>
+      </div>
+      <div class="mode-row">
+        <button class="mode px soon" id="hub-train" style="--bg:url(assets/mode_train.webp)">
+          <div class="mode-txt"><b>Train Mind</b><span>Coming soon</span></div>
+        </button>
+        <button class="mode px soon" id="hub-auto" style="--bg:url(assets/mode_auto.webp)">
+          <div class="mode-txt"><b>Auto Battle</b><span>Coming soon</span></div>
+        </button>
+      </div>
+      <div class="guest-note px" id="guest-note">Trial mode: demo Minds, not on the leaderboard. <a href="#" id="guest-connect">Connect a wallet</a> to play ranked with your own Minds.</div>
     </div>
-    <div class="guest-note px" id="guest-note">Trial mode: demo Minds, not on the leaderboard. <a href="#" id="guest-connect">Connect a wallet</a> to play ranked with your own Minds.</div>
+    <div class="col-board panel px" id="board">
+      <div class="board-head"><img src="assets/icon_trophy.png" alt=""><h3>Leaderboard</h3><span class="live">● LIVE</span></div>
+      <div class="seg px" id="board-by"><button data-v="rating" class="on">Rating</button><button data-v="points">Points</button></div>
+      <div id="board-podium"></div>
+      <ol class="board-list" id="board-list"></ol>
+      <div class="board-me" id="board-me"></div>
+      <button class="btn small wide" data-go="leaderboard">See full leaderboard</button>
+    </div>
   </div>
 </section>
 
@@ -107,8 +111,8 @@
     <div class="pagehead"><button class="btn small" data-go="hub">‹ Back</button><h2 id="prep-title" class="shadow">Ranked Duel</h2><span></span></div>
     <div class="panel px">
       <div class="label">Pick your Minds <span class="muted" id="prep-mind-count"></span></div>
-      <p class="muted small">Bring 1 to 3. They take turns, one per round. Every Mind plays the same, so pick your favourites.</p>
-      <div class="mindgrid" id="prep-minds"></div>
+      <p class="muted">Bring 1 to 3. They take turns, one per round. Every Mind plays the same, so pick your favourites.</p>
+      <div class="mindgrid big" id="prep-minds"></div>
     </div>
     <div class="prep-foot">
       <div class="seg px" id="prep-level"><button data-v="easy">Easy</button><button data-v="normal" class="on">Normal</button><button data-v="hard">Hard</button></div>
@@ -158,19 +162,23 @@
     <div class="ri-row"><span>Rival spells</span><div class="minispells" id="d-rspells"></div></div>
     <div class="ri-lock" id="d-rlock">✔ RIVAL LOCKED IN</div>
   </div>
-  <div class="duel-hint px" id="d-hint"></div>
   <div class="duel-bottom" id="d-controls">
+    <div class="duel-hint px" id="d-hint"></div>
     <div class="spells" id="d-spells"></div>
-    <div class="hand" id="d-hand"></div>
-    <div class="lockrow"><button class="btn primary big lock" id="d-lock" disabled>Pick a card</button></div>
-    <div class="waiting px" id="d-wait">Locked in · waiting for your rival…</div>
+    <div class="handrow">
+      <div class="hand" id="d-hand"></div>
+      <div class="lockrow"><button class="btn primary big lock" id="d-lock" disabled>Pick a card</button><div class="waiting px" id="d-wait">Locked in · waiting for rival</div></div>
+    </div>
   </div>
   <div class="reveal" id="reveal">
     <div class="rv-col" id="rv0"><div class="rv-who">YOU</div><div class="rcard"><div class="rc-face"><b></b></div><div class="rc-back"></div></div><div class="rv-spell"></div></div>
-    <div class="rv-mid"><div class="rv-vs">VS</div><div class="rv-msg" id="rv-msg"></div></div>
     <div class="rv-col" id="rv1"><div class="rv-who">RIVAL</div><div class="rcard"><div class="rc-face"><b></b></div><div class="rc-back"></div></div><div class="rv-spell"></div></div>
   </div>
+  <div class="rv-msg px" id="rv-msg"></div>
+  <button class="iconbtn px chatbtn" id="d-chat" title="Quick chat"><img src="assets/icon_chat.png" alt="Chat"></button>
+  <div class="chatpick px" id="d-chatpick"><div class="seg" id="d-chattabs"></div><div class="phrases" id="d-phrases"></div></div>
   <button class="corner iconbtn px" id="d-menu" title="Menu">☰</button>
+  <div class="coach px" id="coach"><img class="coach-pfp" id="coach-pfp" alt=""><div><b>Coach</b><p id="coach-text"></p><button class="btn small primary" id="coach-next">Next</button></div></div>
 </section>
 
 <!-- RESULT -->
@@ -180,7 +188,7 @@
     <div class="big" id="r-title">VICTORY</div>
     <div class="r-score" id="r-score"></div>
     <div class="r-stats" id="r-stats"></div>
-    <div class="r-btns"><button class="btn primary" id="r-again">Play again</button><button class="btn" data-go="hub">Home</button></div>
+    <div class="r-btns"><button class="btn primary big" id="r-again">Play again</button><button class="btn big" data-go="hub">Lobby</button></div>
   </div>
 </section>
 
@@ -188,7 +196,8 @@
 <section id="s-leaderboard" class="screen">
   <div class="page">
     <div class="pagehead"><button class="btn small" data-go="hub">‹ Back</button><h2 class="shadow">Leaderboard <span class="live">● LIVE</span></h2><div class="seg px" id="lb-by"><button data-v="rating" class="on">Rating</button><button data-v="points">Points</button></div></div>
-    <div class="panel px lb"><table><thead><tr><th>#</th><th>Player</th><th id="lb-col">Rating</th><th>W</th><th>L</th><th>Win %</th><th>Streak</th></tr></thead><tbody id="lb-rows"></tbody></table><div class="muted small" id="lb-note">Points = 10 per ranked win + rarity bonus (Uncommon +5%, Rare +10%, Epic +15%, Legendary +20%). Bot wins count half. Trial players are not listed.</div></div>
+    <div class="panel px lb"><table><thead><tr><th>#</th><th>Player</th><th id="lb-col">Rating</th><th>W</th><th>L</th><th class="hide-s">Win %</th><th class="hide-s">Streak</th></tr></thead><tbody id="lb-rows"></tbody></table>
+      <div class="muted small" id="lb-note">Points = 10 per ranked win + rarity bonus (Uncommon +5%, Rare +10%, Epic +15%, Legendary +20%). Bot wins count half. Trial players are not listed.</div></div>
   </div>
 </section>
 
@@ -198,27 +207,22 @@
     <div class="pagehead"><button class="btn small" data-go="hub">‹ Back</button><h2 class="shadow">Profile</h2><span></span></div>
     <div class="profile">
       <div class="panel px prof-card">
-        <img id="pf-pfp" alt="">
-        <div><div class="pf-name" id="pf-name"></div><div class="muted small" id="pf-addr"></div></div>
+        <div class="prof-top"><img id="pf-pfp" alt=""><div class="prof-id"><div class="pf-name" id="pf-name"></div><div class="muted" id="pf-addr"></div><div id="pf-actions"></div></div></div>
         <div class="pf-stats" id="pf-stats"></div>
-        <div id="pf-edit">
-          <label class="field">Display name <input id="pf-name-in" maxlength="16"></label>
-          <div class="label">Profile picture</div>
-          <div class="mindgrid small" id="pf-pfps"></div>
-          <div class="err" id="pf-err"></div>
-          <button class="btn primary" id="pf-save">Save</button>
-        </div>
+        <div class="label">Showcase</div>
+        <div class="showcase" id="pf-show"></div>
+      </div>
+      <div class="panel px" id="pf-edit">
+        <label class="field">Display name <input id="pf-name-in" maxlength="16"></label>
+        <div class="label">Profile picture <span class="muted">tap a Mind</span></div>
+        <div class="mindgrid big" id="pf-pfps"></div>
+        <div class="label">Lobby showcase <span class="muted" id="pf-show-count">pick up to 3</span></div>
+        <div class="mindgrid big" id="pf-shows"></div>
+        <div class="err" id="pf-err"></div>
+        <button class="btn primary big" id="pf-save">Save</button>
       </div>
       <div class="panel px"><div class="label">Match history</div><div id="pf-history" class="history"></div></div>
     </div>
-  </div>
-</section>
-
-<!-- CODEX -->
-<section id="s-codex" class="screen">
-  <div class="page narrow">
-    <div class="pagehead"><button class="btn small" data-go="back">‹ Back</button><h2 class="shadow">How to play</h2><span></span></div>
-    <div class="panel px codex" id="codex"></div>
   </div>
 </section>
 
@@ -229,14 +233,37 @@
     <div class="panel px">
       <div class="row">Music <input type="range" id="set-music" min="0" max="1" step="0.05"></div>
       <div class="row">Sound effects <input type="range" id="set-sfx" min="0" max="1" step="0.05"></div>
-      <div class="row">Fighters <div class="seg px" id="set-view"><button data-v="3d">3D</button><button data-v="2d">2D</button></div></div>
-      <div class="row">Graphics <div class="seg px" id="set-quality"><button data-v="high">High</button><button data-v="medium">Medium</button><button data-v="low">Low</button></div></div>
+      <div class="row">Graphics <div class="seg px" id="set-quality"><button data-v="high">High</button><button data-v="low">Low</button></div></div>
       <div class="row">Animation speed <div class="seg px" id="set-speed"><button data-v="1">1x</button><button data-v="1.5">1.5x</button><button data-v="2">2x</button></div></div>
-      <div class="row">Account <span class="muted small" id="set-account"></span></div>
+      <div class="row">Rules <button class="btn small" id="set-rules">How to play</button></div>
+      <div class="row">Account <span class="muted ellip" id="set-account"></span></div>
       <div class="row"><span></span><button class="btn" id="set-logout">Sign out</button></div>
     </div>
   </div>
 </section>
+
+<!-- RULES -->
+<section id="s-codex" class="screen">
+  <div class="page narrow">
+    <div class="pagehead"><button class="btn small" data-go="back">‹ Back</button><h2 class="shadow">How to play</h2><span></span></div>
+    <div class="panel px codex" id="codex"></div>
+  </div>
+</section>
+
+<!-- FRIENDS DRAWER -->
+<aside class="drawer px" id="friends">
+  <div class="drawer-head"><img src="assets/icon_friends.png" alt=""><h3 id="fr-title">Friends</h3><button class="iconbtn px small" id="fr-close">✕</button></div>
+  <div id="fr-list-view">
+    <div class="fr-add"><input id="fr-name" maxlength="16" placeholder="Add by name"><button class="btn small primary" id="fr-add">Add</button></div>
+    <div class="err" id="fr-err"></div>
+    <div class="fr-list" id="fr-list"></div>
+  </div>
+  <div id="fr-chat-view" class="fr-chat">
+    <button class="btn small" id="fr-back">‹ Friends</button>
+    <div class="fr-msgs" id="fr-msgs"></div>
+    <div class="phrases small" id="fr-phrases"></div>
+  </div>
+</aside>
 
 <div class="modal-wrap" id="modal"><div class="panel px modal"><div id="modal-body"></div><div class="modal-btns" id="modal-btns"></div></div></div>
 <div id="tip" class="px"></div>
