@@ -8,6 +8,7 @@ import { CARD, CREATURES, STARTER_DECKS, HERO_SKILLS, ELEMENT_INFO, abilitiesOf,
 import { SKILL_TARGET } from './summon/engine.js';
 import { botAct } from './summon/bot.js';
 import { creatureImg } from './summon/art.js';
+import * as BT from './summon/battle.js';
 import { chibi } from './island/chibi.js';
 import { DATA_VERSION } from './config.js';
 import { api, session, walletLogin, guestLogin, logout, hasWallet, watch, serverOnline, LocalMatch, setTokenIds } from './net.js';
@@ -557,13 +558,13 @@ function startDuel(local, first = local.view(), opts = {}) {
 function paintArena() { $('#d-arena').classList.add('ready'); }
 // D.F[side] = the summoner at its gate: hits, casts, wins and losses show as small animations on the gate
 function placeFighters(v) {
+  BT.mount($('#d-cv'));
+  BT.setSummoners([v.me.mind, v.rival.mind]);
   [v.me, v.rival].forEach((p, i) => {
-    const g = $(`#d-gate${i}`);
-    g.querySelector('.g-gate').src = `assets/gate_${i ? 'rv' : 'me'}.webp`;
-    g.querySelector('.g-mind').src = chibi(p.mind).full.cv.toDataURL();
-    g.className = `gate ${i ? 'g-rv' : 'g-me'}`;
+    BT.setGateHp(i, p.hp / p.maxHp);
+    const gate = { getBoundingClientRect: () => BT.gateRect(i) };
     const move = { hit: 'ouch', hitBig: 'ouch', cast: 'cast', win: 'win', ko: 'ko' };
-    D.F[i] = { gate: g, play: k => { if (move[k]) { g.classList.remove(move[k]); void g.offsetWidth; g.classList.add(move[k]); } } };
+    D.F[i] = { gate, play: k => { if (move[k]) BT.gateAnim(i, move[k]); if (k === 'hitBig') { BT.shake(6); BT.flash('#fff', 0.45); } } };
   });
 }
 async function refresh() {
@@ -585,42 +586,14 @@ async function handle(v) {
   D.tutorial?.step();
 }
 
-// --- drawing the table: creatures stand on their lane at their spot (pos 0 = your end, 1 = the enemy end) ---
-const UNITS = new Map();   // key -> element
-function laneGeom() {
-  const l = $('#d-board .lane');
-  const W = l?.clientWidth || 600, H = l?.clientHeight || 80;
-  return { W, H, S: Math.round(Math.max(40, H * 1.7)) };
+// --- drawing the table: the canvas (summon/battle.js) draws and animates the creatures; these adapters let the
+// rest of the duel code float numbers over a creature and play its animations like it would on a DOM element
+const ADAPT = new Map();
+function drawUnits(list) { BT.setUnits(list); }
+function unitEl(key) {
+  if (!ADAPT.has(key)) ADAPT.set(key, { getBoundingClientRect: () => BT.rectOf(key) || { left: 0, top: 0, width: 0, height: 0 }, offsetWidth: 0, classList: { remove() {}, add: k => BT.unitAnim(key, k), toggle() {} } });
+  return ADAPT.get(key);
 }
-const STAGE_SCALE = [0, 0.72, 0.86, 1];
-const unitX = (side, pos, g, s) => { const span = g.W - s; return Math.round(side === 0 ? span * pos : span * (1 - pos)); };
-// list: [{ key, side, lane, id, pos, hp, maxHp, atk, temp, ghost }]
-function drawUnits(list) {
-  const g = laneGeom(), seen = new Set();
-  for (const u of list) {
-    let e = UNITS.get(u.key);
-    if (!e || e.parentElement?.dataset.lane !== String(u.lane)) {
-      e?.remove();
-      e = el('div', 'unit');
-      e.dataset.key = u.key; e.dataset.side = u.side;
-      e.innerHTML = `<img src="${creatureImg(u.id)}" alt="${CARD[u.id].name}"><b class="pw"></b><i class="eld">${ELEMENT_INFO[CARD[u.id].el].icon}</i><i class="hb"><i></i></i>`;
-      $(`#d-board [data-lane="${u.lane}"]`).append(e);
-      UNITS.set(u.key, e);
-    }
-    e.classList.toggle('rv', u.side === 1); e.classList.toggle('ghost', !!u.ghost);
-    e.style.setProperty('--el', ELEMENT_INFO[CARD[u.id].el].color);
-    const s = Math.round(g.S * STAGE_SCALE[CARD[u.id].stage]);
-    e.style.width = e.style.height = `${s}px`;
-    e.style.transform = `translateX(${unitX(u.side, u.pos ?? RULES_SPAWN, g, s)}px)`;
-    const atk = Math.max(0, (u.atk ?? CARD[u.id].power) + (u.temp || 0)), pw = e.querySelector('.pw');
-    pw.textContent = atk; pw.className = `pw ${u.temp > 0 ? 'up' : u.temp < 0 ? 'down' : ''}`;
-    const hp = u.hp ?? u.maxHp ?? 1, max = u.maxHp ?? hp;
-    e.querySelector('.hb i').style.width = `${Math.max(0, Math.min(1, hp / max)) * 100}%`;
-    seen.add(u.key);
-  }
-  for (const [k, e] of UNITS) if (!seen.has(k)) { e.remove(); UNITS.delete(k); }
-}
-const unitEl = key => UNITS.get(key);
 const RULES_SPAWN = 0.04;
 function paintBoard(boards, planned = []) {
   const list = [];
@@ -628,13 +601,14 @@ function paintBoard(boards, planned = []) {
   for (const p of planned) list.push({ key: `g${p.lane}`, side: 0, lane: p.lane, id: p.id, pos: RULES_SPAWN, ghost: true });
   drawUnits(list);
 }
-function clearBoard() { for (const e of UNITS.values()) e.remove(); UNITS.clear(); }
+function clearBoard() { BT.setUnits([]); ADAPT.clear(); }
 function paintPlates(v, hp) {
   [[v.me, 0], [v.rival, 1]].forEach(([p, i]) => {
     const h = hp ? hp[i] : { hp: p.hp, shield: p.shield };
     $(`#d-pfp${i}`).src = thumb(p.mind);
     $(`#d-name${i}`).textContent = p.name;
     $(`#d-hpbar${i}`).style.width = `${Math.max(0, h.hp) / p.maxHp * 100}%`;
+    BT.setGateHp(i, Math.max(0, h.hp) / p.maxHp);
     $(`#d-hp${i}`).textContent = Math.max(0, h.hp);
     $(`#d-sh${i}`).textContent = h.shield ? `🛡 ${h.shield}` : '';
     $(`#d-sh${i}`).classList.toggle('on', !!h.shield);
@@ -882,7 +856,7 @@ async function reveal(ev, v) {
       else if (id === 'curse' && M[foe][e.lane]) { const c = M[foe][e.lane]; c.atk = Math.max(0, c.atk - 1); c.temp -= 1; c.hp -= 4; }
       draw();
       await banner(`<div class="bt ${me ? 'red' : ''}">${HERO_SKILLS[id].name.toUpperCase()}!</div><small>${me ? 'Rival' : 'You'}: ${HERO_SKILLS[id].desc}</small>`, 1100);
-      if (id === 'bolt') { D.F[foe]?.play('hitBig'); shake(12); floatAt(plate(foe), '−12 ⚡', 'bad'); }
+      if (id === 'bolt') { D.F[foe]?.play('hitBig'); BT.flash('#fff6a0', 0.6); floatAt(plate(foe), '−12 ⚡', 'bad'); }
       continue;
     }
     else if (e.t === 'fade') { bump(U(me, e.lane), 'die'); sfx('miss'); await pause(380); M[me][e.lane] = null; draw(); }
@@ -925,7 +899,7 @@ function playBattle(tl, seat, M, hp, paintHp) {
       for (const row of A) if (!B.find(r => r[0] === row[0]) && !dead.has(row[0]) && u > 0.3) { dead.add(row[0]); const e = unitEl(`u${row[0]}`); bump(e, 'die'); }
       while (hi < hits.length && hits[hi][0] <= t + 0.0001) {
         const [, a, target, n] = hits[hi++], ae = unitEl(`u${a}`), att = byUid.get(a);
-        if (ae && att) bump(ae, att.side === 0 ? 'jab-up' : 'jab-dn');
+        if (ae && att) { bump(ae, 'jab'); if (CARD[att.id].ranged || CARD[att.id].fam === 'glow') BT.shoot(`u${a}`, target >= 0 ? `u${target}` : null, side(-1 - target)); }
         if (target >= 0) {
           const te = unitEl(`u${target}`);
           if (te) { bump(te, 'hurt'); floatAt(te, `−${Math.round(n)}`, 'bad small'); }
@@ -933,7 +907,7 @@ function playBattle(tl, seat, M, hp, paintHp) {
         } else {
           const s = side(-1 - target);
           hp[s].hp = Math.round((hp[s].hp - n) * 10) / 10;
-          if (n > 0) { floatAt(D.F[s]?.gate || plate(s), `−${Math.round(n * 10) / 10}`, 'bad'); D.F[s]?.play('hit'); bump(plate(s), 'ouch'); sfx('crit'); }
+          if (n > 0) { floatAt(D.F[s]?.gate || plate(s), `−${Math.round(n * 10) / 10}`, 'bad'); D.F[s]?.play('hit'); BT.shake(n >= 4 ? 4 : 2); bump(plate(s), 'ouch'); sfx('crit'); }
           else { floatAt(plate(s), '🛡', ''); sfx('block'); }
           paintHp();
         }
@@ -980,7 +954,7 @@ async function finish(v) {
   show('result');
   if (online && session.token) refreshMe().catch(() => {});
 }
-function leaveDuel() { if (D) { clearInterval(D.poll); clearInterval(D.clock); D.unwatch?.(); D.tutorial?.hide(); } D = null; enterHub(); }
+function leaveDuel() { BT.unmount(); if (D) { clearInterval(D.poll); clearInterval(D.clock); D.unwatch?.(); D.tutorial?.hide(); } D = null; enterHub(); }
 
 // ---------- interactive tutorial: a scripted match with a coach ----------
 // your hand and the coach's moves are fixed so every lesson happens on cue; after the script, the coach plays freely

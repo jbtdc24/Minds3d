@@ -2,6 +2,10 @@
 
 Owner direction (2026-10-30): **everything drawn in code** (like Mind Island): UI, arena, creatures ("pets"),
 effects. No OpenArt art in the game. Smooth, lively animation like a Pokémon game. Duel must look and feel exciting.
+**Art direction (owner refs 2026-10-30): professional, for adults, not kiddy.** Muted earthy palette (olive/moss
+greens, dark teal water, warm browns), textured grass with blade clumps and leaf plants, mushrooms, rocks; creatures with
+mean faces (slanted brows, fangs, horns), coloured outlines (darker shade, not pure black); weapon-swing arcs and
+electric/ice FX; UI = parchment/leather book panels with wood frames, no candy greens/pinks.
 OpenArt credits: never spend without asking (always quality "low", check `openart_model_cost` first).
 
 Design reference: `docs/MIND_SUMMONERS.md` (rules, numbers, Wilds, raids, bonding, economy).
@@ -13,7 +17,8 @@ Branch flow: work on `island`, test locally (python no-cache server on web/, por
 ### A. Duel look & feel (code-drawn, landscape)
 - [x] Live-feel rounds engine (secret deploy → 6 s server-simulated battle, timeline playback)
 - [x] Landscape layout (lanes left→right, gates left/right, tray at bottom, "turn your phone" in portrait)
-- [~] Canvas battle renderer: code-drawn landscape island arena (animated water, swaying trees, flowers)
+- [x] Canvas battle renderer web/src/summon/battle.js wired into app.js (units/gates via adapters, lanes = DOM click zones)
+- [~] Restyle to the adult art direction (muted arena, mean creatures, parchment UI)
 - [ ] Code-drawn creatures v2: bigger, nicer pixel art per family/stage, outlines, highlights
 - [ ] Smooth procedural animation: idle breathing, walk bob + squash/stretch, attack wind-up → lunge → recoil,
       hurt flash + knockback, faint (spin/fade + sparkle), summon pop with dust, element-coloured hit particles,

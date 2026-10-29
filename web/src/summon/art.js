@@ -73,7 +73,7 @@ const EYES = {
   ember: [[0.6, 0.4], [0.72, 0.4]], magma: [[0.82, 0.57], [0.9, 0.57]], bubble: [[0.4, 0.5], [0.6, 0.5]], storm: [[0.4, 0.5], [0.6, 0.5]],
   sprout: [[0.42, 0.62], [0.58, 0.62]], bloom: [[0.44, 0.4], [0.56, 0.4]], glow: [[0.42, 0.5], [0.58, 0.5]], shade: [[0.42, 0.48], [0.58, 0.48]],
 };
-const SIZE = [0, 20, 26, 32];
+const SIZE = [0, 24, 30, 36];
 const cache = new Map();
 export function creatureSprite(id, shiny = false) {
   const key = id + (shiny ? '*' : '');
@@ -88,8 +88,14 @@ export function creatureSprite(id, shiny = false) {
         if (q <= 1) { hitShape = sh; d = { dx: dx / sh.rx, dy: dy / sh.ry, q }; }
       }
       if (!hitShape) continue;
-      let l = hitShape.flat ? 0.75 : 0.62 - d.dx * 0.22 - d.dy * 0.34;
-      if (d.q > 0.8 && !hitShape.flat) l -= 0.18;
+      // round 3D shading: a sphere normal lit from the top-left, a soft rim and a bright specular spot
+      let l;
+      if (hitShape.flat) l = 0.78;
+      else {
+        const nz = Math.sqrt(Math.max(0, 1 - d.q)), dot = (-0.45 * d.dx - 0.6 * d.dy + 0.66 * nz);
+        l = 0.18 + 0.72 * Math.max(0, dot) + (d.q > 0.82 ? -0.12 : 0);
+        if (dot > 0.93) l = 1;
+      }
       let col = pick(ramp(hitShape.ramp), l, x, y);
       if (shiny) col = shift(col);
       set(x, y, col);
@@ -100,6 +106,8 @@ export function creatureSprite(id, shiny = false) {
       const eye = c.fam === 'shade' ? '#ff4d7d' : '#1d1b2f';
       set(X, Y, eye); set(X, Y + 1, eye); if (big) { set(X + 1, Y, eye); set(X + 1, Y + 1, eye); }
       set(X, Y, '#ffffff');
+      if (big) { set(X + 1, Y + 2, '#3a3658'); }
+      if (c.fam !== 'shade' && c.fam !== 'magma') { set(X + (X > N / 2 ? 2 : -2), Y + 3, '#ff9bb0'); }  // rosy cheeks
     }
   });
   cache.set(key, out);
@@ -111,10 +119,9 @@ function shift(hex) {
   return '#' + [b, r, g].map(v => v.toString(16).padStart(2, '0')).join('');
 }
 const urls = new Map();
-// the hand-made art (OpenArt, cut out by tools/cut_sprites.py); the code-drawn sprite is the fallback for shinies
+// a data URL of the code-drawn sprite, for cards and lists
 export function creatureImg(id, shiny = false) {
-  if (!shiny && CARD[id]) return `assets/creatures/${id}.webp`;
-  const key = id + '*';
-  if (!urls.has(key)) urls.set(key, creatureSprite(id, true).cv.toDataURL());
+  const key = id + (shiny ? '*' : '');
+  if (!urls.has(key)) urls.set(key, creatureSprite(id, shiny).cv.toDataURL());
   return urls.get(key);
 }
