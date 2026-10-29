@@ -1,8 +1,8 @@
 // Client networking: API calls with the session token, wallet sign-in, live match updates,
 // and a fully local practice match (engine + bot in the browser) for offline / trial play.
 import { SUPABASE } from './config.js';
-import { createMatch, submit, viewFor, forfeitMatch, DECK_IDS } from './summon/match.js';
-import { botAct } from './summon/bot.js';
+import { createMatch, submit, viewFor, forfeitMatch } from './duel/engine.js';
+import { Bot } from './duel/bot.js';
 
 const TOKEN_KEY = 'mindclash.session';
 export const session = {
@@ -61,26 +61,26 @@ export async function watch(topic, onPing) {
 }
 
 // ---------- local match (practice offline / when the server is unreachable) ----------
-const BOT_NOISE = { easy: 4, normal: 1.2, hard: 0.3 };
 export class LocalMatch {
-  constructor({ name, mind, deck, level = 'normal' }) {
-    this.state = createMatch({ seed: (Math.random() * 2 ** 31) | 0, players: [{ name, minds: [mind], deck }, { name: `BOT · ${level}`, minds: randomMinds(), deck: DECK_IDS[(Math.random() * DECK_IDS.length) | 0] }] });
+  constructor({ name, minds, level = 'normal' }) {
+    this.state = createMatch({ seed: (Math.random() * 2 ** 31) | 0, players: [{ name, minds }, { name: `BOT · ${level}`, minds: randomMinds() }] });
+    this.bot = new Bot(level, (Math.random() * 2 ** 31) | 0);
     this.level = level;
     this.id = 'local';
     this.botAct();
   }
   botAct() {
     const s = this.state;
-    if (s.over || s.pending[1]) return;
-    const r = submit(s, 1, botAct(s.g, 1, { noise: BOT_NOISE[this.level] ?? 1.2 }));
-    if (r.error) submit(s, 1, { play: [] });
+    if (s.over || s.p[1].pending) return;
+    const r = submit(s, 1, this.bot.decide(viewFor(s, 1)));
+    if (r.error) submit(s, 1, { card: s.p[1].cards[0] });
   }
   view() {
     return { id: 'local', seat: 0, status: this.state.over ? 'done' : 'live', ranked: false, vsBot: true, botLevel: this.level, local: true,
       deadline: null, winner: this.state.winner, view: viewFor(this.state, 0), delta: 0 };
   }
   async act(action) {
-    const r = submit(this.state, 0, action);
+    const r = submit(this.state, 0, { card: action.card, spell: action.spell ?? null });
     if (r.error) throw new Error(r.error);
     this.botAct();
     return this.view();
@@ -89,4 +89,4 @@ export class LocalMatch {
 }
 let tokenIdsCache = null;
 export function setTokenIds(ids) { tokenIdsCache = ids; }
-function randomMinds() { const ids = tokenIdsCache || [1, 2, 3]; return [ids[(Math.random() * ids.length) | 0]]; }
+function randomMinds() { const ids = tokenIdsCache || [1, 2, 3]; return [0, 1, 2].map(() => ids[(Math.random() * ids.length) | 0]); }
