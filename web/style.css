@@ -446,7 +446,7 @@ img.vi { width: .9em; height: .9em; object-fit: contain; vertical-align: -.1em; 
 p, li, .muted, .fine, .pitch, .coach p, .codex, .modal p, .guest-note { line-height: 1.4; }
 
 /* ---------- windows: pop up over the lobby (or the duel) instead of replacing it ---------- */
-.screen.window { z-index: 30; background: rgba(29, 27, 47, .5); backdrop-filter: blur(3px); }
+.screen.window { z-index: 30; background: rgba(29, 27, 47, .62); }   /* no backdrop blur: it re-blurs the animated stage every frame */
 .screen.window > .page { position: absolute; inset: auto; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(1000px, calc(100% - 28px));
   max-height: calc(100% - 28px); margin: 0; padding: 16px 18px 20px; background: var(--paper-2); overflow: auto; gap: 14px;
   box-shadow: var(--ps), 0 12px 0 0 rgba(29,27,47,.35); animation: winpop .22s cubic-bezier(.3,1.4,.5,1); }
@@ -548,3 +548,6 @@ p, li, .muted, .fine, .pitch, .coach p, .codex, .modal p, .guest-note { line-hei
 .inv-chest { font-size: 54px; } .inv-empty span { color: var(--muted); max-width: 420px; }
 .modal img.inv-big { width: 140px; height: 140px; margin: 0 auto; box-shadow: var(--ps); }
 @media (max-width: 520px) { .inv-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; } .inv-total b { font-size: 28px; } }
+
+/* animated bits run on the GPU (no repaint every frame) */
+.logo img, .pod-crown, .r-crown, .tapstart, .card, .sp, .mode { will-change: transform; }

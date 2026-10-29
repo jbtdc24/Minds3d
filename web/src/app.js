@@ -147,6 +147,14 @@ const totalEnergy = () => myMinds.reduce((s, id) => s + energyOf(id), 0);
 const resetText = () => { const m = Math.max(0, Math.round((energyResetAt - Date.now()) / 60000)); return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`; };
 const BONUS = { Common: 0, Uncommon: 0.05, Rare: 0.10, Epic: 0.15, Legendary: 0.20 };
 const winReward = ids => Math.round(ids.reduce((s, id) => s + 10 * (1 + BONUS[rarityOf(id)]), 0));
+// refresh energy in the background (never block a tap on the server); repaint whatever is open
+function refreshEnergy() {
+  return refreshMe().then(() => {
+    paintHub();
+    if (current === 'inventory') paintInventory();
+    if (current === 'prep' && prep.mode === 'ranked') { prep.minds = prep.minds.filter(id => energyOf(id) > 0); renderPrepGrid(); }   // keeps your picks
+  }).catch(() => {});
+}
 const energyTag = id => { const n = energyOf(id), c = capFor(id); return `<span class="en ${n ? '' : 'none'}" title="Ranked energy left today">⚡${n}/${c}</span>`; };
 const picked = () => { const p = (settings.picks.minds || []).filter(id => myMinds.includes(id)); return p.length ? p : myMinds.slice(0, 3); };
 const showcaseIds = () => { const s = (me?.showcase || []).filter(id => myMinds.includes(id)); return s.length ? s : picked().length ? picked() : [me?.pfp || 49]; };
@@ -180,8 +188,8 @@ async function afterLogin(out) {
     logout(); return startGuest();
   }
   if (out.isNew && !guest) return openSetup();
-  if (!guest && online) await refreshMe().catch(() => {});
   enterHub();
+  if (!guest && online) refreshEnergy();
 }
 async function startGuest() {
   try { afterLogin(await guestLogin()); }
@@ -233,7 +241,7 @@ document.addEventListener('click', e => {
   show(go);
 });
 $('#hub-ranked').onclick = async () => {
-  if (!guest) { if (online) await refreshMe().catch(() => {}); return openPrep('ranked'); }
+  if (!guest) { openPrep('ranked'); if (online) refreshEnergy(); return; }
   const r = await modal(`<img class="wide" src="assets/mode_ranked.webp" alt=""><h3>Ranked is for Mind holders</h3><p>Trial accounts can practice vs bots. Connect a wallet that holds a Mind to play ranked, climb the leaderboard and earn points.</p>`, [['Connect wallet', 1, 'primary'], ['Practice instead', 2], ['Close', 0]]);
   if (r === 1) { logout(); show('login'); } else if (r === 2) openPrep('practice');
 };
@@ -245,9 +253,9 @@ $('#hub-me').onclick = () => openProfile(me.id);
 
 // ---------- inventory: every Mind you own with its own energy, and (soon) items ----------
 let invTab = 'minds';
-async function openInventory() {
-  if (online && !guest) await refreshMe().catch(() => {});
+function openInventory() {
   paintInventory(); show('inventory');
+  if (online && !guest) refreshEnergy();
 }
 function paintInventory() {
   const max = myMinds.reduce((s, id) => s + capFor(id), 0), shown = new Set(me?.showcase || []);
@@ -337,12 +345,15 @@ function openPrep(mode) {
     : mode === 'ranked' ? 'Ranked: rating and points count. No player in 20 s? You play a Hard bot (counts half).' : '';
   $('#prep-level').style.display = mode === 'practice' ? 'inline-flex' : 'none';
   $$('#prep-level button').forEach(b => b.classList.toggle('on', b.dataset.v === prep.level));
-  const ranked = mode === 'ranked';
+  renderPrepGrid();
+  show('prep');
+}
+function renderPrepGrid() {
+  const ranked = prep.mode === 'ranked';
   // ranked: Minds with energy first, empty ones last (they can't be picked until the refill)
   const list = ranked ? [...myMinds].sort((a, b) => (energyOf(b) > 0) - (energyOf(a) > 0)) : myMinds;
   $('#prep-minds').innerHTML = list.map(id => `<div class="mind ${ranked && !energyOf(id) ? 'tired' : ''}" data-id="${id}"><img src="${thumb(id)}" alt="" loading="lazy"><span class="tag" style="background:${RAR_COLOR[rarityOf(id)]}">#${id}</span>${ranked ? energyTag(id) : ''}<span class="order"></span></div>`).join('');
   paintPrep();
-  show('prep');
 }
 function paintPrep() {
   $$('#prep-minds .mind').forEach(m => { const i = prep.minds.indexOf(+m.dataset.id); m.classList.toggle('on', i >= 0); m.querySelector('.order').textContent = i + 1; });

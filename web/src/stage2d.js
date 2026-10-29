@@ -38,13 +38,15 @@ export function setQuality(q) { stage.quality = q; resize(); }
 export const preload = names => names.forEach(n => loadImg(STAGES[n].img));
 
 export function resize() {
-  DPR = Math.min(devicePixelRatio || 1, stage.quality === 'low' ? 1 : 2);
+  DPR = Math.min(devicePixelRatio || 1, stage.quality === 'low' ? 1 : 1.5);   // 1.5 is plenty for pixel art, much cheaper than 2
   W = innerWidth; H = innerHeight;
   canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
   canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
   // a Mind is ~27% of the screen height, but two of them always fit side by side on narrow phones
   stage.K = Math.min(0.27 * H / 2.3, W / 6.6);
+  vignette = null;
 }
+let vignette = null;   // built once per size, not every frame
 addEventListener('resize', resize);
 
 // ---------- camera ----------
@@ -172,9 +174,11 @@ function draw(dt, t) {
   ctx.restore();
   // vignette + flash
   if (stage.quality !== 'low') {
-    const v = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.45, W / 2, H / 2, Math.max(W, H) * 0.75);
-    v.addColorStop(0, 'rgba(29,27,47,0)'); v.addColorStop(1, 'rgba(29,27,47,.28)');
-    ctx.fillStyle = v; ctx.fillRect(-20, -20, W + 40, H + 40);
+    if (!vignette) {
+      vignette = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.45, W / 2, H / 2, Math.max(W, H) * 0.75);
+      vignette.addColorStop(0, 'rgba(29,27,47,0)'); vignette.addColorStop(1, 'rgba(29,27,47,.28)');
+    }
+    ctx.fillStyle = vignette; ctx.fillRect(-20, -20, W + 40, H + 40);
   }
   if (flashA > 0.01) { ctx.globalAlpha = flashA; ctx.fillStyle = flashC; ctx.fillRect(-20, -20, W + 40, H + 40); ctx.globalAlpha = 1; flashA *= Math.pow(0.002, dt); }
 }
