@@ -37,8 +37,7 @@
   the same two players are rated max 3 times per 24 h; matches with fewer than 3 real turns (idle / instant forfeit) give no rating or points.
   Stale or old-version live matches are closed automatically. Ownership checks fall back to the cached chain scan when the RPC is slow.
 
-## Needs doing once
-- Run `supabase/002_social.sql` in Supabase → SQL Editor (friends, messages, showcase, match chat). Until then friends show "being set up" and match chat fails.
+- `supabase/002_social.sql` applied in Supabase (2026-10-29): friends, messages, showcase, match chat live.
 
 ## Next
 - Custom domain `play.minds.games` (CNAME from the domain owner) → then report the Coinbase/Blockaid false positive.
