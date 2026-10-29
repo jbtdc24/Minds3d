@@ -423,15 +423,27 @@ img.vi { width: .9em; height: .9em; object-fit: contain; vertical-align: -.1em; 
   .plate .pfp { display: none; } .plate { padding: 4px 6px; } .pts span { display: none; }
 }
 
-/* ---------- pixel font for titles, buttons, numbers ---------- */
-.logo, h2, h3, .btn, .seg button, .tag, .mode-txt b, .label, .pts b, .card b, .card::before, .card::after, .rc-face b, .crownbox b, .crownsleft i,
-.minis i, .timer span, .roundlbl, #banner .bt, .pop, .rv-who, .r-stats b, .result .big, .pf-name, .pf-stats b, .pod-base, .brow .rk, .lb .rank,
-.sp b, .rv-msg, .me b, .coach b, .badge, .order, .sp .lim, .ri-lock, .live, .board-tab span, .waiting, .potline, .r-score, #banner small, .duel-hint, .pod-vl, .brow .vl {
-  font-family: var(--pix); font-weight: 600; letter-spacing: .01em; }
-h2, h3, .logo, .btn.big, .mode-txt b, #banner .bt, .result .big { font-weight: 700; }
-.mode-txt span, .tagline, .pitch, .fine, .guest-note, .coach p, .codex, .modal p, .muted, .row { font-family: var(--font); }
+/* ---------- fonts: pixel only for the logo, big titles and big numbers; everything you read is Nunito ---------- */
+.logo, h2, h3, .mode-txt b, #banner .bt, .result .big, .card b, .rc-face b, .crownbox b, .pod-base, .pf-name, .roundlbl, .timer span, .pop {
+  font-family: var(--pix); font-weight: 700; letter-spacing: .01em; }
+.btn, .seg button, .tag, .label, .rv-msg, .duel-hint, .waiting, .potline, .sp b, .me b, .coach b, .rv-who, .r-stats b, .pf-stats b, .pts b,
+.brow .rk, .lb .rank, .pod-vl, .brow .vl, .live, .badge, .order, .sp .lim, .ri-lock, .board-tab span, .r-score, #banner small, .crownsleft i, .minis i,
+.card::before, .card::after, .nametag, .bubble, .phrases button, .msg, .frow .fn {
+  font-family: var(--font); font-weight: 800; letter-spacing: 0; }
+.btn.big, .btn.primary, .tag, .label, .rv-who, .pts b, .r-stats b, .pf-stats b, .sp b { font-weight: 900; }
+.label { letter-spacing: .04em; font-size: 15px; }
+.tag { letter-spacing: .04em; }
 .mode-txt span { font-size: 14px; font-weight: 800; }
-.label { letter-spacing: .04em; }
+.mode.wide-mode { min-height: 86px; }
+.col-play { overflow-x: hidden; gap: 12px; scrollbar-width: thin; }
+.mode.big { min-height: 128px; } .mode { min-height: 82px; } .mode.soon { min-height: 66px; }
+@media (max-height: 760px) and (min-width: 901px) {
+  .hub-logo { font-size: 44px; } .mode.big { min-height: 108px; } .mode.wide-mode { min-height: 72px; } .mode { min-height: 70px; } .mode.soon { min-height: 56px; }
+  .mode.big .mode-txt b { font-size: 30px; } .guest-note { font-size: 13px; padding: 7px 9px; }
+}
+.prep-note { margin: 4px 0 0; padding: 8px 10px; background: #eef9ff; border-left: 5px solid var(--sky); font-size: 15px; }
+.prep-note:empty { display: none; }
+p, li, .muted, .fine, .pitch, .coach p, .codex, .modal p, .guest-note { line-height: 1.4; }
 
 /* ---------- windows: pop up over the lobby (or the duel) instead of replacing it ---------- */
 .screen.window { z-index: 30; background: rgba(29, 27, 47, .5); backdrop-filter: blur(3px); }

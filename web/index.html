@@ -76,6 +76,10 @@
         <div class="mode-txt"><b>Ranked Duel</b><span id="hub-ranked-sub">1v1 vs real players</span></div>
         <em class="tag lime" id="hub-ranked-tag">PLAY</em>
       </button>
+      <button class="mode px wide-mode" id="hub-classic" style="--bg:url(assets/arena_day.webp)">
+        <div class="mode-txt"><b>Classic</b><span>Everyone plays · with or without Minds</span></div>
+        <em class="tag sky">OPEN</em>
+      </button>
       <div class="mode-row">
         <button class="mode px" id="hub-practice" style="--bg:url(assets/mode_practice.webp)">
           <div class="mode-txt"><b>Practice</b><span>vs bot</span></div>
@@ -92,7 +96,7 @@
           <div class="mode-txt"><b>Auto Battle</b><span>Coming soon</span></div>
         </button>
       </div>
-      <div class="guest-note px" id="guest-note">Trial mode: demo Minds, not on the leaderboard. <a href="#" id="guest-connect">Connect a wallet</a> to play ranked with your own Minds.</div>
+      <div class="guest-note px" id="guest-note">Trial mode: play <b>Classic</b> with everyone and <b>Practice</b> vs bots using demo Minds. <a href="#" id="guest-connect">Connect a wallet</a> to play ranked with your own Minds.</div>
     </div>
     <button class="board-tab px" id="board-tab" title="Show leaderboard"><img src="assets/icon_trophy.png" alt=""><span>TOP</span><div class="tab-pfps" id="board-tab-pfps"></div><b>‹</b></button>
     <div class="col-board panel px" id="board">
@@ -113,6 +117,7 @@
     <div class="panel px">
       <div class="label">Pick your Minds <span class="muted" id="prep-mind-count"></span></div>
       <p class="muted">Bring 1 to 3. They take turns, one per round. Every Mind plays the same, so pick your favourites.</p>
+      <p class="prep-note" id="prep-note"></p>
       <div class="mindgrid big" id="prep-minds"></div>
     </div>
     <div class="prep-foot">

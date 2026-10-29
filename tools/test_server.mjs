@@ -132,6 +132,24 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   const v = await getView(cm.id, C.id);
   ok(Array.isArray(v.chat) && v.chat.length >= 1, 'chat is part of the match view');
 }
+// ---- classic pool: trial + holder accounts together, unrated; same connection never paired ----
+{
+  const { tryPair } = await import('../lib/matchmaking.js');
+  db.rpc = async (fn, a) => {
+    if (fn !== 'claim_opponent') return true;
+    const i = T.queue.findIndex(q => q.player_id !== a.me && !q.match_id && q.is_guest === a.my_guest && Math.abs(q.rating - a.my_rating) <= a.max_gap);
+    return i < 0 ? [] : T.queue.splice(i, 1);
+  };
+  const G1 = await db.insert('players', { name: 'Trial1', name_key: 'trial1', is_guest: true });
+  const G2 = await db.insert('players', { name: 'Trial2', name_key: 'trial2', is_guest: true });
+  T.queue.push({ player_id: G1.id, rating: 1000, is_guest: true, minds: [49], loadout: ['ip:aaa'], joined_at: new Date().toISOString(), match_id: null });
+  ok(await tryPair(G2, { minds: [14] }, 150, 'ip:aaa', true) === null && T.queue.length === 1, 'same connection is never paired (put back in queue)');
+  ok(await tryPair(G2, { minds: [14] }, 150, 'ip:bbb', false) === null, 'ranked search never takes a classic player');
+  const id = await tryPair(G2, { minds: [14] }, 150, 'ip:bbb', true);
+  const cm = T.matches.find(x => x.id === id);
+  ok(cm && cm.ranked === false && cm.p0 === G1.id && cm.p1 === G2.id, 'classic pairs two players, unrated');
+  ok(T.queue.find(q => q.player_id === G1.id)?.match_id === id, 'waiting classic player is told the match');
+}
 console.log(`
 ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

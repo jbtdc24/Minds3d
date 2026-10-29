@@ -225,6 +225,7 @@ $('#hub-ranked').onclick = async () => {
   if (r === 1) { logout(); show('login'); } else if (r === 2) openPrep('practice');
 };
 $('#hub-practice').onclick = () => openPrep('practice');
+$('#hub-classic').onclick = () => openPrep('classic');
 $('#hub-learn').onclick = () => startTutorial();
 $('#hub-tutorial').onclick = () => startTutorial();
 $('#hub-me').onclick = () => openProfile(me.id);
@@ -272,8 +273,10 @@ function openPrep(mode) {
   prep.mode = mode;
   prep.minds = picked().slice(0, 3);
   prep.level = settings.picks.level || 'normal';
-  $('#prep-title').textContent = mode === 'ranked' ? 'Ranked Duel' : 'Practice vs bot';
-  $('#prep-go').textContent = mode === 'ranked' ? 'Find match' : 'Start practice';
+  $('#prep-title').textContent = { ranked: 'Ranked Duel', classic: 'Classic Duel', practice: 'Practice vs bot' }[mode];
+  $('#prep-go').textContent = mode === 'practice' ? 'Start practice' : 'Find match';
+  $('#prep-note').textContent = mode === 'classic' ? 'Classic: real players, with or without Minds. Just for fun: no rating or points. No player in 20 s? You play a bot.'
+    : mode === 'ranked' ? 'Ranked: rating and points count. No player in 20 s? You play a Hard bot (counts half).' : '';
   $('#prep-level').style.display = mode === 'practice' ? 'inline-flex' : 'none';
   $$('#prep-level button').forEach(b => b.classList.toggle('on', b.dataset.v === prep.level));
   $('#prep-minds').innerHTML = myMinds.map(id => `<div class="mind" data-id="${id}"><img src="${thumb(id)}" alt="" loading="lazy"><span class="tag" style="background:${RAR_COLOR[rarityOf(id)]}">#${id}</span><span class="order"></span></div>`).join('');
@@ -298,7 +301,7 @@ $('#prep-go').onclick = async () => {
   if (!online) return startDuel(new LocalMatch({ name: me.name, minds: prep.minds, level: prep.mode === 'practice' ? prep.level : 'normal' }));
   const b = $('#prep-go'); b.disabled = true;
   try {
-    const r = await api('queue/join', { minds: prep.minds, ...(prep.mode === 'practice' ? { bot: prep.level } : {}) });
+    const r = await api('queue/join', { minds: prep.minds, ...(prep.mode === 'practice' ? { bot: prep.level } : prep.mode === 'classic' ? { mode: 'classic' } : {}) });
     if (r.match) return openMatch(r.match);
     queueLoop();
   } catch (e) { toast(e.message, true); }
@@ -309,7 +312,7 @@ $('#prep-go').onclick = async () => {
 let queueTimer = null;
 function queueLoop() {
   $('#queue-pfp').src = thumb(prep.minds[0]);
-  $('#queue-msg').textContent = 'Searching players near your rating';
+  $('#queue-msg').textContent = prep.mode === 'classic' ? 'Searching for any player' : 'Searching players near your rating';
   show('queue');
   const tick = async () => {
     try {
@@ -683,9 +686,10 @@ async function finish(v) {
   $('#r-stats').innerHTML = [
     [v.ranked ? `${d > 0 ? '+' : ''}${d}` : '—', 'Rating', d > 0 ? 'up' : d < 0 ? 'down' : ''],
     [v.vsBot ? 'BOT' : 'Player', v.vsBot ? `Rival · ${v.botLevel}` : 'Rival', ''],
-    [v.ranked ? 'Ranked' : 'Practice', 'Mode', ''],
+    [v.ranked ? 'Ranked' : v.vsBot ? 'Practice' : 'Classic', 'Mode', ''],
   ].map(([b, s, c]) => `<div><b class="${c}">${esc(b)}</b><span>${s}</span></div>`).join('');
-  $('#r-again').onclick = () => openPrep(D?.local || !v.ranked ? 'practice' : 'ranked');
+  const again = v.ranked ? 'ranked' : prep.mode === 'classic' && !D?.local ? 'classic' : 'practice';
+  $('#r-again').onclick = () => openPrep(again);
   show('result');
   if (online && session.token) refreshMe().catch(() => {});
 }
