@@ -94,10 +94,11 @@ export class Fighter {
   dropIn(delay = 0) { this.drop = 0.7 + delay; }
   update(dt, t) {
     const ph = t * 4.2 + this.side * 1.3 + this.home.x, bob = Math.abs(Math.sin(ph));
+    // standing still = exactly the NFT's own shape (limbs straight, only a gentle bob); moves bend them
     const pose = {
-      go: 0, back: 0, y: bob * 0.035, lean: 0.05, head: Math.sin(t * 2.1 + this.home.x) * 0.06, sq: 1 - bob * 0.03,
-      armF: 0.28 + Math.sin(ph) * 0.1, armB: 0.18 - Math.sin(ph) * 0.1, armFx: 0, item: 0.2,
-      legF: 0.18, legB: -0.18, legFy: 0, roll: 0, run: 0,
+      go: 0, back: 0, y: bob * 0.03, lean: 0, head: Math.sin(t * 2.1 + this.home.x) * 0.03, sq: 1 - bob * 0.02,
+      armF: Math.sin(ph) * 0.03, armB: -Math.sin(ph) * 0.03, armFx: 0, item: 0.2,
+      legF: 0, legB: 0, legFy: 0, roll: 0, run: 0,
     };
     if (this.drop > 0) {
       this.drop = Math.max(0, this.drop - dt);
