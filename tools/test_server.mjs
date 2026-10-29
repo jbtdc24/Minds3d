@@ -7,7 +7,7 @@ const { privateKeyToAccount } = await import('viem/accounts');
 import { randomUUID } from 'node:crypto';
 
 // ---- tiny PostgREST-ish in-memory db ----
-const T = { players: [], matches: [], queue: [], nonces: [], ratelimit: [], mind_energy: [] };
+const T = { players: [], matches: [], queue: [], nonces: [], ratelimit: [], mind_energy: [], islands: [] };
 function parse(q) {
   const f = [];
   for (const part of q.split('&').filter(Boolean)) {
@@ -174,6 +174,54 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   ok((await energyLeft([1]))[1] === 3, 'energy refills on a new UTC day');
   ok(winPoints(['Common'], false) === 10 && winPoints(['Common', 'Common', 'Legendary'], false) === 32 && winPoints(['Common', 'Common'], true) === 10, 'win points are paid per Mind brought (bots half)');
   db.rpc = prevRpc;
+}
+
+// ---- Mind Island ----
+{
+  const { gen, COVER, TW } = await import('../web/src/island/gen.js');
+  const R = await import('../web/src/island/rules.js');
+  const islandRoute = (await import('../lib/routes/island.js')).default;
+  const call = async (pid, body) => {
+    const token = signSession({ id: pid, address: null, is_guest: true });
+    const req = { method: 'POST', url: '/api/island', headers: { authorization: 'Bearer ' + token }, body, query: {} };
+    let out = null;
+    const res = { setHeader() {}, end(t) { out = { code: this.statusCode, body: JSON.parse(t) }; }, headersSent: false };
+    await islandRoute(req, res);
+    return out;
+  };
+  const w = gen(12345);
+  ok(w.land.some(Boolean) && w.cover.some(c => c === COVER.TREE) && w.starter.length === 6, 'island has land, trees and 6 starter plots');
+  ok(gen(12345).cover.join() === w.cover.join(), 'same seed, same island');
+  const now = Date.now(), st = R.newIsland(12345, now);
+  const weed = [...w.cover.keys()].find(k => w.cover[k] === COVER.WEEDS && !st.tiles[k]);
+  let r = R.act(st, { type: 'clear', tiles: [weed] }, { seed: 12345, now, minds: 0 });
+  ok(r.done === 1 && st.dust === 101 && st.tiles[weed].s === 'c', 'clearing weeds gives 1 Dust');
+  r = R.act(st, { type: 'till', tiles: [weed] }, { seed: 12345, now, minds: 0 });
+  ok(r.error && /plots/i.test(r.error), 'starter island is at its 6 plot limit');
+  r = R.act(st, { type: 'till', tiles: [weed] }, { seed: 12345, now, minds: 2 });
+  ok(r.done === 1 && st.dust === 91, 'owning Minds gives more plots; a plot costs 10 Dust');
+  const plot = w.starter[0];
+  r = R.act(st, { type: 'plant', tiles: [plot], crop: 'bean' }, { seed: 12345, now, minds: 0 });
+  ok(r.done === 1 && st.inv.seed_bean === 5, 'planting uses a seed');
+  r = R.act(st, { type: 'harvest', tiles: [plot] }, { seed: 12345, now: now + 60e3, minds: 0 });
+  ok(r.done === 0, 'cannot harvest before it is ripe');
+  r = R.act(st, { type: 'harvest', tiles: [plot] }, { seed: 12345, now: now + 31 * 60e3, minds: 0 });
+  ok(r.done === 1 && st.inv.crop_bean === 1, 'harvest after 30 min');
+  r = R.act(st, { type: 'sell', item: 'crop_bean', n: 5 }, { seed: 12345, now, minds: 0 });
+  ok(r.done === 1 && st.dust === 106 && !st.inv.crop_bean, 'sell crops for Dust (only what you have)');
+  R.normalize(st, 12345, now + 40 * 3600e3);
+  ok(!st.tiles[weed] || st.tiles[weed].s !== 'c', 'weeds grow back on ground left alone');
+  r = R.act(st, { type: 'buy', item: 'seed_star', n: 5 }, { seed: 12345, now, minds: 0 });
+  ok(r.error, 'cannot buy what you cannot afford');
+  // server route: guest gets an island, actions are saved, no leaderboard points for guests
+  const g = await db.insert('players', { name: 'IslandGuest', is_guest: true });
+  let out = await call(g.id, {});
+  ok(out.code === 200 && out.body.island.state.dust === 100, 'route creates a new island');
+  const gw = gen(out.body.island.seed), gweed = [...gw.cover.keys()].find(k => gw.cover[k] === COVER.WEEDS);
+  out = await call(g.id, { acts: [{ type: 'clear', tiles: [gweed] }, { type: 'buy', item: 'seed_bean', n: 2 }] });
+  ok(out.body.island.state.dust === 91 && out.body.island.state.inv.seed_bean === 8 && out.body.island.rev === 1, 'route applies and saves actions');
+  out = await call(g.id, { acts: [{ type: 'sell', item: 'seed_bean', n: 1 }] });
+  ok(out.body.results[0].error && out.body.points === 0, 'seeds cannot be sold; guests earn no points');
 }
 console.log(`
 ${pass} passed, ${fail} failed`);

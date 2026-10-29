@@ -1,8 +1,8 @@
-// Every island picture is drawn by code: the ground (water, foam, sand, cliffs, grass, paths, a pond),
-// and the props (trees, bushes, rocks, house, Energy Well, fences, crops). A seed makes each island different.
+// Every island picture is drawn by code: the ground (water, foam, sand, cliffs, grass, paths, pond, dock)
+// and the props (trees, weeds, bushes, rocks, house, Energy Well, crops). The island's shape comes from gen.js.
 import { rng, makeNoise, fbm, bayer, pick, rgba, sprite, toCanvas } from './pixel.js';
-
-export const WW = 480, WH = 360;   // world size in island pixels
+import { gen, T, TW, TH, WW, WH } from './gen.js';
+export { WW, WH };
 
 const C = {
   deep: '#3b86d1', water: '#4fb0ec', shallow: '#86d8f7', foam: '#f2fdff',
@@ -150,18 +150,8 @@ function well() {
     }
   });
 }
-const fenceH = () => sprite(14, 10, set => {
-  for (let y = 0; y < 10; y++) for (let x = 0; x < 3; x++) set(x, y, R.wood[x === 0 ? 3 : x === 2 ? 0 : 2]);
-  for (const ry of [3, 6]) for (let x = 3; x < 14; x++) { set(x, ry, R.wood[2]); set(x, ry + 1, R.wood[0]); }
-});
-const fencePost = () => sprite(3, 10, set => { for (let y = 0; y < 10; y++) for (let x = 0; x < 3; x++) set(x, y, R.wood[x === 0 ? 3 : x === 2 ? 0 : 2]); });
-const fenceV = () => sprite(3, 9, set => {
-  for (let y = 0; y < 9; y++) set(1, y, R.wood[1]);
-  for (let y = 3; y < 9; y++) for (let x = 0; x < 3; x++) set(x, y, R.wood[x === 0 ? 3 : x === 2 ? 0 : 2]);
-});
 // crops: 4 kinds, growth stages 1..3 (stage 0 = seeds in the soil)
-export const CROPS = ['bean', 'carrot', 'melon', 'star'];
-function crop(kind, stage) {
+export function crop(kind, stage) {
   const G = ['#2d6a2f', '#3f8d38', '#58b046', '#8fd65a'];
   return sprite(12, 14, set => {
     const leaf = (x, y, c = G[2]) => set(x, y, c);
@@ -198,48 +188,54 @@ export const heart = sprite(7, 6, set => {
   rows.forEach((r, y) => [...r].forEach((c, x) => c === '#' && set(x, y, x + y < 3 ? '#ffd0e4' : '#ff4d7d')));
 });
 
-// ---------- the island ----------
-export function generateWorld(seed) {
-  const r = rng(seed), n1 = makeNoise(seed), n2 = makeNoise(seed + 17), n3 = makeNoise(seed + 99);
-  const cx = WW / 2, cy = WH / 2 + 4, rx = 192, ry = 134;
-  const pond = { x: cx + 70 + (r() - 0.5) * 30, y: cy + 52 + (r() - 0.5) * 16, r: 15 + r() * 4 };
+
+// tall wild grass that covers unworked land (and grows back)
+function weeds(seed) {
+  const r = rng(seed), G = ['#2f7a2c', '#3f8d38', '#58b046', '#7fcf55', '#a6e36a'];
+  return sprite(16, 13, set => {
+    for (let b = 0; b < 11; b++) {
+      const x0 = 1 + r() * 13, hgt = 5 + r() * 7, lean = (r() - 0.5) * 0.8, shade = 1 + Math.floor(r() * 4);
+      for (let y = 0; y < hgt; y++) {
+        const x = x0 + lean * y;
+        set(x, 12 - y, G[Math.max(0, Math.min(4, shade + (y > hgt - 3 ? 1 : 0) - (y < 2 ? 1 : 0)))]);
+        if (y < hgt * 0.5) set(x + 1, 12 - y, G[Math.max(0, shade - 1)]);
+      }
+    }
+    if (r() < 0.35) { const x = 3 + Math.round(r() * 9), y = 3 + Math.round(r() * 3), c = FLOWERS[Math.floor(r() * FLOWERS.length)]; set(x, y, c); set(x + 1, y, c); set(x, y - 1, c); }
+  }, '#24502a');
+}
+// a few sprouts: weeds are on their way back
+export const sprouts = sprite(12, 5, set => {
+  for (const [x, h] of [[1, 3], [4, 4], [7, 2], [10, 3]]) for (let y = 0; y < h; y++) set(x + (y === h - 1 ? 1 : 0), 4 - y, y === h - 1 ? '#7fcf55' : '#3f8d38');
+}, null);
+
+// sprites are made once and reused (a few look-alike variants per kind)
+const cache = new Map();
+const once = (key, make) => cache.get(key) || (cache.set(key, make()), cache.get(key));
+export const sprites = {
+  tree: (kind, v) => once(`t${kind}${v}`, () => kind === 'pine' ? pineTree(911 + v * 131) : blobTree(37 + v * 977, R[kind] || R.leaf, { fruit: kind === 'leaf' && v === 1 })),
+  weeds: v => once(`w${v}`, () => weeds(501 + v * 313)),
+  bush: v => once(`b${v}`, () => bush(71 + v * 59)),
+  rock: v => once(`r${v}`, () => rock(13 + v * 41)),
+  house: (seed, night) => once(`h${seed}${night}`, () => house(seed, night)),
+  well: () => once('well', well),
+  crop: (kind, stage) => once(`c${kind}${stage}`, () => crop(kind, stage)),
+};
+export const SOIL = { base: C.soil, light: C.soilL, dark: C.soilD, wet: '#5e3a22' };
+
+// ---------- the ground (drawn once per island) ----------
+const groundCache = new Map();
+export function groundFor(seed) {
+  if (groundCache.has(seed)) return groundCache.get(seed);
+  const w = gen(seed), r = rng(seed + 1), n1 = makeNoise(seed + 11), n2 = makeNoise(seed + 17), n3 = makeNoise(seed + 99);
   const N = WW * WH, h = new Float32Array(N), cls = new Uint8Array(N);   // 0 deep 1 water 2 shallow 3 sand 4 grass 5 pond
   for (let y = 0; y < WH; y++) for (let x = 0; x < WW; x++) {
-    const nx = (x - cx) / rx, ny = (y - cy) / ry, k = y * WW + x;
-    let v = 1 - Math.hypot(nx, ny) + (fbm(n1, x / 48, y / 48) - 0.5) * 0.55;
+    const k = y * WW + x, v = w.height(x, y);
     h[k] = v;
-    cls[k] = v < -0.1 ? 0 : v < 0 ? 1 : v < 0.05 ? 2 : v < 0.13 ? 3 : 4;
-    if (cls[k] === 4 && Math.hypot(x - pond.x, (y - pond.y) * 1.3) < pond.r) cls[k] = 5;
+    cls[k] = v < -0.1 ? 0 : v < 0 ? 1 : v < 0.05 ? 2 : v < 0.15 ? 3 : w.inPond(x, y) ? 5 : 4;
   }
   const at = (x, y) => (x < 0 || y < 0 || x >= WW || y >= WH) ? 0 : cls[y * WW + x];
-
-  // layout: house, farm, Energy Well, dock; everything else avoids these spots
-  const house0 = { x: Math.round(cx - 52 + (r() - 0.5) * 16), y: Math.round(cy - 18 + (r() - 0.5) * 10) };
-  const farm = { x: Math.round(cx + 6), y: Math.round(cy - 50), cols: 3, rows: 2, pw: 18, ph: 13, gap: 4 };
-  farm.w = farm.cols * farm.pw + (farm.cols - 1) * farm.gap; farm.h = farm.rows * farm.ph + (farm.rows - 1) * farm.gap;
-  const wellAt = { x: Math.round(cx - 18), y: Math.round(cy + 40) };
-  let shoreY = cy + 40, dockX = Math.round(cx - 6);
-  while (shoreY < WH - 1 && at(dockX, shoreY) >= 3) shoreY++;
-  const gate = { x: farm.x + farm.w / 2, y: farm.y + farm.h + 8 };
-  const door = { x: house0.x, y: house0.y + 2 };
-  const pathPts = [[door.x, door.y], [door.x + 4, door.y + 22], [wellAt.x + 14, wellAt.y + 4], [dockX, shoreY - 6]];
-  const pathPts2 = [[door.x + 4, door.y + 22], [gate.x - 20, gate.y + 14], [gate.x, gate.y]];
-  const reserved = [
-    { x: house0.x, y: house0.y - 6, r: 42 }, { x: wellAt.x, y: wellAt.y - 8, r: 18 },
-    { x: farm.x + farm.w / 2, y: farm.y + farm.h / 2, r: Math.max(farm.w, farm.h) / 2 + 16 },
-    { x: pond.x, y: pond.y, r: pond.r * 1.7 }, { x: dockX, y: shoreY, r: 14 },
-  ];
-  const segs = [];
-  for (const pts of [pathPts, pathPts2]) for (let i = 1; i < pts.length; i++) segs.push([pts[i - 1], pts[i]]);
-  const nearPath = (x, y, d) => segs.some(([a, b]) => {
-    const vx = b[0] - a[0], vy = b[1] - a[1], t = Math.max(0, Math.min(1, ((x - a[0]) * vx + (y - a[1]) * vy) / (vx * vx + vy * vy)));
-    return Math.hypot(x - a[0] - vx * t, y - a[1] - vy * t) < d;
-  });
-  const free = (x, y, pad = 0) => !reserved.some(z => Math.hypot(x - z.x, y - z.y) < z.r + pad) && !nearPath(x, y, 7 + pad);
-
-  // paint the ground pixel by pixel
-  const px = new Uint32Array(N), fa = new Uint32Array(N), fb = new Uint32Array(N);
-  const foam = rgba(C.foam);
+  const px = new Uint32Array(N), fa = new Uint32Array(N), fb = new Uint32Array(N), foam = rgba(C.foam);
   for (let y = 0; y < WH; y++) for (let x = 0; x < WW; x++) {
     const k = y * WW + x, c = cls[k], v = h[k], d = bayer(x, y);
     let col;
@@ -248,7 +244,7 @@ export function generateWorld(seed) {
     else if (c === 2) col = n3(x / 5, y / 3) + d * 0.3 > 1.05 ? C.foam : C.shallow;
     else if (c === 3) {
       let up = 0;
-      for (let j = 1; j <= 4; j++) if (at(x, y - j) === 4 || at(x, y - j) === 5) { up = j; break; }
+      for (let j = 1; j <= 4; j++) if (at(x, y - j) >= 4) { up = j; break; }
       if (up) col = up === 1 ? C.cliffL : up <= 3 ? (x % 5 === 0 && up === 2 ? C.cliffD : C.cliff) : C.cliffD;
       else if (v < 0.07) col = C.sandWet;
       else { const s = n3(x / 6, y / 6) + d * 0.3; col = s > 0.92 ? C.sandL : s < 0.42 ? C.sandD : C.sand; }
@@ -258,7 +254,7 @@ export function generateWorld(seed) {
       col = up ? (up === 1 ? C.cliffL : C.cliff) : fbm(n2, x / 10, y / 5, 2) + d * 0.2 > 0.7 ? C.shallow : C.water;
     } else {
       const below = at(x, y + 1);
-      if (below !== 4 && below !== 5) col = C.lip;
+      if (below < 4) col = C.lip;
       else { const g = fbm(n2, x / 24, y / 24, 3) + (n3(x / 4, y / 4) - 0.5) * 0.25 + (d - 0.5) * 0.18; col = g < 0.38 ? C.grassD : g > 0.62 ? C.grassL : C.grass; }
     }
     px[k] = rgba(col);
@@ -266,99 +262,62 @@ export function generateWorld(seed) {
     if (c === 1 && v > -0.025) fb[k] = foam;
   }
   const put = (x, y, col) => { x = Math.floor(x); y = Math.floor(y); if (x >= 0 && y >= 0 && x < WW && y < WH) px[y * WW + x] = rgba(col); };
-
-  // dirt paths
-  for (const [a, b] of segs) {
-    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
-    for (let s = 0; s <= len; s += 1) {
-      const qx = a[0] + (b[0] - a[0]) * s / len, qy = a[1] + (b[1] - a[1]) * s / len;
-      for (let y = -5; y <= 5; y++) for (let x = -5; x <= 5; x++) {
-        const X = Math.round(qx + x), Y = Math.round(qy + y), cc = at(X, Y);
-        if (cc !== 4 && cc !== 3) continue;
-        const dd = Math.hypot(x, y), lim = 3.6 + (n3(X / 3, Y / 3) - 0.5) * 2;
-        if (dd > lim) continue;
-        put(X, Y, dd > lim - 0.9 ? C.pathD : n1(X / 2, Y / 2) + bayer(X, Y) * 0.3 > 0.95 ? C.pathL : C.path);
-      }
-    }
-  }
-  // farm soil
-  const plots = [];
-  for (let j = 0; j < farm.rows; j++) for (let i = 0; i < farm.cols; i++) {
-    const X = farm.x + i * (farm.pw + farm.gap), Y = farm.y + j * (farm.ph + farm.gap);
-    for (let y = 0; y < farm.ph; y++) for (let x = 0; x < farm.pw; x++) {
-      const edge = x === 0 || y === 0 || x === farm.pw - 1 || y === farm.ph - 1;
-      put(X + x, Y + y, edge ? C.soilD : y % 3 === 1 ? C.soilD : y % 3 === 0 && x > 1 ? C.soilL : C.soil);
-    }
-    const kind = CROPS[(i + j * farm.cols + Math.floor(r() * 4)) % 4], stage = (i + j * 2) % 4;
-    if (stage === 0) for (let s = 0; s < 6; s++) put(X + 3 + s * 2.4, Y + 4 + (s % 2) * 4, '#f3dc9e');
-    plots.push({ x: X, y: Y, w: farm.pw, h: farm.ph, kind, stage });
-  }
-  // flowers and grass tufts
+  // grass tufts and flowers (decoration only)
   const flowerSpots = [];
-  for (let i = 0; i < 900; i++) {
+  for (let i = 0; i < 2600; i++) {
     const x = Math.floor(r() * WW), y = Math.floor(r() * WH);
-    if (at(x, y) !== 4 || at(x, y + 2) !== 4 || !free(x, y, -6)) continue;
-    if (n2(x / 30, y / 30) > 0.55 && flowerSpots.length < 160) {
+    if (at(x, y) !== 4 || at(x, y + 2) !== 4) continue;
+    if (n2(x / 30, y / 30) > 0.58 && flowerSpots.length < 260) {
       const col = FLOWERS[Math.floor(n3(x / 40, y / 40) * FLOWERS.length * 1.5) % FLOWERS.length];
       put(x, y + 1, C.tuft); put(x, y, col); put(x - 1, y, col); put(x + 1, y, col); put(x, y - 1, col); put(x, y, '#ffe27a');
       flowerSpots.push({ x, y });
     } else if (i % 2) { put(x, y, C.tuft); put(x - 1, y - 1, C.tuft); put(x + 1, y - 1, C.tuft); put(x + 1, y - 2, C.grassL); }
   }
-  // dock (over the water)
-  for (let y = shoreY - 6; y < shoreY + 26; y++) for (let x = dockX - 6; x <= dockX + 6; x++) {
-    const ey = y - (shoreY - 6), edge = x === dockX - 6 || x === dockX + 6;
-    put(x, y, edge ? R.wood[0] : ey % 4 === 3 ? R.wood[0] : x === dockX - 5 ? R.wood[3] : R.wood[2]);
-  }
-  for (const x of [dockX - 6, dockX + 5]) for (let y = shoreY + 26; y < shoreY + 29; y++) { put(x, y, R.wood[0]); put(x + 1, y, R.wood[0]); }
-  for (let x = dockX - 7; x <= dockX + 7; x++) put(x, shoreY + 26, '#2f6fb0');
-
-  // props
-  const props = [], obstacles = [];
-  const add = (spr, x, y, kind, rad = 0, extra = {}) => {
-    props.push({ spr, x: Math.round(x), y: Math.round(y), kind, ...extra });
-    if (rad) obstacles.push({ x, y: y - 2, r: rad });
-  };
-  const homeSpr = house(seed, false), homeNight = house(seed, true);
-  add(homeSpr, house0.x, house0.y, 'house', 0, { night: homeNight, chimney: { x: house0.x + 12, y: house0.y - 46 } });
-  obstacles.push({ x: house0.x - 12, y: house0.y - 6, r: 13 }, { x: house0.x + 12, y: house0.y - 6, r: 13 });
-  add(well(), wellAt.x, wellAt.y, 'well', 11);
-  const H1 = fenceH(), P1 = fencePost(), V1 = fenceV();
-  const fx0 = farm.x - 6, fx1 = farm.x + farm.w + 5, fy0 = farm.y - 4, fy1 = farm.y + farm.h + 6;
-  for (let x = fx0; x < fx1; x += 14) { add(H1, x + 7, fy0, 'fence', 4); if (Math.abs(x + 7 - gate.x) > 12) add(H1, x + 7, fy1, 'fence', 4); }
-  add(P1, fx1 + 1, fy0, 'fence', 3); add(P1, fx1 + 1, fy1, 'fence', 3);
-  for (let y = fy0 + 8; y < fy1; y += 8) { add(V1, fx0, y, 'fence', 3); add(V1, fx1 + 1, y, 'fence', 3); }
-  const CS = {};
-  for (const p of plots) if (p.stage) add(CS[p.kind + p.stage] ||= crop(p.kind, p.stage), p.x + p.w / 2, p.y + p.h - 1, 'crop', 0, { plot: p });
-
-  const spots = [];
-  const tryPlace = (n, minD, make) => {
-    for (let i = 0, made = 0; i < n * 30 && made < n; i++) {
-      const x = 8 + r() * (WW - 16), y = 8 + r() * (WH - 16);
-      if (at(Math.round(x), Math.round(y)) !== 4 || at(Math.round(x), Math.round(y) + 3) !== 4 || !free(x, y, 4)) continue;
-      if (spots.some(s => Math.hypot(s.x - x, (s.y - y) * 1.3) < Math.max(s.d, minD))) continue;
-      if (make(x, y) === false) continue;
-      spots.push({ x, y, d: minD }); made++;
+  // dirt paths on their tiles, with soft ragged edges
+  const pathSet = new Set(w.path);
+  const isPath = (tx, ty) => pathSet.has(ty * TW + tx);
+  for (const k of w.path) {
+    const tx = k % TW, ty = (k / TW) | 0;
+    for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
+      const X = tx * T + x, Y = ty * T + y;
+      if (at(X, Y) < 3) continue;
+      const wob = (n3(X / 3, Y / 3) - 0.5) * 3;
+      const dL = isPath(tx - 1, ty) ? 9 : x - 2 + wob, dR = isPath(tx + 1, ty) ? 9 : T - 3 - x + wob;
+      const dU = isPath(tx, ty - 1) ? 9 : y - 2 + wob, dD = isPath(tx, ty + 1) ? 9 : T - 3 - y + wob;
+      const d = Math.min(dL, dR, dU, dD);
+      if (d < 0) continue;
+      put(X, Y, d < 1 ? C.pathD : n1(X / 2, Y / 2) + bayer(X, Y) * 0.3 > 0.95 ? C.pathL : C.path);
     }
-  };
-  const kinds = [['leaf', 5], ['pine', 3], ['blossom', 1.4], ['autumn', 1]], total = kinds.reduce((s, k) => s + k[1], 0);
-  tryPlace(36, 16, (x, y) => {
-    if (fbm(n1, x / 40 + 9, y / 40) < 0.42 && r() > 0.25) return false;   // trees grow in groves
-    let t = r() * total, kind = 'leaf';
-    for (const [k, w] of kinds) { if ((t -= w) < 0) { kind = k; break; } }
-    const s = (seed + spots.length * 7919) >>> 0;
-    add(kind === 'pine' ? pineTree(s) : blobTree(s, R[kind], { fruit: kind === 'leaf' && r() < 0.3 }), x, y, 'tree', 5);
-  });
-  tryPlace(22, 10, (x, y) => add(bush((seed + 31 * x + y) >>> 0), x, y, 'bush', 4));
-  tryPlace(14, 10, (x, y) => add(rock((seed + 17 * x + 3 * y) >>> 0), x, y, 'rock', 4));
-
-  // water spots for sparkles
+  }
+  // dock from the south shore out over the water
+  const dx = w.dock.x * T + 8, sy = w.dock.shore * T - 6;
+  for (let y = sy; y < sy + 40; y++) for (let x = dx - 7; x <= dx + 6; x++) {
+    const edge = x === dx - 7 || x === dx + 6;
+    put(x, y, edge ? R.wood[0] : (y - sy) % 4 === 3 ? R.wood[0] : x === dx - 6 ? R.wood[3] : R.wood[2]);
+  }
+  for (const x of [dx - 7, dx + 5]) for (let y = sy + 40; y < sy + 43; y++) { put(x, y, R.wood[0]); put(x + 1, y, R.wood[0]); }
+  for (let x = dx - 8; x <= dx + 7; x++) put(x, sy + 40, '#2f6fb0');
   const waterPts = [];
-  for (let i = 0; i < 4000 && waterPts.length < 500; i++) { const x = Math.floor(r() * WW), y = Math.floor(r() * WH); if (at(x, y) <= 1) waterPts.push({ x, y }); }
-
-  const walk = (x, y) => at(Math.round(x), Math.round(y)) === 4 && !obstacles.some(o => Math.hypot(x - o.x, (y - o.y) * 1.4) < o.r + 3) &&
-    !(x > fx0 - 2 && x < fx1 + 3 && y > fy0 - 2 && y < fy1 + 2);   // the farm is fenced in
-  return {
-    seed, ground: toCanvas(px, WW, WH), foamA: toCanvas(fa, WW, WH), foamB: toCanvas(fb, WW, WH),
-    props, plots, waterPts, flowerSpots, walk, door, well: wellAt, center: { x: cx, y: cy },
-  };
+  for (let i = 0; i < 9000 && waterPts.length < 900; i++) { const x = Math.floor(r() * WW), y = Math.floor(r() * WH); if (at(x, y) <= 1) waterPts.push({ x, y }); }
+  const out = { ground: toCanvas(px, WW, WH), foamA: toCanvas(fa, WW, WH), foamB: toCanvas(fb, WW, WH), waterPts, flowerSpots };
+  groundCache.set(seed, out);
+  if (groundCache.size > 3) groundCache.delete(groundCache.keys().next().value);
+  return out;
+}
+// small picture of an island for the lobby tile
+export function islandThumb(seed, width = 384) {
+  const gr = groundFor(seed), w = gen(seed), c = document.createElement('canvas');
+  c.width = width; c.height = Math.round(width * WH / WW);
+  const g = c.getContext('2d'), s = width / WW;
+  g.imageSmoothingEnabled = false;
+  g.drawImage(gr.ground.cv, 0, 0, c.width, c.height);
+  g.scale(s, s);
+  for (let k = 0; k < TW * TH; k++) {
+    if (w.cover[k] !== 4) continue;
+    const spr = sprites.tree(w.treeKinds[w.kind[k]], k % 3), x = (k % TW) * T + 8, y = ((k / TW) | 0) * T + 15;
+    g.drawImage(spr.cv, x - (spr.w >> 1), y - spr.h);
+  }
+  const hs = sprites.house(seed, false);
+  g.drawImage(hs.cv, w.house.x * T + 24 - (hs.w >> 1), w.house.y * T + 48 - hs.h);
+  return c.toDataURL();
 }

@@ -63,7 +63,7 @@
   <header class="topbar">
     <button class="me px" id="hub-me"><img id="hub-pfp" alt=""><div class="me-txt"><b id="hub-name"></b><span id="hub-sub"></span></div></button>
     <div class="topbtns">
-      <button class="iconbtn px islbtn" id="hub-island" title="Mind Island (test)" hidden>🏝️</button>
+      <button class="iconbtn px shopbtn" id="hub-shop" title="Shop">🛒</button>
       <button class="iconbtn px invbtn" id="hub-inv" title="Inventory">🎒<i class="enbadge" id="inv-badge"></i></button>
       <button class="iconbtn px" data-go="leaderboard" title="Leaderboard"><img src="assets/icon_trophy.png" alt="Leaderboard"></button>
       <button class="iconbtn px" id="hub-friends" title="Friends"><img src="assets/icon_friends.png" alt="Friends"><i class="badge" id="friends-badge"></i></button>
@@ -79,10 +79,16 @@
         <div class="mode-txt"><b>Ranked Duel</b><span id="hub-ranked-sub">1v1 vs real players</span></div>
         <em class="tag lime" id="hub-ranked-tag">PLAY</em>
       </button>
-      <button class="mode px wide-mode" id="hub-classic" style="--bg:url(assets/arena_day.webp)">
-        <div class="mode-txt"><b>Classic</b><span>Everyone plays · with or without Minds</span></div>
-        <em class="tag sky">OPEN</em>
-      </button>
+      <div class="mode-row">
+        <button class="mode px wide-mode" id="hub-classic" style="--bg:url(assets/arena_day.webp)">
+          <div class="mode-txt"><b>Classic</b><span>Everyone plays</span></div>
+          <em class="tag sky">OPEN</em>
+        </button>
+        <button class="mode px wide-mode island-mode" id="hub-island">
+          <div class="mode-txt"><b>Mind Island</b><span>Farm · build · grow</span></div>
+          <em class="tag lime">NEW</em><b class="badge" id="hub-island-ready"></b>
+        </button>
+      </div>
       <div class="mode-row">
         <button class="mode px" id="hub-practice" style="--bg:url(assets/mode_practice.webp)">
           <div class="mode-txt"><b>Practice</b><span>vs bot</span></div>
@@ -245,15 +251,44 @@
   </div>
 </section>
 
-<!-- MIND ISLAND (test, hidden behind ?island=1) -->
+<!-- MIND ISLAND -->
 <section id="s-island" class="screen">
   <canvas id="island-cv"></canvas>
   <div class="isl-top">
-    <button class="btn px" id="isl-back">← Lobby</button>
-    <div class="isl-title px"><b>🏝️ Mind Island</b><span>test preview</span></div>
-    <button class="btn px" id="isl-new" title="Make a different island">🎲<span class="lbl"> New island</span></button>
+    <button class="btn px" id="isl-back" title="Back to the lobby">←<span class="lbl"> Lobby</span></button>
+    <div class="isl-res px">
+      <span class="dust" title="Dust: the island money">✨ <b id="isl-dust">0</b></span>
+      <span title="Wood">🪵 <b id="isl-wood">0</b></span>
+      <span title="Stone">🪨 <b id="isl-stone">0</b></span>
+      <span title="Farm plots used / allowed">🌾 <b id="isl-plots">0/6</b></span>
+    </div>
+    <div class="isl-right">
+      <button class="iconbtn px" id="isl-home" title="Back to my house">🏠</button>
+      <button class="iconbtn px" id="isl-bag" title="Inventory">🎒</button>
+      <button class="iconbtn px" id="isl-shop" title="Shop">🛒</button>
+    </div>
   </div>
-  <div class="isl-hint px">Drag to look around · Scroll or pinch to zoom · Tap a Mind</div>
+  <div class="isl-sub"><span id="isl-sync" class="isl-chip px">☁ Saved</span><span id="isl-bonus" class="isl-chip px"></span></div>
+  <div class="isl-bottom">
+    <div class="isl-tip px" id="isl-tip"></div>
+    <div class="isl-seeds px" id="isl-seeds"></div>
+    <div class="isl-tools px" id="isl-tools">
+      <button data-tool="hand" class="on" title="Hand (1)"><i>✋</i><span>Hand</span></button>
+      <button data-tool="clear" title="Clear (2)"><i>🪓</i><span>Clear</span></button>
+      <button data-tool="till" title="Make plot (3)"><i>⛏️</i><span>Plot</span></button>
+      <button data-tool="plant" title="Plant (4)"><i><img id="isl-seed-ico" alt=""></i><span>Plant <em id="isl-seed-n">0</em></span></button>
+      <button data-tool="harvest" title="Harvest (5)"><i>🧺</i><span>Harvest</span><b class="badge on" id="isl-ready"></b></button>
+    </div>
+  </div>
+</section>
+
+<!-- SHOP -->
+<section id="s-shop" class="screen window">
+  <div class="page">
+    <div class="pagehead"><h2>🛒 Shop</h2><div class="seg px" id="shop-tabs"><button data-v="seeds" class="on">Seeds</button><button data-v="sell">Sell</button><button data-v="land">Land</button><button data-v="soon">More</button></div><button class="iconbtn px small closex" data-go="hub" title="Close">✕</button></div>
+    <div class="shop-bar panel px"><span>✨ <b id="shop-dust">0</b> Dust</span><span class="muted" id="shop-note"></span><button class="btn small" id="shop-go-island">🏝️ Go to my island</button></div>
+    <div class="shop-grid" id="shop-grid"></div>
+  </div>
 </section>
 
 <!-- SETTINGS -->

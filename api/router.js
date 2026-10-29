@@ -17,11 +17,12 @@ import match_chat from '../lib/routes/match_chat.js';
 import friends from '../lib/routes/friends.js';
 import friend from '../lib/routes/friend.js';
 import messages from '../lib/routes/messages.js';
+import island from '../lib/routes/island.js';
 
 const ROUTES = {
   'auth/nonce': auth_nonce, 'auth/verify': auth_verify, 'auth/guest': auth_guest, me, profile,
   'queue/join': queue_join, 'queue/poll': queue_poll, 'queue/leave': queue_leave,
-  'match/view': match_view, 'match/act': match_act, 'match/forfeit': match_forfeit, 'match/chat': match_chat, leaderboard, player, friends, friend, messages,
+  'match/view': match_view, 'match/act': match_act, 'match/forfeit': match_forfeit, 'match/chat': match_chat, leaderboard, player, friends, friend, messages, island,
 };
 
 export default async function handler(req, res) {

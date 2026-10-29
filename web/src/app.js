@@ -9,8 +9,11 @@ import { api, session, walletLogin, guestLogin, logout, hasWallet, watch, server
 import { initAudio, sfx, music, setVolume } from './audio.js';
 import { PHRASES, MATCH_CHAT, FRIEND_CHAT, BOT_REPLIES } from './chat.js';
 import { capOf, ENERGY_CAP } from './energy.js';
-import { openIsland, closeIsland } from './island/island.js';
-import { hashStr } from './island/pixel.js';
+import { openIsland, closeIsland, refreshHud, cropImg, fmtTime } from './island/island.js';
+import { isle, loadIsland, doAct, flush as flushIsland, resetIsland, now as islandNow } from './island/store.js';
+import { CROPS, RAW, growMs, permitCost, MAX_PERMITS, ripe } from './island/rules.js';
+import { islandThumb } from './island/art.js';
+import { hashStr } from './island/gen.js';
 
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
@@ -38,13 +41,14 @@ function applySettings() {
 
 // ---------- ui helpers ----------
 // full screens (lobby, duel, ...) vs windows that pop up over the current screen (profile, settings, ...)
-const WINDOWS = new Set(['prep', 'leaderboard', 'profile', 'settings', 'codex', 'inventory']);
+const WINDOWS = new Set(['prep', 'leaderboard', 'profile', 'settings', 'codex', 'inventory', 'shop']);
 let current = 'boot', previous = 'hub', base = 'boot';
 function show(id) {
   if (!['settings', 'codex'].includes(id)) previous = current;
   current = id;
   if (!WINDOWS.has(id)) base = id;
   if (base !== 'island') { closeIsland(); stage.paused = false; }
+  document.body.classList.toggle('in-island', base === 'island');
   $$('.screen').forEach(s => s.classList.toggle('on', s.id === 's-' + id || (WINDOWS.has(id) && s.id === 's-' + base)));
   if (['hub', 'prep', 'leaderboard', 'profile'].includes(id) && base === 'hub') music('menu');
   if (id === 'login') music('title');
@@ -54,6 +58,7 @@ function show(id) {
 // close a window: back to the screen underneath (the lobby keeps its Minds, no reload)
 function closeWindow() {
   if (base === 'hub') { show('hub'); paintHub(); loadBoard(); return; }
+  if (base === 'island') { show('island'); refreshHud(); return; }
   if (base === 'duel' && D) return show('duel');
   enterHub();
 }
@@ -176,6 +181,7 @@ function paintHub() {
   $('#inv-badge').textContent = guest ? '' : `⚡${totalEnergy()}`;
   $('#inv-badge').classList.toggle('on', !guest);
   $('#guest-note').style.display = guest ? 'block' : 'none';
+  islandTile();
   $('#hub-ranked-sub').textContent = guest ? 'Connect a wallet to play ranked' : `⚡ ${totalEnergy()} energy left today · refills in ${resetText()}`;
   $('#hub-ranked-tag').textContent = guest ? '🔒 WALLET' : 'PLAY';
   $('#hub-ranked').classList.toggle('locked', guest);
@@ -195,6 +201,7 @@ async function enterHub() {
 }
 async function afterLogin(out) {
   me = out.player; myMinds = out.minds; guest = !!out.guest;
+  resetIsland();
   saveAccount();
   if (!guest && !myMinds.length) {
     await modal(`<h3>No Minds found</h3><p class="muted">This wallet doesn't hold any minds.games NFTs on Robinhood Chain yet. You can still try the game with demo Minds.</p>`, [['Try with demo Minds', 1, 'primary']]);
@@ -222,6 +229,7 @@ $('#btn-wallet').onclick = async () => {
 $('#btn-guest').onclick = () => { initAudio(); online ? startGuest() : offlineGuest(); };
 $('#guest-connect').onclick = e => { e.preventDefault(); logout(); show('login'); };
 function offlineGuest() {
+  resetIsland();
   me = { name: 'Guest', pfp: 49, rating: 1000, points: 0, wins: 0, losses: 0, showcase: [] }; myMinds = [49, 14, 8].filter(id => tokenIds().includes(id)); guest = true;
   if (!myMinds.length) myMinds = tokenIds().slice(0, 3);
   toast('Server offline: practice vs bots only.');
@@ -264,7 +272,22 @@ $('#hub-learn').onclick = () => startTutorial();
 $('#hub-tutorial').onclick = () => startTutorial();
 $('#hub-me').onclick = () => openProfile(me.id);
 
-// ---------- inventory: every Mind you own with its own energy, and (soon) items ----------
+// ---------- inventory: every Mind you own with its own energy, and your island items ----------
+function invItems() {
+  if (!isle.state) return '<div class="inv-empty"><div class="inv-chest">🎁</div><b>Loading your items…</b></div>';
+  const inv = isle.state.inv, cell = (img, name, n) => `<div class="item px"><div class="item-img">${img}</div><b>${name}</b><em>×${n.toLocaleString()}</em></div>`;
+  const cells = [cell('<i>✨</i>', 'Dust', isle.state.dust)];
+  for (const c of Object.keys(CROPS)) { if (inv['crop_' + c]) cells.push(cell(`<img src="${cropImg(c)}" alt="">`, CROPS[c].name, inv['crop_' + c])); }
+  for (const c of Object.keys(CROPS)) { if (inv['seed_' + c]) cells.push(cell(`<img class="seedimg" src="${cropImg(c)}" alt="">`, CROPS[c].name + ' seeds', inv['seed_' + c])); }
+  if (inv.wood) cells.push(cell('<i>🪵</i>', 'Wood', inv.wood));
+  if (inv.stone) cells.push(cell('<i>🪨</i>', 'Stone', inv.stone));
+  if (inv.permit) cells.push(cell('<i>📜</i>', 'Land Permit', inv.permit));
+  return `<div class="items-grid">${cells.join('')}</div><div class="items-foot"><button class="btn small" id="inv-go-island">🏝️ Go to my island</button><button class="btn small" id="inv-go-shop">🛒 Shop</button></div>`;
+}
+document.addEventListener('click', e => {
+  if (e.target.closest('#inv-go-island')) goIsland();
+  if (e.target.closest('#inv-go-shop')) openShop();
+});
 let invTab = 'minds';
 function openInventory() {
   paintInventory(); show('inventory');
@@ -287,30 +310,82 @@ function paintInventory() {
       <div class="inv-img"><img src="${thumb(id)}" alt="" loading="lazy">${flags}</div>
       <div class="inv-name"><b>#${id}</b><span>${r}</span></div>${bar}</div>`;
   }).join('');
-  $('#inv-items').innerHTML = '<div class="inv-empty"><div class="inv-chest">🎁</div><b>No items yet</b><span>Items like energy refills, card backs and arena skins are coming soon. They will show up here.</span></div>';
+  $('#inv-items').innerHTML = invItems();
+  if (invTab === 'items' && !isle.loaded) ensureIsland().then(ok => { if (ok && current === 'inventory') paintInventory(); });
   $('#inv-minds').style.display = invTab === 'minds' ? '' : 'none';
   $('#inv-items').style.display = invTab === 'items' ? '' : 'none';
 }
 $('#hub-inv').onclick = openInventory;
 
-// ---------- Mind Island (test): only shown with ?island=1 (remembered on this device; ?island=0 hides it) ----------
-const islandOn = (() => {
-  try {
-    const q = new URLSearchParams(location.search).get('island');
-    if (q !== null) localStorage.setItem('mindclash.island', q === '0' ? '' : '1');
-    return !!localStorage.getItem('mindclash.island');
-  } catch { return false; }
-})();
-$('#hub-island').hidden = !islandOn;
-let islandSeed = 0;
-function goIsland() {
-  show('island');
-  stage.paused = true;
-  openIsland({ minds: myMinds, seed: islandSeed || hashStr(me?.id || me?.name || 'guest'), tap: msg => toast(msg) });
+// ---------- Mind Island: farm, Shop, and island items in the inventory ----------
+async function ensureIsland() {
+  if (isle.loaded && isle.offline === !online) return true;
+  try { await loadIsland({ online, guestSeed: me?.id || me?.name, minds: guest ? 0 : myMinds.length }); return true; }
+  catch (e) { toast(e.message, true); return false; }
 }
-$('#hub-island').onclick = () => { islandSeed = 0; goIsland(); };
-$('#isl-new').onclick = () => { islandSeed = (Math.random() * 4294967296) >>> 0; goIsland(); };
+async function goIsland() {
+  if (!(await ensureIsland())) return;
+  show('island'); stage.paused = true;
+  openIsland({ minds: myMinds, toast: (m, bad) => toast(m, bad), shop: tab => openShop(tab), bag: () => { invTab = 'items'; openInventory(); } });
+}
+$('#hub-island').onclick = goIsland;
+$('#shop-go-island').onclick = goIsland;
 $('#isl-back').onclick = () => enterHub();
+$('#hub-shop').onclick = () => openShop();
+// the lobby tile shows a picture of your own island (made once, after the lobby has settled)
+let thumbFor = null;
+function islandTile() {
+  const id = me?.id || me?.name || 'guest';
+  if (thumbFor !== id) {
+    thumbFor = id;
+    setTimeout(() => { try { $('#hub-island').style.setProperty('--bg', `url(${islandThumb(isle.loaded ? isle.seed : hashStr(id))})`); } catch { /* fine without a picture */ } }, 900);
+  }
+  const ready = isle.state ? Object.values(isle.state.tiles).filter(t => ripe(t, islandNow(), isle.minds)).length : 0;
+  $('#hub-island-ready').textContent = ready ? `${ready} ready` : '';
+  $('#hub-island-ready').style.display = ready ? 'block' : '';
+}
+
+let shopTab = 'seeds';
+async function openShop(tab) {
+  if (tab) shopTab = tab;
+  if (!(await ensureIsland())) return;
+  paintShop(); show('shop');
+}
+const shopCard = (img, name, desc, have, btns, cls = '') => `<div class="shop-card px ${cls}"><div class="shop-img">${img}</div><div class="shop-txt"><b>${name}</b><span>${desc}</span>${have !== null ? `<em>You have ${have}</em>` : ''}</div><div class="shop-btns">${btns}</div></div>`;
+const RAW_ICON = { wood: '🪵', stone: '🪨' };
+function paintShop() {
+  const st = isle.state, inv = st.inv;
+  $$('#shop-tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === shopTab));
+  $('#shop-dust').textContent = st.dust.toLocaleString();
+  $('#shop-note').textContent = guest ? 'Trial island: selling gives no leaderboard points.' : 'Selling crops: +1 leaderboard point per 100 ✨ (max 20 a day)';
+  let html = '';
+  if (shopTab === 'seeds') html = Object.entries(CROPS).map(([c, d]) => shopCard(`<img src="${cropImg(c)}" alt="">`, `${d.name} seeds`, `Grows in ${fmtTime(growMs(c, isle.minds))} · sells for ${d.sell} ✨`, inv['seed_' + c] || 0,
+    `<button class="btn small primary" data-act="buy" data-item="seed_${c}" data-n="1" ${st.dust < d.seed ? 'disabled' : ''}>Buy 1 · ${d.seed} ✨</button><button class="btn small" data-act="buy" data-item="seed_${c}" data-n="10" ${st.dust < d.seed * 10 ? 'disabled' : ''}>Buy 10 · ${d.seed * 10} ✨</button>`)).join('');
+  else if (shopTab === 'sell') {
+    const items = [...Object.keys(CROPS).map(c => ['crop_' + c, CROPS[c].name, CROPS[c].sell, `<img src="${cropImg(c)}" alt="">`]), ...Object.entries(RAW).map(([k, d]) => [k, d.name, d.sell, `<i>${RAW_ICON[k]}</i>`])].filter(([k]) => inv[k] > 0);
+    html = items.length ? items.map(([k, name, price, img]) => shopCard(img, name, `${price} ✨ each`, inv[k], `<button class="btn small primary" data-act="sell" data-item="${k}" data-n="${inv[k]}">Sell all · ${price * inv[k]} ✨</button><button class="btn small" data-act="sell" data-item="${k}" data-n="1">Sell 1</button>`)).join('')
+      : '<div class="inv-empty"><div class="inv-chest">🧺</div><b>Nothing to sell yet</b><span>Harvest crops on your island, or clear trees and rocks for wood and stone.</span></div>';
+  } else if (shopTab === 'land') {
+    const have = inv.permit || 0, cost = permitCost(have), max = have >= MAX_PERMITS;
+    html = shopCard('<i>📜</i>', 'Land Permit', `+1 farm plot forever. Plots: 6 free, +1 per Mind you own (up to 6), +1 per permit (up to ${MAX_PERMITS}).`, `${have}/${MAX_PERMITS}`,
+      max ? '<button class="btn small" disabled>All bought</button>' : `<button class="btn small primary" data-act="buy" data-item="permit" data-n="1" ${st.dust < cost ? 'disabled' : ''}>Buy · ${cost.toLocaleString()} ✨</button>`);
+  } else {
+    html = [['🌳', 'Decorations', 'Trees, statues, paths and lights for your island'], ['🃏', 'Card backs', 'Show off in every duel · 3,000 ✨'], ['🖼️', 'Profile frames', 'A frame around your profile picture · 5,000 ✨'],
+      ['⚡', 'Energy shard', '+1 ranked energy for one Mind · 800 ✨ (1 a day)'], ['🛡️', 'Raid defenses', 'Walls, traps and guards for when raids arrive']]
+      .map(([i, n, d]) => shopCard(`<i>${i}</i>`, n, d, null, '<button class="btn small" disabled>Soon</button>', 'soon')).join('');
+  }
+  $('#shop-grid').innerHTML = html;
+}
+$('#shop-tabs').onclick = e => { const v = e.target.closest('button')?.dataset.v; if (!v) return; shopTab = v; paintShop(); };
+$('#shop-grid').onclick = e => {
+  const b = e.target.closest('button[data-act]'); if (!b || b.disabled) return;
+  const res = doAct({ type: b.dataset.act, item: b.dataset.item, n: +b.dataset.n });
+  if (res.error) { sfx('denied'); return toast(res.error, true); }
+  sfx('coin');
+  const g = res.gain || {};
+  toast(b.dataset.act === 'sell' ? `Sold for ${g.dust} ✨` : `Bought! ${-g.dust} ✨ spent`);
+  flushIsland(); paintShop(); refreshHud();
+};
 $('#inv-tabs').onclick = e => { const v = e.target.dataset.v; if (!v) return; invTab = v; paintInventory(); };
 $('#inv-minds').onclick = async e => {
   const m = e.target.closest('[data-id]'); if (!m || guest || !online) return;
