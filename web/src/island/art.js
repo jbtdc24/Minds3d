@@ -321,3 +321,17 @@ export function islandThumb(seed, width = 384) {
   g.drawImage(hs.cv, w.house.x * T + 24 - (hs.w >> 1), w.house.y * T + 48 - hs.h);
   return c.toDataURL();
 }
+
+// tools the Minds hold while they work (the grip is at the bottom-left)
+const toolSprite = rows => sprite(rows[0].length, rows.length, set => rows.forEach((r, y) => [...r].forEach((ch, x) => {
+  const col = { w: R.wood[2], d: R.wood[0], s: R.stone[3], g: R.stone[1], l: R.stone[4], t: '#deb06e', b: '#9c6a3c', k: '#7fcf55', y: '#ffd84a' }[ch];
+  if (col) set(x, y, col);
+})));
+export const toolSprites = {
+  axe: toolSprite(['....gsl', '...wgsl', '...w.g.', '..w....', '.w.....', 'w......']),
+  pick: toolSprite(['.gsssg.', 'g..w..g', '...w...', '..w....', '.w.....', 'w......']),
+  scythe: toolSprite(['lssg...', '....sw.', '.....w.', '....w..', '...w...', '..w....', '.w.....', 'w......']),
+  hoe: toolSprite(['....ssg', '....w..', '...w...', '..w....', '.w.....', 'w......']),
+  pouch: toolSprite(['.d.', 'tbt', 'ttt', 'btb']),
+  basket: toolSprite(['.bbbb.', 'b.ky.b', 'tbtbtb', 'btbtbt', '.tbtb.']),
+};

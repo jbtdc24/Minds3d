@@ -1,9 +1,10 @@
 // Mind Island: your own island to clear, farm and grow, with your real Minds walking around on it.
-// Hand: drag to look around, tap to do the obvious thing. Tools: drag across tiles to clear / make plots / plant / harvest.
-import { buildRig, VOX, GROUND, MID_X, rarityOf } from '../nft2d.js';
+// Hand: drag to look around, tap to do the obvious thing. Tools: drag across tiles. Your Minds walk over and do each job.
+import { rarityOf } from '../nft2d.js';
+import { chibi } from './chibi.js';
 import { sfx } from '../audio.js';
 import { gen, COVER, T, TW, TH, WW, WH, hash } from './gen.js';
-import { groundFor, sprites, sprouts, heart, SOIL } from './art.js';
+import { groundFor, sprites, sprouts, heart, SOIL, toolSprites } from './art.js';
 import { rng } from './pixel.js';
 import { CROPS, coverAt, ripe, growMs, regrowMs, maxPlots, plotCount, PLOT_COST, speedBonus } from './rules.js';
 import { isle, doAct, now, onChange, flush } from './store.js';
@@ -11,7 +12,6 @@ import { isle, doAct, now, onChange, flush } from './store.js';
 const cv = document.getElementById('island-cv');
 const g = cv.getContext('2d');
 const $ = s => document.querySelector(s);
-const K = 12;                      // island pixels per Mind rig unit (a Mind is ~20px tall)
 const SPEED = 15;                  // Mind walking speed, px / s
 let w = null, gr = null, minds = [], fx = [], running = false, raf = 0, last = 0, Tm = 0;
 let W = 1, H = 1, DPR = 1, zMin = 2, zMax = 8, selected = null, selectedT = 0, hover = -1;
@@ -81,7 +81,10 @@ function valid(tl, k) {
   return cov !== COVER.NONE || t?.s === 'p' || isFixed(k);
 }
 
-// ---------- Minds ----------
+// ---------- Minds: they wander, and do the jobs you give them ----------
+const GO_SPEED = 38;
+const WORK_TIME = { [COVER.WEEDS]: 0.7, [COVER.BUSH]: 1, [COVER.ROCK]: 1.4, [COVER.TREE]: 1.7, till: 0.9, plant: 0.55, harvest: 0.6 };
+let jobs = [];   // { type, k, crop?, m? } in the order you asked
 function makeMind(id, i) {
   const r = rng(id * 2654435761);
   const hx = (w.house.x + 1.5) * T, hy = (w.house.y + 3.6) * T;
@@ -90,61 +93,115 @@ function makeMind(id, i) {
     const a = r() * Math.PI * 2, d = 12 + r() * 60, X = hx + Math.cos(a) * d, Y = hy + Math.sin(a) * d * 0.7;
     if (walk(X, Y)) { x = X; y = Y; break; }
   }
-  return { id, rig: buildRig(id), x, y, tx: x, ty: y, dir: r() < 0.5 ? 1 : -1, state: 'idle', timer: 0.5 + i * 0.4 + r() * 2, phase: r() * 6, hop: 0, r, pose: {} };
+  return { id, c: chibi(id), x, y, tx: x, ty: y, dir: r() < 0.5 ? 1 : -1, state: 'idle', timer: 0.5 + i * 0.4 + r() * 2, phase: r() * 6, hop: 0, r, job: null, t: 0 };
 }
 function clearLine(ax, ay, bx, by) {
   const n = Math.ceil(Math.hypot(bx - ax, by - ay) / 3);
   for (let i = 1; i <= n; i++) if (!walk(ax + (bx - ax) * i / n, ay + (by - ay) * i / n)) return false;
   return true;
 }
+const toolFor = j => j.type === 'till' ? 'hoe' : j.type === 'plant' ? 'pouch' : j.type === 'harvest' ? 'basket'
+  : j.cov === COVER.TREE || j.cov === COVER.BUSH ? 'axe' : j.cov === COVER.ROCK ? 'pick' : 'scythe';
+// queue a job; a free Mind walks over and does it
+function enqueue(type, k, extra = {}) {
+  if (k < 0 || !w.land[k] || jobs.some(j => j.k === k)) return;
+  if (!valid(type, k)) return;
+  const st = isle.state, same = jobs.filter(j => j.type === type);
+  let err = '';
+  if (type === 'till' && plotCount(st) + same.length >= maxPlots(st, isle.minds)) err = 'No free plots left. Buy a Land Permit in the Shop, or own more Minds.';
+  else if (type === 'till' && st.dust < PLOT_COST * (same.length + 1)) err = `You need ${PLOT_COST} ✨ Dust for each plot.`;
+  else if (type === 'plant' && (st.inv['seed_' + extra.crop] || 0) <= same.filter(j => j.crop === extra.crop).length) err = `No ${CROPS[extra.crop].name} seeds left. Buy more in the Shop.`;
+  if (err) { if (!strokeErr) { strokeErr = true; sfx('denied'); cb.toast(err, true); if (type === 'plant') openSeeds(true); } return; }
+  const job = { type, k, cov: coverAt(st, w, k), ...extra };
+  if (!minds.length) return apply(type, k, extra);
+  jobs.push(job);
+  sfx('hover');
+}
+function finishJob(j) {
+  jobs = jobs.filter(x => x !== j);
+  const res = apply(j.type, j.k, j.crop ? { crop: j.crop } : {});
+  if (res?.error) jobs = jobs.filter(x => x.type !== j.type || x.m);   // can't do more of these (no seeds / Dust / plots)
+}
+function assignJobs() {
+  for (const m of minds) {
+    if (m.job || m.hop > 0) continue;
+    let best = null, bd = 1e9;
+    for (const j of jobs) {
+      if (j.m) continue;
+      const d = Math.hypot(kx(j.k) * T + 8 - m.x, ky(j.k) * T + 12 - m.y);
+      if (d < bd) { bd = d; best = j; }
+    }
+    if (!best) continue;
+    best.m = m; m.job = best; m.state = 'go';
+    const cx = kx(best.k) * T + 8, side = m.x < cx ? -1 : 1;
+    m.tx = cx + side * 10; m.ty = ky(best.k) * T + 13;
+  }
+}
 function updateMind(m, dt, night) {
   m.hop = Math.max(0, m.hop - dt);
-  if (m.state === 'walk') {
+  if (m.state === 'go') {
+    const dx = m.tx - m.x, dy = m.ty - m.y, d = Math.hypot(dx, dy);
+    if (d < 1.5) {
+      const j = m.job;
+      if (!j || !jobs.includes(j) || !valid(j.type, j.k)) { if (j) jobs = jobs.filter(x => x !== j); m.job = null; m.state = 'idle'; m.timer = 0.1; return; }
+      m.state = 'work'; m.t = 0; m.dir = kx(j.k) * T + 8 > m.x ? 1 : -1;
+      m.dur = WORK_TIME[j.type === 'clear' ? coverAt(isle.state, w, j.k) : j.type] || 0.8;
+    } else { const s = Math.min(d, GO_SPEED * dt); m.x += dx / d * s; m.y += dy / d * s; m.phase += dt * 16; if (Math.abs(dx) > 0.5) m.dir = dx > 0 ? 1 : -1; }
+  } else if (m.state === 'work') {
+    const before = m.t; m.t += dt;
+    const j = m.job, sw = 0.32;
+    if (Math.floor(m.t / sw) > Math.floor(before / sw) && j) {   // each swing knocks a few bits off
+      const x = kx(j.k) * T + 8, y = ky(j.k) * T + 10;
+      const col = j.type === 'till' ? [SOIL.base, SOIL.light] : j.type === 'plant' ? ['#f3dc9e'] : j.type === 'harvest' ? ['#fff3b0', '#d4ff1f']
+        : j.cov === COVER.TREE ? ['#8b5a34', '#a87444', '#7fcf55'] : j.cov === COVER.ROCK ? ['#a3a2b5', '#cfcfdc'] : ['#58b046', '#7fcf55'];
+      bits(x, y, col, 3, 18);
+      if (j.cov === COVER.TREE || j.cov === COVER.ROCK) sfx('flip');
+    }
+    if (m.t >= m.dur) { const job = m.job; m.job = null; m.state = 'idle'; m.timer = 0.15; if (job && jobs.includes(job)) finishJob(job); }
+  } else if (m.state === 'walk') {
     const dx = m.tx - m.x, dy = m.ty - m.y, d = Math.hypot(dx, dy);
     if (d < 1 || !walk(m.x + dx / d * 2, m.y + dy / d * 2)) { m.state = 'idle'; m.timer = 1.5 + m.r() * 4; if (m.r() < (night ? 0.5 : 0.15)) emote(m, night ? 'zzz' : 'heart'); }
     else { const s = Math.min(d, SPEED * dt); m.x += dx / d * s; m.y += dy / d * s; m.phase += dt * 11; if (Math.abs(dx) > 0.5) m.dir = dx > 0 ? 1 : -1; }
-  } else if ((m.timer -= dt) <= 0) {
+  } else if ((m.timer -= dt) <= 0 && !jobs.some(j => !j.m)) {
     for (let k = 0; k < 24; k++) {
       const a = m.r() * Math.PI * 2, d = 16 + m.r() * 70, X = m.x + Math.cos(a) * d, Y = m.y + Math.sin(a) * d * 0.7;
       if (walk(X, Y) && clearLine(m.x, m.y, X, Y)) { m.tx = X; m.ty = Y; m.state = 'walk'; break; }
     }
     if (m.state !== 'walk') m.timer = 1;
   }
-  const walking = m.state === 'walk', s = Math.sin(m.phase), b = Math.sin(Tm * 2.4 + m.id);
-  m.pose = walking
-    ? { y: Math.abs(s) * 0.06, lean: 0.06, head: s * 0.04, sq: 1 - Math.abs(s) * 0.03, armF: 0.3 - s * 0.55, armB: 0.2 + s * 0.55, item: 0.2, legF: s * 0.6, legB: -s * 0.6 }
-    : { y: 0, lean: 0.03, head: b * 0.07, sq: 1 - (b + 1) * 0.012, armF: 0.28 + b * 0.06, armB: 0.18 - b * 0.06, item: 0.2, legF: 0.15, legB: -0.15 };
-  if (m.hop > 0) { const u = 1 - m.hop / 0.5; m.pose.y = Math.sin(u * Math.PI) * 0.5; m.pose.armF = m.pose.armB = 2.6 * Math.sin(u * Math.PI); }
 }
-const PV = pv => ({ x: (pv.x - MID_X) * VOX, y: (pv.y - GROUND) * VOX });
 function drawMind(m) {
-  const P = m.pose, R = m.rig, parts = R.parts, pv = R.pivots;
+  const c = m.c, moving = m.state === 'walk' || m.state === 'go', s = Math.sin(m.phase);
+  const lift = m.hop > 0 ? Math.round(Math.sin((1 - m.hop / 0.5) * Math.PI) * 6) : 0;
+  let body = 0, legL = 0, legR = 0, ang = 0;
+  if (moving) { legL = s > 0 ? -1 : 0; legR = s > 0 ? 0 : -1; body = Math.abs(s) > 0.7 ? -1 : 0; }
+  else if (m.state === 'work') {
+    const u = (m.t / 0.32) % 1;                       // wind up, then strike
+    ang = u < 0.6 ? -1.9 * (u / 0.6) : -1.9 + 2.6 * Math.min(1, (u - 0.6) / 0.15);
+    body = u > 0.6 && u < 0.85 ? 1 : 0;
+    if (m.job?.type === 'plant' || m.job?.type === 'harvest') { ang = 0.5 + Math.sin(m.t * 14) * 0.4; body = Math.sin(m.t * 14) > 0 ? 1 : 0; }
+  } else body = Math.sin(Tm * 2.2 + m.id) > 0.75 ? 1 : 0;   // breathing
   g.fillStyle = 'rgba(43,35,64,.28)';
-  g.beginPath(); g.ellipse(m.x, m.y, 5 * (1 - P.y * 0.5), 1.8 * (1 - P.y * 0.5), 0, 0, Math.PI * 2); g.fill();
-  const part = (name, rot = 0) => {
-    const p = parts[name]; if (!p) return;
-    g.save(); g.rotate(-rot); g.drawImage(p.cv, p.ox * VOX, p.oy * VOX, p.w * VOX, p.h * VOX); g.restore();
-  };
-  const at = (name, from, fn) => { const a = PV(pv[name]), b = from ? PV(pv[from]) : { x: 0, y: 0 }; g.save(); g.translate(a.x - b.x, a.y - b.y); fn(); g.restore(); };
+  g.beginPath(); g.ellipse(m.x, m.y, c.w * 0.32, 1.8, 0, 0, Math.PI * 2); g.fill();
   g.save();
-  g.imageSmoothingEnabled = true;
-  g.translate(m.x, m.y - P.y * K);
-  g.scale(m.dir * K, K);
-  at('legL', null, () => part('legL', P.legB));
-  at('legR', null, () => part('legR', P.legF));
-  at('torso', null, () => {
-    g.rotate(P.lean); g.scale(1 + (1 - P.sq) * 0.6, P.sq);
-    at('armL', 'torso', () => part('armL', P.armB));
-    part('torso');
-    if (parts.item) at('armR', 'torso', () => { g.rotate(-P.armF); at('item', 'armR', () => part('item', P.item - 0.2)); });
-    at('head', 'torso', () => part('head', P.head));
-    at('armR', 'torso', () => part('armR', P.armF));
-    if (parts.emote) at('emote', 'torso', () => part('emote', Math.sin(Tm * 2) * 0.2));
-  });
+  g.translate(Math.round(m.x), Math.round(m.y) - lift);
+  if (m.dir < 0) g.scale(-1, 1);
+  const ox = -Math.floor(c.w / 2), oy = -c.h + 1;
+  g.drawImage(c.legL.cv, ox, oy + c.hip + legL);
+  g.drawImage(c.legR.cv, ox + c.mid, oy + c.hip + legR);
+  g.drawImage(c.body.cv, ox, oy + body);
+  const job = m.job;
+  if (job && (m.state === 'work' || m.state === 'go')) {
+    const tl = toolSprites[toolFor(job)];
+    g.save();
+    g.translate(ox + c.hand.x, oy + c.hand.y + body);
+    g.rotate(m.state === 'go' ? -0.4 : ang);
+    g.drawImage(tl.cv, -2, -tl.h + 2);
+    g.restore();
+  }
   g.restore();
-  g.imageSmoothingEnabled = false;
 }
-function emote(m, type) { fx.push({ type, x: m.x, y: m.y - 24, life: 1.6, max: 1.6 }); }
+function emote(m, type) { fx.push({ type, x: m.x, y: m.y - m.c.h - 2, life: 1.6, max: 1.6 }); }
 
 // ---------- effects ----------
 const bits = (x, y, colors, n = 10, up = 30) => {
@@ -230,6 +287,7 @@ function frame(nowT) {
   if (innerWidth !== W || innerHeight !== H) { const first = W < 2; resize(); if (first) fitCam(); }
   if (!isle.state) return;
   const L = light(), nowMs = now(), st = isle.state;
+  assignJobs();
   for (const m of minds) updateMind(m, dt, L.night);
   spawnFx(dt, L);
   g.setTransform(DPR, 0, 0, DPR, 0, 0);
@@ -268,6 +326,8 @@ function frame(nowT) {
   items.push({ y: (w.well.y + 2) * T - 1, spr: sprites.well(), x: (w.well.x + 1) * T });
   for (const m of minds) items.push({ y: m.y, mind: m });
   items.sort((a, b) => a.y - b.y);
+  g.strokeStyle = `rgba(255,255,255,${0.5 + 0.3 * Math.sin(Tm * 6)})`; g.lineWidth = 1;
+  for (const j of jobs) g.strokeRect(kx(j.k) * T + 1.5, ky(j.k) * T + 1.5, T - 3, T - 3);
   if (hover >= 0 && w.land[hover]) {   // tile cursor on the ground
     const ok = valid(tool, hover);
     g.fillStyle = tool === 'hand' ? 'rgba(255,255,255,.18)' : ok ? 'rgba(212,255,31,.35)' : 'rgba(255,90,74,.3)';
@@ -297,7 +357,7 @@ function frame(nowT) {
   drawTexts();
   // label: the Mind you tapped, or the crop under the cursor
   let label = null;
-  if (selected && (selectedT -= dt) > 0) label = { x: selected.x, y: selected.y - 26, text: `#${selected.id} · ${rarityOf(selected.id)}`, a: Math.min(1, selectedT * 3) };
+  if (selected && (selectedT -= dt) > 0) label = { x: selected.x, y: selected.y - selected.c.h - 2, text: `#${selected.id} · ${rarityOf(selected.id)}`, a: Math.min(1, selectedT * 3) };
   else if (hover >= 0) {
     const t = st.tiles[hover];
     if (t?.s === 'p' && t.c) {
@@ -342,7 +402,7 @@ function apply(type, k, extra = {}) {
 }
 // tap with the hand: do the obvious thing for that tile
 function smart(k, p) {
-  const m = [...minds].sort((a, b) => b.y - a.y).find(m => Math.abs(p.x - m.x) < 8 && p.y < m.y + 2 && p.y > m.y - 24);
+  const m = [...minds].sort((a, b) => b.y - a.y).find(m => Math.abs(p.x - m.x) < m.c.w / 2 && p.y < m.y + 2 && p.y > m.y - m.c.h);
   if (m) { m.hop = 0.5; m.state = 'idle'; m.timer = 2; selected = m; selectedT = 3; emote(m, 'heart'); sfx('pop'); return; }
   if (k < 0 || !w.land[k] || pathSet().has(k)) return;
   const t = isle.state.tiles[k], cov = coverAt(isle.state, w, k);
@@ -350,21 +410,18 @@ function smart(k, p) {
   if (hx >= 0 && hx < 3 && hy >= 0 && hy < 3) return cb.toast('Your home. Upgrades and decorations are coming next.');
   if (isFixed(k)) return cb.toast('Energy Well: it will make energy shards (3 shards = +1 ranked energy). Coming soon.');
   if (t?.s === 'p') {
-    if (ripe(t, now(), isle.minds)) return apply('harvest', k);
+    if (ripe(t, now(), isle.minds)) return enqueue('harvest', k);
     if (t.c) { sfx('click'); return cb.toast(`${CROPS[t.c].name}: ready in ${fmtTime(growMs(t.c, isle.minds) - (now() - t.p))}.`); }
-    if ((isle.state.inv['seed_' + seed] || 0) < 1) { sfx('denied'); openSeeds(true); return cb.toast(`No ${CROPS[seed].name} seeds. Pick another seed or buy some in the Shop.`, true); }
-    return apply('plant', k, { crop: seed });
+    return enqueue('plant', k, { crop: seed });
   }
-  if (cov >= COVER.WEEDS && cov <= COVER.TREE) return apply('clear', k);
+  if (cov >= COVER.WEEDS && cov <= COVER.TREE) return enqueue('clear', k);
   sfx('click');
   cb.toast(`Open ground. Use ⛏ Plot to make a farm plot here (${PLOT_COST} ✨).`);
 }
 function useTool(k) {
-  if (k < 0 || !w.land[k]) return;
-  if (tool === 'clear') apply('clear', k);
-  else if (tool === 'till') apply('till', k);
-  else if (tool === 'plant') apply('plant', k, { crop: seed });
-  else if (tool === 'harvest') apply('harvest', k);
+  if (k < 0 || !w.land[k] || tool === 'hand') return;
+  if (tool === 'plant') enqueue('plant', k, { crop: seed });
+  else enqueue(tool, k);
 }
 
 // ---------- input ----------
@@ -428,8 +485,8 @@ addEventListener('keydown', e => {
 
 // ---------- HUD ----------
 const TIPS = {
-  hand: 'Tap weeds, rocks and trees to clear them · tap ripe crops to harvest · drag to look around',
-  clear: 'Drag across weeds, bushes, rocks and trees to clear them. Wild grass grows back if you stay away.',
+  hand: 'Tap weeds, rocks, trees or ripe crops and a Mind goes to work · drag to look around',
+  clear: 'Drag across weeds, bushes, rocks and trees: your Minds clear them. Wild grass grows back if you stay away.',
   till: `Drag across open ground to make farm plots (${PLOT_COST} ✨ each)`,
   plant: 'Drag across empty plots to plant. Tap 🌱 again to pick another seed.',
   harvest: 'Drag across ripe crops to harvest them',
@@ -467,7 +524,8 @@ function paintHud() {
   $('#isl-ready').classList.toggle('on', ready > 0);
   $('#isl-sync').textContent = isle.offline ? '⚠ Offline · not saved' : isle.error ? '⚠ Not saved yet, retrying…' : '☁ Saved';
   $('#isl-sync').classList.toggle('bad', isle.offline || !!isle.error);
-  $('#isl-bonus').textContent = isle.minds ? `🧠 ${isle.minds} Minds: +${Math.min(isle.minds, 6)} plots · crops ${Math.round(speedBonus(isle.minds) * 100)}% faster` : '🧠 Own Minds for more plots and faster crops';
+  $('#isl-bonus').textContent = (minds.length ? `🧠 ${minds.length} Mind${minds.length > 1 ? 's' : ''} working${jobs.length ? ` · ${jobs.length} job${jobs.length > 1 ? 's' : ''} left` : ''}` : '')
+    + (isle.minds ? ` · +${Math.min(isle.minds, 6)} plots · crops ${Math.round(speedBonus(isle.minds) * 100)}% faster` : ' · own Minds for more plots and faster crops');
   if ($('#isl-seeds').classList.contains('on')) openSeeds(true);
 }
 onChange(info => { if (info.failed && running) cb.toast('Island not saved yet: ' + info.failed, true); if (info.points) cb.toast(`+${info.points} leaderboard points from selling!`); paintHud(); });
@@ -494,10 +552,15 @@ export function openIsland({ minds: ids = [], toast, shop, bag } = {}) {
   clouds.length = 0;
   for (let i = 0; i < 6; i++) clouds.push({ x: r() * WW, y: 40 + r() * (WH - 80), v: 3 + r() * 3, puffs: Array.from({ length: 4 }, () => [(r() - 0.5) * 50, (r() - 0.5) * 16, 14 + r() * 14]) });
   minds = ids.slice(0, 12).map(makeMind);
-  fx = []; selected = null; hover = -1;
+  fx = []; jobs = []; selected = null; hover = -1;
   resize(); fitCam(); setTool(tool); paintHud();
   if (!running) { running = true; last = performance.now(); raf = requestAnimationFrame(frame); }
 }
-export function closeIsland() { if (running) flush(); running = false; cancelAnimationFrame(raf); }
+export function closeIsland() {
+  if (running) { for (const j of [...jobs]) finishJob(j); for (const m of minds) { m.job = null; m.state = 'idle'; } flush(); }
+  jobs = []; running = false; cancelAnimationFrame(raf);
+}
 export const refreshHud = paintHud;
 addEventListener('resize', () => { if (running) resize(); });
+// ?debug: lets a test script queue jobs and step the Minds without waiting for frames
+if (new URLSearchParams(location.search).has('debug')) window.__island = { enqueue, jobs: () => jobs, minds: () => minds, w: () => w, focus: (x, y, z) => { cam.x = x; cam.y = y; if (z) cam.z = z; clampCam(); }, tick: n => { for (let i = 0; i < n; i++) { Tm += 0.05; assignJobs(); minds.forEach(m => updateMind(m, 0.05, 0)); } } };
