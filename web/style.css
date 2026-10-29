@@ -758,3 +758,61 @@ body.in-island #toast { bottom: 150px; }
 @keyframes jabDn { 50% { margin-top: 12px; } }
 @keyframes unitDie { to { opacity: 0; filter: brightness(2.5); scale: .3; rotate: 25deg; } }
 .floater.small { font-size: 18px; }
+
+/* ===== top-down arena ===== */
+.arena { position: absolute; left: 50%; transform: translateX(-50%); top: calc(max(10px, env(safe-area-inset-top)) + 86px); bottom: calc(var(--tray, 200px) + 4px); aspect-ratio: 150 / 240; max-width: 100vw; z-index: 3; box-shadow: 0 0 0 4px var(--ink), 0 10px 0 rgba(29,27,47,.35); }
+.arena canvas { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
+.arena .board { position: absolute; left: 12.5%; right: 12.5%; top: 17%; bottom: 17%; width: auto; transform: none; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; z-index: 2; }
+.arena .lane { background: none; box-shadow: none; border-radius: 0; }
+.arena .lane::before { display: none; }
+.arena .lane.open { background: rgba(212,255,31,.22); box-shadow: inset 0 0 0 3px var(--lime); }
+.arena .lane.target { background: rgba(255,197,61,.25); box-shadow: inset 0 0 0 3px var(--gold); }
+.arena .lane.skillmark { box-shadow: inset 0 0 0 3px var(--lime); }
+.gate { position: absolute; left: 50%; width: 34%; aspect-ratio: 44 / 30; transform: translateX(-50%); z-index: 3; pointer-events: none; }
+.gate.rv { top: 1%; } .gate.me { bottom: 1%; }
+.gate .g-gate { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
+.gate .g-mind { position: absolute; left: 50%; bottom: 18%; height: 82%; transform: translateX(-50%); image-rendering: pixelated; filter: drop-shadow(0 3px 0 rgba(29,27,47,.35)); }
+.gate.rv .g-mind { bottom: 22%; }
+.gate.ouch { animation: gateHit .3s; } .gate.cast .g-mind { animation: gateCast .6s; }
+.gate.win .g-mind { animation: gateWin .5s ease-in-out 4; } .gate.ko { animation: gateKo .8s forwards; }
+@keyframes gateHit { 30% { filter: brightness(2.4) sepia(1) hue-rotate(-40deg); transform: translateX(-52%); } 70% { transform: translateX(-48%); } }
+@keyframes gateCast { 40% { filter: drop-shadow(0 0 10px #d4ff1f) brightness(1.5); transform: translateX(-50%) translateY(-12%); } }
+@keyframes gateWin { 50% { transform: translateX(-50%) translateY(-22%); } }
+@keyframes gateKo { to { filter: grayscale(1) brightness(.6); opacity: .7; } }
+/* creatures seen from above: no card frame, a shadow, a team ring and a slim HP bar */
+.arena .unit { background: none; box-shadow: none; }
+.arena .unit::before { content: ''; position: absolute; left: 10%; right: 10%; bottom: 2%; height: 24%; border-radius: 50%; background: rgba(29,27,47,.35); box-shadow: 0 0 0 2px #7fff4a; }
+.arena .unit.rv::before { box-shadow: 0 0 0 2px #ff5a6a; }
+.arena .unit img { position: relative; width: 100%; height: 100%; filter: drop-shadow(0 2px 0 rgba(29,27,47,.4)); }
+.arena .unit .eld { display: none; }
+.arena .unit .pw { right: -6px; top: -6px; min-width: 18px; height: 18px; font-size: 12px; }
+.arena .unit .hb { left: 8%; right: 8%; bottom: auto; top: -7px; height: 4px; }
+.arena .unit.ghost { opacity: .6; animation: pulse 1s ease-in-out infinite; }
+/* ===== the card tray ===== */
+.tray { display: flex; flex-direction: column; gap: 6px; align-items: center; padding: 8px 12px 6px; background: linear-gradient(180deg, #a8703c, #7a4a24); box-shadow: 0 0 0 4px var(--ink), inset 0 4px 0 #c99055, inset 0 -4px 0 #5e3518; border-radius: 6px; }
+.tray .handrow { gap: 12px; align-items: flex-end; }
+.nextcard { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 50px; }
+.nextcard span { font: 400 14px var(--pix); color: #fff; text-shadow: 1px 1px 0 var(--ink); }
+.nextcard img { width: 46px; height: 46px; background: #3a3656; box-shadow: 0 0 0 2px var(--ink); image-rendering: pixelated; object-fit: contain; padding: 3px; }
+.tray .ccard { width: clamp(64px, 8.5vw, 88px); padding: 0 0 4px; background: #2b2340; box-shadow: 0 0 0 3px var(--ink), 0 0 0 6px var(--frame, #7fb6ff), 0 6px 0 6px rgba(29,27,47,.35); gap: 0; border-radius: 4px; }
+.tray .ccard.st1 { --frame: #8fc3ff; } .tray .ccard.st2 { --frame: #c38bff; } .tray .ccard.st3 { --frame: #ffc53d; }
+.tray .ccard.st3:not(.placed):not(.poor) { animation: legendGlow 1.6s ease-in-out infinite; }
+@keyframes legendGlow { 50% { box-shadow: 0 0 0 3px var(--ink), 0 0 0 6px var(--frame), 0 0 18px 8px rgba(255,197,61,.55); } }
+.tray .ccard .art { width: 100%; aspect-ratio: 4 / 5; background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--el) 70%, #fff), color-mix(in srgb, var(--el) 55%, #1d1b2f)); display: grid; place-items: center; border-radius: 3px 3px 0 0; }
+.tray .ccard .art img { width: 86%; height: 86%; image-rendering: pixelated; object-fit: contain; filter: drop-shadow(0 3px 0 rgba(29,27,47,.35)); }
+.tray .ccard b { color: #fff; font-size: clamp(10px, 1.1vw, 12px); padding: 3px 2px 0; }
+.tray .ccard .cost { left: 50%; top: -13px; transform: translateX(-50%); width: 28px; height: 28px; border-radius: 50%; color: #fff; text-shadow: 1px 1px 0 var(--ink); background: radial-gradient(circle at 35% 30%, #bff0ff, #2f78c4); }
+.tray .ccard .pwr { right: -8px; bottom: auto; top: 54%; width: 24px; height: 24px; font-size: 15px; }
+.tray .ccard.on { transform: translateY(-14px); box-shadow: 0 0 0 3px var(--ink), 0 0 0 6px var(--lime), 0 12px 0 6px rgba(29,27,47,.3); }
+.focusbar { display: flex; align-items: center; gap: 8px; width: 100%; max-width: 520px; }
+.focusbar b { width: 34px; height: 34px; display: grid; place-items: center; font: 400 22px/1 var(--pix); color: #fff; background: radial-gradient(circle at 35% 30%, #bff0ff, #2f78c4); box-shadow: 0 0 0 3px var(--ink); border-radius: 50%; text-shadow: 1px 1px 0 var(--ink); }
+.focusbar div { flex: 1; display: flex; gap: 3px; height: 16px; padding: 2px; background: #2b2340; box-shadow: 0 0 0 2px var(--ink); }
+.focusbar div i { flex: 1; background: #4a4266; } .focusbar div i.on { background: linear-gradient(180deg, #9fe6ff, #3c9be0); } .focusbar div i.used { background: #2f78c4; opacity: .45; }
+.focusbar span { font-size: 11px; font-weight: 900; color: #ffe9c7; white-space: nowrap; letter-spacing: .05em; }
+@media (max-width: 760px) {
+  .arena { top: calc(max(10px, env(safe-area-inset-top)) + 72px); }
+  .tray { padding: 6px 6px 4px; width: 100%; border-radius: 0; }
+  .tray .handrow { flex-wrap: wrap; gap: 8px; justify-content: center; }
+  .nextcard { width: 38px; } .nextcard img { width: 34px; height: 34px; }
+  .tray .ccard { width: 60px; }
+}

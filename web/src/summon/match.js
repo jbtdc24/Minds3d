@@ -63,7 +63,7 @@ export function viewFor(s, i) {
     deckLeft: p.deck.length, handCount: p.hand.length, skill: p.skill, skillUsed: p.skillUsed, el: p.el, locked: !!s.pending[j] });
   return {
     turn: g.turn, maxTurns: RULES.maxTurns, over: s.over, winner: s.winner,
-    me: { ...side(me, i), hand: [...me.hand], focus: me.focus, play: s.pending[i] },
+    me: { ...side(me, i), hand: [...me.hand], next: me.deck[me.deck.length - 1] || null, focus: me.focus, play: s.pending[i] },
     rival: side(op, 1 - i),
     lastEvent: g.log[g.log.length - 1] || null,
   };

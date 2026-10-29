@@ -8,6 +8,8 @@ import { CARD, CREATURES, STARTER_DECKS, HERO_SKILLS, ELEMENT_INFO, abilitiesOf,
 import { SKILL_TARGET } from './summon/engine.js';
 import { botAct } from './summon/bot.js';
 import { creatureImg } from './summon/art.js';
+import { drawArena, gateSprite } from './summon/arena.js';
+import { chibi } from './island/chibi.js';
 import { DATA_VERSION } from './config.js';
 import { api, session, walletLogin, guestLogin, logout, hasWallet, watch, serverOnline, LocalMatch, setTokenIds } from './net.js';
 import { initAudio, sfx, music, setVolume } from './audio.js';
@@ -49,7 +51,9 @@ function show(id) {
   if (!['settings', 'codex'].includes(id)) previous = current;
   current = id;
   if (!WINDOWS.has(id)) base = id;
-  if (base !== 'island') { closeIsland(); stage.paused = false; }
+  if (base !== 'island') closeIsland();
+  stage.paused = base === 'island';   // the island draws its own scene
+  document.body.classList.toggle('in-duel', base === 'duel');
   document.body.classList.toggle('in-island', base === 'island');
   $$('.screen').forEach(s => s.classList.toggle('on', s.id === 's-' + id || (WINDOWS.has(id) && s.id === 's-' + base)));
   if (['hub', 'prep', 'leaderboard', 'profile'].includes(id) && base === 'hub') music('menu');
@@ -530,14 +534,16 @@ function startDuel(local, first = local.view(), opts = {}) {
     chatAt: (first.chat || []).reduce((m, c) => Math.max(m, Date.parse(c.at)), 0), tutorial: opts.tutorial || null };
   D.v.gotAt = Date.now();
   clearStage(); clearTags(); clearBoard();
-  const forced = new URLSearchParams(location.search).get('stage');
+  const forced = new URLSearchParams(location.search).get('stage');   // the old arenas stay as the backdrop
   setStage(opts.stage || (BATTLE_STAGES.includes(forced) ? forced : BATTLE_STAGES[(Math.random() * BATTLE_STAGES.length) | 0]));
+  camSnap(0, 1, 0);
+  paintArena();
   placeFighters(first.view, true);
   $('#d-chat').style.display = D.tutorial ? 'none' : '';
   $('#d-chatpick').classList.remove('on');
   show('duel'); music('battle');
   paintDuel();
-  duelLayout(); camSnap(0, 1.2, 0.5); camTo(0, 1, 0, 2.5);
+  duelLayout();
   if (!local) {
     watch(`match:${D.id}`, () => refresh()).then(un => { if (D) D.unwatch = un; });
     D.poll = setInterval(() => { if (D && !D.busy) refresh(); }, 2500);
@@ -548,16 +554,24 @@ function startDuel(local, first = local.view(), opts = {}) {
   banner(`<div class="bt">${D.tutorial ? 'TUTORIAL' : 'DUEL!'}</div><small>${esc(first.view.me.name)} vs ${esc(first.view.rival.name)}${first.ranked ? ' · RANKED' : ''}</small>`, 1300)
     .then(() => { sfx('fight'); $('#s-duel').classList.remove('intro'); if (D) { D.busy = false; D.tutorial?.start(); } });
 }
-// the two summoners stand at the sides; the creatures fight on the board between them
-function placeFighters(v, drop) {
+// the arena from above (drawn once), and each summoner standing at their Mind Gate
+let arenaCv = null;
+function paintArena() {
+  const cv = $('#d-arena-cv');
+  arenaCv ||= drawArena(11);
+  cv.width = arenaCv.w; cv.height = arenaCv.h;
+  cv.getContext('2d').drawImage(arenaCv.cv, 0, 0);
+}
+// D.F[side] = the summoner at its gate: hits, casts, wins and losses show as small animations on the gate
+function placeFighters(v) {
   [v.me, v.rival].forEach((p, i) => {
-    if (D.F[i]) return;
-    const narrow = innerWidth < 760;
-    const f = new Fighter(p.mind, (i ? 1 : -1) * (narrow ? 2.15 : 2.75), i, { scale: narrow ? 0.55 : 0.8 });
-    if (drop) f.dropIn(0.25 + i * 0.2);
-    D.F[i] = f;
+    const g = $(`#d-gate${i}`);
+    g.querySelector('.g-gate').src = gateSprite(i === 0).cv.toDataURL();
+    g.querySelector('.g-mind').src = chibi(p.mind).full.cv.toDataURL();
+    g.className = `gate ${i ? 'rv' : 'me'}`;
+    const move = { hit: 'ouch', hitBig: 'ouch', cast: 'cast', win: 'win', ko: 'ko' };
+    D.F[i] = { gate: g, play: k => { if (move[k]) { g.classList.remove(move[k]); void g.offsetWidth; g.classList.add(move[k]); } } };
   });
-  stageFighters = D.F.filter(Boolean);
 }
 async function refresh() {
   if (!D || D.local) return;
@@ -583,7 +597,7 @@ const UNITS = new Map();   // key -> element
 function laneGeom() {
   const l = $('#d-board .lane');
   const W = l?.clientWidth || 100, H = l?.clientHeight || 300;
-  return { H, S: Math.round(Math.min(W - 10, Math.max(42, H * 0.2))) };
+  return { H, S: Math.round(Math.max(30, Math.min(W * 0.66, H * 0.12, 64))) };
 }
 const unitY = (side, pos, g) => { const span = g.H - g.S - 10; return Math.round(side === 0 ? 5 + span * (1 - pos) : 5 + span * pos); };
 // list: [{ key, side, lane, id, pos, hp, maxHp, atk, temp, ghost }]
@@ -658,11 +672,14 @@ function paintDuel() {
   $('#d-hand').innerHTML = mine.hand.map((id, i) => {
     const c = CARD[id], used = D.plan.some(p => p.card === i) || (locked && mine.play?.play.some(m => m.card === i));
     const cls = [used ? 'placed' : '', D.sel === i ? 'on' : '', !used && c.cost > left ? 'poor' : '', T && T.card === id && !used ? 'pulse' : '', T && (T.card !== id) ? 'lockout' : ''].join(' ');
-    return `<button class="ccard ${cls}" data-i="${i}" style="--el:${ELEMENT_INFO[c.el].color}"><i class="cost">${c.cost}</i><img src="${creatureImg(id)}" alt=""><b>${c.name}</b><span>${abShort(c) || ELEMENT_INFO[c.el].name}</span><i class="pwr">${c.power}</i></button>`;
+    return `<button class="ccard st${c.stage} ${cls}" data-i="${i}" style="--el:${ELEMENT_INFO[c.el].color}"><div class="art"><img src="${creatureImg(id)}" alt=""></div><i class="cost">${c.cost}</i><i class="pwr">${c.power}</i><b>${c.name}</b></button>`;
   }).join('');
-  // focus pips
+  const nx = mine.next;
+  $('#d-next').style.visibility = nx ? 'visible' : 'hidden';
+  if (nx) { $('#d-next img').src = creatureImg(nx); $('#d-next').title = `Next card: ${CARD[nx].name}`; }
+  // the Focus bar: what you have this round, what your summons cost
   const tot = focusTotal(), spent = Math.min(tot, planCost());
-  $('#d-focus').innerHTML = `<span>FOCUS</span><div>${Array.from({ length: tot }, (_, i) => `<i class="${i < tot - spent ? 'on' : ''}"></i>`).join('')}</div><b>${tot - spent}</b>`;
+  $('#d-focus').innerHTML = `<b>${tot - spent}</b><div>${Array.from({ length: 6 + (tot > 6 ? tot - 6 : 0) }, (_, i) => `<i class="${i < tot - spent ? 'on' : i < tot ? 'used' : ''}"></i>`).join('')}</div><span>FOCUS · max 6</span>`;
   // hero skill
   const sk = $('#d-skillbtn'), S = HERO_SKILLS[mine.skill];
   sk.innerHTML = `<b>${S.name}</b><em>${mine.skillUsed ? 'used' : D.skill ? (D.targeting ? 'pick a lane' : 'ready ✔') : 'once per match'}</em>`;
@@ -811,7 +828,7 @@ function showChat(lines, seat, serverTime) {
     if (at <= D.chatAt) continue;
     D.chatAt = Math.max(D.chatAt, at);
     const side = c.seat === seat ? 0 : 1, delay = Math.max(0, at - (Date.now() + skew));
-    setTimeout(() => { if (D?.F[side]) { tag(D.F[side], esc(PHRASES[c.phrase] || ''), 'bubble', 2600); sfx('pop'); } }, delay);
+    setTimeout(() => { if (D?.F[side]) { floatAt(D.F[side].gate, esc(PHRASES[c.phrase] || ''), 'chat'); sfx('pop'); } }, delay);
   }
 }
 
@@ -893,7 +910,7 @@ function playBattle(tl, seat, M, hp, paintHp) {
     const side = s => s === seat ? 0 : 1, frames = tl.f, hits = tl.hits, TICK = 100, last = frames.length - 1;
     const byUid = new Map();
     M.forEach((b, s) => b.forEach((c, lane) => { if (c) byUid.set(c.uid, { ...c, side: s, lane }); }));
-    let hi = 0, t0 = performance.now(), dead = new Set();
+    let hi = 0, t0 = performance.now(), dead = new Set(), hitSound = 0;
     const speed = speedSetting || 1;
     D.F.forEach(f => f && (f.act = null));
     const step = () => {
@@ -917,11 +934,11 @@ function playBattle(tl, seat, M, hp, paintHp) {
         if (target >= 0) {
           const te = unitEl(`u${target}`);
           if (te) { bump(te, 'hurt'); floatAt(te, `−${Math.round(n)}`, 'bad small'); }
-          sfx('hit', 0);
+          if (++hitSound % 2) sfx('hit');
         } else {
           const s = side(-1 - target);
           hp[s].hp = Math.round((hp[s].hp - n) * 10) / 10;
-          if (n > 0) { floatAt(plate(s), `−${Math.round(n * 10) / 10}`, 'bad'); D.F[s]?.play('hit'); bump(plate(s), 'ouch'); shake(4); sfx('crit'); }
+          if (n > 0) { floatAt(D.F[s]?.gate || plate(s), `−${Math.round(n * 10) / 10}`, 'bad'); D.F[s]?.play('hit'); bump(plate(s), 'ouch'); sfx('crit'); }
           else { floatAt(plate(s), '🛡', ''); sfx('block'); }
           paintHp();
         }
@@ -948,9 +965,8 @@ async function finish(v) {
   const seat = v.seat, won = v.winner === seat, draw = v.winner === null;
   if (D.tutorial) { D.F[won ? 1 : 0]?.play('ko'); D.F[won ? 0 : 1]?.play('win'); sfx(won ? 'victory' : 'defeat'); await banner(`<div class="bt ${won ? '' : 'red'}">${won ? 'VICTORY!' : 'DEFEAT'}</div>`, 1400); return D?.tutorial.done(won); }
   const winF = draw ? null : D.F[won ? 0 : 1], loseF = draw ? null : D.F[won ? 1 : 0];
-  if (loseF) { loseF.ko = true; loseF.play('ko'); sfx('ko'); shake(14); }
+  if (loseF) { loseF.play('ko'); sfx('ko'); }
   winF?.play('win');
-  if (winF) { camTo(winF.home.x * 0.5, 1.25, 0.4, 2); const fx = setInterval(() => { if (current !== 'duel' && current !== 'result') return clearInterval(fx); stars(winF.pos.x, winF.height, 6); }, 400); setTimeout(() => clearInterval(fx), 4000); }
   sfx(won ? 'victory' : draw ? 'round' : 'defeat'); music(null);
   const title = won ? 'VICTORY!' : draw ? 'DRAW' : 'DEFEAT';
   await banner(`<div class="bt ${won ? '' : draw ? 'white' : 'red'}">${title}</div>`, 1600);

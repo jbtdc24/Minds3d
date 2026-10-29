@@ -167,17 +167,25 @@
       <img class="pfp" id="d-pfp1" alt="">
     </div>
   </div>
-  <div class="board" id="d-board">
-    <div class="lane" data-lane="0"><i class="end rv"></i><i class="end me"></i></div>
-    <div class="lane" data-lane="1"><i class="end rv"></i><i class="end me"></i></div>
-    <div class="lane" data-lane="2"><i class="end rv"></i><i class="end me"></i></div>
+  <div class="arena" id="d-arena">
+    <canvas id="d-arena-cv"></canvas>
+    <div class="gate rv" id="d-gate1"><img class="g-gate" alt=""><img class="g-mind" alt=""></div>
+    <div class="gate me" id="d-gate0"><img class="g-gate" alt=""><img class="g-mind" alt=""></div>
+    <div class="board" id="d-board">
+      <div class="lane" data-lane="0"></div>
+      <div class="lane" data-lane="1"></div>
+      <div class="lane" data-lane="2"></div>
+    </div>
   </div>
   <div class="duel-bottom" id="d-controls">
     <div class="duel-hint px" id="d-hint"></div>
-    <div class="handrow">
-      <div class="focus px" id="d-focus"></div>
-      <div class="hand" id="d-hand"></div>
-      <div class="lockrow"><button class="skillbtn px" id="d-skillbtn"></button><button class="btn primary big lock" id="d-lock">End turn</button><div class="waiting px" id="d-wait">Locked in · waiting for rival</div></div>
+    <div class="tray">
+      <div class="handrow">
+        <div class="nextcard" id="d-next"><span>Next</span><img alt=""></div>
+        <div class="hand" id="d-hand"></div>
+        <div class="lockrow"><button class="skillbtn px" id="d-skillbtn"></button><button class="btn primary big lock" id="d-lock">End turn</button><div class="waiting px" id="d-wait">Locked in · waiting for rival</div></div>
+      </div>
+      <div class="focusbar" id="d-focus"></div>
     </div>
   </div>
   <button class="iconbtn px chatbtn" id="d-chat" title="Quick chat"><img src="assets/icon_chat.png" alt="Chat"></button>
