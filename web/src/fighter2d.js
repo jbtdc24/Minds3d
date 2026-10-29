@@ -172,8 +172,8 @@ export class Fighter {
     at('torso', null, () => {
       g.rotate(P.lean);
       g.scale(1 + (1 - P.sq) * 0.6, P.sq);
-      at('armL', 'torso', () => part('armL', P.armB));
       part('torso');
+      at('armL', 'torso', () => part('armL', P.armB));   // both arms in front: it's a front view
       if (parts.item) at('armR', 'torso', () => { g.rotate(-P.armF); g.translate(P.armFx, 0); at('item', 'armR', () => part('item', P.item - 0.2)); });
       at('head', 'torso', () => part('head', P.head));
       at('armR', 'torso', () => part('armR', P.armF, P.armFx, 0));

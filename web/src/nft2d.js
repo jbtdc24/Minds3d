@@ -94,13 +94,22 @@ export function buildRig(id) {
   if (!traits) throw new Error(`No token #${id}`);
   const n = DATA.n, { front, part, isArm } = compose(traits);
   const dark = DATA.dark.findIndex(Boolean);
+  // behind a cut-out arm the body gets the shirt colour next to it (towards the middle), not a black hole
+  const fill = (x, y) => {
+    const step = x < MID_X ? 1 : -1;
+    for (let X = x + step; X !== MID_X + step; X += step) {
+      const K = y * n + X;
+      if (front[K] && !isArm.has(K) && part[K] === 'torso' && !DATA.dark[front[K]]) return front[K];
+    }
+    return dark;
+  };
   const groups = {};
   const add = (name, c) => (groups[name] ||= []).push(c);
   for (let k = 0; k < n * n; k++) {
     if (!front[k]) continue;
     const x = k % n, y = (k / n) | 0, cell = { x, y, front: front[k] };
     const arm = isArm.get(k);
-    if (arm) { add(arm, cell); add('torso', { x, y, front: dark }); continue; }
+    if (arm) { add(arm, cell); add('torso', { x, y, front: DATA.dark[front[k]] ? front[k] : fill(x, y) }); continue; }
     add(part[k], cell);
   }
   const pivots = {
