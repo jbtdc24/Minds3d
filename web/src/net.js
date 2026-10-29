@@ -41,7 +41,7 @@ export async function guestLogin() {
   session.token = out.token;
   return out;
 }
-export const logout = () => { session.token = null; };
+export const logout = () => { session.token = null; try { localStorage.removeItem('mindclash.account'); } catch { /* private mode */ } };
 
 // ---------- live updates: Supabase Realtime broadcast ping + polling fallback ----------
 let rt = null;

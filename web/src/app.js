@@ -134,10 +134,19 @@ addEventListener('resize', () => { if (current === 'hub') paintBoardOpen(); if (
 
 // ---------- account ----------
 let me = null, myMinds = [], guest = false, online = false, energy = {}, energyResetAt = 0;
+// the account is remembered on this device so the game opens instantly; the server copy refreshes in the background
+const ACC_KEY = 'mindclash.account';
+const saveAccount = () => { try { localStorage.setItem(ACC_KEY, JSON.stringify({ token: session.token, me, myMinds, guest, energy, energyResetAt })); } catch { /* private mode */ } };
+function loadAccount() {
+  try { const a = JSON.parse(localStorage.getItem(ACC_KEY) || 'null'); if (a && a.token === session.token && a.me) return a; } catch { /* ignore */ }
+  return null;
+}
 async function refreshMe() {
-  const r = await api('me');
+  // send the Minds we saw last time: the server verifies them on-chain in one quick call instead of a full scan
+  const r = await api(`me${!guest && myMinds.length ? `?known=${myMinds.join(',')}` : ''}`);
   me = r.player; myMinds = r.minds; guest = r.guest;
   energy = r.energy || {}; energyResetAt = Date.now() + (r.energyResetIn || 0);
+  saveAccount();
   return r;
 }
 // ---------- Mind Energy: ranked matches use 1 ⚡ per Mind; refills at 00:00 UTC ----------
@@ -183,6 +192,7 @@ async function enterHub() {
 }
 async function afterLogin(out) {
   me = out.player; myMinds = out.minds; guest = !!out.guest;
+  saveAccount();
   if (!guest && !myMinds.length) {
     await modal(`<h3>No Minds found</h3><p class="muted">This wallet doesn't hold any minds.games NFTs on Robinhood Chain yet. You can still try the game with demo Minds.</p>`, [['Try with demo Minds', 1, 'primary']]);
     logout(); return startGuest();
@@ -1028,6 +1038,18 @@ function tapToStart() {
   music('title');
   await tapToStart();
   if (online && session.token) {
+    const cached = loadAccount();
+    if (cached) {
+      // straight into the lobby with what we knew last time, then refresh from the server
+      ({ me, myMinds, guest, energy, energyResetAt } = cached);
+      enterHub();
+      const shownBefore = showcaseIds().join();
+      refreshMe().then(r => {
+        if (current === 'hub') { paintHub(); if (showcaseIds().join() !== shownBefore) lobbyScene(showcaseIds()); }
+        if (r.liveMatch && current === 'hub') openMatch(r.liveMatch);
+      }).catch(e => { if (e.status === 401) { logout(); localStorage.removeItem(ACC_KEY); show('login'); } });
+      return;
+    }
     try {
       const r = await refreshMe();
       if (r.liveMatch) { await enterHub(); return openMatch(r.liveMatch); }
