@@ -552,3 +552,18 @@ p, li, .muted, .fine, .pitch, .coach p, .codex, .modal p, .guest-note { line-hei
 /* animated bits run on the GPU (no repaint every frame) */
 .logo img, .pod-crown, .r-crown, .tapstart, .card, .sp, .mode { will-change: transform; }
 .lb td { vertical-align: middle; } .lb th:first-child, .lb td.rank { width: 48px; text-align: center; } .lb .lbv { white-space: nowrap; }
+
+/* Mind Island (test) */
+.islbtn { font-size: 26px; }
+#s-island { background: #3b86d1; touch-action: none; }
+#island-cv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; image-rendering: pixelated; }
+#island-cv:active { cursor: grabbing; }
+.isl-top { position: absolute; top: 12px; left: 12px; right: 12px; display: flex; gap: 10px; align-items: center; pointer-events: none; }
+.isl-top > * { pointer-events: auto; }
+.isl-top .btn { padding: 10px 16px; font-size: 17px; }
+.isl-title { background: var(--paper); padding: 6px 14px; display: flex; flex-direction: column; line-height: 1.1; margin-right: auto; }
+.isl-title b { font: 400 22px var(--pix); }
+.isl-title span { font-size: 12px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.isl-hint { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); background: rgba(29,27,47,.78); color: #fff; padding: 6px 14px; font-size: 14px; font-weight: 700; white-space: nowrap; pointer-events: none; }
+.isl-title b { white-space: nowrap; }
+@media (max-width: 620px) { .isl-title span, #isl-new .lbl { display: none; } .isl-title b { font-size: 18px; } .isl-top .btn { padding: 8px 10px; font-size: 15px; } .isl-hint { font-size: 11px; padding: 5px 10px; } }

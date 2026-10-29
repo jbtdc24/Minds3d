@@ -9,6 +9,8 @@ import { api, session, walletLogin, guestLogin, logout, hasWallet, watch, server
 import { initAudio, sfx, music, setVolume } from './audio.js';
 import { PHRASES, MATCH_CHAT, FRIEND_CHAT, BOT_REPLIES } from './chat.js';
 import { capOf, ENERGY_CAP } from './energy.js';
+import { openIsland, closeIsland } from './island/island.js';
+import { hashStr } from './island/pixel.js';
 
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
@@ -42,6 +44,7 @@ function show(id) {
   if (!['settings', 'codex'].includes(id)) previous = current;
   current = id;
   if (!WINDOWS.has(id)) base = id;
+  if (base !== 'island') { closeIsland(); stage.paused = false; }
   $$('.screen').forEach(s => s.classList.toggle('on', s.id === 's-' + id || (WINDOWS.has(id) && s.id === 's-' + base)));
   if (['hub', 'prep', 'leaderboard', 'profile'].includes(id) && base === 'hub') music('menu');
   if (id === 'login') music('title');
@@ -289,6 +292,25 @@ function paintInventory() {
   $('#inv-items').style.display = invTab === 'items' ? '' : 'none';
 }
 $('#hub-inv').onclick = openInventory;
+
+// ---------- Mind Island (test): only shown with ?island=1 (remembered on this device; ?island=0 hides it) ----------
+const islandOn = (() => {
+  try {
+    const q = new URLSearchParams(location.search).get('island');
+    if (q !== null) localStorage.setItem('mindclash.island', q === '0' ? '' : '1');
+    return !!localStorage.getItem('mindclash.island');
+  } catch { return false; }
+})();
+$('#hub-island').hidden = !islandOn;
+let islandSeed = 0;
+function goIsland() {
+  show('island');
+  stage.paused = true;
+  openIsland({ minds: myMinds, seed: islandSeed || hashStr(me?.id || me?.name || 'guest'), tap: msg => toast(msg) });
+}
+$('#hub-island').onclick = () => { islandSeed = 0; goIsland(); };
+$('#isl-new').onclick = () => { islandSeed = (Math.random() * 4294967296) >>> 0; goIsland(); };
+$('#isl-back').onclick = () => enterHub();
 $('#inv-tabs').onclick = e => { const v = e.target.dataset.v; if (!v) return; invTab = v; paintInventory(); };
 $('#inv-minds').onclick = async e => {
   const m = e.target.closest('[data-id]'); if (!m || guest || !online) return;

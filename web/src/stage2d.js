@@ -26,7 +26,7 @@ const loadImg = src => images[src] ||= Object.assign(new Image(), { src });
 export const stage = {
   name: 'lobby', def: STAGES.lobby, groundAt: 0.66, K: 100,
   cam: { x: 0, y: 0, zoom: 1, tx: 0, ty: 0, tzoom: 1, k: 4 },
-  actors: new Set(), quality: 'high',
+  actors: new Set(), quality: 'high', paused: false,   // paused: another full-screen scene (the island) is drawing
 };
 export function setStage(name) {
   stage.name = name; stage.def = STAGES[name] || STAGES.meadow;
@@ -115,6 +115,7 @@ export const setSpeed = s => { speedSetting = s; };
 let last = performance.now(), simTime = 0;
 function frame(now) {
   requestAnimationFrame(frame);
+  if (stage.paused) { last = now; return; }
   if (performance.now() > slowUntil) timeScale += (1 - timeScale) * 0.15;
   const raw = Math.min(0.05, (now - last) / 1000); last = now;
   const dt = raw * timeScale * speedSetting;

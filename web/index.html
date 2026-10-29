@@ -63,6 +63,7 @@
   <header class="topbar">
     <button class="me px" id="hub-me"><img id="hub-pfp" alt=""><div class="me-txt"><b id="hub-name"></b><span id="hub-sub"></span></div></button>
     <div class="topbtns">
+      <button class="iconbtn px islbtn" id="hub-island" title="Mind Island (test)" hidden>🏝️</button>
       <button class="iconbtn px invbtn" id="hub-inv" title="Inventory">🎒<i class="enbadge" id="inv-badge"></i></button>
       <button class="iconbtn px" data-go="leaderboard" title="Leaderboard"><img src="assets/icon_trophy.png" alt="Leaderboard"></button>
       <button class="iconbtn px" id="hub-friends" title="Friends"><img src="assets/icon_friends.png" alt="Friends"><i class="badge" id="friends-badge"></i></button>
@@ -242,6 +243,17 @@
     <div class="inv-grid" id="inv-minds"></div>
     <div class="inv-items panel px" id="inv-items"></div>
   </div>
+</section>
+
+<!-- MIND ISLAND (test, hidden behind ?island=1) -->
+<section id="s-island" class="screen">
+  <canvas id="island-cv"></canvas>
+  <div class="isl-top">
+    <button class="btn px" id="isl-back">← Lobby</button>
+    <div class="isl-title px"><b>🏝️ Mind Island</b><span>test preview</span></div>
+    <button class="btn px" id="isl-new" title="Make a different island">🎲<span class="lbl"> New island</span></button>
+  </div>
+  <div class="isl-hint px">Drag to look around · Scroll or pinch to zoom · Tap a Mind</div>
 </section>
 
 <!-- SETTINGS -->
