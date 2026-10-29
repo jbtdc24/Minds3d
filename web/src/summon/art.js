@@ -111,8 +111,10 @@ function shift(hex) {
   return '#' + [b, r, g].map(v => v.toString(16).padStart(2, '0')).join('');
 }
 const urls = new Map();
+// the hand-made art (OpenArt, cut out by tools/cut_sprites.py); the code-drawn sprite is the fallback for shinies
 export function creatureImg(id, shiny = false) {
-  const key = id + (shiny ? '*' : '');
-  if (!urls.has(key)) urls.set(key, creatureSprite(id, shiny).cv.toDataURL());
+  if (!shiny && CARD[id]) return `assets/creatures/${id}.webp`;
+  const key = id + '*';
+  if (!urls.has(key)) urls.set(key, creatureSprite(id, true).cv.toDataURL());
   return urls.get(key);
 }

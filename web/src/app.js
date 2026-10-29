@@ -8,7 +8,6 @@ import { CARD, CREATURES, STARTER_DECKS, HERO_SKILLS, ELEMENT_INFO, abilitiesOf,
 import { SKILL_TARGET } from './summon/engine.js';
 import { botAct } from './summon/bot.js';
 import { creatureImg } from './summon/art.js';
-import { drawArena, gateSprite } from './summon/arena.js';
 import { chibi } from './island/chibi.js';
 import { DATA_VERSION } from './config.js';
 import { api, session, walletLogin, guestLogin, logout, hasWallet, watch, serverOnline, LocalMatch, setTokenIds } from './net.js';
@@ -52,7 +51,7 @@ function show(id) {
   current = id;
   if (!WINDOWS.has(id)) base = id;
   if (base !== 'island') closeIsland();
-  stage.paused = base === 'island';   // the island draws its own scene
+  stage.paused = base === 'island' || base === 'duel';   // those screens draw their own scene
   document.body.classList.toggle('in-duel', base === 'duel');
   document.body.classList.toggle('in-island', base === 'island');
   $$('.screen').forEach(s => s.classList.toggle('on', s.id === 's-' + id || (WINDOWS.has(id) && s.id === 's-' + base)));
@@ -555,20 +554,14 @@ function startDuel(local, first = local.view(), opts = {}) {
     .then(() => { sfx('fight'); $('#s-duel').classList.remove('intro'); if (D) { D.busy = false; D.tutorial?.start(); } });
 }
 // the arena from above (drawn once), and each summoner standing at their Mind Gate
-let arenaCv = null;
-function paintArena() {
-  const cv = $('#d-arena-cv');
-  arenaCv ||= drawArena(11);
-  cv.width = arenaCv.w; cv.height = arenaCv.h;
-  cv.getContext('2d').drawImage(arenaCv.cv, 0, 0);
-}
+function paintArena() { $('#d-arena').classList.add('ready'); }
 // D.F[side] = the summoner at its gate: hits, casts, wins and losses show as small animations on the gate
 function placeFighters(v) {
   [v.me, v.rival].forEach((p, i) => {
     const g = $(`#d-gate${i}`);
-    g.querySelector('.g-gate').src = gateSprite(i === 0).cv.toDataURL();
+    g.querySelector('.g-gate').src = `assets/gate_${i ? 'rv' : 'me'}.webp`;
     g.querySelector('.g-mind').src = chibi(p.mind).full.cv.toDataURL();
-    g.className = `gate ${i ? 'rv' : 'me'}`;
+    g.className = `gate ${i ? 'g-rv' : 'g-me'}`;
     const move = { hit: 'ouch', hitBig: 'ouch', cast: 'cast', win: 'win', ko: 'ko' };
     D.F[i] = { gate: g, play: k => { if (move[k]) { g.classList.remove(move[k]); void g.offsetWidth; g.classList.add(move[k]); } } };
   });
@@ -596,10 +589,11 @@ async function handle(v) {
 const UNITS = new Map();   // key -> element
 function laneGeom() {
   const l = $('#d-board .lane');
-  const W = l?.clientWidth || 100, H = l?.clientHeight || 300;
-  return { H, S: Math.round(Math.max(30, Math.min(W * 0.66, H * 0.12, 64))) };
+  const W = l?.clientWidth || 600, H = l?.clientHeight || 80;
+  return { W, H, S: Math.round(Math.max(40, H * 1.7)) };
 }
-const unitY = (side, pos, g) => { const span = g.H - g.S - 10; return Math.round(side === 0 ? 5 + span * (1 - pos) : 5 + span * pos); };
+const STAGE_SCALE = [0, 0.72, 0.86, 1];
+const unitX = (side, pos, g, s) => { const span = g.W - s; return Math.round(side === 0 ? span * pos : span * (1 - pos)); };
 // list: [{ key, side, lane, id, pos, hp, maxHp, atk, temp, ghost }]
 function drawUnits(list) {
   const g = laneGeom(), seen = new Set();
@@ -615,8 +609,9 @@ function drawUnits(list) {
     }
     e.classList.toggle('rv', u.side === 1); e.classList.toggle('ghost', !!u.ghost);
     e.style.setProperty('--el', ELEMENT_INFO[CARD[u.id].el].color);
-    e.style.width = e.style.height = `${g.S}px`;
-    e.style.transform = `translate(-50%, ${unitY(u.side, u.pos ?? RULES_SPAWN, g)}px)`;
+    const s = Math.round(g.S * STAGE_SCALE[CARD[u.id].stage]);
+    e.style.width = e.style.height = `${s}px`;
+    e.style.transform = `translateX(${unitX(u.side, u.pos ?? RULES_SPAWN, g, s)}px)`;
     const atk = Math.max(0, (u.atk ?? CARD[u.id].power) + (u.temp || 0)), pw = e.querySelector('.pw');
     pw.textContent = atk; pw.className = `pw ${u.temp > 0 ? 'up' : u.temp < 0 ? 'down' : ''}`;
     const hp = u.hp ?? u.maxHp ?? 1, max = u.maxHp ?? hp;
@@ -679,7 +674,7 @@ function paintDuel() {
   if (nx) { $('#d-next img').src = creatureImg(nx); $('#d-next').title = `Next card: ${CARD[nx].name}`; }
   // the Focus bar: what you have this round, what your summons cost
   const tot = focusTotal(), spent = Math.min(tot, planCost());
-  $('#d-focus').innerHTML = `<b>${tot - spent}</b><div>${Array.from({ length: 6 + (tot > 6 ? tot - 6 : 0) }, (_, i) => `<i class="${i < tot - spent ? 'on' : i < tot ? 'used' : ''}"></i>`).join('')}</div><span>FOCUS · max 6</span>`;
+  $('#d-focus').innerHTML = `<b>${tot - spent}</b><div>${Array.from({ length: 6 + (tot > 6 ? tot - 6 : 0) }, (_, i) => `<i class="${i < tot - spent ? 'on' : i < tot ? 'used' : ''}"></i>`).join('')}</div><span>FOCUS</span>`.replace(`<b>${tot - spent}</b>`, `<b>${tot - spent}/${Math.max(6, tot)}</b>`);
   // hero skill
   const sk = $('#d-skillbtn'), S = HERO_SKILLS[mine.skill];
   sk.innerHTML = `<b>${S.name}</b><em>${mine.skillUsed ? 'used' : D.skill ? (D.targeting ? 'pick a lane' : 'ready ✔') : 'once per match'}</em>`;
@@ -688,7 +683,7 @@ function paintDuel() {
   const lock = $('#d-lock');
   const tutOk = !T || (T.skill ? !!D.skill && !D.targeting : D.plan.some(p => p.id === T.card && (T.lane == null || p.lane === T.lane)));
   lock.disabled = locked || D.targeting || !tutOk || !!(T && !T.skill && D.plan.length !== 1);
-  lock.textContent = D.plan.length ? `Summon ${D.plan.length}${D.skill ? ' + skill' : ''}` : D.skill ? 'Use skill' : 'End turn';
+  lock.innerHTML = `<i>⚔️</i><span>${D.plan.length ? `SUMMON ${D.plan.length}${D.skill ? ' + SKILL' : ''}` : D.skill ? 'USE SKILL' : 'END TURN'}</span>`;
   paintHint();
   paintTimer();
 }
@@ -702,7 +697,7 @@ function paintHint(timeLow) {
   else if (D.targeting) text = `${HERO_SKILLS[v.me.skill].name}: tap a lane with ${SKILL_TARGET[v.me.skill] === 'mine' ? 'your' : 'an enemy'} creature`;
   else if (D.sel != null) text = `${cardInfo(v.me.hand[D.sel])} → tap a free lane`;
   else if (D.info) text = D.info;
-  else if (v.turn === 1) text = 'Tap a creature, then a lane. When you end the turn, creatures march and fight. Reach the end = hit the enemy Mind!';
+  else if (v.turn === 1) text = 'Tap a creature card, then a lane. End the turn and your creatures march right. Reach the pink gate = hit the rival!';
   h.innerHTML = text; h.className = `duel-hint px ${text ? 'on' : ''} ${cls}`;
 }
 function paintTimer() {

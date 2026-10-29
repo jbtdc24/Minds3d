@@ -769,10 +769,10 @@ body.in-island #toast { bottom: 150px; }
 .arena .lane.target { background: rgba(255,197,61,.25); box-shadow: inset 0 0 0 3px var(--gold); }
 .arena .lane.skillmark { box-shadow: inset 0 0 0 3px var(--lime); }
 .gate { position: absolute; left: 50%; width: 34%; aspect-ratio: 44 / 30; transform: translateX(-50%); z-index: 3; pointer-events: none; }
-.gate.rv { top: 1%; } .gate.me { bottom: 1%; }
+.gate.g-rv { top: 1%; } .gate.g-me { bottom: 1%; }
 .gate .g-gate { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
 .gate .g-mind { position: absolute; left: 50%; bottom: 18%; height: 82%; transform: translateX(-50%); image-rendering: pixelated; filter: drop-shadow(0 3px 0 rgba(29,27,47,.35)); }
-.gate.rv .g-mind { bottom: 22%; }
+.gate.g-rv .g-mind { bottom: 22%; }
 .gate.ouch { animation: gateHit .3s; } .gate.cast .g-mind { animation: gateCast .6s; }
 .gate.win .g-mind { animation: gateWin .5s ease-in-out 4; } .gate.ko { animation: gateKo .8s forwards; }
 @keyframes gateHit { 30% { filter: brightness(2.4) sepia(1) hue-rotate(-40deg); transform: translateX(-52%); } 70% { transform: translateX(-48%); } }
@@ -816,3 +816,99 @@ body.in-island #toast { bottom: 150px; }
   .nextcard { width: 38px; } .nextcard img { width: 34px; height: 34px; }
   .tray .ccard { width: 60px; }
 }
+
+/* ===== landscape duel (art: OpenArt island arena) ===== */
+#s-duel { background: #2f8ee0; overflow: hidden; }
+body.in-duel #view { visibility: hidden; }
+#s-duel .arena { left: 50%; top: 50%; bottom: auto; width: min(100vw, calc(100vh * 16 / 9)); max-width: none; aspect-ratio: 16 / 9; transform: translate(-50%, -50%);
+  background: url(assets/arena_island.webp) center / 100% 100% no-repeat; box-shadow: none; z-index: 1; }
+#s-duel .arena canvas { display: none; }
+/* the dirt paths in the picture */
+#s-duel .board { position: absolute; left: 22%; width: 56.3%; top: 0; bottom: 0; right: auto; display: block; transform: none; }
+#s-duel .lane { position: absolute; left: 0; right: 0; height: 9.4%; border-radius: 40px; background: none; box-shadow: none; }
+#s-duel .lane[data-lane="0"] { top: 25.6%; } #s-duel .lane[data-lane="1"] { top: 40.7%; } #s-duel .lane[data-lane="2"] { top: 57%; }
+#s-duel .lane.open { background: rgba(212,255,31,.28); box-shadow: inset 0 0 0 3px #d4ff1f; }
+#s-duel .lane.target { background: rgba(255,197,61,.3); box-shadow: inset 0 0 0 3px #ffc53d; }
+#s-duel .lane.skillmark { box-shadow: inset 0 0 0 3px #d4ff1f; }
+/* creatures */
+#s-duel .unit { position: absolute; left: 0; top: auto; bottom: 18%; background: none; box-shadow: none; display: block; transition: none; }
+#s-duel .unit::before { content: ''; position: absolute; left: 14%; right: 14%; bottom: -4%; height: 16%; border-radius: 50%; background: rgba(29,27,47,.25); box-shadow: 0 0 0 3px #7fff4a; }
+#s-duel .unit.rv::before { box-shadow: 0 0 0 3px #ff5a6a; }
+#s-duel .unit img { position: relative; width: 100%; height: 100%; object-fit: contain; object-position: bottom; image-rendering: auto; filter: drop-shadow(0 3px 0 rgba(29,27,47,.25)); }
+#s-duel .unit.rv img { transform: scaleX(-1); }
+#s-duel .unit .eld { display: none; }
+#s-duel .unit .hb { left: 18%; right: 18%; top: -8px; bottom: auto; height: 6px; }
+#s-duel .unit .pw { right: 4%; top: -16px; min-width: 20px; height: 20px; font-size: 13px; }
+#s-duel .unit.ghost { opacity: .65; }
+/* gates on their stone platforms, your summoner in front */
+#s-duel .gate { position: absolute; width: 11.5%; aspect-ratio: auto; top: auto; bottom: 47%; transform: none; z-index: 2; }
+#s-duel .gate.g-me { left: 7.2%; } #s-duel .gate.g-rv { left: 81.3%; }
+#s-duel .gate .g-gate { position: relative; inset: auto; width: 100%; height: auto; display: block; image-rendering: auto; }
+#s-duel .gate .g-mind { position: absolute; left: 50%; bottom: -34%; top: auto; height: 62%; transform: translateX(-50%); image-rendering: pixelated; filter: drop-shadow(0 4px 0 rgba(29,27,47,.35)); }
+#s-duel .gate.g-rv .g-mind { bottom: -34%; transform: translateX(-50%) scaleX(-1); }
+/* name plates: navy with a gold frame */
+#s-duel .duel-top { top: 10px; left: 12px; right: 12px; z-index: 6; }
+#s-duel .plate { background: linear-gradient(180deg, #2f3468, #1f2347); color: #fff; box-shadow: 0 0 0 3px #1d1b2f, 0 0 0 6px #c9a25a, 0 8px 0 4px rgba(29,27,47,.3); border-radius: 10px; padding: 8px 12px; max-width: 420px; }
+#s-duel .plate .pfp { width: 58px; height: 58px; border-radius: 50%; box-shadow: 0 0 0 3px #c9a25a; background: #fff8e4; }
+#s-duel .plate b { color: #fff; font-size: 22px; }
+#s-duel .hpbar { height: 20px; background: #12142c; box-shadow: 0 0 0 2px #0c0d1e; border-radius: 4px; }
+#s-duel .hpbar span { font-size: 15px; }
+#s-duel .skillchip { background: rgba(255,255,255,.12); color: #fff; }
+#s-duel .deckn { color: #c9c5e0; }
+#s-duel .roundlbl { color: #fff; }
+/* the wooden tray */
+#s-duel .duel-bottom { padding: 0 0 max(8px, env(safe-area-inset-bottom)); gap: 6px; z-index: 6; }
+#s-duel .tray { flex-direction: row; align-items: stretch; gap: 14px; width: min(1320px, 97vw); padding: 12px 16px; border-radius: 10px;
+  background: linear-gradient(180deg, #b47a43 0%, #8a5428 60%, #6e4019 100%); box-shadow: 0 0 0 4px #3b2210, inset 0 4px 0 #d39b5e, inset 0 -5px 0 #4f2c12, 0 10px 0 rgba(29,27,47,.35); }
+#s-duel .nextcard { width: 82px; background: #3b2a1c; border-radius: 8px; padding: 8px 6px; justify-content: center; box-shadow: inset 0 0 0 3px #2a1a0e; }
+#s-duel .nextcard span { font: 400 16px var(--pix); letter-spacing: .06em; }
+#s-duel .nextcard img { width: 62px; height: 62px; background: radial-gradient(circle, #3e8cd8, #1d3f78); border-radius: 6px; padding: 4px; object-fit: contain; image-rendering: auto; box-shadow: 0 0 0 2px #c9a25a; }
+#s-duel .hand { gap: 12px; align-items: flex-end; flex: 1; justify-content: center; }
+#s-duel .ccard { width: clamp(72px, 7.6vw, 118px); padding: 0; background: #1d1b2f; border-radius: 8px; box-shadow: 0 0 0 3px #2a1a0e, 0 0 0 6px var(--frame, #8fc3ff), 0 6px 0 6px rgba(29,27,47,.35); overflow: visible; }
+#s-duel .ccard.st1 { --frame: #8fc3ff; } #s-duel .ccard.st2 { --frame: #c38bff; } #s-duel .ccard.st3 { --frame: #ffc53d; }
+#s-duel .ccard .art { width: 100%; aspect-ratio: 4 / 5; border-radius: 6px 6px 0 0; display: grid; place-items: center; overflow: hidden;
+  background: radial-gradient(circle at 50% 35%, #fff6 0 8%, transparent 9%), radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--el) 80%, #fff), color-mix(in srgb, var(--el) 60%, #1d1b2f)); }
+#s-duel .ccard .art img { width: 92%; height: 92%; object-fit: contain; image-rendering: auto; filter: drop-shadow(0 3px 0 rgba(29,27,47,.3)); }
+#s-duel .ccard b { display: block; width: 100%; padding: 4px 2px 5px; background: linear-gradient(180deg, #3b2a1c, #2a1a0e); color: #fff; font-size: clamp(11px, 1vw, 15px); text-align: center; border-radius: 0 0 6px 6px; }
+#s-duel .ccard .cost { left: -10px; top: -10px; width: 32px; height: 32px; transform: none; clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); border-radius: 0; background: linear-gradient(160deg, #9fe6ff, #2f6fd0 60%, #1d3f8a); font-size: 18px; color: #fff; text-shadow: 1px 1px 0 #1d1b2f; box-shadow: none; }
+#s-duel .ccard .pwr { right: -8px; top: auto; bottom: 26px; width: 26px; height: 26px; font-size: 15px; border-radius: 50%; }
+#s-duel .ccard.on { transform: translateY(-16px); box-shadow: 0 0 0 3px #2a1a0e, 0 0 0 6px #d4ff1f, 0 0 22px 6px rgba(212,255,31,.6); }
+#s-duel .traymid { display: flex; flex-direction: column; gap: 10px; justify-content: center; width: clamp(220px, 24vw, 380px); }
+#s-duel .focusbar { background: #3b2a1c; border-radius: 8px; padding: 10px 12px; box-shadow: inset 0 0 0 3px #2a1a0e; max-width: none; }
+#s-duel .focusbar b { order: 3; width: auto; height: auto; background: none; box-shadow: none; font: 400 22px var(--pix); color: #fff; }
+#s-duel .focusbar span { order: 1; font: 400 17px var(--pix); color: #fff; letter-spacing: .04em; }
+#s-duel .focusbar div { order: 2; height: 24px; background: #1d1424; gap: 4px; padding: 3px; border-radius: 4px; }
+#s-duel .focusbar div i { border-radius: 3px; background: #2a2440; } #s-duel .focusbar div i.on { background: linear-gradient(180deg, #8fe3ff, #2f78e0); box-shadow: inset 0 2px 0 #c9f2ff; }
+#s-duel .skillbtn { width: 100%; margin: 0; padding: 8px 10px; border-radius: 8px; background: linear-gradient(180deg, #b9b6c4, #8f8ca0); box-shadow: 0 0 0 3px #3b3a4a, inset 0 3px 0 #dcd9e6, 0 4px 0 #3b3a4a; color: #1d1b2f; }
+#s-duel .skillbtn b { font-size: 20px; } #s-duel .skillbtn.on { background: linear-gradient(180deg, #e9ff8a, #a8d400); }
+#s-duel .endturn { width: clamp(120px, 12vw, 190px); border: 0; border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  background: linear-gradient(180deg, #4fd36a, #1f9a3c); box-shadow: 0 0 0 4px #0f4a1d, inset 0 4px 0 #8af09a, inset 0 -5px 0 #137a2c, 0 8px 0 rgba(29,27,47,.35); color: #fff; font: 400 clamp(18px, 1.8vw, 28px) var(--pix); text-shadow: 2px 2px 0 #0f4a1d; }
+#s-duel .endturn i { font-style: normal; font-size: 1.5em; }
+#s-duel .endturn:disabled { filter: grayscale(.8); opacity: .6; cursor: default; }
+#s-duel .endturn:active { transform: translateY(3px); }
+#s-duel .waiting { align-self: center; color: #fff; font-weight: 800; }
+#s-duel.locked .endturn, #s-duel.locked .skillbtn { display: none; }
+#s-duel .duel-hint { background: rgba(29,27,47,.85); color: #fff; box-shadow: none; border-radius: 8px; }
+#s-duel .chatbtn { bottom: auto; top: 96px; left: 14px; }
+#s-duel .corner { top: 96px; right: 14px; bottom: auto; }
+/* phones held upright: ask to turn sideways */
+.rotate { display: none; position: fixed; inset: 0; z-index: 90; background: #1d1b2f; color: #fff; place-items: center; text-align: center; padding: 24px; }
+.rotate b { display: block; font-size: 64px; animation: tilt 1.6s ease-in-out infinite; }
+.rotate h3 { font: 400 28px var(--pix); margin: 10px 0 6px; } .rotate p { color: #c9c5e0; }
+@keyframes tilt { 50% { transform: rotate(90deg); } }
+@media (orientation: portrait) and (max-width: 900px) { body.in-duel .rotate { display: grid; } }
+/* small landscape phones */
+@media (max-height: 520px) {
+  #s-duel .plate { padding: 4px 8px; max-width: 300px; } #s-duel .plate .pfp { width: 38px; height: 38px; } #s-duel .plate b { font-size: 16px; }
+  #s-duel .hpbar { height: 14px; } #s-duel .pmeta { display: none; }
+  #s-duel .tray { padding: 6px 10px; gap: 8px; } #s-duel .nextcard { width: 56px; padding: 4px; } #s-duel .nextcard img { width: 42px; height: 42px; }
+  #s-duel .ccard { width: clamp(52px, 7vw, 80px); } #s-duel .ccard b { font-size: 10px; padding: 2px; }
+  #s-duel .traymid { width: 180px; gap: 6px; } #s-duel .focusbar { padding: 5px 8px; } #s-duel .focusbar span { font-size: 13px; } #s-duel .focusbar div { height: 16px; }
+  #s-duel .skillbtn { padding: 4px 8px; } #s-duel .skillbtn b { font-size: 15px; } #s-duel .endturn { width: 96px; font-size: 16px; }
+  #s-duel .chatbtn, #s-duel .corner { top: 60px; }
+}
+
+#s-duel.revealing .duel-bottom { opacity: 1; pointer-events: none; }
+#s-duel.revealing .tray .hand, #s-duel.revealing .tray .traymid, #s-duel.revealing .endturn { filter: saturate(.6) brightness(.9); }
+#s-duel .gate .g-mind { height: 46%; bottom: -22%; image-rendering: auto; }
+#s-duel .gate.g-rv .g-mind { bottom: -22%; }

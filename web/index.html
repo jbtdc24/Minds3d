@@ -168,9 +168,8 @@
     </div>
   </div>
   <div class="arena" id="d-arena">
-    <canvas id="d-arena-cv"></canvas>
-    <div class="gate rv" id="d-gate1"><img class="g-gate" alt=""><img class="g-mind" alt=""></div>
-    <div class="gate me" id="d-gate0"><img class="g-gate" alt=""><img class="g-mind" alt=""></div>
+    <div class="gate g-me" id="d-gate0"><img class="g-gate" alt=""><img class="g-mind" alt=""></div>
+    <div class="gate g-rv" id="d-gate1"><img class="g-gate" alt=""><img class="g-mind" alt=""></div>
     <div class="board" id="d-board">
       <div class="lane" data-lane="0"></div>
       <div class="lane" data-lane="1"></div>
@@ -180,12 +179,14 @@
   <div class="duel-bottom" id="d-controls">
     <div class="duel-hint px" id="d-hint"></div>
     <div class="tray">
-      <div class="handrow">
-        <div class="nextcard" id="d-next"><span>Next</span><img alt=""></div>
-        <div class="hand" id="d-hand"></div>
-        <div class="lockrow"><button class="skillbtn px" id="d-skillbtn"></button><button class="btn primary big lock" id="d-lock">End turn</button><div class="waiting px" id="d-wait">Locked in · waiting for rival</div></div>
+      <div class="nextcard" id="d-next"><span>NEXT</span><img alt=""></div>
+      <div class="hand" id="d-hand"></div>
+      <div class="traymid">
+        <div class="focusbar" id="d-focus"></div>
+        <button class="skillbtn" id="d-skillbtn"></button>
       </div>
-      <div class="focusbar" id="d-focus"></div>
+      <button class="endturn lock" id="d-lock"><i>⚔️</i><span>END TURN</span></button>
+      <div class="waiting" id="d-wait">Locked in · waiting for rival…</div>
     </div>
   </div>
   <button class="iconbtn px chatbtn" id="d-chat" title="Quick chat"><img src="assets/icon_chat.png" alt="Chat"></button>
@@ -193,6 +194,8 @@
   <button class="corner iconbtn px" id="d-menu" title="Menu">☰</button>
   <div class="coach px" id="coach"><img class="coach-pfp" id="coach-pfp" alt=""><div><b>Coach</b><p id="coach-text"></p><button class="btn small primary" id="coach-next">Next</button></div></div>
 </section>
+
+<div class="rotate" id="rotate"><div><b>📱↻</b><h3>Turn your phone sideways</h3><p>Duels are played in landscape.</p></div></div>
 
 <!-- RESULT -->
 <section id="s-result" class="screen">
