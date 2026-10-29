@@ -63,6 +63,7 @@
   <header class="topbar">
     <button class="me px" id="hub-me"><img id="hub-pfp" alt=""><div class="me-txt"><b id="hub-name"></b><span id="hub-sub"></span></div></button>
     <div class="topbtns">
+      <button class="iconbtn px invbtn" id="hub-inv" title="Inventory">🎒<i class="enbadge" id="inv-badge"></i></button>
       <button class="iconbtn px" data-go="leaderboard" title="Leaderboard"><img src="assets/icon_trophy.png" alt="Leaderboard"></button>
       <button class="iconbtn px" id="hub-friends" title="Friends"><img src="assets/icon_friends.png" alt="Friends"><i class="badge" id="friends-badge"></i></button>
       <button class="iconbtn px" id="hub-tutorial" title="Tutorial"><img src="assets/icon_book.png" alt="Tutorial"></button>
@@ -230,6 +231,16 @@
       </div>
       <div class="panel px"><div class="label">Match history</div><div id="pf-history" class="history"></div></div>
     </div>
+  </div>
+</section>
+
+<!-- INVENTORY -->
+<section id="s-inventory" class="screen window">
+  <div class="page">
+    <div class="pagehead"><h2>🎒 Inventory</h2><div class="seg px" id="inv-tabs"><button data-v="minds" class="on">Minds</button><button data-v="items">Items</button></div><button class="iconbtn px small closex" data-go="hub" title="Close">✕</button></div>
+    <div class="inv-sum panel px" id="inv-sum"></div>
+    <div class="inv-grid" id="inv-minds"></div>
+    <div class="inv-items panel px" id="inv-items"></div>
   </div>
 </section>
 

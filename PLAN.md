@@ -41,7 +41,8 @@
 - Fonts: Nunito for everything you read; Lilita One (no pixel font) on the logo, big titles and big numbers.
 - Mind Energy: daily ranked energy per Mind (Common/Uncommon 3, Rare/Epic 4, Legendary 5), refills 00:00 UTC, belongs to the NFT.
   A ranked match uses 1 per Mind brought (spent atomically for both players at match start); win points = 10 per Mind + rarity bonus.
-  Classic / Practice / Tutorial free. Needs `supabase/003_energy.sql` (until then energy is not enforced).
+  Classic / Practice / Tutorial free. `supabase/003_energy.sql` applied.
+- Inventory window (🎒 in the lobby): every Mind with its own energy bar, set profile picture / showcase; Items tab ready for future items.
 - `supabase/002_social.sql` applied in Supabase (2026-10-29): friends, messages, showcase, match chat live.
 
 ## Next

@@ -36,7 +36,7 @@ function applySettings() {
 
 // ---------- ui helpers ----------
 // full screens (lobby, duel, ...) vs windows that pop up over the current screen (profile, settings, ...)
-const WINDOWS = new Set(['prep', 'leaderboard', 'profile', 'settings', 'codex']);
+const WINDOWS = new Set(['prep', 'leaderboard', 'profile', 'settings', 'codex', 'inventory']);
 let current = 'boot', previous = 'hub', base = 'boot';
 function show(id) {
   if (!['settings', 'codex'].includes(id)) previous = current;
@@ -126,7 +126,7 @@ function lobbyScene(ids) {
     const f = new Fighter(id, xs[i], 0, { scale: 0.72 });
     f.dropIn(0.2 + i * 0.18);
     stageFighters.push(f);
-    if (current === 'hub') tag(f, `#${id} <i>${rarityOf(id)}</i>`);
+    if (current === 'hub') tag(f, `#${id} <i>${rarityOf(id)}</i>${!guest && myMinds.includes(id) ? ` <span class="ten">⚡${energyOf(id)}/${capFor(id)}</span>` : ''}`);
   });
   lobbyLayout();
 }
@@ -152,7 +152,9 @@ const picked = () => { const p = (settings.picks.minds || []).filter(id => myMin
 const showcaseIds = () => { const s = (me?.showcase || []).filter(id => myMinds.includes(id)); return s.length ? s : picked().length ? picked() : [me?.pfp || 49]; };
 function paintHub() {
   $('#hub-pfp').src = thumb(me.pfp); $('#hub-name').textContent = me.name;
-  $('#hub-sub').innerHTML = guest ? 'Trial account' : `${valIcon('rating')}${me.rating} &nbsp;${valIcon('points')}${me.points} &nbsp;⚡${totalEnergy()}`;
+  $('#hub-sub').innerHTML = guest ? 'Trial account' : `${valIcon('rating')}${me.rating} &nbsp;${valIcon('points')}${me.points}`;
+  $('#inv-badge').textContent = guest ? '' : `⚡${totalEnergy()}`;
+  $('#inv-badge').classList.toggle('on', !guest);
   $('#guest-note').style.display = guest ? 'block' : 'none';
   $('#hub-ranked-sub').textContent = guest ? 'Connect a wallet to play ranked' : `⚡ ${totalEnergy()} energy left today · refills in ${resetText()}`;
   $('#hub-ranked-tag').textContent = guest ? '🔒 WALLET' : 'PLAY';
@@ -240,6 +242,51 @@ $('#hub-classic').onclick = () => openPrep('classic');
 $('#hub-learn').onclick = () => startTutorial();
 $('#hub-tutorial').onclick = () => startTutorial();
 $('#hub-me').onclick = () => openProfile(me.id);
+
+// ---------- inventory: every Mind you own with its own energy, and (soon) items ----------
+let invTab = 'minds';
+async function openInventory() {
+  if (online && !guest) await refreshMe().catch(() => {});
+  paintInventory(); show('inventory');
+}
+function paintInventory() {
+  const max = myMinds.reduce((s, id) => s + capFor(id), 0), shown = new Set(me?.showcase || []);
+  $$('#inv-tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === invTab));
+  $('#inv-sum').innerHTML = guest
+    ? '<b>Trial account</b><span>These are free demo Minds. Connect a wallet to see your own Minds and their ranked energy.</span>'
+    : `<div class="inv-total"><i>⚡</i><div><b>${totalEnergy()}<small>/${max}</small></b><span>ranked energy today</span></div></div>
+       <div class="inv-facts"><span><b>${myMinds.length}</b> Minds</span><span>Refills in <b>${resetText()}</b> (00:00 UTC)</span><span>1 ⚡ per Mind per ranked match · Classic &amp; Practice are free</span></div>`;
+  const order = [...myMinds].sort((a, b) => energyOf(b) - energyOf(a) || a - b);
+  $('#inv-minds').innerHTML = order.map(id => {
+    const n = energyOf(id), c = capFor(id), r = rarityOf(id);
+    const flags = (shown.has(id) ? '<em class="inv-flag">SHOWCASE</em>' : '') + (me?.pfp === id ? '<em class="inv-flag is-pfp">PROFILE</em>' : '');
+    const bar = guest ? '<div class="inv-free">Demo · Classic &amp; Practice</div>'
+      : `<div class="inv-en"><div class="enbar">${Array.from({ length: c }, (_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</div><span>⚡${n}/${c}</span></div>`;
+    return `<div class="inv-mind ${!guest && !n ? 'tired' : ''}" data-id="${id}" style="--rar:${RAR_COLOR[r]}">
+      <div class="inv-img"><img src="${thumb(id)}" alt="" loading="lazy">${flags}</div>
+      <div class="inv-name"><b>#${id}</b><span>${r}</span></div>${bar}</div>`;
+  }).join('');
+  $('#inv-items').innerHTML = '<div class="inv-empty"><div class="inv-chest">🎁</div><b>No items yet</b><span>Items like energy refills, card backs and arena skins are coming soon. They will show up here.</span></div>';
+  $('#inv-minds').style.display = invTab === 'minds' ? '' : 'none';
+  $('#inv-items').style.display = invTab === 'items' ? '' : 'none';
+}
+$('#hub-inv').onclick = openInventory;
+$('#inv-tabs').onclick = e => { const v = e.target.dataset.v; if (!v) return; invTab = v; paintInventory(); };
+$('#inv-minds').onclick = async e => {
+  const m = e.target.closest('[data-id]'); if (!m || guest || !online) return;
+  const id = +m.dataset.id, n = energyOf(id), c = capFor(id), inShow = (me.showcase || []).includes(id);
+  const r = await modal(`<img class="inv-big" src="${thumb(id)}" alt=""><h3>Mind #${id}</h3><p><b style="color:${RAR_COLOR[rarityOf(id)]}">${rarityOf(id)}</b> · ⚡${n}/${c} ranked energy today${n ? '' : ` · refills in ${resetText()}`}</p>`,
+    [['Set as profile picture', 1, 'primary'], [inShow ? 'Remove from showcase' : 'Add to lobby showcase', 2], ['Close', 0]]);
+  try {
+    if (r === 1) { me = (await api('profile', { pfp: id })).player; toast('Profile picture updated!'); }
+    if (r === 2) {
+      const sc = [...(me.showcase || [])], i = sc.indexOf(id);
+      if (i >= 0) sc.splice(i, 1); else { if (sc.length >= 3) return toast('Showcase holds 3 Minds. Remove one first.', true); sc.push(id); }
+      me = (await api('profile', { showcase: sc })).player; toast('Showcase updated!');
+    }
+    if (r) { sfx('coin'); paintHub(); paintInventory(); }
+  } catch (err) { toast(err.message, true); }
+};
 $('#set-rules').onclick = () => { renderCodex(); show('codex'); };
 $('#hub-train').onclick = () => modal(`<img class="wide" src="assets/mode_train.webp" alt=""><h3>Train Your Mind</h3><p>Coming soon! Teach your Mind your own play style, then let it play duels on its own.</p>`, [["Can't wait", 1, 'primary']]);
 $('#hub-auto').onclick = () => modal(`<img class="wide" src="assets/mode_auto.webp" alt=""><h3>Auto Battle</h3><p>Coming soon! Your trained Minds battle other players' Minds automatically while you watch.</p>`, [["Can't wait", 1, 'primary']]);
