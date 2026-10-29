@@ -14,7 +14,7 @@
 - **Timer:** 20 s per turn (+ reveal time). No pick in time = you lose that round. Both late = drawn round.
 - **Balance** (`node tools/sim_duel.mjs`, real engine + bot): random vs random 50/50; easy/normal/hard bot vs random 82/89/90%;
   hard vs hard 47.3/47.3 (5% draws); ~16–23 turns per match.
-- **Leaderboard points:** 10 per ranked win + rarity bonus (Uncommon +5%, Rare +10%, Epic +15%, Legendary +20%). Rating = Elo.
+- **Leaderboard points:** 10 per Mind brought, per ranked win + rarity bonus (Uncommon +5%, Rare +10%, Epic +15%, Legendary +20%). Rating = Elo.
 - **Bot:** if no human in 20 s, a bot clearly labelled BOT; bot games count half.
 
 ## Done
@@ -39,6 +39,9 @@
 
 - Classic mode: real-player duels open to everyone (trial accounts + holders together), unrated, Normal bot after 20 s. Unranked games (classic, practice) don't change wins/losses.
 - Fonts: Nunito for everything you read; Lilita One (no pixel font) on the logo, big titles and big numbers.
+- Mind Energy: daily ranked energy per Mind (Common/Uncommon 3, Rare/Epic 4, Legendary 5), refills 00:00 UTC, belongs to the NFT.
+  A ranked match uses 1 per Mind brought (spent atomically for both players at match start); win points = 10 per Mind + rarity bonus.
+  Classic / Practice / Tutorial free. Needs `supabase/003_energy.sql` (until then energy is not enforced).
 - `supabase/002_social.sql` applied in Supabase (2026-10-29): friends, messages, showcase, match chat live.
 
 ## Next

@@ -507,3 +507,9 @@ p, li, .muted, .fine, .pitch, .coach p, .codex, .modal p, .guest-note { line-hei
 .tapstart.on { display: inline-flex; }
 @keyframes tappulse { 50% { transform: scale(1.06); } }
 #s-boot { cursor: pointer; }
+
+/* Mind Energy */
+.mind .en { position: absolute; right: 7px; bottom: 7px; padding: 0 6px; font-size: 13px; font-weight: 900; background: var(--lime); color: var(--ink); box-shadow: 0 0 0 2px var(--ink); }
+.mind .en.none { background: #ffd0d5; color: var(--red); }
+.mind.tired { filter: grayscale(.85); opacity: .6; }
+.mind.tired::after { content: 'RESTING'; position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%) rotate(-8deg); background: var(--ink); color: #fff; font-size: 12px; font-weight: 900; padding: 2px 8px; letter-spacing: .08em; }

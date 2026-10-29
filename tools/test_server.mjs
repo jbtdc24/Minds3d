@@ -7,7 +7,7 @@ const { privateKeyToAccount } = await import('viem/accounts');
 import { randomUUID } from 'node:crypto';
 
 // ---- tiny PostgREST-ish in-memory db ----
-const T = { players: [], matches: [], queue: [], nonces: [], ratelimit: [] };
+const T = { players: [], matches: [], queue: [], nonces: [], ratelimit: [], mind_energy: [] };
 function parse(q) {
   const f = [];
   for (const part of q.split('&').filter(Boolean)) {
@@ -151,6 +151,29 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   const cm = T.matches.find(x => x.id === id);
   ok(cm && cm.ranked === false && cm.p0 === G1.id && cm.p1 === G2.id, 'classic pairs two players, unrated');
   ok(T.queue.find(q => q.player_id === G1.id)?.match_id === id, 'waiting classic player is told the match');
+}
+// ---- Mind Energy + points per Mind ----
+{
+  const { spendEnergy, energyLeft, emptyOf, capFor } = await import('../lib/energy.js');
+  const { winPoints } = await import('../lib/rating.js');
+  const { utcDay } = await import('../web/src/energy.js');
+  const prevRpc = db.rpc;
+  db.rpc = async (fn, a) => {           // same all-or-nothing logic as the SQL function
+    if (fn !== 'spend_energy') return prevRpc(fn, a);
+    const d = utcDay(), rows = a.ids.map(id => { let r = T.mind_energy.find(x => x.token_id === id); if (!r) T.mind_energy.push(r = { token_id: id, day: d, used: 0 }); if (r.day !== d) Object.assign(r, { day: d, used: 0 }); return r; });
+    if (rows.some((r, i) => r.used >= a.caps[i])) return false;
+    rows.forEach(r => r.used++); return true;
+  };
+  ok(capFor(1) === 3 && capFor(4) === 4, 'energy cap by rarity (Common 3, Epic 4)');
+  ok((await energyLeft([1]))[1] === 3, 'a fresh Mind has full energy');
+  ok(await spendEnergy([1, 2]) && (await energyLeft([1, 2]))[1] === 2, 'a ranked match spends 1 energy per Mind');
+  await spendEnergy([1]); await spendEnergy([1]);
+  ok((await emptyOf([1, 2])).join() === '1', 'empty Mind detected');
+  ok(!(await spendEnergy([2, 1])) && (await energyLeft([2]))[2] === 2, 'all or nothing: nothing spent if one Mind is empty');
+  T.mind_energy.find(r => r.token_id === 1).day = '2000-01-01';
+  ok((await energyLeft([1]))[1] === 3, 'energy refills on a new UTC day');
+  ok(winPoints(['Common'], false) === 10 && winPoints(['Common', 'Common', 'Legendary'], false) === 32 && winPoints(['Common', 'Common'], true) === 10, 'win points are paid per Mind brought (bots half)');
+  db.rpc = prevRpc;
 }
 console.log(`
 ${pass} passed, ${fail} failed`);

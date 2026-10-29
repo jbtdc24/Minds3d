@@ -8,6 +8,7 @@ import { DATA_VERSION } from './config.js';
 import { api, session, walletLogin, guestLogin, logout, hasWallet, watch, serverOnline, LocalMatch, setTokenIds } from './net.js';
 import { initAudio, sfx, music, setVolume } from './audio.js';
 import { PHRASES, MATCH_CHAT, FRIEND_CHAT, BOT_REPLIES } from './chat.js';
+import { capOf, ENERGY_CAP } from './energy.js';
 
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
@@ -132,19 +133,28 @@ function lobbyScene(ids) {
 addEventListener('resize', () => { if (current === 'hub') paintBoardOpen(); if (current === 'duel') duelLayout(); });
 
 // ---------- account ----------
-let me = null, myMinds = [], guest = false, online = false;
+let me = null, myMinds = [], guest = false, online = false, energy = {}, energyResetAt = 0;
 async function refreshMe() {
   const r = await api('me');
   me = r.player; myMinds = r.minds; guest = r.guest;
+  energy = r.energy || {}; energyResetAt = Date.now() + (r.energyResetIn || 0);
   return r;
 }
+// ---------- Mind Energy: ranked matches use 1 ⚡ per Mind; refills at 00:00 UTC ----------
+const capFor = id => capOf(rarityOf(id));
+const energyOf = id => energy[id] ?? capFor(id);
+const totalEnergy = () => myMinds.reduce((s, id) => s + energyOf(id), 0);
+const resetText = () => { const m = Math.max(0, Math.round((energyResetAt - Date.now()) / 60000)); return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`; };
+const BONUS = { Common: 0, Uncommon: 0.05, Rare: 0.10, Epic: 0.15, Legendary: 0.20 };
+const winReward = ids => Math.round(ids.reduce((s, id) => s + 10 * (1 + BONUS[rarityOf(id)]), 0));
+const energyTag = id => { const n = energyOf(id), c = capFor(id); return `<span class="en ${n ? '' : 'none'}" title="Ranked energy left today">⚡${n}/${c}</span>`; };
 const picked = () => { const p = (settings.picks.minds || []).filter(id => myMinds.includes(id)); return p.length ? p : myMinds.slice(0, 3); };
 const showcaseIds = () => { const s = (me?.showcase || []).filter(id => myMinds.includes(id)); return s.length ? s : picked().length ? picked() : [me?.pfp || 49]; };
 function paintHub() {
   $('#hub-pfp').src = thumb(me.pfp); $('#hub-name').textContent = me.name;
-  $('#hub-sub').innerHTML = guest ? 'Trial account' : `${valIcon('rating')}${me.rating} &nbsp;${valIcon('points')}${me.points}`;
+  $('#hub-sub').innerHTML = guest ? 'Trial account' : `${valIcon('rating')}${me.rating} &nbsp;${valIcon('points')}${me.points} &nbsp;⚡${totalEnergy()}`;
   $('#guest-note').style.display = guest ? 'block' : 'none';
-  $('#hub-ranked-sub').textContent = guest ? 'Connect a wallet to play ranked' : '1v1 vs real players';
+  $('#hub-ranked-sub').textContent = guest ? 'Connect a wallet to play ranked' : `⚡ ${totalEnergy()} energy left today · refills in ${resetText()}`;
   $('#hub-ranked-tag').textContent = guest ? '🔒 WALLET' : 'PLAY';
   $('#hub-ranked').classList.toggle('locked', guest);
 }
@@ -168,6 +178,7 @@ async function afterLogin(out) {
     logout(); return startGuest();
   }
   if (out.isNew && !guest) return openSetup();
+  if (!guest && online) await refreshMe().catch(() => {});
   enterHub();
 }
 async function startGuest() {
@@ -220,7 +231,7 @@ document.addEventListener('click', e => {
   show(go);
 });
 $('#hub-ranked').onclick = async () => {
-  if (!guest) return openPrep('ranked');
+  if (!guest) { if (online) await refreshMe().catch(() => {}); return openPrep('ranked'); }
   const r = await modal(`<img class="wide" src="assets/mode_ranked.webp" alt=""><h3>Ranked is for Mind holders</h3><p>Trial accounts can practice vs bots. Connect a wallet that holds a Mind to play ranked, climb the leaderboard and earn points.</p>`, [['Connect wallet', 1, 'primary'], ['Practice instead', 2], ['Close', 0]]);
   if (r === 1) { logout(); show('login'); } else if (r === 2) openPrep('practice');
 };
@@ -271,7 +282,7 @@ $('#board').onclick = e => { const p = e.target.closest('[data-pid]'); if (p) op
 let prep = { mode: 'ranked', minds: [], level: 'normal' };
 function openPrep(mode) {
   prep.mode = mode;
-  prep.minds = picked().slice(0, 3);
+  prep.minds = picked().filter(id => mode !== 'ranked' || energyOf(id) > 0).slice(0, 3);
   prep.level = settings.picks.level || 'normal';
   $('#prep-title').textContent = { ranked: 'Ranked Duel', classic: 'Classic Duel', practice: 'Practice vs bot' }[mode];
   $('#prep-go').textContent = mode === 'practice' ? 'Start practice' : 'Find match';
@@ -279,19 +290,24 @@ function openPrep(mode) {
     : mode === 'ranked' ? 'Ranked: rating and points count. No player in 20 s? You play a Hard bot (counts half).' : '';
   $('#prep-level').style.display = mode === 'practice' ? 'inline-flex' : 'none';
   $$('#prep-level button').forEach(b => b.classList.toggle('on', b.dataset.v === prep.level));
-  $('#prep-minds').innerHTML = myMinds.map(id => `<div class="mind" data-id="${id}"><img src="${thumb(id)}" alt="" loading="lazy"><span class="tag" style="background:${RAR_COLOR[rarityOf(id)]}">#${id}</span><span class="order"></span></div>`).join('');
+  const ranked = mode === 'ranked';
+  // ranked: Minds with energy first, empty ones last (they can't be picked until the refill)
+  const list = ranked ? [...myMinds].sort((a, b) => (energyOf(b) > 0) - (energyOf(a) > 0)) : myMinds;
+  $('#prep-minds').innerHTML = list.map(id => `<div class="mind ${ranked && !energyOf(id) ? 'tired' : ''}" data-id="${id}"><img src="${thumb(id)}" alt="" loading="lazy"><span class="tag" style="background:${RAR_COLOR[rarityOf(id)]}">#${id}</span>${ranked ? energyTag(id) : ''}<span class="order"></span></div>`).join('');
   paintPrep();
   show('prep');
 }
 function paintPrep() {
   $$('#prep-minds .mind').forEach(m => { const i = prep.minds.indexOf(+m.dataset.id); m.classList.toggle('on', i >= 0); m.querySelector('.order').textContent = i + 1; });
   $('#prep-mind-count').textContent = `${prep.minds.length}/3`;
+  if (prep.mode === 'ranked') $('#prep-note').innerHTML = `Each Mind you bring uses <b>1 ⚡</b>. Win reward: <b>+${winReward(prep.minds)} points</b> (10 per Mind + rarity bonus). Energy refills in ${resetText()}.`;
   $('#prep-go').disabled = !prep.minds.length;
   $('#prep-err').textContent = prep.minds.length ? '' : 'Pick at least 1 Mind.';
 }
 $('#prep-minds').onclick = e => {
   const m = e.target.closest('[data-id]'); if (!m) return;
   const id = +m.dataset.id, i = prep.minds.indexOf(id);
+  if (i < 0 && m.classList.contains('tired')) return toast(`#${id} is out of energy. It refills in ${resetText()}.`, true);
   if (i >= 0) prep.minds.splice(i, 1); else if (prep.minds.length < 3) prep.minds.push(id); else return toast('Max 3 Minds. Tap one to remove it first.');
   sfx('select'); paintPrep();
 };
@@ -905,9 +921,14 @@ function renderCodex() {
   <li>Bring <b>1 to 3 Minds</b>: they take turns, one per round. Every Mind plays the same.</li>
   <li>Each turn has a <b>${TURN_SECONDS} second</b> timer. <b>No pick in time = you lose that round.</b></li>
   <li>You can always see which cards and spells your rival has left.</li></ul>
+  <h3>⚡ Mind Energy</h3>
+  <ul><li>Every Mind has daily energy for <b>ranked</b>: ${Object.entries(ENERGY_CAP).map(([r, n]) => `${r} ${n}`).join(', ')}. It refills every day at 00:00 UTC.</li>
+  <li>A ranked match uses <b>1 ⚡ from each Mind you bring</b>. A ranked win pays <b>10 points per Mind</b> you brought, plus each Mind's rarity bonus.</li>
+  <li>More Minds = more ranked games every day. Energy belongs to the Mind, so it follows the NFT if it changes wallet.</li>
+  <li><b>Classic, Practice and the Tutorial are free</b> and unlimited.</li></ul>
   <h3><img src="assets/icon_trophy.png" alt="">Ranking and fairness</h3>
   <ul><li>Ranked wins and losses change your <b>rating</b>. Games vs bots count half.</li>
-  <li><b>Points</b>: 10 per ranked win + rarity bonus (Uncommon +5%, Rare +10%, Epic +15%, Legendary +20%). Rarity never changes how a Mind plays.</li>
+  <li><b>Points</b>: 10 per Mind you brought, per ranked win, + rarity bonus (Uncommon +5%, Rare +10%, Epic +15%, Legendary +20%). Rarity never changes how a Mind plays.</li>
   <li>No player in 20 seconds? You play a <b>bot</b>, always labelled BOT.</li>
   <li>Every turn runs on the game server and your rival's card is never sent to your device, so nobody can cheat.</li></ul>
   <p class="muted">Tip: press 1–7 to pick a card and Enter to lock in.</p>`;
