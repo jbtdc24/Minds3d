@@ -31,6 +31,12 @@
 - Lobby (Mind Plaza) with your showcase Minds, always-visible leaderboard with a top-3 podium, Jersey 10 pixel font, text sized to fit its boxes.
 - Interactive tutorial (coach-guided scripted duel), quick chat (preset lines, in-match + friends), friends list, profile showcase (pick up to 3 Minds).
 
+- Popup windows (profile, leaderboard, settings, rules, Mind picker) over the lobby; collapsible leaderboard tab; Nunito + Pixelify Sans fonts.
+- Backdrops are anchored to the world origin (platform always under the Minds, never blank edges).
+- Fair play: trial accounts practice only; ranked bots always Hard (bot games count half); two accounts on the same connection are never paired;
+  the same two players are rated max 3 times per 24 h; matches with fewer than 3 real turns (idle / instant forfeit) give no rating or points.
+  Stale or old-version live matches are closed automatically. Ownership checks fall back to the cached chain scan when the RPC is slow.
+
 ## Needs doing once
 - Run `supabase/002_social.sql` in Supabase → SQL Editor (friends, messages, showcase, match chat). Until then friends show "being set up" and match chat fails.
 

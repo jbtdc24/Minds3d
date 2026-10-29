@@ -1,16 +1,18 @@
 // 2D stage: one canvas for the lobby and every arena. Painted backdrop anchored to the ground line,
 // a light camera (pan / zoom punches / shake), pixel particles, ambient FX per stage and screen flashes.
 // World units: x right, y up, 0 = ground under the middle of the stage. ~2.3 units = one Mind's height.
+// Each backdrop has an anchor (focusX from the image centre, ground = floor height as a fraction of the image):
+// that point is locked to the world origin, so the platform is always right under the Minds.
 
 export const STAGES = {
-  meadow: { name: 'Sunny Meadow', img: 'assets/stage_meadow.webp', ground: 0.668, ambient: 'leaves', rays: true, tint: '#fff6c8' },
-  crystal: { name: 'Crystal Peaks', img: 'assets/stage_crystal.webp', ground: 0.742, ambient: 'snow', rays: true, tint: '#e8f6ff' },
-  night: { name: 'Night Market', img: 'assets/stage_night.webp', ground: 0.645, ambient: 'fireflies', rays: false, tint: '#ffd8f2' },
-  beach: { name: 'Sunset Beach', img: 'assets/stage_beach.webp', ground: 0.652, ambient: 'sparkle', rays: true, tint: '#ffe0c0' },
-  sky: { name: 'Sky Arena', img: 'assets/arena_day.webp', ground: 0.64, ambient: 'sparkle', rays: true, tint: '#fff0c8' },
-  moon: { name: 'Moonlit Arena', img: 'assets/arena_night.webp', ground: 0.68, ambient: 'fireflies', rays: false, tint: '#dcd8ff' },
-  blossom: { name: 'Blossom Arena', img: 'assets/arena_crystal.webp', ground: 0.69, ambient: 'petals', rays: true, tint: '#ffe8f4' },
-  lobby: { name: 'Mind Plaza', img: 'assets/lobby.webp', ground: 0.80, ambient: 'lime', rays: true, tint: '#fff6c8', focusX: 0.035 },
+  meadow: { name: 'Sunny Meadow', img: 'assets/stage_meadow.webp', ground: 0.74, ambient: 'leaves', rays: true, tint: '#fff6c8' },
+  crystal: { name: 'Crystal Peaks', img: 'assets/stage_crystal.webp', ground: 0.765, ambient: 'snow', rays: true, tint: '#e8f6ff' },
+  night: { name: 'Night Market', img: 'assets/stage_night.webp', ground: 0.66, ambient: 'fireflies', rays: false, tint: '#ffd8f2' },
+  beach: { name: 'Sunset Beach', img: 'assets/stage_beach.webp', ground: 0.69, ambient: 'sparkle', rays: true, tint: '#ffe0c0' },
+  sky: { name: 'Sky Arena', img: 'assets/arena_day.webp', ground: 0.62, ambient: 'sparkle', rays: true, tint: '#fff0c8' },
+  moon: { name: 'Moonlit Arena', img: 'assets/arena_night.webp', ground: 0.665, ambient: 'fireflies', rays: false, tint: '#dcd8ff' },
+  blossom: { name: 'Blossom Arena', img: 'assets/arena_crystal.webp', ground: 0.67, ambient: 'petals', rays: true, tint: '#ffe8f4' },
+  lobby: { name: 'Mind Plaza', img: 'assets/lobby.webp', ground: 0.665, ambient: 'lime', rays: true, tint: '#fff6c8', focusX: 0.055 },
 };
 export const BATTLE_STAGES = ['meadow', 'crystal', 'night', 'beach', 'sky', 'moon', 'blossom'];
 
@@ -128,22 +130,24 @@ function draw(dt, t) {
   let ox = 0, oy = 0;
   if (shakeAmt > 0.2) { ox = R(-1, 1) * shakeAmt; oy = R(-1, 1) * shakeAmt; shakeAmt *= Math.pow(0.02, dt); } else shakeAmt = 0;
   ctx.translate(ox, oy);
-  // backdrop: image ground line on world y = 0, a little parallax with the camera
+  // backdrop: its anchor (platform centre) is locked to the world origin; scaled up as needed so it always
+  // covers the screen on both sides of the anchor, whatever the window shape
   const img = images[stage.def.img], s = S(), gy = gyScreen() + stage.cam.y * s;
   ctx.fillStyle = '#9fdcff'; ctx.fillRect(-20, -20, W + 40, H + 40);
   if (img?.complete && img.naturalWidth) {
-    const iw = img.naturalWidth, ih = img.naturalHeight, gf = stage.def.ground;
-    // cover the width and everything above the ground; if the image ends above the screen bottom
-    // (tall phone screens), continue it with a mirrored copy instead of zooming in a lot
-    const sc = Math.max(W / iw, gy / (gf * ih)) * 1.06 * (0.86 + 0.14 * stage.cam.zoom);
-    const fx = (stage.def.focusX || 0) * iw * sc;
-    const x = W / 2 - iw * sc / 2 - fx - stage.cam.x * s * 0.35, y = gy - gf * ih * sc;
+    const iw = img.naturalWidth, ih = img.naturalHeight, gf = stage.def.ground, af = 0.5 + (stage.def.focusX || 0);
+    const ax = W / 2 - stage.cam.x * s;
+    const base = Math.max(W / iw, gy / (gf * ih)) * 1.02;
+    let sc = Math.max(base * (0.9 + 0.1 * stage.cam.zoom), (ax + 2) / (af * iw), (W - ax + 2) / ((1 - af) * iw));
+    sc = Math.max(sc, Math.min((H - gy) / ((1 - gf) * ih), base * 1.35));   // fill below the floor too, within reason
+    const x = ax - af * iw * sc, y = gy - gf * ih * sc;
     ctx.imageSmoothingEnabled = true;
     ctx.drawImage(img, x, y, iw * sc, ih * sc);
-    if (y + ih * sc < H) {
-      ctx.save(); ctx.translate(0, 2 * (y + ih * sc)); ctx.scale(1, -1);
-      ctx.drawImage(img, x, y, iw * sc, ih * sc);
-      ctx.restore();
+    if (y + ih * sc < H) {           // very tall screens: continue with a darkened mirror instead of zooming in a lot
+      const by = y + ih * sc;
+      ctx.save(); ctx.translate(0, 2 * by); ctx.scale(1, -1); ctx.drawImage(img, x, y, iw * sc, ih * sc); ctx.restore();
+      const g = ctx.createLinearGradient(0, by, 0, H); g.addColorStop(0, 'rgba(29,27,47,.25)'); g.addColorStop(1, 'rgba(29,27,47,.55)');
+      ctx.fillStyle = g; ctx.fillRect(0, by, W, H - by);
     }
     ctx.imageSmoothingEnabled = false;
   }

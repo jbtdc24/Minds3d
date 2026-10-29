@@ -34,14 +34,24 @@ function applySettings() {
 }
 
 // ---------- ui helpers ----------
-let current = 'boot', previous = 'hub';
+// full screens (lobby, duel, ...) vs windows that pop up over the current screen (profile, settings, ...)
+const WINDOWS = new Set(['prep', 'leaderboard', 'profile', 'settings', 'codex']);
+let current = 'boot', previous = 'hub', base = 'boot';
 function show(id) {
   if (!['settings', 'codex'].includes(id)) previous = current;
   current = id;
-  $$('.screen').forEach(s => s.classList.toggle('on', s.id === 's-' + id));
-  if (['hub', 'prep', 'leaderboard', 'profile'].includes(id)) music('menu');
+  if (!WINDOWS.has(id)) base = id;
+  $$('.screen').forEach(s => s.classList.toggle('on', s.id === 's-' + id || (WINDOWS.has(id) && s.id === 's-' + base)));
+  if (['hub', 'prep', 'leaderboard', 'profile'].includes(id) && base === 'hub') music('menu');
   if (id === 'login') music('title');
-  if (id !== 'hub' && id !== 'duel') clearTags();
+  if (base !== 'hub' && base !== 'duel') clearTags();
+  $('#tags').classList.toggle('dim', WINDOWS.has(id));
+}
+// close a window: back to the screen underneath (the lobby keeps its Minds, no reload)
+function closeWindow() {
+  if (base === 'hub') { show('hub'); paintHub(); loadBoard(); return; }
+  if (base === 'duel' && D) return show('duel');
+  enterHub();
 }
 let toastT;
 function toast(msg, bad = false) {
@@ -94,26 +104,32 @@ onFrame(() => {
   });
 });
 function lobbyLayout() {
-  if (narrow()) { setLayout({ groundAt: 0.31 }); camSnap(0, 0.8); return; }
-  setLayout({ groundAt: 0.8 });
-  // centre the plaza between the play column and the leaderboard
-  const l = $('.col-play').getBoundingClientRect(), r = $('#board').getBoundingClientRect();
-  const free = l.width ? (l.right + r.left) / 2 : innerWidth / 2;
+  if (narrow()) { setLayout({ groundAt: current === 'hub' ? 0.3 : 0.6 }); camSnap(0, 0.85); return; }
+  setLayout({ groundAt: 0.7 });
+  // centre the plaza (and the Minds on it) in the free space between the play column and the leaderboard
+  const l = $('.col-play').getBoundingClientRect(), open = !$('#s-hub').classList.contains('board-closed');
+  const r = open ? $('#board').getBoundingClientRect() : $('#board-tab').getBoundingClientRect();
+  const free = l.width && current === 'hub' ? (l.right + (r.width ? r.left : innerWidth)) / 2 : innerWidth / 2;
   camSnap(-(free - innerWidth / 2) / stage.K, 1);
 }
+// collapsible leaderboard: open by default on wide screens, a slim tab otherwise
+const boardOpen = () => settings.boardOpen ?? innerWidth >= 1500;
+function paintBoardOpen() { $('#s-hub').classList.toggle('board-closed', !boardOpen()); if (current === 'hub') lobbyLayout(); }
+$('#board-hide').onclick = e => { e.stopPropagation(); settings.boardOpen = false; saveSettings(); paintBoardOpen(); };
+$('#board-tab').onclick = () => { settings.boardOpen = true; saveSettings(); paintBoardOpen(); };
 function lobbyScene(ids) {
   clearStage(); clearTags();
   setStage('lobby');
-  const list = ids.slice(0, 3), xs = list.length === 1 ? [0] : list.length === 2 ? [-0.9, 0.9] : [-1.7, 0, 1.7];
+  const list = ids.slice(0, 3), xs = list.length === 1 ? [0] : list.length === 2 ? [-0.75, 0.75] : [-1.4, 0, 1.4];
   list.forEach((id, i) => {
-    const f = new Fighter(id, xs[i], 0, { scale: 0.95 });
+    const f = new Fighter(id, xs[i], 0, { scale: 0.72 });
     f.dropIn(0.2 + i * 0.18);
     stageFighters.push(f);
     if (current === 'hub') tag(f, `#${id} <i>${rarityOf(id)}</i>`);
   });
   lobbyLayout();
 }
-addEventListener('resize', () => { if (current === 'hub') lobbyLayout(); if (current === 'duel') duelLayout(); });
+addEventListener('resize', () => { if (current === 'hub') paintBoardOpen(); if (current === 'duel') duelLayout(); });
 
 // ---------- account ----------
 let me = null, myMinds = [], guest = false, online = false;
@@ -128,11 +144,14 @@ function paintHub() {
   $('#hub-pfp').src = thumb(me.pfp); $('#hub-name').textContent = me.name;
   $('#hub-sub').innerHTML = guest ? 'Trial account' : `${valIcon('rating')}${me.rating} &nbsp;${valIcon('points')}${me.points}`;
   $('#guest-note').style.display = guest ? 'block' : 'none';
-  $('#hub-ranked-sub').textContent = guest ? 'vs other trial players' : '1v1 vs real players';
+  $('#hub-ranked-sub').textContent = guest ? 'Connect a wallet to play ranked' : '1v1 vs real players';
+  $('#hub-ranked-tag').textContent = guest ? '🔒 WALLET' : 'PLAY';
+  $('#hub-ranked').classList.toggle('locked', guest);
 }
 async function enterHub() {
   paintHub();
   show('hub');
+  paintBoardOpen();
   lobbyScene(showcaseIds());
   loadBoard();
   friendsPoll();
@@ -193,14 +212,18 @@ document.addEventListener('click', e => {
   if (e.target.closest('button')) { initAudio(); sfx('click'); }
   const go = e.target.closest('[data-go]')?.dataset.go;
   if (!go) return;
-  if (go === 'back') return previous === 'duel' && D ? show('duel') : ['settings', 'codex', 'boot', 'login'].includes(previous) ? enterHub() : show(previous);
-  if (go === 'hub') return enterHub();
+  if (go === 'back') return WINDOWS.has(previous) && previous !== current ? show(previous) : closeWindow();
+  if (go === 'hub') return WINDOWS.has(current) ? closeWindow() : enterHub();
   if (go === 'leaderboard') return openLeaderboard();
   if (go === 'codex') { renderCodex(); return show('codex'); }
   if (go === 'settings') { $('#set-account').textContent = guest ? 'Trial (guest)' : me?.address || ''; return show('settings'); }
   show(go);
 });
-$('#hub-ranked').onclick = () => openPrep('ranked');
+$('#hub-ranked').onclick = async () => {
+  if (!guest) return openPrep('ranked');
+  const r = await modal(`<img class="wide" src="assets/mode_ranked.webp" alt=""><h3>Ranked is for Mind holders</h3><p>Trial accounts can practice vs bots. Connect a wallet that holds a Mind to play ranked, climb the leaderboard and earn points.</p>`, [['Connect wallet', 1, 'primary'], ['Practice instead', 2], ['Close', 0]]);
+  if (r === 1) { logout(); show('login'); } else if (r === 2) openPrep('practice');
+};
 $('#hub-practice').onclick = () => openPrep('practice');
 $('#hub-learn').onclick = () => startTutorial();
 $('#hub-tutorial').onclick = () => startTutorial();
@@ -231,6 +254,7 @@ async function loadBoard() {
     const r = await api(`leaderboard?by=${boardBy}`);
     const row = (p, i) => `<li class="brow ${p.id === me?.id ? 'me' : ''}" data-pid="${p.id}"><span class="rk">${i + 1}</span><img src="${thumb(p.pfp)}" alt=""><span class="nm">${esc(p.name)}</span><span class="vl">${valIcon(boardBy)}${boardBy === 'points' ? p.points : p.rating}</span></li>`;
     top.innerHTML = podium(r.players, boardBy);
+    $('#board-tab-pfps').innerHTML = r.players.slice(0, 3).map(p => `<img src="${thumb(p.pfp)}" alt="">`).join('');
     list.innerHTML = r.players.length > 3 ? r.players.slice(3, 12).map((p, i) => row(p, i + 3)).join('')
       : `<li class="board-empty">${r.players.length ? 'More seats open: win a ranked duel to climb!' : 'No ranked games yet. Win one and take the throne!'}</li>`;
     const myRank = r.players.findIndex(p => p.id === me?.id);
@@ -333,8 +357,9 @@ function startDuel(local, first = local.view(), opts = {}) {
   }
   D.clock = setInterval(paintTimer, 250);
   D.busy = true;
+  $('#s-duel').classList.add('intro');
   banner(`<div class="bt">${D.tutorial ? 'TUTORIAL' : 'DUEL!'}</div><small>${esc(first.view.me.name)} vs ${esc(first.view.rival.name)}${first.ranked ? ' · RANKED' : ''} · ${STAGES[stage.name].name}</small>`, 1400)
-    .then(() => { sfx('fight'); if (D) { D.busy = false; D.tutorial?.start(); } });
+    .then(() => { sfx('fight'); $('#s-duel').classList.remove('intro'); if (D) { D.busy = false; D.tutorial?.start(); } });
 }
 function placeFighters(v, drop) {
   [v.me, v.rival].forEach((p, i) => {
@@ -348,7 +373,7 @@ function placeFighters(v, drop) {
 }
 async function refresh() {
   if (!D || D.local) return;
-  try { const v = await api(`match/view?id=${D.id}`); await handle(v); } catch (e) { if (e.status === 403 || e.status === 404) { toast(e.message, true); leaveDuel(); } }
+  try { const v = await api(`match/view?id=${D.id}`); await handle(v); } catch (e) { if ([403, 404, 410].includes(e.status)) { toast(e.message, true); leaveDuel(); } }
 }
 async function handle(v) {
   if (!D) return;
@@ -470,6 +495,7 @@ async function lockIn() {
   } catch (e) { toast(e.message, true); if (D) paintDuel(); }
 }
 $('#d-lock').onclick = lockIn;
+addEventListener('keydown', e => { if (e.key === 'Escape' && WINDOWS.has(current) && !$('#modal.on')) closeWindow(); });
 addEventListener('keydown', e => {
   if (current !== 'duel' || !D || e.repeat || e.target.tagName === 'INPUT') return;
   if (e.key >= '1' && e.key <= '7') $(`#d-hand [data-card="${e.key}"]`)?.click();

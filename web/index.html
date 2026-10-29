@@ -9,7 +9,7 @@
 <link rel="icon" href="assets/crown.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Jersey+10&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=Pixelify+Sans:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -74,7 +74,7 @@
       <button class="mode px big" id="hub-ranked" style="--bg:url(assets/mode_ranked.webp)">
         <img class="mode-ico" src="assets/icon_swords.png" alt="">
         <div class="mode-txt"><b>Ranked Duel</b><span id="hub-ranked-sub">1v1 vs real players</span></div>
-        <em class="tag lime">PLAY</em>
+        <em class="tag lime" id="hub-ranked-tag">PLAY</em>
       </button>
       <div class="mode-row">
         <button class="mode px" id="hub-practice" style="--bg:url(assets/mode_practice.webp)">
@@ -94,8 +94,9 @@
       </div>
       <div class="guest-note px" id="guest-note">Trial mode: demo Minds, not on the leaderboard. <a href="#" id="guest-connect">Connect a wallet</a> to play ranked with your own Minds.</div>
     </div>
+    <button class="board-tab px" id="board-tab" title="Show leaderboard"><img src="assets/icon_trophy.png" alt=""><span>TOP</span><div class="tab-pfps" id="board-tab-pfps"></div><b>‹</b></button>
     <div class="col-board panel px" id="board">
-      <div class="board-head"><img src="assets/icon_trophy.png" alt=""><h3>Leaderboard</h3><span class="live">● LIVE</span></div>
+      <div class="board-head"><img src="assets/icon_trophy.png" alt=""><h3>Leaderboard</h3><span class="live">● LIVE</span><button class="iconbtn px small" id="board-hide" title="Hide leaderboard">›</button></div>
       <div class="seg px" id="board-by"><button data-v="rating" class="on">Rating</button><button data-v="points">Points</button></div>
       <div id="board-podium"></div>
       <ol class="board-list" id="board-list"></ol>
@@ -106,9 +107,9 @@
 </section>
 
 <!-- PREP: pick minds -->
-<section id="s-prep" class="screen">
+<section id="s-prep" class="screen window">
   <div class="page narrow">
-    <div class="pagehead"><button class="btn small" data-go="hub">‹ Back</button><h2 id="prep-title" class="shadow">Ranked Duel</h2><span></span></div>
+    <div class="pagehead"><h2 id="prep-title">Ranked Duel</h2><button class="iconbtn px small closex" data-go="hub" title="Close">✕</button></div>
     <div class="panel px">
       <div class="label">Pick your Minds <span class="muted" id="prep-mind-count"></span></div>
       <p class="muted">Bring 1 to 3. They take turns, one per round. Every Mind plays the same, so pick your favourites.</p>
@@ -193,18 +194,18 @@
 </section>
 
 <!-- LEADERBOARD -->
-<section id="s-leaderboard" class="screen">
+<section id="s-leaderboard" class="screen window">
   <div class="page">
-    <div class="pagehead"><button class="btn small" data-go="hub">‹ Back</button><h2 class="shadow">Leaderboard <span class="live">● LIVE</span></h2><div class="seg px" id="lb-by"><button data-v="rating" class="on">Rating</button><button data-v="points">Points</button></div></div>
+    <div class="pagehead"><h2><img src="assets/icon_trophy.png" alt="">Leaderboard <span class="live">● LIVE</span></h2><div class="seg px" id="lb-by"><button data-v="rating" class="on">Rating</button><button data-v="points">Points</button></div><button class="iconbtn px small closex" data-go="hub" title="Close">✕</button></div>
     <div class="panel px lb"><table><thead><tr><th>#</th><th>Player</th><th id="lb-col">Rating</th><th>W</th><th>L</th><th class="hide-s">Win %</th><th class="hide-s">Streak</th></tr></thead><tbody id="lb-rows"></tbody></table>
       <div class="muted small" id="lb-note">Points = 10 per ranked win + rarity bonus (Uncommon +5%, Rare +10%, Epic +15%, Legendary +20%). Bot wins count half. Trial players are not listed.</div></div>
   </div>
 </section>
 
 <!-- PROFILE -->
-<section id="s-profile" class="screen">
+<section id="s-profile" class="screen window">
   <div class="page">
-    <div class="pagehead"><button class="btn small" data-go="hub">‹ Back</button><h2 class="shadow">Profile</h2><span></span></div>
+    <div class="pagehead"><h2>Profile</h2><button class="iconbtn px small closex" data-go="hub" title="Close">✕</button></div>
     <div class="profile">
       <div class="panel px prof-card">
         <div class="prof-top"><img id="pf-pfp" alt=""><div class="prof-id"><div class="pf-name" id="pf-name"></div><div class="muted" id="pf-addr"></div><div id="pf-actions"></div></div></div>
@@ -227,9 +228,9 @@
 </section>
 
 <!-- SETTINGS -->
-<section id="s-settings" class="screen">
+<section id="s-settings" class="screen window">
   <div class="page narrow">
-    <div class="pagehead"><button class="btn small" data-go="back">‹ Back</button><h2 class="shadow">Settings</h2><span></span></div>
+    <div class="pagehead"><h2><img src="assets/icon_gear.png" alt="">Settings</h2><button class="iconbtn px small closex" data-go="back" title="Close">✕</button></div>
     <div class="panel px">
       <div class="row">Music <input type="range" id="set-music" min="0" max="1" step="0.05"></div>
       <div class="row">Sound effects <input type="range" id="set-sfx" min="0" max="1" step="0.05"></div>
@@ -243,9 +244,9 @@
 </section>
 
 <!-- RULES -->
-<section id="s-codex" class="screen">
+<section id="s-codex" class="screen window">
   <div class="page narrow">
-    <div class="pagehead"><button class="btn small" data-go="back">‹ Back</button><h2 class="shadow">How to play</h2><span></span></div>
+    <div class="pagehead"><h2><img src="assets/icon_book.png" alt="">How to play</h2><button class="iconbtn px small closex" data-go="back" title="Close">✕</button></div>
     <div class="panel px codex" id="codex"></div>
   </div>
 </section>
