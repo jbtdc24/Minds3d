@@ -14,9 +14,9 @@ export const GATE_X = [62, 418];
 const GATE_Y = 120;
 
 // ---------- the arena (drawn once) ----------
-const C = { deep: '#2f78c4', water: '#3f95dc', shallow: '#7fd0f4', foam: '#eafaff', sand: '#f0d796', sandD: '#d9bb78',
-  cliff: '#a86e3e', cliffD: '#7c4c2a', cliffL: '#c98e55', g: ['#4a9c38', '#5cb046', '#6cc24f', '#86d65e'], dirt: ['#8f6136', '#a8743f', '#c08a50', '#d6a565'],
-  stone: ['#5b5a6e', '#7c7b8f', '#a3a2b5', '#cfcfdc'] };
+const C = { deep: '#1d3a4f', water: '#29536b', shallow: '#477f86', foam: '#c8ddd2', sand: '#bba571', sandD: '#9c8656',
+  cliff: '#5f4330', cliffD: '#3f2c20', cliffL: '#7d5c40', g: ['#46652b', '#557a33', '#658c3c', '#7a9f48'], dirt: ['#4f3b29', '#664d35', '#7d6245', '#94795a'],
+  stone: ['#36353f', '#4e4d57', '#6b6973', '#908d96'] };
 function land(n, x, y) {
   const dx = (x - 240) / 224, dy = (y - 118) / 106;
   return Math.pow(Math.abs(dx) ** 4 + Math.abs(dy) ** 4, 0.25) + (fbm(n, x / 26, y / 26, 3) - 0.5) * 0.12 < 1;
@@ -74,11 +74,13 @@ function buildArena(seed = 21) {
     }
   });
   // flowers and grass tufts
-  for (let i = 0; i < 900; i++) {
+  for (let i = 0; i < 1400; i++) {
     const x = r() * BW | 0, y = r() * BH | 0;
     if (!isL(x, y) || !isL(x, y + 4) || inLane(x, y, 4) || nearGate(x, y, 0.15)) continue;
-    if (r() < 0.3) { const c = ['#ff6fae', '#ffffff', '#ffd84a', '#c9a6ff', '#ff8a5a'][(r() * 5) | 0]; put(x, y, c); put(x - 1, y, c); put(x + 1, y, c); put(x, y - 1, c); put(x, y, '#ffe27a'); }
-    else { put(x, y, '#3f8a31'); put(x - 1, y - 1, '#3f8a31'); put(x + 1, y - 1, '#3f8a31'); }
+    const t = r();
+    if (t < 0.06) { const c = ['#c7b8d6', '#e2dac2', '#c99a3e', '#a8483f'][(r() * 4) | 0]; put(x, y, c); put(x - 1, y, c); put(x + 1, y, c); put(x, y - 1, c); put(x, y, '#e6c86a'); }
+    else if (t < 0.7) { for (const [bx, h] of [[-2, 2], [-1, 3], [0, 4], [1, 3], [2, 2]]) for (let k = 0; k < h; k++) put(x + bx + (k > 2 ? (bx > 0 ? 1 : -1) : 0), y - k, k === h - 1 ? '#93b25a' : k ? '#6f9443' : '#3a5524'); }
+    else { put(x, y, '#3a5524'); put(x - 1, y - 1, '#7a9f48'); put(x + 1, y - 1, '#7a9f48'); }
   }
   // props: trees, bushes and rocks around the edge (not on lanes or gates)
   const props = [];
@@ -93,14 +95,31 @@ function buildArena(seed = 21) {
   }
   const sparks = [];
   for (let i = 0; i < 3000 && sparks.length < 260; i++) { const x = r() * BW | 0, y = r() * BH | 0; if (!isL(x, y) && !isL(x, y - 6)) sparks.push({ x, y }); }
+  props.forEach(p => { p.spr = mute(p.spr, 0.38); });
   arena = { base: toCanvas(px, BW, BH), foam: toCanvas(foam, BW, BH), props, sparks };
+}
+
+// pull bright sprites toward the muted, earthy palette: desaturate, darken a little, warm the shadows
+const muted = new Map();
+export function mute(spr, k = 0.3) {
+  if (muted.has(spr)) return muted.get(spr);
+  const c = document.createElement('canvas'); c.width = spr.w; c.height = spr.h;
+  const x = c.getContext('2d'); x.drawImage(spr.cv, 0, 0);
+  const id = x.getImageData(0, 0, c.width, c.height), d = id.data;
+  for (let i = 0; i < d.length; i += 4) {
+    if (!d[i + 3]) continue;
+    const l = d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11;
+    d[i] = (d[i] + (l - d[i]) * k) * 0.9 + 6; d[i + 1] = (d[i + 1] + (l - d[i + 1]) * k) * 0.88 + 3; d[i + 2] = (d[i + 2] + (l - d[i + 2]) * k) * 0.84;
+  }
+  x.putImageData(id, 0, 0);
+  const out = { cv: c, w: spr.w, h: spr.h }; muted.set(spr, out); return out;
 }
 
 // ---------- crystal gate (pillars + arch; the crystal is drawn live so it can float and glow) ----------
 const gateCache = {};
 function gateBody(mine) {
   if (gateCache[mine]) return gateCache[mine];
-  const S = C.stone, banner = mine ? ['#2f7a2c', '#58b046', '#9be05a'] : ['#8a1f3a', '#d9466a', '#ff8aa5'];
+  const S = C.stone, banner = mine ? ['#1f4a3f', '#2f6a55', '#4f8d70'] : ['#5a1a22', '#8a2a30', '#b0473f'];
   gateCache[mine] = sprite(46, 40, set => {
     for (const p0 of [3, 35]) for (let y = 8; y < 40; y++) for (let x = p0; x < p0 + 8; x++) set(x, y, S[x === p0 ? 3 : x === p0 + 7 ? 0 : (y & 3) === 0 ? 1 : 2]);
     for (let x = 0; x < 46; x++) for (let y = 4; y < 10; y++) { const arch = y > 6 && x > 12 && x < 34; if (!arch) set(x, y, S[y === 4 ? 3 : y === 9 ? 0 : 2]); }
@@ -113,7 +132,7 @@ function gateBody(mine) {
   });
   return gateCache[mine];
 }
-const CRYSTAL = [['#6f9a00', '#a8d400', '#d4ff1f', '#f6ffc4'], ['#9e2f4a', '#e0507a', '#ff8aa8', '#ffe0ea']];
+const CRYSTAL = [['#2c6a5a', '#3f9a7c', '#7fd0a8', '#d8f5e2'], ['#6a2030', '#a8343f', '#dd5a52', '#f6c0a8']];
 
 // ---------- state ----------
 let cv = null, g = null, running = false, raf = 0, last = 0, T = 0, W = 1, H = 1, DPR = 1;
@@ -280,7 +299,7 @@ function drawUnit(o, dt) {
   // shadow + team ring
   g.globalAlpha = alpha;
   g.fillStyle = 'rgba(29,27,47,.25)'; g.beginPath(); g.ellipse(x, ly, spr.w * 0.32, 2.6, 0, 0, Math.PI * 2); g.fill();
-  g.strokeStyle = o.side ? '#ff5a6a' : '#7fff4a'; g.lineWidth = 1; g.beginPath(); g.ellipse(x, ly, spr.w * 0.36, 3.2, 0, 0, Math.PI * 2); g.stroke();
+  g.strokeStyle = o.side ? 'rgba(221,90,82,.8)' : 'rgba(127,208,168,.8)'; g.lineWidth = 1; g.beginPath(); g.ellipse(x, ly, spr.w * 0.36, 3.2, 0, 0, Math.PI * 2); g.stroke();
   g.save();
   g.translate(Math.round(x), Math.round(ly - bob));
   g.rotate(rot);
@@ -293,7 +312,7 @@ function drawUnit(o, dt) {
   // HP bar and power badge
   const top = Math.round(ly - spr.h - 5 - bob), bw = 16, frac = Math.max(0, Math.min(1, o.hp / (o.maxHp || 1)));
   g.fillStyle = '#1d1b2f'; g.fillRect(Math.round(x - bw / 2) - 1, top - 1, bw + 2, 4);
-  g.fillStyle = o.side ? '#ff5a6a' : '#6fe04a'; g.fillRect(Math.round(x - bw / 2), top, Math.round(bw * frac), 2);
+  g.fillStyle = o.side ? '#d0503f' : '#6fb07a'; g.fillRect(Math.round(x - bw / 2), top, Math.round(bw * frac), 2);
   g.fillStyle = '#1d1b2f'; g.fillRect(Math.round(x + bw / 2) + 1, top - 3, 7, 7);
   g.fillStyle = o.temp > 0 ? '#9bff6a' : o.temp < 0 ? '#ff8a8a' : '#ffffff'; g.font = '700 7px Nunito, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
   g.fillText(String(o.power), Math.round(x + bw / 2) + 4.5, top + 0.5);

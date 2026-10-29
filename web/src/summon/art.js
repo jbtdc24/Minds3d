@@ -5,10 +5,10 @@ import { CARD } from './cards.js';
 import { sprite, bayer } from '../island/pixel.js';
 
 const RAMP = {
-  fire: ['#7a2416', '#c43c1c', '#ee6a2c', '#ff9a4a', '#ffd08a'],
-  water: ['#1f4f8a', '#2f78c4', '#4fa8ec', '#86d8f7', '#d2f4ff'],
-  nature: ['#2d6a2f', '#3f8d38', '#58b046', '#8fd65a', '#c4ef7a'],
-  light: ['#a8781e', '#e0b13a', '#ffd84a', '#fff09a', '#fffbe0'],
+  fire: ['#7a2416', '#c43c1c', '#d9612c', '#f08c48', '#f5c27e'],
+  water: ['#1f4f8a', '#2f78c4', '#4593c9', '#78bfdc', '#c2e4ec'],
+  nature: ['#2d6a2f', '#3f8d38', '#579a3f', '#86ba52', '#b7d877'],
+  light: ['#a8781e', '#e0b13a', '#e8c44a', '#f2dc8a', '#fbf2d2'],
   shadow: ['#221a3e', '#3e2f6e', '#5b47a0', '#8a75d1', '#bfb0f0'],
   stone: ['#3e3a4a', '#5b5a6e', '#7c7b8f', '#a3a2b5', '#cfcfdc'],
   bark: ['#4a2e1c', '#6b4428', '#8b5a34', '#a87444', '#c99a63'],
@@ -106,13 +106,16 @@ export function creatureSprite(id, shiny = false) {
       const eye = c.fam === 'shade' ? '#ff4d7d' : '#1d1b2f';
       set(X, Y, eye); set(X, Y + 1, eye); if (big) { set(X + 1, Y, eye); set(X + 1, Y + 1, eye); }
       set(X, Y, '#ffffff');
-      if (big) { set(X + 1, Y + 2, '#3a3658'); }
-      if (c.fam !== 'shade' && c.fam !== 'magma') { set(X + (X > N / 2 ? 2 : -2), Y + 3, '#ff9bb0'); }  // rosy cheeks
+      // a fierce look: amber iris and a brow slanting down toward the middle
+      const inner = X < N / 2 ? 1 : -1, brow = ramp(c.el)[0];
+      if (big && c.fam !== 'shade') set(X + (inner > 0 ? 1 : 0), Y + 1, '#e0a030');
+      set(X - inner, Y - 2, brow); set(X, Y - 1, brow); if (big) set(X + inner, Y - 1, brow);
     }
-  });
+  }, darken(RAMP[c.el][0]));
   cache.set(key, out);
   return out;
 }
+const darken = h => { const n = parseInt(h.slice(1), 16); return '#' + [n >> 16, (n >> 8) & 255, n & 255].map(v => Math.round(v * 0.45).toString(16).padStart(2, '0')).join(''); };
 // shiny: the same creature in rare, rotated colours
 function shift(hex) {
   const n = parseInt(hex.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255;

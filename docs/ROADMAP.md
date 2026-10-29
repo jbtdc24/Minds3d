@@ -18,7 +18,8 @@ Branch flow: work on `island`, test locally (python no-cache server on web/, por
 - [x] Live-feel rounds engine (secret deploy → 6 s server-simulated battle, timeline playback)
 - [x] Landscape layout (lanes left→right, gates left/right, tray at bottom, "turn your phone" in portrait)
 - [x] Canvas battle renderer web/src/summon/battle.js wired into app.js (units/gates via adapters, lanes = DOM click zones)
-- [~] Restyle to the adult art direction (muted arena, mean creatures, parchment UI)
+- [x] Restyle v1: muted arena, fiercer creatures, minimal parchment UI (owner: "minimalist the better")
+- [ ] Next: bigger creature art per family (horns, fangs, weapons), swing arcs + electric/ice FX, lobby/menus to parchment style
 - [ ] Code-drawn creatures v2: bigger, nicer pixel art per family/stage, outlines, highlights
 - [ ] Smooth procedural animation: idle breathing, walk bob + squash/stretch, attack wind-up → lunge → recoil,
       hurt flash + knockback, faint (spin/fade + sparkle), summon pop with dust, element-coloured hit particles,

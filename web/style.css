@@ -920,3 +920,67 @@ body.in-duel #view { visibility: hidden; }
 #s-duel .lane { height: 11.1%; border-radius: 12px; }
 #s-duel .lane[data-lane="0"] { top: 23.3%; } #s-duel .lane[data-lane="1"] { top: 38.9%; } #s-duel .lane[data-lane="2"] { top: 54.4%; }
 #s-duel .lane.open { background: rgba(212,255,31,.16); box-shadow: inset 0 0 0 2px #d4ff1f; }
+
+/* ---- adult restyle (owner refs): dark leather + parchment + brass, no candy colours ---- */
+#s-duel .plate { background: linear-gradient(180deg, #2a2420, #1a1612); box-shadow: 0 0 0 2px #0e0b09, 0 0 0 4px #8a6a3c, 0 6px 0 3px rgba(0,0,0,.35); border-radius: 6px; }
+#s-duel .plate .pfp { border-radius: 4px; box-shadow: 0 0 0 2px #8a6a3c; background: #d8c9a6; }
+#s-duel .plate b { color: #efe2c4; letter-spacing: .02em; }
+#s-duel #d-hpbar0 { background: linear-gradient(180deg, #7fb886, #3f7a52) !important; }
+#s-duel #d-hpbar1 { background: linear-gradient(180deg, #d9725e, #8a2f2a) !important; }
+#s-duel .tray { background: linear-gradient(180deg, #3a2c20, #251b13); box-shadow: 0 0 0 2px #0e0b09, 0 0 0 4px #6b5030, inset 0 2px 0 rgba(255,230,180,.12); border-radius: 6px; }
+#s-duel .ccard { background: #e3d5b4; border-radius: 4px; box-shadow: 0 0 0 2px #2a1d12, 0 0 0 4px var(--frame, #7a7266), 0 5px 0 4px rgba(0,0,0,.35); }
+#s-duel .ccard.st1 { --frame: #7a7266; } #s-duel .ccard.st2 { --frame: #6a5a8a; } #s-duel .ccard.st3 { --frame: #b08a3a; }
+#s-duel .ccard .art { background: radial-gradient(circle at 50% 60%, #efe4c8, #cdbb92) !important; }
+#s-duel .ccard .art img { image-rendering: pixelated; }
+#s-duel .ccard b { background: linear-gradient(180deg, #3a2c20, #251b13); color: #efe2c4; border-radius: 0 0 3px 3px; }
+#s-duel .ccard .cost { background: linear-gradient(160deg, #6fa6c4, #2f5a7a 60%, #1d3a52); }
+#s-duel .ccard.on { box-shadow: 0 0 0 2px #2a1d12, 0 0 0 4px #d8b45a, 0 0 18px 4px rgba(216,180,90,.5); }
+#s-duel .focusbar { background: #1c1510; box-shadow: inset 0 0 0 2px #0e0b09; border-radius: 4px; }
+#s-duel .focusbar span, #s-duel .focusbar b { color: #efe2c4; }
+#s-duel .focusbar div i.on { background: linear-gradient(180deg, #8fc4d8, #3f7a9a); box-shadow: inset 0 2px 0 #c2e2ec; }
+#s-duel .skillbtn { background: linear-gradient(180deg, #d9c9a2, #b39f74); box-shadow: 0 0 0 2px #2a1d12, inset 0 2px 0 #efe2c4, 0 3px 0 #2a1d12; border-radius: 4px; color: #2a1d12; }
+#s-duel .skillbtn.on { background: linear-gradient(180deg, #f0d48a, #c9a24a); }
+#s-duel .endturn { background: linear-gradient(180deg, #a8823e, #6f5226) !important; color: #fff3d8 !important; border-radius: 6px; box-shadow: 0 0 0 2px #1a120b, inset 0 2px 0 #e0c07a, 0 4px 0 #1a120b !important; text-shadow: 1px 1px 0 #1a120b; }
+#s-duel .nextcard { background: #1c1510 !important; box-shadow: inset 0 0 0 2px #0e0b09, 0 0 0 2px #6b5030 !important; border-radius: 4px; color: #efe2c4; }
+#s-duel .duel-hint { background: rgba(28,21,16,.9); color: #efe2c4; box-shadow: 0 0 0 2px #6b5030; border-radius: 4px; }
+#s-duel .lane.open { background: rgba(216,180,90,.14); box-shadow: inset 0 0 0 2px rgba(216,180,90,.8); }
+#s-duel .arena { background: #1d3a4f; }
+
+/* ---- minimalist pixel UI (owner ref "Pixel Art GUI"): small parchment panels, thin wood frames, green buttons ---- */
+#s-duel { --parch: #ead7a8; --parchD: #d4bc86; --wood: #6e4a2c; --woodD: #3e2716; --btn: #4f9a6a; --btnD: #2f6a46; --txt: #3e2716; }
+#s-duel .duel-top { top: 6px; left: 8px; right: 8px; }
+#s-duel .plate { background: var(--parch); color: var(--txt); padding: 3px 8px 3px 3px; gap: 6px; max-width: 230px; border-radius: 3px;
+  box-shadow: 0 0 0 2px var(--wood), 0 0 0 3px var(--woodD), 0 3px 0 2px rgba(0,0,0,.25); }
+#s-duel .plate .pfp { width: 30px; height: 30px; border-radius: 2px; box-shadow: 0 0 0 2px var(--wood); }
+#s-duel .plate b { color: var(--txt); font-size: 13px; }
+#s-duel .plate .hpbar, #s-duel .plate [class*=hpwrap], #s-duel .plate .hp { height: 8px !important; }
+#s-duel .plate .pmeta { font-size: 10px; color: var(--txt); }
+#s-duel #d-turn { font-size: 13px; color: #f3e6c4; text-shadow: 1px 1px 0 #000; }
+#s-duel .duel-bottom { padding-bottom: max(4px, env(safe-area-inset-bottom)); gap: 4px; }
+#s-duel .tray { width: auto; max-width: 96vw; gap: 6px; padding: 4px; background: var(--parch); border-radius: 3px;
+  box-shadow: 0 0 0 2px var(--wood), 0 0 0 3px var(--woodD), 0 3px 0 2px rgba(0,0,0,.3); }
+#s-duel .nextcard { width: 44px !important; padding: 2px !important; background: var(--parchD) !important; box-shadow: inset 0 0 0 1px var(--wood) !important; color: var(--txt); font-size: 9px; }
+#s-duel .nextcard img { width: 34px !important; height: 34px !important; }
+#s-duel .ccard { width: 52px; background: var(--parchD); border-radius: 2px; box-shadow: inset 0 0 0 1px var(--wood), 0 0 0 2px var(--frame, var(--wood)); }
+#s-duel .ccard.st1 { --frame: #8a7a5e; } #s-duel .ccard.st2 { --frame: #6a5a8a; } #s-duel .ccard.st3 { --frame: #b08a3a; }
+#s-duel .ccard .art { aspect-ratio: 1; background: var(--parchD) !important; border-radius: 0; }
+#s-duel .ccard .art img { width: 86%; height: 86%; filter: none; }
+#s-duel .ccard b { font-size: 9px !important; padding: 1px !important; background: var(--wood); color: var(--parch); border-radius: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#s-duel .ccard .cost { left: -6px; top: -6px; width: 18px; height: 18px; font-size: 11px; }
+#s-duel .ccard .pwr { right: -5px; bottom: 14px; width: 16px; height: 16px; font-size: 10px; }
+#s-duel .ccard.on { transform: translateY(-8px); box-shadow: inset 0 0 0 1px var(--wood), 0 0 0 2px #f3d27a, 0 0 10px 2px rgba(243,210,122,.6); }
+#s-duel .traymid { width: 150px; gap: 4px; }
+#s-duel .focusbar { padding: 3px 5px; gap: 4px; background: var(--parchD); box-shadow: inset 0 0 0 1px var(--wood); border-radius: 2px; }
+#s-duel .focusbar span, #s-duel .focusbar b { font-size: 11px !important; color: var(--txt); }
+#s-duel .focusbar div { height: 10px; padding: 1px; gap: 2px; background: var(--woodD); border-radius: 1px; }
+#s-duel .skillbtn { padding: 2px 6px; background: var(--parchD); box-shadow: inset 0 0 0 1px var(--wood); border-radius: 2px; color: var(--txt); font-size: 9px; }
+#s-duel .skillbtn b { font-size: 11px !important; }
+#s-duel .skillbtn.on { background: #f3d27a; }
+#s-duel .endturn { width: 76px; font-size: 11px; gap: 1px; background: var(--btn) !important; color: #f3f0d8 !important; border-radius: 2px;
+  box-shadow: inset 0 0 0 1px #8fd0a2, 0 0 0 2px var(--btnD), 0 3px 0 2px var(--woodD) !important; text-shadow: 1px 1px 0 var(--btnD); }
+#s-duel .endturn i { font-size: 14px; }
+#s-duel .duel-hint { font-size: 11px; padding: 3px 8px; background: var(--parch); color: var(--txt); box-shadow: 0 0 0 2px var(--wood); border-radius: 2px; }
+#s-duel .endturn.lock { width: 76px !important; min-width: 0 !important; flex: 0 0 76px !important; }
+#s-duel .skillbtn small, #s-duel .skillbtn span { font-size: 9px !important; }
+#s-duel #d-chat, #s-duel #d-menu { width: 30px; height: 30px; min-width: 0; padding: 3px; font-size: 15px; background: var(--parch); color: var(--txt); border-radius: 2px; box-shadow: 0 0 0 2px var(--wood), 0 2px 0 2px rgba(0,0,0,.25); }
+#s-duel #d-chat img { width: 100%; height: 100%; }
