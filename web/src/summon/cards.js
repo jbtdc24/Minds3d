@@ -69,3 +69,31 @@ export const LEGENDARY_SKILL = { fire: 'bolt', ice: 'ward', angel: 'mend', bones
 export const LEGENDARY_ELEMENT = { fire: 'fire', ice: 'water', angel: 'light', bones: 'shadow', glitch: 'water', joker: 'fire', monkey: 'nature', robot: 'light', void: 'shadow', error: 'shadow' };
 
 export const RULES = { hp: 20, lanes: 3, deck: 12, copies: 2, maxStage3: 4, hand: 3, maxFocus: 6, maxTurns: 12, growMax: 3 };
+
+// four free starter decks (complete, with stage 3): together they cover all 8 families (46-55% in the sim)
+const pair = (a, b) => CREATURES.filter(c => c.fam === a || c.fam === b).flatMap(c => [c.id, c.id]);
+export const STARTER_DECKS = {
+  ember_sprout: { name: 'Wildfire', els: ['fire', 'nature'], cards: pair('ember', 'sprout') },
+  magma_glow: { name: 'Bastion', els: ['fire', 'light'], cards: pair('magma', 'glow') },
+  bubble_bloom: { name: 'Tidebloom', els: ['water', 'nature'], cards: pair('bubble', 'bloom') },
+  storm_shade: { name: 'Nightstorm', els: ['water', 'shadow'], cards: pair('storm', 'shade') },
+};
+export const KEYWORDS = {
+  burn: n => `Burn ${n}: ${n} damage to the enemy Mind when summoned`,
+  heal: n => `Heal ${n}: heal your Mind ${n} when summoned`,
+  shield: n => `Shield ${n}: your Mind blocks the next ${n} damage`,
+  spark: n => `Spark ${n}: the enemy in front gets -${n} power`,
+  splash: () => 'Splash: every enemy creature gets -1 power',
+  draw: () => 'Draw: draw a card when summoned',
+  rally: () => 'Rally: your other creatures get +1 power',
+  tough: () => 'Tough: survives ties',
+  guard: () => 'Guard: loses no power when it wins',
+  pierce: () => 'Pierce: extra power from a win hits the enemy Mind',
+  grow: () => 'Grow: +1 power each turn it survives (max +3)',
+  leech: () => 'Leech: heals your Mind 1 when it hits the Mind',
+};
+export const abilitiesOf = c => Object.keys(KEYWORDS).filter(k => c[k]).map(k => ({ k, n: c[k] === true ? null : c[k], text: KEYWORDS[k](c[k]) }));
+export const ELEMENT_INFO = {
+  fire: { name: 'Fire', color: '#ff7a4a', icon: '🔥' }, water: { name: 'Water', color: '#5ec8ff', icon: '💧' },
+  nature: { name: 'Nature', color: '#7fcf55', icon: '🌿' }, light: { name: 'Light', color: '#ffe27a', icon: '✨' }, shadow: { name: 'Shadow', color: '#a99ae6', icon: '🌑' },
+};

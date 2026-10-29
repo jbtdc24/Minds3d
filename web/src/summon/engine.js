@@ -1,7 +1,8 @@
 // Mind Summoners battle engine: pure, deterministic, serialisable (browser, server and simulator).
 // Each turn both players secretly summon creatures into their empty lanes (and may use their Hero Skill once
 // per match); then everything is revealed and resolved at once. Bring the enemy Mind from 20 HP to 0.
-import { CARD, BEATS, ELEMENT_BONUS, RULES } from './cards.js';
+// resolve() returns a log entry whose `events` let the screen replay the turn step by step.
+import { CARD, BEATS, ELEMENT_BONUS, RULES, HERO_SKILLS } from './cards.js';
 
 export function rand(s) {
   let a = (s.rng = (s.rng + 0x6D2B79F5) | 0);
@@ -25,31 +26,41 @@ export function checkDeck(deck) {
   return null;
 }
 
-// players: [{ name, deck: [cardId x12], skill, el }]
+// players: [{ name, deck: [cardId x12], skill, el, hp? }]
 export function createGame({ seed = 1, players }) {
-  const s = { v: 1, rng: seed | 0, turn: 0, over: false, winner: null, log: [], p: null };
+  const s = { v: 1, rng: seed | 0, turn: 0, over: false, winner: null, log: [], played: [0, 0], p: null };
   s.p = players.map(pl => ({
-    name: pl.name, skill: pl.skill || null, el: pl.el || null, hp: RULES.hp, shield: 0, skillUsed: false, fatigue: 0,
+    name: pl.name, skill: pl.skill || null, el: pl.el || null, hp: pl.hp || RULES.hp, maxHp: pl.hp || RULES.hp, shield: 0, skillUsed: false, fatigue: 0,
     deck: shuffle(s, pl.deck), hand: [], board: Array(RULES.lanes).fill(null), focus: 0,
   }));
-  for (const p of s.p) for (let i = 0; i < RULES.hand; i++) draw(s, p);
+  for (const p of s.p) {
+    for (let i = 0; i < RULES.hand; i++) draw(s, p);
+    // never a dead start: the opening hand always has a creature you can summon on turn 1
+    if (!p.hand.some(id => CARD[id].cost <= 1)) {
+      const k = p.deck.findLastIndex(id => CARD[id].cost <= 1);
+      if (k >= 0) { const hi = p.hand.reduce((m, id, j) => CARD[id].cost > CARD[p.hand[m]].cost ? j : m, 0); [p.hand[hi], p.deck[k]] = [p.deck[k], p.hand[hi]]; }
+    }
+  }
   startTurn(s);
   return s;
 }
 function draw(s, p) {
-  if (p.deck.length) { p.hand.push(p.deck.pop()); return; }
-  p.fatigue++; hit(p, p.fatigue);   // out of cards: you get tired
+  if (p.deck.length) { p.hand.push(p.deck.pop()); return 0; }
+  p.fatigue++; return hit(p, p.fatigue);   // out of cards: you get tired
 }
 function hit(p, n) {
   const b = Math.min(p.shield, n);
   p.shield -= b; p.hp -= n - b;
   return n - b;
 }
+const heal = (p, n) => { p.hp = Math.min(p.maxHp, p.hp + n); };
 export function startTurn(s) {
   s.turn++;
-  for (const p of s.p) { draw(s, p); p.focus = Math.min(s.turn, RULES.maxFocus); }
+  s.drew = s.p.map(p => draw(s, p));   // fatigue damage this turn, if any
+  for (const p of s.p) p.focus = Math.min(s.turn, RULES.maxFocus);
 }
 export const focusOf = (s, i, act) => s.p[i].focus + (act?.skill?.id === 'focus' ? 2 : 0);
+export const SKILL_TARGET = { rage: 'mine', hex: 'enemy', curse: 'enemy' };
 
 // act: { play: [{ card: handIndex, lane }], skill: { id, lane } | null }
 export function validate(s, i, act) {
@@ -63,20 +74,24 @@ export function validate(s, i, act) {
     usedCards.add(m.card); usedLanes.add(m.lane); cost += CARD[p.hand[m.card]].cost;
   }
   if (act?.skill) {
-    if (p.skillUsed || act.skill.id !== p.skill) return 'hero skill not available';
+    if (p.skillUsed || act.skill.id !== p.skill || !HERO_SKILLS[p.skill]) return 'hero skill not available';
+    if (SKILL_TARGET[p.skill] && !(Number.isInteger(act.skill.lane) && act.skill.lane >= 0 && act.skill.lane < RULES.lanes)) return 'pick a lane for your hero skill';
   }
   if (cost > focusOf(s, i, act)) return 'not enough focus';
   return null;
 }
 
 // countering an element gives +2 power, or +3 if the creature shares your Mind's element (affinity)
-const eff = (c, foe, el) => c.power + c.temp + (foe && BEATS[CARD[c.id].el] === CARD[foe.id].el ? ELEMENT_BONUS + (CARD[c.id].el === el ? 1 : 0) : 0);
+export const counters = (a, b) => BEATS[CARD[a].el] === CARD[b].el;
+const eff = (c, foe, el) => c.power + c.temp + (foe && counters(c.id, foe.id) ? ELEMENT_BONUS + (CARD[c.id].el === el ? 1 : 0) : 0);
 const kill = (p, lane) => { p.board[lane] = null; };
+const snap = s => s.p.map(p => ({ hp: p.hp, shield: p.shield, board: p.board.map(c => c && { id: c.id, power: c.power, grown: c.grown }) }));
 
 // resolve one turn; acts = [act0, act1] (already validated)
 export function resolve(s, acts) {
-  const log = { turn: s.turn, acts: acts.map(a => ({ play: (a.play || []).map(m => ({ card: s.p[acts.indexOf(a)]?.hand[m.card], lane: m.lane })), skill: a.skill || null })), events: [] };
-  const ev = e => log.events.push(e);
+  const log = { turn: s.turn, acts: acts.map((a, i) => ({ play: (a.play || []).map(m => ({ id: s.p[i].hand[m.card], lane: m.lane })), skill: a.skill || null })), events: [], before: snap(s) };
+  const ev = e => log.events.push({ ...e, hp: s.p.map(p => p.hp), sh: s.p.map(p => p.shield) });
+  acts.forEach((a, i) => { if (a.play?.length || a.skill) s.played[i]++; });
   // 1. summon (cards leave the hand)
   const summoned = [[], []];
   acts.forEach((a, i) => {
@@ -84,74 +99,89 @@ export function resolve(s, acts) {
     for (const m of play) {
       const id = p.hand[m.card];
       p.hand.splice(m.card, 1);
-      const c = { id, power: CARD[id].power, temp: 0, grown: 0 };
-      p.board[m.lane] = c; summoned[i].push(m.lane);
-      ev({ t: 'summon', p: i, id, lane: m.lane });
+      p.board[m.lane] = { id, power: CARD[id].power, temp: 0, grown: 0 };
+      summoned[i].push(m.lane);
     }
   });
+  ev({ t: 'summon', lanes: summoned });
   // 2. on-summon effects (both sides at once)
   for (let i = 0; i < 2; i++) {
     const me = s.p[i], foe = s.p[1 - i];
     for (const lane of summoned[i]) {
       const d = CARD[me.board[lane].id];
-      if (d.spark && foe.board[lane]) foe.board[lane].power -= d.spark;
-      if (d.splash) for (const c of foe.board) if (c) c.power -= 1;
-      if (d.burn) ev({ t: 'burn', p: i, n: hit(foe, d.burn) });
-      if (d.heal) me.hp = Math.min(RULES.hp, me.hp + d.heal);
-      if (d.shield) me.shield += d.shield;
-      if (d.draw) draw(s, me);
-      if (d.rally) me.board.forEach((c, l) => { if (c && l !== lane) c.power += 1; });
+      if (d.spark && foe.board[lane]) { foe.board[lane].power -= d.spark; ev({ t: 'spark', p: i, lane, n: d.spark }); }
+      if (d.splash) { for (const c of foe.board) if (c) c.power -= 1; ev({ t: 'splash', p: i, lane }); }
+      if (d.burn) ev({ t: 'burn', p: i, lane, n: hit(foe, d.burn) });
+      if (d.heal) { heal(me, d.heal); ev({ t: 'heal', p: i, lane, n: d.heal }); }
+      if (d.shield) { me.shield += d.shield; ev({ t: 'shield', p: i, lane, n: d.shield }); }
+      if (d.draw) { const f = draw(s, me); ev({ t: 'draw', p: i, lane, fatigue: f }); }
+      if (d.rally) { me.board.forEach((c, l) => { if (c && l !== lane) c.power += 1; }); ev({ t: 'rally', p: i, lane }); }
     }
   }
   // 3. hero skills
   acts.forEach((a, i) => {
     if (!a.skill) return;
-    const me = s.p[i], foe = s.p[1 - i], lane = a.skill.lane;
+    const me = s.p[i], foe = s.p[1 - i], lane = a.skill.lane, id = a.skill.id;
     me.skillUsed = true;
-    ev({ t: 'skill', p: i, id: a.skill.id, lane });
-    if (a.skill.id === 'mend') { me.hp = Math.min(RULES.hp, me.hp + 6); me.shield += 2; }
-    else if (a.skill.id === 'cry') me.board.forEach(c => { if (c) c.temp += 1; });
-    else if (a.skill.id === 'rage' && me.board[lane]) { me.board[lane].temp += 3; me.board[lane].guard = true; }
-    else if (a.skill.id === 'hex' && foe.board[lane]) foe.board[lane].temp -= 3;
-    else if (a.skill.id === 'bolt') hit(foe, 6);
-    else if (a.skill.id === 'ward') me.shield += 5;
-    else if (a.skill.id === 'curse' && foe.board[lane]) { foe.board[lane].power -= 1; foe.board[lane].temp -= 1; }
+    if (id === 'mend') { heal(me, 6); me.shield += 2; }
+    else if (id === 'cry') me.board.forEach(c => { if (c) c.temp += 1; });
+    else if (id === 'rage' && me.board[lane]) { me.board[lane].temp += 3; me.board[lane].guard = true; }
+    else if (id === 'hex' && foe.board[lane]) foe.board[lane].temp -= 3;
+    else if (id === 'bolt') hit(foe, 6);
+    else if (id === 'ward') me.shield += 5;
+    else if (id === 'curse' && foe.board[lane]) { foe.board[lane].power -= 1; foe.board[lane].temp -= 1; }
+    ev({ t: 'skill', p: i, id, lane });
   });
   // creatures weakened to 0 or less are gone
-  for (const p of s.p) p.board.forEach((c, l) => { if (c && c.power <= 0) kill(p, l); });
+  s.p.forEach((p, i) => p.board.forEach((c, l) => { if (c && c.power <= 0) { kill(p, l); ev({ t: 'fade', p: i, lane: l }); } }));
   // 4. lanes fight
   for (let lane = 0; lane < RULES.lanes; lane++) {
     const a = s.p[0].board[lane], b = s.p[1].board[lane];
     if (a && b) {
       const ea = eff(a, b, s.p[0].el), eb = eff(b, a, s.p[1].el);
       if (ea === eb) {
-        const ta = CARD[a.id].tough, tb = CARD[b.id].tough;
-        if (!ta) kill(s.p[0], lane);
-        if (!tb) kill(s.p[1], lane);
-        ev({ t: 'tie', lane });
+        const keep = [!!CARD[a.id].tough, !!CARD[b.id].tough];
+        if (!keep[0]) kill(s.p[0], lane);
+        if (!keep[1]) kill(s.p[1], lane);
+        ev({ t: 'tie', lane, pw: [ea, eb], keep });
       } else {
         const [wi, w, l, ew, el] = ea > eb ? [0, a, b, ea, eb] : [1, b, a, eb, ea];
         kill(s.p[1 - wi], lane);
         if (!CARD[w.id].guard && !w.guard) w.power = Math.max(1, w.power - Math.max(0, l.power + l.temp));
-        if (CARD[w.id].pierce) { const n = hit(s.p[1 - wi], ew - el); if (n && CARD[w.id].leech) s.p[wi].hp = Math.min(RULES.hp, s.p[wi].hp + 1); }
-        ev({ t: 'win', lane, p: wi });
+        let pierce = 0, leech = false;
+        if (CARD[w.id].pierce) { pierce = hit(s.p[1 - wi], ew - el); if (pierce && CARD[w.id].leech) { heal(s.p[wi], 1); leech = true; } }
+        ev({ t: 'win', lane, p: wi, pw: [ea, eb], left: w.power, pierce, leech });
       }
     } else if (a || b) {
       const wi = a ? 0 : 1, c = a || b, n = hit(s.p[1 - wi], Math.max(0, eff(c, null)));
-      if (n && CARD[c.id].leech) s.p[wi].hp = Math.min(RULES.hp, s.p[wi].hp + 1);
-      ev({ t: 'hit', lane, p: wi, n });
+      let leech = false;
+      if (n && CARD[c.id].leech) { heal(s.p[wi], 1); leech = true; }
+      ev({ t: 'hit', lane, p: wi, n, leech });
     }
   }
   // 5. end of turn
-  for (const p of s.p) for (const c of p.board) if (c) {
+  s.p.forEach((p, i) => p.board.forEach((c, l) => {
+    if (!c) return;
     c.temp = 0; delete c.guard;
-    if (CARD[c.id].grow && c.grown < RULES.growMax) { c.power++; c.grown++; }
+    if (CARD[c.id].grow && c.grown < RULES.growMax) { c.power++; c.grown++; ev({ t: 'grow', p: i, lane: l }); }
+  }));
+  endCheck(s);
+  if (!s.over) {
+    startTurn(s);
+    s.drew.forEach((n, i) => { if (n) ev({ t: 'fatigue', p: i, n }); });
+    if (s.p.some(p => p.hp <= 0)) endCheck(s, true);
   }
+  log.over = s.over; log.winner = s.winner;
   s.log.push(log);
-  const [h0, h1] = [s.p[0].hp, s.p[1].hp];
-  if (h0 <= 0 || h1 <= 0 || s.turn >= RULES.maxTurns) {
-    s.over = true;
-    s.winner = h0 === h1 ? null : h0 > h1 ? 0 : 1;
-  } else startTurn(s);
+  if (s.log.length > 3) s.log.splice(0, s.log.length - 3);   // only the latest turns are kept in the save
   return log;
+}
+function endCheck(s, force = false) {
+  const [h0, h1] = [s.p[0].hp, s.p[1].hp];
+  if (force || h0 <= 0 || h1 <= 0 || s.turn >= RULES.maxTurns) { s.over = true; s.winner = h0 === h1 ? null : h0 > h1 ? 0 : 1; }
+}
+export function forfeitGame(s, i) {
+  if (s.over) return;
+  s.over = true; s.winner = 1 - i;
+  s.log.push({ turn: s.turn, forfeit: i, over: true, winner: 1 - i, events: [], acts: [] });
 }

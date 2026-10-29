@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>Mindclash</title>
-<meta name="description" content="Mindclash: a 1v1 card duel of crowns and spells, played with your minds.games NFTs.">
+<meta name="description" content="Mindclash: summon creatures and duel 1v1 with your minds.games NFTs as summoners.">
 <meta name="theme-color" content="#5ec8ff">
 <link rel="icon" href="assets/crown.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -33,11 +33,11 @@
 <section id="s-login" class="screen">
   <div class="login px panel">
     <div class="logo"><img src="assets/crown.png" alt="">MIND<span>CLASH</span></div>
-    <p class="tagline">Outplay. Outsmart. Take the crowns.</p>
+    <p class="tagline">Summon. Outsmart. Win the lanes.</p>
     <ul class="pitch">
-      <li><img src="assets/crown.png" alt=""><span><b>1v1 card duels.</b> Both play a secret card. Higher card takes the crown.</span></li>
-      <li><img src="assets/spell_reverse.png" alt=""><span><b>4 sneaky spells</b> can flip the result after the cards are shown.</span></li>
-      <li><img src="assets/icon_trophy.png" alt=""><span><b>Fair for all.</b> Same cards for everyone. Rarity only adds leaderboard points.</span></li>
+      <li><img src="assets/crown.png" alt=""><span><b>1v1 summoner duels.</b> Both secretly summon creatures into 3 lanes, then everything clashes.</span></li>
+      <li><img src="assets/spell_reverse.png" alt=""><span><b>Every Mind is different:</b> its element and Hero Skill come from its NFT traits.</span></li>
+      <li><img src="assets/icon_trophy.png" alt=""><span><b>Fair for all.</b> Free starter decks for everyone. Rarity never changes duel numbers.</span></li>
     </ul>
     <button class="btn primary big" id="btn-wallet">Connect wallet</button>
     <button class="btn" id="btn-guest">Try free with demo Minds</button>
@@ -119,16 +119,20 @@
   </div>
 </section>
 
-<!-- PREP: pick minds -->
+<!-- PREP: pick your Mind (summoner) + a deck -->
 <section id="s-prep" class="screen window">
   <div class="page narrow">
     <div class="pagehead"><h2 id="prep-title">Ranked Duel</h2><button class="iconbtn px small closex" data-go="hub" title="Close">✕</button></div>
     <div class="panel px">
-      <div class="label">Pick your Minds <span class="muted" id="prep-mind-count"></span></div>
-      <p class="muted">Bring 1 to 3. They take turns, one per round. Every Mind plays the same, so pick your favourites.</p>
-      <p class="prep-note" id="prep-note"></p>
+      <div class="label">1 · Your summoner</div>
+      <div class="prep-hero" id="prep-hero"></div>
       <div class="mindgrid big" id="prep-minds"></div>
     </div>
+    <div class="panel px">
+      <div class="label">2 · Your deck</div>
+      <div class="deckgrid" id="prep-decks"></div>
+    </div>
+    <p class="prep-note" id="prep-note"></p>
     <div class="prep-foot">
       <div class="seg px" id="prep-level"><button data-v="easy">Easy</button><button data-v="normal" class="on">Normal</button><button data-v="hard">Hard</button></div>
       <div class="err" id="prep-err"></div>
@@ -147,49 +151,35 @@
   </div>
 </section>
 
-<!-- DUEL -->
+<!-- DUEL: Mind Summoners -->
 <section id="s-duel" class="screen">
   <div class="duel-top">
-    <div class="plate px me-side">
+    <div class="plate px me-side" id="d-plate0">
       <img class="pfp" id="d-pfp0" alt="">
-      <div class="info"><b id="d-name0"></b><div class="stars" id="d-rounds0"></div></div>
-      <div class="pts"><b id="d-score0">0</b><span>PTS</span></div>
+      <div class="info"><b id="d-name0"></b><div class="hpbar"><i id="d-hpbar0"></i><span id="d-hp0">20</span></div><div class="pmeta"><span class="skillchip" id="d-skill0"></span><span class="shield" id="d-sh0"></span><span class="deckn" id="d-deck0"></span></div></div>
     </div>
     <div class="mid">
-      <div class="roundlbl shadow" id="d-round">ROUND 1</div>
-      <div class="timer" id="d-timer"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="17"/><circle id="d-timer-ring" cx="20" cy="20" r="17"/></svg><span id="d-timer-t">20</span></div>
+      <div class="roundlbl shadow" id="d-turn">TURN 1</div>
+      <div class="timer" id="d-timer"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="17"/><circle id="d-timer-ring" cx="20" cy="20" r="17"/></svg><span id="d-timer-t">30</span></div>
     </div>
-    <div class="plate px rv-side">
-      <div class="pts"><b id="d-score1">0</b><span>PTS</span></div>
-      <div class="info"><b id="d-name1"></b><div class="stars" id="d-rounds1"></div></div>
+    <div class="plate px rv-side" id="d-plate1">
+      <div class="info"><b id="d-name1"></b><div class="hpbar"><i id="d-hpbar1"></i><span id="d-hp1">20</span></div><div class="pmeta"><span class="skillchip" id="d-skill1"></span><span class="shield" id="d-sh1"></span><span class="deckn" id="d-deck1"></span></div></div>
       <img class="pfp" id="d-pfp1" alt="">
     </div>
   </div>
-  <div class="prize">
-    <div class="crownbox px" id="d-crownbox" title="The crown up for grabs this turn">
-      <img src="assets/crown.png" alt=""><b id="d-crown">7</b>
-    </div>
-    <div class="potline px" id="d-pot"></div>
-    <div class="crownsleft" id="d-left" title="Crowns still to come this round"></div>
-  </div>
-  <div class="rivalinfo px" id="d-rivalinfo">
-    <div class="ri-row"><span>Rival cards</span><div class="minis" id="d-rcards"></div></div>
-    <div class="ri-row"><span>Rival spells</span><div class="minispells" id="d-rspells"></div></div>
-    <div class="ri-lock" id="d-rlock">✔ RIVAL LOCKED IN</div>
+  <div class="board" id="d-board">
+    <div class="lane" data-lane="0"><div class="slot rv"></div><div class="vs"></div><div class="slot me"></div></div>
+    <div class="lane" data-lane="1"><div class="slot rv"></div><div class="vs"></div><div class="slot me"></div></div>
+    <div class="lane" data-lane="2"><div class="slot rv"></div><div class="vs"></div><div class="slot me"></div></div>
   </div>
   <div class="duel-bottom" id="d-controls">
     <div class="duel-hint px" id="d-hint"></div>
-    <div class="spells" id="d-spells"></div>
     <div class="handrow">
+      <div class="focus px" id="d-focus"></div>
       <div class="hand" id="d-hand"></div>
-      <div class="lockrow"><button class="btn primary big lock" id="d-lock" disabled>Pick a card</button><div class="waiting px" id="d-wait">Locked in · waiting for rival</div></div>
+      <div class="lockrow"><button class="skillbtn px" id="d-skillbtn"></button><button class="btn primary big lock" id="d-lock">End turn</button><div class="waiting px" id="d-wait">Locked in · waiting for rival</div></div>
     </div>
   </div>
-  <div class="reveal" id="reveal">
-    <div class="rv-col" id="rv0"><div class="rv-who">YOU</div><div class="rcard"><div class="rc-face"><b></b></div><div class="rc-back"></div></div><div class="rv-spell"></div></div>
-    <div class="rv-col" id="rv1"><div class="rv-who">RIVAL</div><div class="rcard"><div class="rc-face"><b></b></div><div class="rc-back"></div></div><div class="rv-spell"></div></div>
-  </div>
-  <div class="rv-msg px" id="rv-msg"></div>
   <button class="iconbtn px chatbtn" id="d-chat" title="Quick chat"><img src="assets/icon_chat.png" alt="Chat"></button>
   <div class="chatpick px" id="d-chatpick"><div class="seg" id="d-chattabs"></div><div class="phrases" id="d-phrases"></div></div>
   <button class="corner iconbtn px" id="d-menu" title="Menu">☰</button>

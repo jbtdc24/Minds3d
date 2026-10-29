@@ -50,69 +50,77 @@ ok(checkName('ab') && checkName('bad name!') && checkName('fuck_you') && checkNa
 
 // ---- bot match, full game ----
 const A = await db.insert('players', { name: 'Alice', name_key: 'alice', address: acct.address });
-let m = await startMatch({ player: A, minds: [1, 2] }, null, { ranked: true, botLevel: 'normal' });
+const { CARD } = await import('../web/src/summon/cards.js');
+// summon the cheapest cards that fit into empty lanes (a simple legal move)
+const easyMove = view => {
+  const me = view.me, lanes = me.board.map((c, l) => c ? -1 : l).filter(l => l >= 0), play = [];
+  let focus = me.focus;
+  me.hand.map((id, card) => ({ id, card })).sort((a, b) => CARD[a.id].cost - CARD[b.id].cost).forEach(h => {
+    if (lanes.length && CARD[h.id].cost <= focus) { focus -= CARD[h.id].cost; play.push({ card: h.card, lane: lanes.shift() }); }
+  });
+  return { play };
+};
+let m = await startMatch({ player: A, minds: [1], deck: 'storm_shade' }, null, { ranked: true, botLevel: 'normal' });
 let v = await getView(m.id, A.id), turns = 0;
 ok(v.view.rival.locked === true, 'bot locks in right away');
-ok(!JSON.stringify(v).includes('"pending"') && !('play' in v.view.rival), 'hidden picks never sent to the client');
-while (v.status === 'live' && turns < 60) {
-  v = await act(m.id, A.id, { card: v.view.me.cards[0], spell: v.view.me.spells[0] || null });
-  turns++;
-}
+ok(!JSON.stringify(v.view.rival).includes('"hand"') && !('play' in v.view.rival) && typeof v.view.rival.handCount === 'number', "the rival's hand and move are never sent");
+ok(v.view.me.hand.length === 4 && v.view.me.hp === 20 && v.view.me.skill && v.view.me.el, 'you see your hand, HP, Hero Skill and element');
+while (v.status === 'live' && turns < 40) { v = await act(m.id, A.id, easyMove(v.view)); turns++; }
 ok(v.status === 'done', `bot match finishes (${turns} turns)`);
 const A2 = await db.one('players', `id=eq.${A.id}`);
 ok(A2.bot_wins + A2.bot_losses === 1 && A2.wins + A2.losses === 0, 'bot result recorded separately');
 ok(Math.abs(A2.rating - 1000) <= 16, `vs-bot rating change is halved (${A2.rating})`);
 let err = null;
-try { await act(m.id, A.id, { card: 1 }); } catch (e) { err = e.message; }
+try { await act(m.id, A.id, { play: [] }); } catch (e) { err = e.message; }
 ok(err === 'match is over', 'cannot act after the match ends');
 
 // ---- PvP match, cheating attempts ----
 const B = await db.insert('players', { name: 'Bob', name_key: 'bob', address: '0x000000000000000000000000000000000000dEaD' });
 const C = await db.insert('players', { name: 'Eve', name_key: 'eve', address: '0x000000000000000000000000000000000000bEEF' });
-m = await startMatch({ player: A, minds: [1] }, { player: B, minds: [5, 6, 7] }, { ranked: true });
+m = await startMatch({ player: A, minds: [1], deck: 'ember_sprout' }, { player: B, minds: [5], deck: 'bubble_bloom' }, { ranked: true });
 err = null; try { await getView(m.id, C.id); } catch (e) { err = e.status; }
 ok(err === 403, 'outsider cannot view a match');
-err = null; try { await act(m.id, A.id, { card: 9 }); } catch (e) { err = e.message; }
-ok(err === 'pick one of your cards', 'card you do not have rejected');
-err = null; try { await act(m.id, A.id, { card: 3, spell: 'nuke' }); } catch (e) { err = e.message; }
-ok(err === 'that spell is not available', 'unknown spell rejected');
-v = await act(m.id, A.id, { card: 7, spell: 'double' });
+v = await getView(m.id, A.id);
+err = null; try { await act(m.id, A.id, { play: [{ card: 9, lane: 0 }] }); } catch (e) { err = e.message; }
+ok(err === 'pick cards from your hand', 'card you do not have rejected');
+const big = v.view.me.hand.findIndex(id => CARD[id].cost > 1), cheap = v.view.me.hand.findIndex(id => CARD[id].cost === 1);
+err = null; try { await act(m.id, A.id, { play: [{ card: big, lane: 0 }] }); } catch (e) { err = e.message; }
+ok(err === 'not enough focus', 'cannot summon more than your Focus');
+err = null; try { await act(m.id, A.id, { play: [{ card: cheap, lane: 7 }] }); } catch (e) { err = e.message; }
+ok(err === 'pick an empty lane', 'lane outside the board rejected');
+err = null; try { await act(m.id, A.id, { play: [], skill: { id: 'bolt' } }); } catch (e) { err = e.message; }
+ok(err === 'hero skill not available' || v.view.me.skill === 'bolt', "someone else's Hero Skill rejected");
+v = await act(m.id, A.id, { play: [{ card: cheap, lane: 1 }] });
 ok(v.view.me.locked && !v.view.lastEvent, 'first lock waits for the rival');
 const bView = await getView(m.id, B.id);
-ok(bView.view.rival.locked === true && !('play' in bView.view.rival) && !JSON.stringify(bView).includes('"pending"'), "rival can't see Alice's card or spell");
-err = null; try { await act(m.id, A.id, { card: 1 }); } catch (e) { err = e.message; }
-ok(err === 'already locked in', 'cannot change a locked card');
-v = await act(m.id, B.id, { card: 1, spell: 'trap' });
+ok(bView.view.rival.locked === true && !('play' in bView.view.rival) && bView.view.rival.board.every(c => !c), "rival can't see Alice's summon before the reveal");
+err = null; try { await act(m.id, A.id, { play: [] }); } catch (e) { err = e.message; }
+ok(err === 'already locked in', 'cannot change a locked move');
+v = await act(m.id, B.id, { play: [] });
 const ev = v.view.lastEvent;
-ok(ev && ev.win === 1 && ev.spells[0] === 'double' && ev.steps.some(s => s.k === 'trap'), 'Trap catches a 7 + Double (resolved on the server, spells revealed after)');
-// a used card and a used spell cannot be played again this round
-err = null; try { await act(m.id, A.id, { card: 7 }); } catch (e) { err = e.message; }
-ok(err === 'pick one of your cards', 'used card cannot be replayed');
-err = null; try { await act(m.id, A.id, { card: 6, spell: 'double' }); } catch (e) { err = e.message; }
-ok(err === 'that spell is not available', 'used spell cannot be replayed this round');
+ok(ev && ev.events.some(e => e.t === 'hit' && e.p === 0 && e.n >= 1) && v.view.me.hp < 20, 'an open lane hits the enemy Mind (resolved on the server; this view is Bob)');
 // play it out
 let n = 0;
-while (v.status === 'live' && n < 200) {
+while (v.status === 'live' && n < 60) {
   const a = await getView(m.id, A.id), b = await getView(m.id, B.id);
-  if (!a.view.me.locked) await act(m.id, A.id, { card: a.view.me.cards[a.view.me.cards.length - 1] });
-  if (!b.view.me.locked) await act(m.id, B.id, { card: b.view.me.cards[0] });
+  if (!a.view.me.locked) await act(m.id, A.id, easyMove(a.view));
+  if (!b.view.me.locked && b.status === 'live') await act(m.id, B.id, easyMove(b.view));
   v = await getView(m.id, A.id); n++;
 }
 ok(v.status === 'done', 'PvP match finishes');
 const [Af, Bf] = await Promise.all([db.one('players', `id=eq.${A.id}`), db.one('players', `id=eq.${B.id}`)]);
 ok(Af.wins + Af.losses + Af.draws === 1 && Bf.wins + Bf.losses + Bf.draws === 1, 'PvP result recorded for both');
 ok(Af.rating + Bf.rating === A2.rating + 1000, `Elo is zero-sum (${Af.rating}+${Bf.rating})`);
-// timer: no pick in time = lose the round
+// timer: no move in time = summon nothing; twice in a row = forfeit
 m = await startMatch({ player: A, minds: [1] }, { player: B, minds: [5] }, { ranked: true });
-await act(m.id, B.id, { card: 4 });
+await act(m.id, B.id, { play: [] });
 T.matches.find(x => x.id === m.id).deadline = new Date(Date.now() - 1000).toISOString();
 v = await getView(m.id, A.id);
-ok(v.view.round === 2 && v.view.rival.rounds === 1 && v.view.me.rounds === 0, 'no pick before the timer = you lose the round');
-T.matches.find(x => x.id === m.id).deadline = new Date(Date.now() - 1000).toISOString();
-await act(m.id, B.id, { card: 4 }).catch(() => {});
+ok(v.status === 'live' && v.view.turn === 2 && v.view.lastEvent?.timeout?.includes(0), 'no move before the timer = you summon nothing that turn');
+await act(m.id, B.id, { play: [] });
 T.matches.find(x => x.id === m.id).deadline = new Date(Date.now() - 1000).toISOString();
 v = await getView(m.id, A.id);
-ok(v.status === 'done' && v.winner === 1, 'idle player loses the match after 2 timed-out rounds');
+ok(v.status === 'done' && v.winner === 1, 'missing 2 turns in a row = forfeit');
 // forfeit
 m = await startMatch({ player: A, minds: [1] }, null, { ranked: false, botLevel: 'easy' });
 v = await forfeit(m.id, A.id);
