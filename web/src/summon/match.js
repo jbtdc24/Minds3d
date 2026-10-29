@@ -59,7 +59,7 @@ export const playedTurns = (s, i) => s.g.played[i];
 // what player i may see: never the rival's hand, deck order or locked move
 export function viewFor(s, i) {
   const g = s.g, me = g.p[i], op = g.p[1 - i];
-  const side = (p, j) => ({ name: p.name, mind: s.minds[j][0], deck: s.decks[j], hp: p.hp, maxHp: p.maxHp, shield: p.shield, board: p.board.map(c => c && { id: c.id, power: c.power, grown: c.grown }),
+  const side = (p, j) => ({ name: p.name, mind: s.minds[j][0], deck: s.decks[j], hp: p.hp, maxHp: p.maxHp, shield: p.shield, board: p.board.map(c => c && { id: c.id, uid: c.uid, hp: c.hp, maxHp: c.maxHp, atk: c.atk, pos: c.pos, grown: c.grown }),
     deckLeft: p.deck.length, handCount: p.hand.length, skill: p.skill, skillUsed: p.skillUsed, el: p.el, locked: !!s.pending[j] });
   return {
     turn: g.turn, maxTurns: RULES.maxTurns, over: s.over, winner: s.winner,

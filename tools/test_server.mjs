@@ -64,7 +64,7 @@ let m = await startMatch({ player: A, minds: [1], deck: 'storm_shade' }, null, {
 let v = await getView(m.id, A.id), turns = 0;
 ok(v.view.rival.locked === true, 'bot locks in right away');
 ok(!JSON.stringify(v.view.rival).includes('"hand"') && !('play' in v.view.rival) && typeof v.view.rival.handCount === 'number', "the rival's hand and move are never sent");
-ok(v.view.me.hand.length === 4 && v.view.me.hp === 20 && v.view.me.skill && v.view.me.el, 'you see your hand, HP, Hero Skill and element');
+ok(v.view.me.hand.length === 4 && v.view.me.hp === 30 && v.view.me.skill && v.view.me.el, 'you see your hand, HP, Hero Skill and element');
 while (v.status === 'live' && turns < 40) { v = await act(m.id, A.id, easyMove(v.view)); turns++; }
 ok(v.status === 'done', `bot match finishes (${turns} turns)`);
 const A2 = await db.one('players', `id=eq.${A.id}`);
@@ -98,7 +98,7 @@ err = null; try { await act(m.id, A.id, { play: [] }); } catch (e) { err = e.mes
 ok(err === 'already locked in', 'cannot change a locked move');
 v = await act(m.id, B.id, { play: [] });
 const ev = v.view.lastEvent;
-ok(ev && ev.events.some(e => e.t === 'hit' && e.p === 0 && e.n >= 1) && v.view.me.hp < 20, 'an open lane hits the enemy Mind (resolved on the server; this view is Bob)');
+ok(ev && ev.timeline?.f?.length > 30 && v.view.rival.board[1]?.pos > 0.3, 'the live battle runs on the server: the creature marched down its lane (this view is Bob)');
 // play it out
 let n = 0;
 while (v.status === 'live' && n < 60) {

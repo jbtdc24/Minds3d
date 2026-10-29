@@ -529,7 +529,7 @@ function startDuel(local, first = local.view(), opts = {}) {
   D = { local, id: first.id, v: first, seen: keyOf(first.view.lastEvent), busy: false, sel: null, plan: [], skill: null, targeting: false, F: [null, null],
     chatAt: (first.chat || []).reduce((m, c) => Math.max(m, Date.parse(c.at)), 0), tutorial: opts.tutorial || null };
   D.v.gotAt = Date.now();
-  clearStage(); clearTags();
+  clearStage(); clearTags(); clearBoard();
   const forced = new URLSearchParams(location.search).get('stage');
   setStage(opts.stage || (BATTLE_STAGES.includes(forced) ? forced : BATTLE_STAGES[(Math.random() * BATTLE_STAGES.length) | 0]));
   placeFighters(first.view, true);
@@ -578,20 +578,48 @@ async function handle(v) {
   D.tutorial?.step();
 }
 
-// --- drawing the table ---
-const slotHtml = (c, opts = {}) => {
-  if (!c) return opts.drop ? '<div class="drop">+</div>' : '';
-  const d = CARD[c.id], pw = (c.power ?? d.power) + (c.temp || 0);
-  return `<div class="bc ${opts.ghost ? 'ghost' : ''} ${opts.cls || ''}" style="--el:${ELEMENT_INFO[d.el].color}"><img src="${creatureImg(c.id)}" alt="${d.name}"><b class="pw ${c.temp > 0 ? 'up' : c.temp < 0 ? 'down' : ''}">${pw}</b><i class="eld">${ELEMENT_INFO[d.el].icon}</i>${opts.ghost ? '<em>READY</em>' : ''}</div>`;
-};
-function paintBoard(boards, planned = []) {
-  for (let l = 0; l < 3; l++) {
-    const lane = $(`#d-board [data-lane="${l}"]`), plan = planned.find(p => p.lane === l);
-    lane.querySelector('.slot.rv').innerHTML = slotHtml(boards[1][l]);
-    const mine = boards[0][l];
-    lane.querySelector('.slot.me').innerHTML = mine ? slotHtml(mine) : plan ? slotHtml({ id: plan.id }, { ghost: true }) : slotHtml(null, { drop: D?.sel != null && !D.v.view.me.locked });
-  }
+// --- drawing the table: creatures stand on their lane at their spot (pos 0 = your end, 1 = the enemy end) ---
+const UNITS = new Map();   // key -> element
+function laneGeom() {
+  const l = $('#d-board .lane');
+  const W = l?.clientWidth || 100, H = l?.clientHeight || 300;
+  return { H, S: Math.round(Math.min(W - 10, Math.max(42, H * 0.2))) };
 }
+const unitY = (side, pos, g) => { const span = g.H - g.S - 10; return Math.round(side === 0 ? 5 + span * (1 - pos) : 5 + span * pos); };
+// list: [{ key, side, lane, id, pos, hp, maxHp, atk, temp, ghost }]
+function drawUnits(list) {
+  const g = laneGeom(), seen = new Set();
+  for (const u of list) {
+    let e = UNITS.get(u.key);
+    if (!e || e.parentElement?.dataset.lane !== String(u.lane)) {
+      e?.remove();
+      e = el('div', 'unit');
+      e.dataset.key = u.key; e.dataset.side = u.side;
+      e.innerHTML = `<img src="${creatureImg(u.id)}" alt="${CARD[u.id].name}"><b class="pw"></b><i class="eld">${ELEMENT_INFO[CARD[u.id].el].icon}</i><i class="hb"><i></i></i>`;
+      $(`#d-board [data-lane="${u.lane}"]`).append(e);
+      UNITS.set(u.key, e);
+    }
+    e.classList.toggle('rv', u.side === 1); e.classList.toggle('ghost', !!u.ghost);
+    e.style.setProperty('--el', ELEMENT_INFO[CARD[u.id].el].color);
+    e.style.width = e.style.height = `${g.S}px`;
+    e.style.transform = `translate(-50%, ${unitY(u.side, u.pos ?? RULES_SPAWN, g)}px)`;
+    const atk = Math.max(0, (u.atk ?? CARD[u.id].power) + (u.temp || 0)), pw = e.querySelector('.pw');
+    pw.textContent = atk; pw.className = `pw ${u.temp > 0 ? 'up' : u.temp < 0 ? 'down' : ''}`;
+    const hp = u.hp ?? u.maxHp ?? 1, max = u.maxHp ?? hp;
+    e.querySelector('.hb i').style.width = `${Math.max(0, Math.min(1, hp / max)) * 100}%`;
+    seen.add(u.key);
+  }
+  for (const [k, e] of UNITS) if (!seen.has(k)) { e.remove(); UNITS.delete(k); }
+}
+const unitEl = key => UNITS.get(key);
+const RULES_SPAWN = 0.04;
+function paintBoard(boards, planned = []) {
+  const list = [];
+  boards.forEach((b, side) => b.forEach((c, lane) => { if (c) list.push({ key: `u${c.uid}`, side, lane, ...c }); }));
+  for (const p of planned) list.push({ key: `g${p.lane}`, side: 0, lane: p.lane, id: p.id, pos: RULES_SPAWN, ghost: true });
+  drawUnits(list);
+}
+function clearBoard() { for (const e of UNITS.values()) e.remove(); UNITS.clear(); }
 function paintPlates(v, hp) {
   [[v.me, 0], [v.rival, 1]].forEach(([p, i]) => {
     const h = hp ? hp[i] : { hp: p.hp, shield: p.shield };
@@ -612,7 +640,7 @@ const focusTotal = () => D.v.view.me.focus + (D.skill?.id === 'focus' ? 2 : 0);
 function paintDuel() {
   const V = D.v, v = V.view, mine = v.me;
   paintPlates(v);
-  $('#d-turn').textContent = `TURN ${v.turn}/${v.maxTurns}`;
+  $('#d-turn').textContent = `ROUND ${v.turn}/${v.maxTurns}`;
   const locked = mine.locked || V.status !== 'live';
   $('#s-duel').classList.toggle('locked', locked);
   if (locked) { D.sel = null; D.targeting = false; }
@@ -620,10 +648,9 @@ function paintDuel() {
   const planned = locked && mine.play ? mine.play.play.map(m => ({ id: mine.hand[m.card], lane: m.lane })).filter(p => p.id) : D.plan;
   paintBoard([mine.board, v.rival.board], planned);
   $$('#d-board .lane').forEach(l => {
-    const i = +l.dataset.lane;
-    l.querySelector('.slot.me').classList.toggle('target', D.targeting && SKILL_TARGET[mine.skill] === 'mine' && !!(mine.board[i] || D.plan.some(p => p.lane === i)));
-    l.querySelector('.slot.rv').classList.toggle('target', D.targeting && SKILL_TARGET[mine.skill] === 'enemy' && !!v.rival.board[i]);
-    l.querySelector('.slot.me').classList.toggle('open', !locked && D.sel != null && !mine.board[i] && !D.plan.some(p => p.lane === i));
+    const i = +l.dataset.lane, want = D.targeting && SKILL_TARGET[mine.skill];
+    l.classList.toggle('target', !!want && (want === 'mine' ? !!(mine.board[i] || D.plan.some(p => p.lane === i)) : !!v.rival.board[i]));
+    l.classList.toggle('open', !locked && D.sel != null && !mine.board[i] && !D.plan.some(p => p.lane === i));
     l.classList.toggle('skillmark', !!D.skill && D.skill.lane === i);
   });
   // hand
@@ -656,9 +683,9 @@ function paintHint(timeLow) {
   else if (timeLow && !v.me.locked) { text = '⏰ Hurry! No move in time = you summon nothing (twice = forfeit).'; cls = 'warn'; }
   else if (v.me.locked) text = '';
   else if (D.targeting) text = `${HERO_SKILLS[v.me.skill].name}: tap a lane with ${SKILL_TARGET[v.me.skill] === 'mine' ? 'your' : 'an enemy'} creature`;
-  else if (D.sel != null) text = `${cardInfo(v.me.hand[D.sel])} → tap an empty lane on your side`;
+  else if (D.sel != null) text = `${cardInfo(v.me.hand[D.sel])} → tap a free lane`;
   else if (D.info) text = D.info;
-  else if (v.turn === 1) text = 'Tap a creature, then tap a lane on your side to summon it. Empty lane = it hits the enemy Mind!';
+  else if (v.turn === 1) text = 'Tap a creature, then a lane. When you end the turn, creatures march and fight. Reach the end = hit the enemy Mind!';
   h.innerHTML = text; h.className = `duel-hint px ${text ? 'on' : ''} ${cls}`;
 }
 function paintTimer() {
@@ -695,26 +722,27 @@ $('#d-hand').onclick = e => {
   if (free.length === 1 && !D.tutorial) { D.plan.push({ card: i, id, lane: free[0] }); D.sel = null; }
   paintDuel();
 };
+// tap a lane to summon into it (or to aim your Hero Skill); tap a creature to read it
 $('#d-board').onclick = e => {
-  const slot = e.target.closest('.slot'); if (!slot || !D) return;
-  const lane = +slot.closest('[data-lane]').dataset.lane, mine = slot.classList.contains('me'), v = D.v.view;
-  const c = mine ? v.me.board[lane] : v.rival.board[lane];
+  const laneEl = e.target.closest('.lane'); if (!laneEl || !D) return;
+  const lane = +laneEl.dataset.lane, v = D.v.view, ue = e.target.closest('.unit');
+  const tapped = ue ? (+ue.dataset.side === 0 ? v.me.board[lane] : v.rival.board[lane]) : null;
   if (canAct() && D.targeting) {
     const want = SKILL_TARGET[v.me.skill];
-    const ok = want === 'mine' ? mine && (c || D.plan.some(p => p.lane === lane)) : !mine && c;
+    const ok = want === 'mine' ? (v.me.board[lane] || D.plan.some(p => p.lane === lane)) : v.rival.board[lane];
     if (!ok) return sfx('denied');
     D.skill = { id: v.me.skill, lane }; D.targeting = false; sfx('buff'); return paintDuel();
   }
-  if (canAct() && mine) {
+  if (canAct()) {
     const at = D.plan.findIndex(p => p.lane === lane);
-    if (at >= 0) { D.plan.splice(at, 1); sfx('deselect'); return paintDuel(); }
-    if (D.sel != null && !c) {
+    if (at >= 0 && (!ue || ue.classList.contains('ghost'))) { D.plan.splice(at, 1); sfx('deselect'); return paintDuel(); }
+    if (D.sel != null && !v.me.board[lane] && at < 0) {
       const T = D.tutorial?.want;
       if (T && T.lane != null && T.lane !== lane) { sfx('denied'); return; }
       D.plan.push({ card: D.sel, id: v.me.hand[D.sel], lane }); D.sel = null; sfx('flip'); return paintDuel();
     }
   }
-  if (c) { D.info = cardInfo(c.id) + (c.power !== CARD[c.id].power ? ` · now ${c.power} power` : ''); paintHint(); }
+  if (tapped) { D.info = `${cardInfo(tapped.id)} · now ${Math.ceil(tapped.hp)}/${tapped.maxHp} HP, ${tapped.atk} power`; paintHint(); }
 };
 $('#d-skillbtn').onclick = () => {
   if (!canAct()) return;
@@ -787,8 +815,7 @@ function showChat(lines, seat, serverTime) {
   }
 }
 
-// ---------- reveal: the turn replays step by step ----------
-const slotEl = (side, lane) => $(`#d-board [data-lane="${lane}"] .slot.${side ? 'rv' : 'me'}`);
+// ---------- reveal: summons and effects, then the live battle plays back ----------
 function floatAt(node, text, cls = '') {
   if (!node) return;
   const r = node.getBoundingClientRect(), f = el('div', `floater ${cls}`, text);
@@ -801,76 +828,117 @@ async function reveal(ev, v) {
   const seat = v.seat, side = i => i === seat ? 0 : 1, S = $('#s-duel');
   if (ev.forfeit !== undefined || !ev.before) return;
   S.classList.add('revealing'); $('#d-timer').style.visibility = 'hidden';
+  // M[side][lane] = creature as it stands right now on screen
   const M = [ev.before[seat], ev.before[1 - seat]].map(b => b.board.map(c => c && { ...c, temp: 0 }));
   let hp = [ev.before[seat], ev.before[1 - seat]].map(b => ({ hp: b.hp, shield: b.shield }));
-  const draw = () => { paintBoard(M); paintPlates(D.v.view, hp); };
+  const units = () => M.flatMap((b, s) => b.map((c, lane) => c && { key: `u${c.uid}`, side: s, lane, ...c })).filter(Boolean);
+  const draw = () => { drawUnits(units()); paintPlates(D.v.view, hp); };
+  const U = (s, lane) => M[s][lane] && unitEl(`u${M[s][lane].uid}`);
   const setHp = e => { if (e.hp) hp = [0, 1].map(k => ({ hp: e.hp[k === 0 ? seat : 1 - seat], shield: e.sh[k === 0 ? seat : 1 - seat] })); };
   const pause = ms => wait(ms);
-  if (ev.timeout?.includes(seat)) toast('Time ran out: you summoned nothing this turn.', true);
-  // 1. both sides' summons appear (the rival's flip in)
-  const sumLanes = [[], []];
-  ev.acts.forEach((a, i) => a.play.forEach(p => { M[side(i)][p.lane] = { id: p.id, power: CARD[p.id].power, temp: 0 }; sumLanes[side(i)].push(p.lane); }));
+  if (ev.timeout?.includes(seat)) toast('Time ran out: you summoned nothing this round.', true);
+  // 1. both sides' summons appear at their own end of the lane
+  const sum = ev.events.find(e => e.t === 'summon'), fresh = [];
+  ev.acts.forEach((a, i) => a.play.forEach((p, k) => {
+    const uid = sum?.uids?.[i]?.[sum.lanes[i].indexOf(p.lane)] ?? `n${i}${k}`, hpMax = CARD[p.id].power * 4 + 2;
+    M[side(i)][p.lane] = { id: p.id, uid, hp: hpMax, maxHp: hpMax, atk: CARD[p.id].power, pos: RULES_SPAWN, temp: 0 };
+    fresh.push([side(i), p.lane]);
+  }));
   draw();
-  sumLanes.forEach((ls, s) => ls.forEach(l => bump(slotEl(s, l).firstElementChild, s ? 'flipin' : 'popin')));
-  if (sumLanes[0].length + sumLanes[1].length) { sfx('flip'); await pause(650); }
+  fresh.forEach(([s, l]) => bump(U(s, l), s ? 'flipin' : 'popin'));
+  if (fresh.length) { sfx('flip'); await pause(600); }
+  // 2. what happens at once: on-summon effects and Hero Skills
+  const after = [];
   for (const e of ev.events) {
     if (e.t === 'summon') continue;
+    if (e.t === 'grow' || e.t === 'fatigue') { after.push(e); continue; }
     const me = side(e.p ?? 0), foe = 1 - me;
     setHp(e);
-    if (e.t === 'spark') { const c = M[foe][e.lane]; if (c) c.power -= e.n; draw(); floatAt(slotEl(foe, e.lane), `−${e.n}`, 'bad'); sfx('debuff'); }
-    else if (e.t === 'splash') { M[foe].forEach(c => { if (c) c.power -= 1; }); draw(); M[foe].forEach((c, l) => c && floatAt(slotEl(foe, l), '−1', 'bad')); sfx('debuff'); flash(0.15, '#86d8f7'); }
+    if (e.t === 'spark') { const c = M[foe][e.lane]; if (c) c.hp -= e.n; draw(); floatAt(U(foe, e.lane), `−${e.n}`, 'bad'); bump(U(foe, e.lane), 'hurt'); sfx('debuff'); }
+    else if (e.t === 'splash') { M[foe].forEach(c => { if (c) c.hp -= e.n; }); draw(); M[foe].forEach((c, l) => c && floatAt(U(foe, l), `−${e.n}`, 'bad')); sfx('debuff'); flash(0.15, '#86d8f7'); }
     else if (e.t === 'burn') { draw(); floatAt(plate(foe), `−${e.n} 🔥`, 'bad'); D.F[foe]?.play('hit'); sfx('burn'); }
     else if (e.t === 'heal') { draw(); floatAt(plate(me), `+${e.n} ❤`, 'good'); sfx('heal'); }
     else if (e.t === 'shield') { draw(); floatAt(plate(me), `+${e.n} 🛡`, 'good'); sfx('shield'); }
     else if (e.t === 'draw') { if (me === 0) floatAt(plate(0), '+1 card', 'good'); sfx('flip'); }
-    else if (e.t === 'rally') { M[me].forEach((c, l) => { if (c && l !== e.lane) { c.power += 1; } }); draw(); M[me].forEach((c, l) => c && l !== e.lane && floatAt(slotEl(me, l), '+1', 'good')); sfx('buff'); }
+    else if (e.t === 'rally') { M[me].forEach((c, l) => { if (c && l !== e.lane) { c.atk += 1; c.maxHp += 2; c.hp += 2; } }); draw(); M[me].forEach((c, l) => c && l !== e.lane && floatAt(U(me, l), '+1', 'good')); sfx('buff'); }
     else if (e.t === 'skill') {
-      const id = e.id, F = D.F[me];
-      F?.play('cast'); sfx('cast');
-      if (id === 'cry') M[me].forEach(c => { if (c) c.temp += 1; });
-      else if (id === 'rage' && M[me][e.lane]) M[me][e.lane].temp += 3;
-      else if (id === 'hex' && M[foe][e.lane]) M[foe][e.lane].temp -= 3;
-      else if (id === 'curse' && M[foe][e.lane]) { M[foe][e.lane].power -= 1; M[foe][e.lane].temp -= 1; }
+      const id = e.id;
+      D.F[me]?.play('cast'); sfx('cast');
+      if (id === 'cry') M[me].forEach(c => { if (c) c.temp += 2; });
+      else if (id === 'rage' && M[me][e.lane]) M[me][e.lane].temp += 2;
+      else if (id === 'hex' && M[foe][e.lane]) M[foe][e.lane].temp -= 4;
+      else if (id === 'curse' && M[foe][e.lane]) { const c = M[foe][e.lane]; c.atk = Math.max(0, c.atk - 1); c.temp -= 1; c.hp -= 4; }
       draw();
       await banner(`<div class="bt ${me ? 'red' : ''}">${HERO_SKILLS[id].name.toUpperCase()}!</div><small>${me ? 'Rival' : 'You'}: ${HERO_SKILLS[id].desc}</small>`, 1100);
-      if (id === 'bolt') { D.F[foe]?.play('hitBig'); shake(12); floatAt(plate(foe), '−6 ⚡', 'bad'); }
+      if (id === 'bolt') { D.F[foe]?.play('hitBig'); shake(12); floatAt(plate(foe), '−12 ⚡', 'bad'); }
       continue;
     }
-    else if (e.t === 'fade') { bump(slotEl(me, e.lane).firstElementChild, 'die'); sfx('miss'); await pause(380); M[me][e.lane] = null; draw(); }
-    else if (e.t === 'tie') {
-      [0, 1].forEach(s => bump(slotEl(s, e.lane).firstElementChild, s ? 'lunge-dn' : 'lunge-up'));
-      floatAt($(`#d-board [data-lane="${e.lane}"] .vs`), `${e.pw[seat]} = ${e.pw[1 - seat]}`, '');
-      sfx('block'); shake(5); await pause(420);
-      const keep = [e.keep[seat], e.keep[1 - seat]];
-      [0, 1].forEach(s => { if (!keep[s]) bump(slotEl(s, e.lane).firstElementChild, 'die'); });
-      await pause(330);
-      [0, 1].forEach(s => { if (!keep[s]) M[s][e.lane] = null; });
-      draw();
-    } else if (e.t === 'win') {
-      const w = side(e.p), l = 1 - w;
-      bump(slotEl(w, e.lane).firstElementChild, w ? 'lunge-dn' : 'lunge-up');
-      floatAt($(`#d-board [data-lane="${e.lane}"] .vs`), `${e.pw[e.p]} vs ${e.pw[1 - e.p]}`, w ? 'bad' : 'good');
-      await pause(260);
-      bump(slotEl(l, e.lane).firstElementChild, 'die'); sfx('hit'); shake(6);
-      await pause(380);
-      M[l][e.lane] = null; if (M[w][e.lane]) M[w][e.lane].power = e.left;
-      draw();
-      if (e.pierce) { floatAt(plate(l), `−${e.pierce}`, 'bad'); D.F[l]?.play('hit'); }
-      if (e.leech) floatAt(plate(w), '+1 ❤', 'good');
-    } else if (e.t === 'hit') {
-      const w = side(e.p), l = 1 - w;
-      bump(slotEl(w, e.lane).firstElementChild, w ? 'lunge-dn' : 'lunge-up');
-      await pause(220);
-      draw();
-      if (e.n > 0) { floatAt(plate(l), `−${e.n}`, 'bad'); D.F[l]?.play(e.n >= 5 ? 'hitBig' : 'hit'); burst(D.F[l]?.chest.x || 0, D.F[l]?.chest.y || 1, D.F[l]?.colors || ['#fff'], 14, 0.8); sfx(e.n >= 5 ? 'crit' : 'hit'); shake(e.n >= 5 ? 12 : 6); bump(plate(l), 'ouch'); }
-      else { floatAt(plate(l), '🛡 blocked', ''); sfx('block'); }
-      if (e.leech) floatAt(plate(w), '+1 ❤', 'good');
-    } else if (e.t === 'grow') { const c = M[me][e.lane]; if (c) c.power += 1; draw(); floatAt(slotEl(me, e.lane), '+1 🌱', 'good'); }
-    else if (e.t === 'fatigue') { draw(); floatAt(plate(me), `−${e.n} tired`, 'bad'); sfx('debuff'); }
-    await pause(e.t === 'grow' ? 260 : 520);
+    else if (e.t === 'fade') { bump(U(me, e.lane), 'die'); sfx('miss'); await pause(380); M[me][e.lane] = null; draw(); }
+    await pause(480);
   }
-  M.forEach(b => b.forEach(c => { if (c) c.temp = 0; }));
+  // 3. the live battle: positions and HP come tick by tick from the server's timeline
+  if (ev.timeline?.f?.length > 1) await playBattle(ev.timeline, seat, M, hp, () => paintPlates(D.v.view, hp));
+  // 4. end of round
+  for (const e of after) {
+    const me = side(e.p ?? 0);
+    setHp(e);
+    if (e.t === 'grow') { const c = M[me][e.lane]; if (c) { c.atk += 1; c.maxHp += 4; c.hp += 4; } draw(); floatAt(U(me, e.lane), '+1 🌱', 'good'); await pause(260); }
+    else if (e.t === 'fatigue') { draw(); floatAt(plate(me), `−${e.n} tired`, 'bad'); sfx('debuff'); await pause(400); }
+  }
   S.classList.remove('revealing');
+}
+// play the server's battle timeline: creatures walk (smoothly between ticks), hits land on their tick
+function playBattle(tl, seat, M, hp, paintHp) {
+  return new Promise(done => {
+    const side = s => s === seat ? 0 : 1, frames = tl.f, hits = tl.hits, TICK = 100, last = frames.length - 1;
+    const byUid = new Map();
+    M.forEach((b, s) => b.forEach((c, lane) => { if (c) byUid.set(c.uid, { ...c, side: s, lane }); }));
+    let hi = 0, t0 = performance.now(), dead = new Set();
+    const speed = speedSetting || 1;
+    D.F.forEach(f => f && (f.act = null));
+    const step = () => {
+      if (!D) return done();
+      const t = (performance.now() - t0) * speed / TICK, k = Math.min(last, Math.floor(t)), u = Math.min(1, t - k);
+      const A = frames[k], B = frames[Math.min(last, k + 1)];
+      const list = [];
+      for (const row of A) {
+        const [uid, s, lane, pos, h] = row, nb = B.find(r => r[0] === uid), info = byUid.get(uid);
+        if (!info) continue;
+        const p = nb ? pos + (nb[1] === s ? (nb[3] - pos) * u : 0) : pos;
+        list.push({ ...info, key: `u${uid}`, side: side(s), lane, pos: p / 1000, hp: h / 10 });
+        info.hp = h / 10;
+      }
+      drawUnits(list);
+      // units gone from the next frame die now
+      for (const row of A) if (!B.find(r => r[0] === row[0]) && !dead.has(row[0]) && u > 0.3) { dead.add(row[0]); const e = unitEl(`u${row[0]}`); bump(e, 'die'); }
+      while (hi < hits.length && hits[hi][0] <= t + 0.0001) {
+        const [, a, target, n] = hits[hi++], ae = unitEl(`u${a}`), att = byUid.get(a);
+        if (ae && att) bump(ae, att.side === 0 ? 'jab-up' : 'jab-dn');
+        if (target >= 0) {
+          const te = unitEl(`u${target}`);
+          if (te) { bump(te, 'hurt'); floatAt(te, `−${Math.round(n)}`, 'bad small'); }
+          sfx('hit', 0);
+        } else {
+          const s = side(-1 - target);
+          hp[s].hp = Math.round((hp[s].hp - n) * 10) / 10;
+          if (n > 0) { floatAt(plate(s), `−${Math.round(n * 10) / 10}`, 'bad'); D.F[s]?.play('hit'); bump(plate(s), 'ouch'); shake(4); sfx('crit'); }
+          else { floatAt(plate(s), '🛡', ''); sfx('block'); }
+          paintHp();
+        }
+      }
+      if (t >= last) {
+        if (tl.end) { const e = [tl.end[seat], tl.end[1 - seat]]; e.forEach((x, s) => { hp[s].hp = x.hp; hp[s].shield = x.shield; }); paintHp(); }
+        // the board after the battle becomes the model for the end-of-round effects
+        M.forEach(b => b.fill(null));
+        for (const [uid, s, lane, pos, h] of frames[last]) { const info = byUid.get(uid); if (info) M[side(s)][lane] = { ...info, pos: pos / 1000, hp: h / 10, temp: 0 }; }
+        return done();
+      }
+      requestAnimationFrame(step);
+    };
+    // never let a hidden tab freeze the game: finish on a timer too
+    setTimeout(() => { t0 = -1e9; step(); }, (last * TICK) / speed + 4000);
+    requestAnimationFrame(step);
+  });
 }
 
 async function finish(v) {
@@ -906,12 +974,12 @@ function leaveDuel() { if (D) { clearInterval(D.poll); clearInterval(D.clock); D
 // ---------- interactive tutorial: a scripted match with a coach ----------
 // your hand and the coach's moves are fixed so every lesson happens on cue; after the script, the coach plays freely
 const TUT = [
-  { say: "Hi! I'm your coach. Your Mind is a summoner: you bring the rival Mind from 20 HP to 0. Creatures fight in 3 lanes.", next: true },
-  { say: 'Turn 1: you have 1 Focus. Tap Emberpup (it costs 1), then tap the MIDDLE lane on your side, then Summon. An empty lane means it hits the rival Mind!', card: 'emberpup', lane: 1, rival: [['sproutling', 0]] },
-  { say: 'The rival put Sproutling (🌿 Nature) in the left lane. 🔥 Fire beats 🌿 Nature: +2 power! Summon your other Emberpup in the LEFT lane to beat it.', card: 'emberpup', lane: 0, rival: [] },
-  { say: 'Cinderhound has Burn 1: it hits the rival Mind the moment it lands. Summon it in the RIGHT lane.', card: 'cinderhound', lane: 2, rival: [['bubblin', 1]] },
-  { say: "Ouch: 💧 Water beats 🔥 Fire, so Bubblin beat your Emberpup. Every element has a weakness. Now use your Hero Skill! Tap the BOLT button: 6 damage, once per match.", skill: 'bolt', rival: [] },
-  { say: 'You know the basics! Finish the match: summon what you like each turn. Creatures stay until they lose a fight.', free: true },
+  { say: "Hi! I'm your coach. Your Mind is a summoner. Each round you summon creatures into 3 lanes, then they march and fight live. Bring the rival Mind to 0 HP!", next: true },
+  { say: 'Round 1: you have 1 Focus. Tap Emberpup (it costs 1), tap the MIDDLE lane, then Summon. Nothing in its way? It walks to the end and hits the rival Mind!', card: 'emberpup', lane: 1, rival: [['sproutling', 0]] },
+  { say: 'A rival Sproutling (🌿 Nature) is walking down the LEFT lane. 🔥 Fire beats 🌿 Nature: 1.5x damage! Summon your other Emberpup in the LEFT lane to stop it.', card: 'emberpup', lane: 0, rival: [] },
+  { say: 'Cinderhound has Burn 1: it hits the rival Mind the moment it lands, then marches on. Summon it in the RIGHT lane.', card: 'cinderhound', lane: 2, rival: [['bubblin', 1]] },
+  { say: "The rival sent Bubblin: 💧 Water beats 🔥 Fire, so watch your Emberpup! Every element has a weakness. Now use your Hero Skill: tap BOLT (12 damage, once per match).", skill: 'bolt', rival: [] },
+  { say: 'You know the basics! Finish the match: summon what you like each round. Creatures keep walking until they are beaten.', free: true },
 ];
 function startTutorial() {
   const mind = picked()[0] || me?.pfp || 49;
@@ -1109,14 +1177,15 @@ function renderCodex() {
   }).join('');
   $('#codex').innerHTML = `
   <h3><img src="assets/crown.png" alt="">The goal</h3>
-  <p>Your Mind is a <b>summoner</b>. Bring the rival Mind from <b>${SUMMON_RULES.hp} HP to 0</b>. After ${SUMMON_RULES.maxTurns} turns, the higher HP wins.</p>
-  <h3><img src="assets/icon_swords.png" alt="">A turn</h3>
-  <ol><li>You get <b>Focus</b> = the turn number (max ${SUMMON_RULES.maxFocus}) and draw 1 card.</li>
-  <li>Both players <b>secretly</b> summon creatures into their <b>empty lanes</b> (3 lanes), paying their Focus cost. You can also use your <b>Hero Skill</b> once per match.</li>
-  <li>Everything is revealed at once: summon effects, then Hero Skills, then <b>every lane fights</b>.</li></ol>
-  <div class="example">Two creatures in a lane: the <b>higher power wins</b>. The loser is gone; the winner loses power equal to the loser's power (never below 1). Same power: both are gone. A creature with <b>nothing in front</b> hits the rival Mind for its power. Creatures stay until they lose.</div>
+  <p>Your Mind is a <b>summoner</b>. Bring the rival Mind from <b>${SUMMON_RULES.hp} HP to 0</b>. After ${SUMMON_RULES.maxTurns} rounds, the higher HP wins.</p>
+  <h3><img src="assets/icon_swords.png" alt="">A round</h3>
+  <ol><li>You get <b>Focus</b> = the round number (max ${SUMMON_RULES.maxFocus}) and draw 1 card.</li>
+  <li>Both players <b>secretly</b> summon creatures into their <b>free lanes</b> (3 lanes, one creature of yours per lane), paying their Focus cost. You can also use your <b>Hero Skill</b> once per match.</li>
+  <li>Reveal: summon effects and Hero Skills happen, then a <b>6-second live battle</b>: creatures walk down their lane and fight what they meet.</li>
+  <li>Survivors keep their spot for the next round.</li></ol>
+  <div class="example">Each creature has <b>HP = 4 × power + 2</b> and hits for its <b>power</b> about once a second. Two creatures that meet trade hits until one falls. A creature that reaches the <b>end of the lane</b> hits the rival Mind (half its power per hit) until something stops it. Ranged creatures hit from further away.</div>
   <h3>🔥 Elements</h3>
-  <p><b>🔥 Fire beats 🌿 Nature · 🌿 Nature beats 💧 Water · 💧 Water beats 🔥 Fire · ✨ Light and 🌑 Shadow beat each other.</b> Countering gives <b>+2 power</b>, or <b>+3</b> if the creature shares your Mind's element.</p>
+  <p><b>🔥 Fire beats 🌿 Nature · 🌿 Nature beats 💧 Water · 💧 Water beats 🔥 Fire · ✨ Light and 🌑 Shadow beat each other.</b> Countering deals <b>1.5× damage</b>, or <b>1.75×</b> if the creature shares your Mind's element.</p>
   <h3>🧠 Your Mind</h3>
   <ul><li><b>Element</b> comes from its Skin; <b>Hero Skill</b> from its Face. Every Mind summons a little differently.</li>
   ${Object.values(HERO_SKILLS).map(k => `<li><b>${k.name}</b>: ${k.desc}</li>`).join('')}</ul>
@@ -1125,7 +1194,7 @@ function renderCodex() {
   <h3>The creatures</h3>
   ${famRows}
   <h3><img src="assets/icon_bolt.png" alt="">Timer, energy and fairness</h3>
-  <ul><li>Each turn has a <b>${TURN_SECONDS} second</b> timer. No move in time = you summon nothing; <b>2 missed turns in a row = forfeit</b>.</li>
+  <ul><li>Each round you have <b>${TURN_SECONDS} seconds</b> to choose. No move in time = you summon nothing; <b>2 missed rounds in a row = forfeit</b>.</li>
   <li>Ranked uses <b>1 ⚡</b> from your Mind (daily energy by rarity: ${Object.entries(ENERGY_CAP).map(([r, n]) => `${r} ${n}`).join(', ')}, refills 00:00 UTC). Classic, Practice and the Tutorial are free.</li>
   <li>Ranked wins change your <b>rating</b> and give <b>points</b> (10 + your Mind's rarity bonus). Games vs bots count half. No player in 20 s? You play a <b>bot</b>, always labelled BOT.</li>
   <li>Every turn runs on the game server and your rival's hand and move are never sent to your device, so nobody can cheat.</li></ul>`;

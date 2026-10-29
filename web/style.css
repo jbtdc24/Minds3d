@@ -728,3 +728,33 @@ body.in-island #toast { bottom: 150px; }
 .cx { background: var(--paper); box-shadow: 0 0 0 2px var(--ink), inset 0 4px 0 var(--el); padding: 6px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 1px; }
 .cx img { width: 56px; height: 56px; image-rendering: pixelated; object-fit: contain; }
 .cx b { font-size: 15px; } .cx span { font-size: 12px; font-weight: 800; color: var(--muted); } .cx em { font-style: normal; font-size: 12px; line-height: 1.2; }
+
+/* live lanes: creatures walk from your end (bottom) to the enemy end (top) */
+.lane { display: block; position: relative; overflow: visible; cursor: pointer; padding: 0;
+  background: linear-gradient(180deg, rgba(255,90,74,.18), rgba(29,27,47,.45) 22%, rgba(29,27,47,.45) 78%, rgba(212,255,31,.16)); }
+.lane::before { content: ''; position: absolute; left: 50%; top: 8%; bottom: 8%; width: 2px; transform: translateX(-50%); background: repeating-linear-gradient(180deg, rgba(255,255,255,.35) 0 8px, transparent 8px 16px); }
+.lane .end { position: absolute; left: 6px; right: 6px; height: 6px; border-radius: 3px; }
+.lane .end.rv { top: 2px; background: #ff6a5a; } .lane .end.me { bottom: 2px; background: var(--lime); }
+.lane.open { box-shadow: inset 0 0 0 3px var(--lime); background-color: rgba(212,255,31,.18); animation: pulse 1s ease-in-out infinite; }
+.lane.target { box-shadow: inset 0 0 0 3px var(--gold); animation: pulse 1s ease-in-out infinite; cursor: crosshair; }
+.unit { position: absolute; left: 50%; top: 0; background: var(--paper); box-shadow: 0 0 0 3px var(--ink), inset 0 -5px 0 var(--el); display: grid; place-items: center; will-change: transform; z-index: 2; }
+.unit.rv { box-shadow: 0 0 0 3px #7a1d1d, inset 0 -5px 0 var(--el); background: #ffe7e3; }
+.unit img { width: 84%; height: 84%; object-fit: contain; image-rendering: pixelated; }
+.unit.rv img { transform: scaleY(1); }
+.unit .pw { position: absolute; right: -9px; top: -9px; min-width: 24px; height: 24px; padding: 0 3px; display: grid; place-items: center; background: var(--ink); color: #fff; font: 400 16px/1 var(--pix); box-shadow: 0 0 0 2px #fff; }
+.unit .pw.up { background: #2f9a1a; } .unit .pw.down { background: #c9302c; }
+.unit .eld { position: absolute; left: -8px; top: -8px; font-style: normal; font-size: 12px; background: var(--paper); width: 20px; height: 20px; display: grid; place-items: center; box-shadow: 0 0 0 2px var(--ink); }
+.unit .hb { position: absolute; left: 2px; right: 2px; bottom: -9px; height: 6px; background: #3a3656; box-shadow: 0 0 0 2px var(--ink); }
+.unit .hb i { display: block; height: 100%; background: #6fe04a; transition: width .15s; }
+.unit.rv .hb i { background: #ff6a5a; }
+.unit.ghost { opacity: .75; box-shadow: 0 0 0 3px var(--lime), inset 0 -5px 0 var(--el); animation: pulse 1s ease-in-out infinite; }
+.unit.ghost .hb { display: none; }
+.unit.popin { animation: popin .35s ease-out; } .unit.flipin { animation: flipin .5s ease-out; }
+.unit.hurt { animation: hurt .25s; }
+.unit.jab-up { animation: jabUp .25s; } .unit.jab-dn { animation: jabDn .25s; }
+.unit.die { animation: unitDie .45s ease-in forwards; }
+@keyframes hurt { 30% { filter: brightness(2.2) saturate(0); } }
+@keyframes jabUp { 50% { margin-top: -12px; } }
+@keyframes jabDn { 50% { margin-top: 12px; } }
+@keyframes unitDie { to { opacity: 0; filter: brightness(2.5); scale: .3; rotate: 25deg; } }
+.floater.small { font-size: 18px; }

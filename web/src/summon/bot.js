@@ -23,7 +23,7 @@ function score(s, i, before) {
   const me = s.p[i], foe = s.p[1 - i];
   if (foe.hp <= 0 && me.hp > 0) return 1000;
   if (me.hp <= 0 && foe.hp > 0) return -1000;
-  const board = p => p.board.reduce((t, c) => t + (c ? c.power + c.grown * 0.3 : 0), 0);
+  const board = p => p.board.reduce((t, c) => t + (c ? (c.atk * 0.6 + c.hp * 0.12) * (0.7 + c.pos * 0.6) : 0), 0);
   return (before.foeHp - foe.hp) - (before.myHp - me.hp) * 1.1 + 0.6 * board(me) - 0.65 * board(foe) + 0.35 * me.hand.length + me.shield * 0.5;
 }
 export function botAct(s, i, { rand = Math.random, noise = 0.4 } = {}) {
