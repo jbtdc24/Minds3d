@@ -128,7 +128,7 @@ img.vi { width: .9em; height: .9em; object-fit: contain; vertical-align: -.1em; 
 .pod-base { width: 100%; display: grid; place-items: center; color: #fff; font-size: 27px; line-height: 1; box-shadow: 0 0 0 3px var(--ink), inset 0 -6px 0 rgba(0,0,0,.18), inset 0 4px 0 rgba(255,255,255,.35);
   text-shadow: 2px 2px 0 var(--ink); margin-top: 6px; }
 .pod.p1 .pod-base { height: 66px; background: var(--gold); } .pod.p2 .pod-base { height: 46px; background: #b9c2d6; } .pod.p3 .pod-base { height: 32px; background: #e0935c; }
-.pod.me .pod-nm { color: #3a9a00; }
+.pod.mine-row .pod-nm { color: #3a9a00; }
 .pod:not(.open):hover .pod-pfp { transform: translateY(-3px); }
 .board-head { display: flex; align-items: center; gap: 10px; }
 .board-head img { width: 40px; } .board-head h3 { flex: 1; }
@@ -140,7 +140,7 @@ img.vi { width: .9em; height: .9em; object-fit: contain; vertical-align: -.1em; 
 .brow img { width: 40px; height: 40px; box-shadow: 0 0 0 2px var(--ink); background: var(--paper-3); }
 .brow .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .brow .vl { font-size: 19px; white-space: nowrap; }
-.brow.me { background: #f3ffc2; }
+.brow.mine-row { background: #f3ffc2; }
 .board-me .brow { box-shadow: 0 0 0 3px var(--lime-d); }
 .board-empty { color: var(--muted); padding: 10px; font-size: 16px; }
 #tags { position: fixed; inset: 0; z-index: 9; pointer-events: none; }
@@ -318,7 +318,7 @@ img.vi { width: .9em; height: .9em; object-fit: contain; vertical-align: -.1em; 
 .lb table { width: 100%; border-collapse: collapse; font-size: 19px; }
 .lb th { text-align: left; font-size: 15px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: 8px; border-bottom: 3px solid var(--ink); font-weight: 400; }
 .lb td { padding: 6px 8px; border-bottom: 2px dashed var(--paper-3); }
-.lb tr.me td { background: #f3ffc2; }
+.lb tr.mine-row td { background: #f3ffc2; }
 .lb .pl { display: flex; align-items: center; gap: 10px; cursor: pointer; max-width: 360px; }
 .lb .pl span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lb .pl img { width: 44px; height: 44px; box-shadow: 0 0 0 2px var(--ink); background: var(--paper-3); flex: none; }
@@ -551,3 +551,4 @@ p, li, .muted, .fine, .pitch, .coach p, .codex, .modal p, .guest-note { line-hei
 
 /* animated bits run on the GPU (no repaint every frame) */
 .logo img, .pod-crown, .r-crown, .tapstart, .card, .sp, .mode { will-change: transform; }
+.lb td { vertical-align: middle; } .lb th:first-child, .lb td.rank { width: 48px; text-align: center; } .lb .lbv { white-space: nowrap; }

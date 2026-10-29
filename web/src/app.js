@@ -316,7 +316,7 @@ const valIcon = by => `<img class="vi" src="assets/${by === 'points' ? 'icon_coi
 function podium(players, by) {
   return `<div class="podium">${[1, 0, 2].map(i => {
     const p = players[i];
-    return `<div class="pod p${i + 1} ${p ? '' : 'open'} ${p && p.id === me?.id ? 'me' : ''}" ${p ? `data-pid="${p.id}"` : ''}>
+    return `<div class="pod p${i + 1} ${p ? '' : 'open'} ${p && p.id === me?.id ? 'mine-row' : ''}" ${p ? `data-pid="${p.id}"` : ''}>
       ${i === 0 ? '<img class="pod-crown" src="assets/crown.png" alt="">' : ''}
       <div class="pod-pfp">${p ? `<img src="${thumb(p.pfp)}" alt="">` : '?'}</div>
       <div class="pod-nm">${p ? esc(p.name) : 'Open seat'}</div>
@@ -329,7 +329,7 @@ async function loadBoard() {
   if (!online) { top.innerHTML = podium([], boardBy); list.innerHTML = '<li class="board-empty">Live rankings show here when you play online.</li>'; mine.innerHTML = ''; return; }
   try {
     const r = await api(`leaderboard?by=${boardBy}`);
-    const row = (p, i) => `<li class="brow ${p.id === me?.id ? 'me' : ''}" data-pid="${p.id}"><span class="rk">${i + 1}</span><img src="${thumb(p.pfp)}" alt=""><span class="nm">${esc(p.name)}</span><span class="vl">${valIcon(boardBy)}${boardBy === 'points' ? p.points : p.rating}</span></li>`;
+    const row = (p, i) => `<li class="brow ${p.id === me?.id ? 'mine-row' : ''}" data-pid="${p.id}"><span class="rk">${i + 1}</span><img src="${thumb(p.pfp)}" alt=""><span class="nm">${esc(p.name)}</span><span class="vl">${valIcon(boardBy)}${boardBy === 'points' ? p.points : p.rating}</span></li>`;
     top.innerHTML = podium(r.players, boardBy);
     $('#board-tab-pfps').innerHTML = r.players.slice(0, 3).map(p => `<img src="${thumb(p.pfp)}" alt="">`).join('');
     list.innerHTML = r.players.length > 3 ? r.players.slice(3, 12).map((p, i) => row(p, i + 3)).join('')
@@ -853,7 +853,7 @@ async function loadLeaderboard() {
   try {
     const r = await api(`leaderboard?by=${lbBy}`);
     $('#lb-col').textContent = lbBy === 'points' ? 'Points' : 'Rating';
-    $('#lb-rows').innerHTML = r.players.length ? r.players.map((p, i) => `<tr class="${p.id === me?.id ? 'me' : ''}"><td class="rank">${i + 1}</td>
+    $('#lb-rows').innerHTML = r.players.length ? r.players.map((p, i) => `<tr class="${p.id === me?.id ? 'mine-row' : ''}"><td class="rank">${i + 1}</td>
       <td><div class="pl" data-pid="${p.id}"><img src="${thumb(p.pfp)}" alt=""><span>${esc(p.name)}</span></div></td><td class="lbv">${valIcon(lbBy)}${lbBy === 'points' ? p.points : p.rating}</td>
       ${wl(p)}<td class="hide-s">${p.streak ? '🔥' + p.streak : '—'}</td></tr>`).join('')
       : '<tr><td colspan="7" class="muted">No ranked games yet. Be the first!</td></tr>';
