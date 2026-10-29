@@ -686,7 +686,7 @@ async function finish(v) {
   $('#r-stats').innerHTML = [
     [v.ranked ? `${d > 0 ? '+' : ''}${d}` : '—', 'Rating', d > 0 ? 'up' : d < 0 ? 'down' : ''],
     [v.vsBot ? 'BOT' : 'Player', v.vsBot ? `Rival · ${v.botLevel}` : 'Rival', ''],
-    [v.ranked ? 'Ranked' : v.vsBot ? 'Practice' : 'Classic', 'Mode', ''],
+    [v.ranked ? 'Ranked' : !v.vsBot || prep.mode === 'classic' ? 'Classic' : 'Practice', 'Mode', ''],
   ].map(([b, s, c]) => `<div><b class="${c}">${esc(b)}</b><span>${s}</span></div>`).join('');
   const again = v.ranked ? 'ranked' : prep.mode === 'classic' && !D?.local ? 'classic' : 'practice';
   $('#r-again').onclick = () => openPrep(again);
@@ -759,6 +759,11 @@ async function openLeaderboard() {
   await loadLeaderboard();
   clearInterval(lbTimer); lbTimer = setInterval(() => { if (current === 'leaderboard') loadLeaderboard(); else clearInterval(lbTimer); }, 15000);
 }
+// wins / losses on the leaderboard include ranked games vs bots (they move rating too)
+function wl(p) {
+  const w = p.wins + (p.botWins || 0), l = p.losses + (p.botLosses || 0), rate = w + l ? Math.round(w / (w + l) * 100) : null;
+  return `<td>${w}</td><td>${l}</td><td class="hide-s">${rate ?? '—'}${rate != null ? '%' : ''}</td>`;
+}
 async function loadLeaderboard() {
   if (!online) { $('#lb-rows').innerHTML = '<tr><td colspan="7" class="muted">The leaderboard needs the game server.</td></tr>'; return; }
   try {
@@ -766,7 +771,7 @@ async function loadLeaderboard() {
     $('#lb-col').textContent = lbBy === 'points' ? 'Points' : 'Rating';
     $('#lb-rows').innerHTML = r.players.length ? r.players.map((p, i) => `<tr class="${p.id === me?.id ? 'me' : ''}"><td class="rank">${i + 1}</td>
       <td><div class="pl" data-pid="${p.id}"><img src="${thumb(p.pfp)}" alt=""><span>${esc(p.name)}</span></div></td><td class="lbv">${valIcon(lbBy)}${lbBy === 'points' ? p.points : p.rating}</td>
-      <td>${p.wins}</td><td>${p.losses}</td><td class="hide-s">${p.winRate ?? '—'}${p.winRate != null ? '%' : ''}</td><td class="hide-s">${p.streak ? '🔥' + p.streak : '—'}</td></tr>`).join('')
+      ${wl(p)}<td class="hide-s">${p.streak ? '🔥' + p.streak : '—'}</td></tr>`).join('')
       : '<tr><td colspan="7" class="muted">No ranked games yet. Be the first!</td></tr>';
   } catch (e) { toast(e.message, true); }
 }
@@ -781,7 +786,8 @@ async function openProfile(pid) {
     const r = await api(`player?id=${pid}`), p = r.player, mine = pid === me?.id;
     $('#pf-pfp').src = thumb(p.pfp); $('#pf-name').textContent = p.name;
     $('#pf-addr').textContent = p.guest ? 'Trial account' : p.address || '';
-    $('#pf-stats').innerHTML = [[valIcon('rating') + p.rating, 'Rating'], [valIcon('points') + p.points, 'Points'], [p.winRate != null ? p.winRate + '%' : '—', 'Win rate'], [p.wins, 'Wins'], [p.losses, 'Losses'], [p.bestStreak, 'Best streak']]
+    const W = p.wins + (p.botWins || 0), L = p.losses + (p.botLosses || 0);
+    $('#pf-stats').innerHTML = [[valIcon('rating') + p.rating, 'Rating'], [valIcon('points') + p.points, 'Points'], [W + L ? Math.round(W / (W + L) * 100) + '%' : '—', 'Win rate'], [W, 'Ranked wins'], [L, 'Ranked losses'], [p.bestStreak, 'Best streak']]
       .map(([b, s]) => `<div><b>${b}</b><span>${s}</span></div>`).join('');
     const sc = p.showcase?.length ? p.showcase : [p.pfp];
     $('#pf-show').innerHTML = [0, 1, 2].map(i => sc[i] ? `<img src="${thumb(sc[i])}" alt="#${sc[i]}" title="#${sc[i]}">` : '<div class="empty">empty</div>').join('');
