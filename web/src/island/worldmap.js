@@ -288,7 +288,7 @@ export function openMap(opts) {
   M = { ...opts, sel: Math.min(opts.sel || 0, SPOTS.length - 1), have: opts.potions || 0, potions: Math.min(POTIONS_MAX, opts.potions || 0), fly: null, trail: [] };
   resize(); cam.x = HOME_SPOT.x + 300; cam.y = HOME_SPOT.y - 150; clamp();
   M.sel = Math.min(M.sel, SPOTS.length - 1);
-  paint(); music('adventure');
+  paint(); music('lofi2');
   if (!running) { running = true; last = performance.now(); raf = requestAnimationFrame(frame); }
 }
 export function updateMap(patch) { if (!M) return; Object.assign(M, patch); paint(); }

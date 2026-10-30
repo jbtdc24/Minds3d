@@ -309,7 +309,7 @@ export function openRaid(opts) {
   sel = first ? { kind: 'troop', id: first } : { kind: 'hero' };
   $('#raid-name').textContent = opts.name || 'Raid';
   paintBar(); resize();
-  music('raid'); setTimeout(() => sfx('horn'), 300);
+  music('lofibeat'); setTimeout(() => sfx('horn'), 300);
   if (!running) { running = true; last = performance.now(); raf = requestAnimationFrame(frame); }
 }
 export function closeRaid() { running = false; cancelAnimationFrame(raf); S = null; }

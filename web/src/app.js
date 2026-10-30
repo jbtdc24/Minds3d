@@ -60,8 +60,8 @@ function show(id) {
   if (base !== 'island') { closeIsland(); stage.paused = false; }
   document.body.classList.toggle('in-island', base === 'island');
   $$('.screen').forEach(s => s.classList.toggle('on', s.id === 's-' + id || (WINDOWS.has(id) && s.id === 's-' + base)));
-  if (['hub', 'prep', 'leaderboard', 'profile'].includes(id) && base === 'hub') music('menu');
-  if (id === 'login') music('title');
+  if (['hub', 'prep', 'leaderboard', 'profile'].includes(id) && base === 'hub') music('lofi');
+  if (id === 'login') music('lofi');
   if (base !== 'hub' && base !== 'duel') clearTags();
   $('#tags').classList.toggle('dim', WINDOWS.has(id));
 }
@@ -344,7 +344,7 @@ async function ensureIsland() {
 }
 async function goIsland() {
   if (!(await ensureIsland())) return;
-  show('island'); stage.paused = true;
+  show('island'); stage.paused = true; music('lofi');
   openIsland({ minds: myMinds, toast: (m, bad) => toast(m, bad), shop: tab => openShop(tab), bag: () => { invTab = 'items'; openInventory(); } });
   // raided while you were away?
   const log = (isle.state?.raidLog || []).filter(e => e.at > (settings.raidSeen || 0));

@@ -26,7 +26,7 @@ export function setVolume(music, sfx) {
   vol.music = music; vol.sfx = sfx;
   if (!ctx) return;
   musicBus.gain.value = music * 0.35;
-  sfxBus.gain.value = sfx * 0.8;
+  sfxBus.gain.value = sfx * 0.6;
 }
 
 function tone(freq, t0, dur, { type = 'square', gain = 0.3, slide = 0, bus = sfxBus, attack = 0.005, echo = 0, vib = 0 } = {}) {
@@ -152,12 +152,27 @@ export function music(name) {
   step = 0; nextTime = ctx.currentTime + 0.1;
   if (!timer) timer = setInterval(schedule, 25);
 }
+// lo-fi: mellow electric-piano chords (soft attack, a sine octave below), round sine bass, soft kick + snare,
+// swung quiet hats, an echoing sparse melody and a little vinyl crackle
+function lofiStep(song, ch, bar, s, t, swing, spb, o) {
+  if (s === 0 || s === 10) ch.forEach((n, i) => { tone(N(n), t + i * 0.012, spb * (s ? 5 : 9), { ...o, type: 'triangle', gain: 0.03, attack: 0.03, echo: 0.2 }); tone(N(n) / 2, t, spb * 8, { ...o, type: 'sine', gain: 0.018, attack: 0.05 }); });
+  if (song.bass[s] === 'x') tone(N(ch[0] - 24), t, spb * 3, { ...o, type: 'sine', gain: 0.42, attack: 0.02 });
+  const L = song.lead[bar][s], cycle = Math.floor(step / 64) % 4;
+  if (L && cycle % 2 === 1) tone(N(L), t + swing, spb * 2.6, { ...o, type: 'sine', gain: 0.05, attack: 0.02, echo: 0.55, vib: 0.004 });
+  if (L && cycle === 2 && s % 4 === 0) tone(N(L) * 2, t + swing, spb * 1.4, { ...o, type: 'triangle', gain: 0.018, echo: 0.6 });
+  const d = song.drums[s];
+  if (d === 'x') tone(110, t, 0.22, { ...o, type: 'sine', gain: song.punch || 0.45, slide: 0.4 });
+  if (d === 'o') { noise(t, 0.16, { ...o, gain: 0.1, hp: 900, lp: 3200 }); tone(180, t, 0.07, { ...o, type: 'triangle', gain: 0.08, slide: 0.7 }); }
+  if (d === 'h') noise(t + swing, 0.03, { ...o, gain: 0.028, hp: 6500 });
+  if (Math.random() < 0.18) noise(t + Math.random() * spb, 0.006, { ...o, gain: 0.03, hp: 2500 });   // vinyl crackle
+}
 function schedule() {
   if (!song || !ctx) return;
   const spb = 60 / song.bpm / 4;                 // 16th notes
   while (nextTime < ctx.currentTime + 0.12) {
     const bar = Math.floor(step / 16) % song.chords.length, ch = song.chords[bar], s = step % 16, t = nextTime, o = { bus: musicBus };
-    const swing = s % 2 ? spb * 0.08 : 0;
+    const swing = s % 2 ? spb * (song.lofi ? 0.22 : 0.08) : 0;
+    if (song.lofi) { lofiStep(song, ch, bar, s, t, swing, spb, o); nextTime += spb; step++; continue; }
     if (s === 0) ch.forEach(n => tone(N(n), t, spb * 15, { ...o, type: 'triangle', gain: 0.035, attack: 0.08 }));     // soft pad
     if (song.bass[s] === 'x') tone(N(ch[0] - 24), t, spb * 1.8, { ...o, type: 'triangle', gain: 0.5 });
     if (s % 2 === 0) tone(N(ch[(s / 2) % 4] + 12), t + swing, spb * 0.9, { ...o, type: 'square', gain: 0.05 });

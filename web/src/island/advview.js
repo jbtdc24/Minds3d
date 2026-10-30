@@ -355,7 +355,7 @@ export function openAdventure(opts) {
   $('#adv-name').textContent = `${AR.icon} ${AR.name}`;
   parts = []; texts = []; shake = 0; flashA = 0;
   resize(); paintBag();
-  music('adventure');
+  music('lofi2');
   if (!running) { running = true; last = performance.now(); raf = requestAnimationFrame(frame); }
 }
 export function closeAdventure() { running = false; cancelAnimationFrame(raf); A = null; music(null); }
