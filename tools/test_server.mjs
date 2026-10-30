@@ -738,6 +738,111 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   await hit(town, A, { x: 120, y: 100, mind: 49, active: true });
   ok(T.town_now.find(x => x.player_id === A.id).since === s1, 'taking part keeps the Town Time clock running');
 }
+
+// ---- cheat tests: each one really tries the attack ----
+{
+  const R = await import('../web/src/island/rules.js'), RD = await import('../web/src/island/raid.js'), AV = await import('../web/src/island/adventure.js'), chain = await import('../lib/chain.js');
+  const rt = n => import(`../lib/routes/${n}.js`).then(m => m.default);
+  const [raid, adventure, cup, island, mail, admin, match_view] = await Promise.all(['raid', 'adventure', 'cup', 'island', 'mail', 'admin', 'match_view'].map(rt));
+  const { settle } = await import('../lib/routes/cup.js');
+  const { liveMatchOf } = await import('../lib/matchmaking.js');
+  const mk = async (name, n) => { const p = await db.insert('players', { name, address: '0x00000000000000000000000000000000000000' + n, showcase: [] }); const st = R.newIsland(100 + +n, Date.now()); st.dust = 5000; st.gems = 30; st.b.push({ id: 80, type: 'tower', k: 5 }); T.islands.push({ player_id: p.id, seed: 100 + +n, state: st, minds: 0, minds_at: new Date().toISOString(), rev: 0, updated_at: new Date().toISOString() }); return p; };
+  const X = await mk('Xavier', 41), V = await mk('Vera', 42), W = await mk('Wren', 43);
+  const isl = p => T.islands.find(x => x.player_id === p.id);
+  const hit = async (fn, p, body, method = 'POST', query = {}, tok) => { const token = tok || signSession({ id: p.id, address: p.address }); let o = null; const res = { setHeader() {}, end(t) { o = { code: this.statusCode, body: JSON.parse(t) }; }, headersSent: false }; await fn({ method, url: '/api/x', headers: { authorization: 'Bearer ' + token }, body, query }, res); return o; };
+
+  // island tampering
+  for (const a of [{ type: 'shop', item: 'constructor' }, { type: 'shop', item: '__proto__' }, { type: 'build', item: 'constructor', k: 5 }, { type: 'place', item: '__proto__' }, { type: 'craft', item: 'toString' }, { type: 'plant', crop: 'constructor', tiles: [1] }, { type: 'job', mind: 49, job: 'constructor' }, { type: 'sell', item: 'crop_constructor' }, { type: 'nonsense' }]) {
+    let threw = false, r = null;
+    try { r = R.act(isl(X).state, a, { seed: 141, now: Date.now(), minds: 0 }); } catch { threw = true; }
+    ok(!threw && r.error, `island refuses ${a.type} ${a.item || a.crop || a.job || ''}`);
+  }
+  const before = JSON.stringify(isl(X).state.inv), d0 = isl(X).state.dust;
+  isl(X).state.inv.crop_carrot = 2;
+  let out = await hit(island, X, { acts: [{ type: 'sell', item: 'crop_carrot', n: -500 }, { type: 'sell', item: 'crop_carrot', n: 999999 }] });
+  ok(out.code === 200 && !isl(X).state.inv.crop_carrot && isl(X).state.dust < d0 + 500, 'selling cannot go negative or sell more than you have');
+  out = await hit(island, X, { acts: [{ type: 'buy', item: 'seed_bean', n: -5 }] });
+  ok(out.code === 200 && isl(X).state.dust <= d0 + 500, 'a negative purchase never pays you');
+  ok((await hit(island, X, { acts: [{ type: 'shop', item: 'gem_dust', gems: true, n: 50 }] })).code === 200 && (isl(X).state.gems || 0) >= 0, 'Gems never go below zero');
+  void before;
+  ok((await hit(island, X, null)).code === 200 && (await hit(island, X, 'null')).code === 200, 'an empty request does not crash the server');
+
+  // forged sessions
+  const good = signSession({ id: X.id, address: X.address }), [b, sig] = good.split('.');
+  const forged = Buffer.from(JSON.stringify({ pid: V.id, addr: V.address, exp: Date.now() + 1e9 })).toString('base64url') + '.' + sig;
+  ok((await hit(island, X, { acts: [] }, 'POST', {}, forged)).code === 401, 'a forged session is refused');
+  ok((await hit(island, X, { acts: [] }, 'POST', {}, b + '.AAAA')).code === 401, 'a bad signature is refused');
+  ok(!readSession({ headers: { authorization: 'Bearer ' + good + 'x.y.z' } }), 'a mangled token is refused');
+  ok((await hit(admin, X, { op: 'give', pid: X.id, gems: 999 })).code === 403 && (await hit(admin, X, { op: 'ban', pid: V.id })).code === 403, 'players cannot use admin actions');
+
+  // adventures: claims must be physically possible
+  const start = async () => { isl(X).state.ad = null; return hit(adventure, X, { op: 'start', spot: 0, potions: 0 }); };
+  const boss = m => m.monsters.find(x => AV.MONSTERS[x.type].boss);
+  await start();
+  let adv = isl(X).state.adv, map = AV.advMap(adv.seed, adv.level), gems0 = isl(X).state.gems;
+  adv.at = Date.now() - 8e3;
+  out = await hit(adventure, X, { op: 'end', got: [], beat: [boss(map).id] });
+  ok(out.code === 400 && isl(X).state.gems === gems0, 'nobody beats a boss in 8 seconds for free Gems');
+  ok(T.flags.some(f => f.kind === 'adv_impossible'), 'an impossible adventure reaches the cheat meter');
+  adv = isl(X).state.adv; adv.at = Date.now() - 170e3; adv.level = 4;
+  const hard = AV.advMap(adv.seed, 4);
+  out = await hit(adventure, X, { op: 'end', got: hard.nodes.map(n => n.id), beat: hard.monsters.map(m => m.id), potionsLeft: 0 });
+  ok(out.code === 400, 'no hero clears the hardest island without potions');
+  adv = isl(X).state.adv; adv.level = 1;
+  adv = isl(X).state.adv; adv.at = Date.now() - 150e3;
+  out = await hit(adventure, X, { op: 'end', got: map.nodes.slice(0, 6).map(n => n.id), beat: [map.monsters.reduce((a, m) => (m.hp < a.hp ? m : a)).id] });
+  ok(out.code === 200, 'a normal adventure still pays');
+  await start(); adv = isl(X).state.adv; adv.at = Date.now() - 90e3;
+  ok((await Promise.all([hit(adventure, X, { op: 'end', got: [], beat: [] }), hit(adventure, X, { op: 'end', got: [], beat: [] })])).filter(r => r.code === 200).length === 1, 'an adventure can only be finished once');
+
+  // raids: one attack, one payout
+  const mc = chain.client.multicall;
+  chain.client.multicall = async ({ contracts }) => contracts.map(() => ({ status: 'failure' }));
+  const vSt = isl(V).state; vSt.dust = 10000;
+  const snap = RD.snapshotOf(142, R.normalize(vSt, 142, Date.now()), 2, {});
+  isl(X).state.raid = { id: 'dup', target: V.id, name: 'Vera', snap, loot: 2000, hero: 'captain', cap: 10, army: { brawler: 6, archer: 4, bomber: 0, giant: 0 }, at: Date.now() };
+  const plan = RD.autoPlan(snap, { troops: { brawler: 6, archer: 4, bomber: 0, giant: 0 }, hero: 'captain' });
+  const two = await Promise.all([hit(raid, X, { op: 'attack', id: 'dup', inputs: plan }), hit(raid, X, { op: 'attack', id: 'dup', inputs: plan })]);
+  ok(two.filter(r => r.code === 200).length === 1 && (isl(V).state.raidLog || []).length === 1, 'two attacks at once only count once');
+  ok((await hit(raid, X, { op: 'attack', id: 'dup', inputs: plan })).code === 400, 'a finished raid cannot be replayed');
+  chain.client.multicall = mc;
+
+  // duels
+  const m = await startMatch({ player: { ...X, ...T.players.find(p => p.id === X.id) }, minds: [49] }, null, { ranked: true, botLevel: 'normal' });
+  const v0 = await getView(m.id, X.id);
+  ok(!JSON.stringify(v0).includes('"seed"') && !('play' in v0.view.rival) && !('crowns' in v0.view), 'a duel view hides the seed, future prizes and the rival pick');
+  ok((await hit(match_view, V, null, 'GET', { id: m.id })).code === 403, 'you cannot read someone else\'s match');
+  const px0 = T.players.find(p => p.id === X.id), pts0 = px0.bot_losses, dust0 = isl(X).state.dust;
+  await Promise.allSettled([forfeit(m.id, X.id), forfeit(m.id, X.id)]);
+  ok(T.players.find(p => p.id === X.id).bot_losses === pts0 + 1 && isl(X).state.dust === dust0 + 8, 'a result pays out exactly once');
+  const m2 = await startMatch({ player: T.players.find(p => p.id === V.id), minds: [49] }, null, { ranked: true, botLevel: 'normal' });
+  Object.assign(T.matches.find(r => r.id === m2.id), { deadline: new Date(Date.now() - 31 * 60e3).toISOString(), v: 4 });
+  const lost0 = T.players.find(p => p.id === V.id).bot_losses;
+  await liveMatchOf(V.id);
+  ok(T.players.find(p => p.id === V.id).bot_losses === lost0 + 1, 'walking away from a match counts as a loss');
+
+  // the cup
+  const today = new Date().toISOString().slice(0, 10);
+  T.cups.length = 0; T.cup_entries.length = 0;
+  for (const p of [X, V, W]) { isl(p).state.gems = 30; await hit(cup, p, { op: 'join' }); }
+  const secret = T.cups[0].seed;
+  process.env.SUPABASE_SECRET_KEY = 'different';
+  const { hashStr } = await import('../web/src/island/gen.js');
+  ok(secret !== hashStr('cup' + today), 'the cup village cannot be worked out in advance');
+  process.env.SUPABASE_SECRET_KEY = 'test-secret';
+  await hit(cup, X, { op: 'start' });
+  out = await hit(cup, X, { op: 'score', inputs: [{ t: 900, drop: 'brawler', k: 5 }] });
+  ok(out.code === 400 && T.flags.some(f => f.kind === 'cup_fast'), 'a cup attack cannot finish faster than real time');
+  const gemsNow = [X, V, W].map(p => isl(p).state.gems);
+  T.cups[0].day = '2001-01-01'; T.cup_entries.forEach(x => { x.day = '2001-01-01'; });
+  await settle();
+  ok([X, V, W].every((p, i) => isl(p).state.gems === gemsNow[i] + 5), 'if nobody scores, every entry comes back');
+
+  // gifts
+  T.mail.push({ id: 99, to_id: V.id, title: 'For Vera', body: '', gift: { gems: 5 }, created_at: new Date().toISOString() });
+  ok((await hit(mail, X, { op: 'claim', id: 99 })).code === 404, 'you cannot take someone else\'s mail gift');
+  ok(!(await hit(mail, X, null, 'GET')).body.mail.some(x => x.id === 99), 'you cannot read someone else\'s mail');
+}
 console.log(`
 ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

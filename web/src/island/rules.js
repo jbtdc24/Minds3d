@@ -196,11 +196,12 @@ export function normalize(st, seed, now) {
   return st;
 }
 
+for (const table of [CROPS, BUILD, SHOP, RECIPES, RAW, UPGRADABLE]) Object.setPrototypeOf(table, null);
 const okTile = (w, k) => Number.isInteger(k) && k >= 0 && k < TW * TH && w.land[k] === 1;
 const add = (o, k, n) => { if (n) o[k] = (o[k] || 0) + n; };
 // apply one action; returns what changed ({ gain, done }) or { error }
 export function act(st, a, { seed, now, minds = 0, instant = false }) {   // instant: tests only
-  const w = gen(seed), gain = {}, tiles = [...new Set((Array.isArray(a.tiles) ? a.tiles : []).map(Number))].slice(0, 200);
+  const w = gen(seed), gain = {}, tiles = [...new Set((Array.isArray(a.tiles) ? a.tiles : []).slice(0, 400).map(Number))].slice(0, 200);
   let done = 0;
   const pay = (k, n) => { add(gain, k, n); if (k === 'dust') st.dust += n; else if (k === 'gems') st.gems = (st.gems || 0) + n; else st.inv[k] = (st.inv[k] || 0) + n; };
   switch (a.type) {

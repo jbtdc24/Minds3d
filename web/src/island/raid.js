@@ -32,6 +32,7 @@ export const SPELLS = {
   heal: { name: 'Heal', icon: '💚', desc: '+90 HP to your troops nearby', radius: 3 * T, amount: 90 },
   bolt: { name: 'Bolt', icon: '⚡', desc: '160 damage to a building', radius: 1.6 * T, dmg: 160 },
 };
+for (const table of [TROOPS, SPELLS, HERO]) Object.setPrototypeOf(table, null);
 export const DROP_GAP = 3;                                                     // drop at least 3 tiles away from any building
 export const DEFAULT_ARMY = { brawler: 4, archer: 3, bomber: 1, giant: 0 };
 

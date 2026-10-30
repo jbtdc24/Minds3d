@@ -292,7 +292,7 @@ $('#hub-ranked').onclick = async () => {
 };
 $('#hub-practice').onclick = () => openPrep('practice');
 $('#hub-classic').onclick = () => openPrep('classic');
-$('#hub-town').onclick = () => { closeIsland(); stage.paused = true; show('town'); openTown(); };
+$('#hub-town').onclick = () => { closeIsland(); show('town'); stage.paused = true; openTown(); };
 $('#town-back').onclick = () => { closeTown(); enterHub(); };
 // tapping a building in town: walk over, then use it
 const townGo = where => {
@@ -1394,7 +1394,7 @@ function paintMsgs() {
   const saved = chatRows.map(m => `${m.mine}|${m.text}`);
   liveMsgs = liveMsgs.filter(m => Date.now() - Date.parse(m.at) < 15000 && !saved.includes(`${m.mine}|${m.text}`));
   const rows = [...chatRows, ...liveMsgs];
-  $('#fr-msgs').innerHTML = rows.length ? rows.map(m => `<div class="msg ${m.mine ? 'mine' : ''}">${esc(m.text || PHRASES[m.phrase] || '')}<time>${new Date(m.at).toLocaleString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}</time></div>`).join('') : '<div class="board-empty">Say hi! 👋</div>';
+  $('#fr-msgs').innerHTML = rows.length ? rows.map(m => `<div class="msg ${m.mine ? 'mine' : ''} ${m.live ? 'unsaved' : ''}">${esc(m.text || PHRASES[m.phrase] || '')}<time>${new Date(m.at).toLocaleString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}</time></div>`).join('') : '<div class="board-empty">Say hi! 👋</div>';
   $('#fr-msgs').scrollTop = 1e9;
 }
 async function loadChat() {
@@ -1461,7 +1461,7 @@ async function friendsPoll() {
   if (!online || guest || !me) { renderFriends(); return; }
   loadFriends(); loadMail();
   if (!frUnwatch) frUnwatch = await watch(`player:${me.id}`, p => {
-    if (p.text && chatWith?.player.id === p.from) { liveMsgs.push({ mine: false, text: String(p.text).slice(0, 400), at: new Date().toISOString() }); paintMsgs(); sfx('pop'); return; }
+    if (p.text && chatWith?.player.id === p.from) { liveMsgs.push({ mine: false, live: true, text: String(p.text).slice(0, 400), at: new Date().toISOString() }); paintMsgs(); sfx('pop'); return; }
     if (p.text) return;
     loadFriends(); if (chatWith) loadChat(); else sfx('notify');
   });

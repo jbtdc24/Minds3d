@@ -241,7 +241,7 @@ async function beat() {
     for (const c of r.chat) {
       chatAfter = Math.max(chatAfter, c.id);
       const hit = pendingLines.findIndex(l => l.name === c.name && l.text === c.text);
-      if (hit >= 0) { pendingLines.splice(hit, 1); continue; }   // already on screen: it arrived live
+      if (hit >= 0) { pendingLines[hit].el.className = ''; pendingLines.splice(hit, 1); continue; }   // already on screen: it arrived live
       addLine(c.name, c.text, c.kind === 'news');
       const who = c.kind === 'chat' && [...people.values()].find(o => o.name === c.name);
       if (who) bubbles.push({ who: who.id, text: c.text.slice(0, 48), life: 5 });
@@ -263,7 +263,7 @@ function addLine(name, text, news) {
   return el;
 }
 // a message from another player arrives directly; the name comes from the server's list, never from the message
-function liveLine(name, text) { pendingLines.push({ name, text, at: Date.now(), el: addLine(name, text) }); }
+function liveLine(name, text, own) { const el = addLine(name, text); if (!own) el.className = 'unsaved'; pendingLines.push({ name, text, at: Date.now(), el }); }
 function onSay({ id, text }) {
   const name = roster.get(id);
   if (!name || typeof text !== 'string') return;
@@ -289,8 +289,10 @@ function syncRoom() {
   if (unknown && Date.now() - rosterAt > 1500) { rosterAt = Date.now(); beat(); }
 }
 const myPos = () => ({ id: K.me(), mind: meP.mind, x: meP.x | 0, y: meP.y | 0, gx: (meP.path?.at(-1)?.x ?? meP.x) | 0, gy: (meP.path?.at(-1)?.y ?? meP.y) | 0 });
+let visit = 0;
 async function joinRoom() {
-  room = await liveRoom('town-live', K.me(), myPos(), { onChange: syncRoom, onPing: () => { clearTimeout(chatPing); chatPing = setTimeout(beat, 150 + Math.random() * 400); }, onSay });
+  const mine = ++visit, joined = await liveRoom('town-live', K.me(), myPos(), { onChange: syncRoom, onPing: () => { clearTimeout(chatPing); chatPing = setTimeout(beat, 150 + Math.random() * 400); }, onSay });
+  if (mine === visit && running) room = joined; else joined?.leave();   // left town while it was connecting
 }
 function paintStay() { $('#town-stay').textContent = !stayLeft ? '' : Date.now() - actedAt < 120e3 ? `⏳ Town Time in ${Math.ceil(stayLeft / 60e3)} min` : '💤 Walk or chat to earn Town Time'; }
 const toWorld = (cx, cy) => ({ x: CAM.x + (cx - W / 2) / zoom, y: CAM.y + (cy - H / 2) / zoom });
@@ -331,7 +333,7 @@ function send() {
   if (!text) return;
   if (!K.canChat()) return K.toast('Connect a wallet to chat in town.', true);
   b.value = ''; sayQ = text; acted(); paintStay();
-  liveLine(K.name(), text); room?.say(text);
+  liveLine(K.name(), text, true); room?.say(text);
   bubbles.push({ me: 1, text: text.slice(0, 48), life: 5 });
   beat();
 }
@@ -348,4 +350,4 @@ export function openTown() {
   clearInterval(beatTimer); beatTimer = setInterval(beat, 10000);
   if (!running) { running = true; last = performance.now(); raf = requestAnimationFrame(frame); }
 }
-export function closeTown() { clearInterval(beatTimer); running = false; cancelAnimationFrame(raf); room?.leave(); room = null; }
+export function closeTown() { visit++; clearInterval(beatTimer); running = false; cancelAnimationFrame(raf); room?.leave(); room = null; }

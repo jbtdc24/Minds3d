@@ -48,6 +48,7 @@ function scoutRound(st, ctx, id) {
   if (herb) st.inv.herb = (st.inv.herb || 0) + 1;
   return { found: dust, herbs: herb };
 }
+Object.setPrototypeOf(JOBS, null);
 const SAY = {
   harvested: n => `harvested ${n} crop${n > 1 ? 's' : ''}`, planted: n => `planted ${n}`, cleared: n => `cleared ${n} tile${n > 1 ? 's' : ''}`,
   trained: n => `trained ${n} troop${n > 1 ? 's' : ''}`, found: n => `found ${n} ✨`, herbs: n => `found ${n} herb${n > 1 ? 's' : ''}`, shards: n => `collected ${n} ⚡ shard${n > 1 ? 's' : ''}`,

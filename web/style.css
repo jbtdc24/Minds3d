@@ -864,3 +864,6 @@ h3.raid-result { text-align: center; }
 .ai-row { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(0,0,0,.08); }
 .ai-row small { grid-column: 1; color: var(--muted); } .ai-row label { font-size: 13px; font-weight: 800; } .ai-row button { grid-column: 2; grid-row: 1 / span 2; }
 .mode.town-tile .mode-txt span, .mode.cup-tile .mode-txt span { font-size: 12px; white-space: nowrap; }
+
+/* a live line stays faint until the server confirms who really sent it */
+.unsaved { opacity: .62; }
