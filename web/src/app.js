@@ -11,7 +11,8 @@ import { PHRASES, MATCH_CHAT, FRIEND_CHAT, BOT_REPLIES } from './chat.js';
 import { capOf, ENERGY_CAP } from './energy.js';
 import { openIsland, closeIsland, refreshHud, cropImg, fmtTime } from './island/island.js';
 import { openRaid, closeRaid } from './island/raidview.js';
-import { botVillage, lootOf } from './island/raid.js';
+import { botVillage, armyCap, cleanArmy, armyUsed, TROOPS, DEFAULT_ARMY } from './island/raid.js';
+import { troopIcon } from './island/troops.js';
 import { isle, loadIsland, doAct, flush as flushIsland, resetIsland, now as islandNow } from './island/store.js';
 import { CROPS, RAW, growMs, permitCost, MAX_PERMITS, ripe } from './island/rules.js';
 import { islandThumb } from './island/art.js';
@@ -342,30 +343,61 @@ $('#hub-island').onclick = goIsland;
 $('#shop-go-island').onclick = goIsland;
 $('#isl-back').onclick = () => enterHub();
 // ---------- raids: attack another island (or a bot village when there is nobody / you are on a trial account) ----------
+// pick your army (camp size grows a little with the Minds you own; your Mind leads as the hero)
+function pickArmy(cap, hero, lead) {
+  const army = cleanArmy(settings.army || DEFAULT_ARMY, cap);
+  return new Promise(done => {
+    const draw = () => {
+      const used = armyUsed(army);
+      $('#modal-body').innerHTML = `<h3>⚔️ Your army</h3>
+        <div class="army-cap"><b>${used}/${cap}</b> camp space${cap > 10 ? ` <span class="muted">(+${cap - 10} from your Minds)</span>` : ' <span class="muted">(owning Minds adds space)</span>'}</div>
+        <div class="army-list">${Object.entries(TROOPS).map(([k, d]) => `<div class="army-row"><img src="${troopIcon(k)}" alt=""><div><b>${d.name}</b> <span class="muted">· ${d.cost} space</span><small>${d.desc}</small></div><button class="btn small" data-a="${k}" data-d="-1">−</button><em>${army[k]}</em><button class="btn small" data-a="${k}" data-d="1">+</button></div>`).join('')}</div>
+        <div class="army-hero">${hero === 'hero' ? `<img src="${chibi(lead).full.cv.toDataURL()}" alt=""><span><b>Hero: Mind #${lead}</b><small>Stronger leader + 📯 Battle Cry</small></span>` : `<img src="${troopIcon('captain')}" alt=""><span><b>Captain</b><small>Own a Mind to lead with it (stronger + Battle Cry)</small></span>`}</div>`;
+    };
+    draw();
+    const box = $('#modal-btns'); box.innerHTML = '';
+    const go = el('button', 'btn primary', '⚔️ Attack!'), back = el('button', 'btn', 'Cancel');
+    go.onclick = () => { $('#modal').classList.remove('on'); $('#modal-body').onclick = null; settings.army = { ...army }; saveSettings(); done(army); };
+    back.onclick = () => { $('#modal').classList.remove('on'); $('#modal-body').onclick = null; done(null); };
+    box.append(back, go);
+    $('#modal-body').onclick = e => {
+      const b = e.target.closest('[data-a]'); if (!b) return;
+      const k = b.dataset.a, d = +b.dataset.d;
+      if (d > 0 && armyUsed(army) + TROOPS[k].cost > cap) { sfx('denied'); return; }
+      army[k] = Math.max(0, army[k] + d); sfx(d > 0 ? 'select' : 'deselect'); draw();
+    };
+    $('#modal').classList.add('on');
+  });
+}
 async function startRaid() {
   sfx('click');
-  const raiders = [...(picked().length ? picked() : myMinds)].slice(0, 3);
-  while (raiders.length < 3) raiders.push(raiders[0] ?? 49);
+  const lead = (picked()[0] ?? myMinds[0]) || 49, holder = online && !guest && myMinds.length;
+  const cap = armyCap(guest ? 0 : myMinds.length);
+  const troops = await pickArmy(cap, holder ? 'hero' : 'captain', lead);
+  if (!troops) return;
   let target = null;
-  if (online && !guest) {
-    try { target = await api('raid', { op: 'find', minds: raiders }); }
-    catch (e) { if (e.status === 403) return toast(e.message, true); toast(`${e.message} Practice raid instead.`); }
+  if (online) {
+    try { target = await api('raid', { op: 'find', minds: [lead] }); }
+    catch (e) { if (e.status === 403) return toast(e.message, true); }
   }
-  const practice = !target?.snap;
-  const level = Math.min(3, 1 + Math.floor((settings.raidWins || 0) / 2));
-  const snap = practice ? botVillage((Math.random() * 2 ** 31) | 0, level) : target.snap;
+  // no server: an island to raid made on this device (nothing is saved)
+  const local = !target?.snap;
+  const snap = local ? botVillage((Math.random() * 2 ** 31) | 0, Math.min(3, 1 + Math.floor((settings.raidWins || 0) / 3))) : target.snap;
+  const army = { troops: cleanArmy(troops, target?.cap ?? cap), hero: target?.hero ?? (holder ? 'hero' : 'captain') };
   closeIsland(); show('raid');
+  await banner(`<div class="bt">RAID!</div><small>${esc(local ? snap.name : target.name)}'s island</small>`, 1100);
   openRaid({
-    snap, minds: raiders, name: practice ? `🤖 ${snap.name} (practice)` : `⚔️ ${target.name}'s island`, loot: practice ? 0 : target.loot,
+    snap, minds: [lead], army, name: `⚔️ ${local ? snap.name : target.name}`, loot: local ? Math.floor((snap.dust || 1000) * 0.18) : target.loot,
     toast: (m, bad) => toast(m, bad),
-    onEnd: async (inputs, local) => {
-      let res = { ...local, loot: 0 };
-      if (!practice) {
-        try { res = await api('raid', { op: 'attack', id: target.id, inputs }); resetIsland(); }
+    onEnd: async (inputs, res0) => {
+      let res = { ...res0, loot: 0 };
+      if (!local) {
+        try { res = await api('raid', { op: 'attack', id: target.id, inputs, army: army.troops }); resetIsland(); }
         catch (e) { toast(e.message, true); }
-      } else if (local.stars >= 2) { settings.raidWins = (settings.raidWins || 0) + 1; saveSettings(); }
+      } else if (res0.stars >= 2) { settings.raidWins = (settings.raidWins || 0) + 1; saveSettings(); }
       const stars = '★'.repeat(res.stars) + '☆'.repeat(3 - res.stars);
-      await modal(`<h3 class="raid-result">${res.stars ? 'Raid won!' : 'Raid failed'}</h3><div class="raid-stars big">${stars}</div><p>${Math.round(res.pct * 100)}% destroyed${res.home ? ' · house down' : ''}</p>${practice ? '<p class="muted">Practice raid: no loot. Win with 2+ stars to face a tougher village.</p>' : `<p><b>+${(res.loot || 0).toLocaleString()} ✨</b> loot</p>`}`, [['Back to my island', true, 'primary']]);
+      if (res.stars) sfx('victory');
+      await modal(`<h3 class="raid-result">${res.stars ? 'Raid won!' : 'Raid failed'}</h3><div class="raid-stars big">${stars}</div><p>${Math.round(res.pct * 100)}% destroyed${res.home ? ' · house down' : ''}</p>${local ? '<p class="muted">Offline raid: loot is not saved.</p>' : `<p class="raid-loot-won"><b>+${(res.loot || 0).toLocaleString()} ✨</b> loot</p>${target.raidsLeft != null ? `<p class="muted">${target.raidsLeft} raid${target.raidsLeft === 1 ? '' : 's'} left today</p>` : ''}`}`, [['Back to my island', true, 'primary']]);
       closeRaid(); goIsland();
     },
   });

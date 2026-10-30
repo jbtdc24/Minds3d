@@ -692,3 +692,17 @@ body.in-island #toast { bottom: 150px; }
 .raidbtn { background: #ff6a5a; color: #fff; }
 .raid-stars.big { font-size: 44px; color: #ffc53d; text-align: center; letter-spacing: 6px; }
 h3.raid-result { text-align: center; }
+/* ---- army picker + raid bar v2 ---- */
+.army-cap { font-size: 16px; margin: 4px 0 8px; } .army-cap b { font-size: 22px; }
+.army-list { display: flex; flex-direction: column; gap: 6px; }
+.army-row { display: grid; grid-template-columns: 34px 1fr auto 28px auto; align-items: center; gap: 8px; background: var(--paper-2); padding: 4px 8px; }
+.army-row img { width: 30px; height: 40px; object-fit: contain; image-rendering: pixelated; }
+.army-row small { display: block; color: var(--muted); font-size: 12px; } .army-row em { font-style: normal; font-weight: 900; font-size: 18px; text-align: center; }
+.army-hero { display: flex; align-items: center; gap: 10px; margin-top: 8px; padding: 6px 8px; background: #fff3b0; box-shadow: 0 0 0 2px var(--ink); }
+.army-hero img { height: 44px; image-rendering: pixelated; } .army-hero small { display: block; color: var(--muted); }
+.raid-bar button { position: relative; }
+.raid-bar button em { position: absolute; top: 2px; right: 4px; font-style: normal; font-weight: 900; font-size: 13px; }
+.raid-bar button.hero { background: #fff3b0; }
+.raid-bar button.ready { animation: cryPulse .8s ease-in-out infinite; }
+@keyframes cryPulse { 50% { box-shadow: 0 0 0 3px #ffc53d, 0 0 14px 4px rgba(255,197,61,.8); } }
+.raid-loot-won b { font-size: 26px; color: #c98a00; }

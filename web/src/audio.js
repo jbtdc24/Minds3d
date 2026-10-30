@@ -80,6 +80,19 @@ const SFX = {
   magic: t => [523, 784, 1047, 1568, 2093].forEach((f, i) => tone(f, t + i * 0.04, 0.3, { type: 'sine', gain: 0.1 })),
   trap: t => { tone(200, t, 0.25, { type: 'sawtooth', gain: 0.3, slide: 0.5 }); noise(t, 0.15, { gain: 0.5, hp: 600 }); tone(90, t + 0.05, 0.3, { type: 'sine', gain: 0.6, slide: 0.5 }); },
   reverse: t => { tone(300, t, 0.4, { type: 'sawtooth', gain: 0.12, slide: 3 }); tone(900, t + 0.2, 0.4, { type: 'sawtooth', gain: 0.1, slide: 0.33 }); },
+  // raids + adventure
+  twang: t => { tone(900, t, 0.08, { type: 'triangle', gain: 0.12, slide: 0.6 }); noise(t, 0.05, { gain: 0.12, hp: 4000 }); },
+  arrowHit: t => { noise(t, 0.05, { gain: 0.18, hp: 2500 }); tone(300, t, 0.05, { type: 'square', gain: 0.06, slide: 0.5 }); },
+  smash: t => { tone(110, t, 0.12, { type: 'square', gain: 0.25, slide: 0.5 }); noise(t, 0.1, { gain: 0.3, hp: 700, lp: 4000 }); },
+  boom: t => { tone(70, t, 0.6, { type: 'sine', gain: 0.9, slide: 0.35 }); noise(t, 0.5, { gain: 0.6, hp: 150, lp: 2500 }); noise(t + 0.05, 0.3, { gain: 0.3, hp: 2000 }); },
+  crumble: t => { noise(t, 0.4, { gain: 0.4, hp: 300, lp: 3000 }); tone(90, t, 0.3, { type: 'sine', gain: 0.4, slide: 0.6 }); },
+  horn: t => { tone(196, t, 0.5, { type: 'sawtooth', gain: 0.18, attack: 0.05 }); tone(294, t + 0.25, 0.7, { type: 'sawtooth', gain: 0.18, attack: 0.05 }); tone(392, t + 0.25, 0.7, { type: 'triangle', gain: 0.12, attack: 0.05 }); },
+  coins: t => [1319, 1568, 1976, 2349].forEach((f, i) => tone(f, t + i * 0.05, 0.12, { type: 'square', gain: 0.07 })),
+  drop: t => { tone(300, t, 0.12, { type: 'sine', gain: 0.3, slide: 0.4 }); noise(t + 0.08, 0.1, { gain: 0.2, hp: 500, lp: 2000 }); },
+  roar: t => { tone(110, t, 0.5, { type: 'sawtooth', gain: 0.25, slide: 0.7 }); noise(t, 0.4, { gain: 0.25, hp: 200, lp: 1500 }); },
+  step: t => noise(t, 0.04, { gain: 0.08, hp: 300, lp: 1500 }),
+  chest: t => { [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, t + i * 0.06, 0.2, { type: 'triangle', gain: 0.14 })); noise(t, 0.1, { gain: 0.1, hp: 3000 }); },
+  slime: t => { tone(200, t, 0.15, { type: 'sine', gain: 0.3, slide: 2 }); tone(300, t + 0.08, 0.12, { type: 'sine', gain: 0.2, slide: 0.5 }); },
   star: t => { tone(1568, t, 0.15, { type: 'triangle', gain: 0.18 }); tone(2093, t + 0.08, 0.3, { type: 'triangle', gain: 0.15 }); },
 };
 export function sfx(name, delay = 0) {
@@ -100,6 +113,16 @@ const SONGS = {
     chords: [[57, 60, 64, 69], [53, 57, 60, 65], [60, 64, 67, 72], [55, 59, 62, 67]],
     lead: [[81, 0, 84, 81, 0, 79, 0, 76, 79, 0, 81, 0, 84, 0, 88, 0], [89, 0, 88, 84, 0, 81, 0, 84, 0, 0, 81, 0, 77, 0, 79, 0],
       [76, 0, 79, 84, 0, 88, 0, 84, 86, 0, 84, 0, 79, 0, 76, 0], [79, 0, 83, 86, 0, 91, 0, 86, 83, 0, 79, 0, 86, 84, 83, 79]] },
+  // war drums for raids (Dm - Bb - C - A)
+  raid: { bpm: 132, bass: 'x..xx..xx..xx.x.', drums: 'x.ox.ox.x.oxx.oh',
+    chords: [[62, 65, 69, 74], [58, 62, 65, 70], [60, 64, 67, 72], [57, 61, 64, 69]],
+    lead: [[74, 0, 77, 0, 81, 0, 79, 77, 76, 0, 74, 0, 72, 0, 74, 0], [70, 0, 74, 0, 77, 0, 74, 0, 72, 0, 70, 0, 69, 0, 0, 0],
+      [72, 0, 76, 0, 79, 0, 84, 0, 83, 0, 79, 0, 76, 0, 79, 0], [81, 0, 79, 0, 76, 0, 73, 0, 76, 0, 79, 0, 81, 0, 85, 0]] },
+  // adventure: open and curious (G - Em - C - D)
+  adventure: { bpm: 104, bass: 'x...x...x.x.x...', drums: 'x..h..h.o..h..h.',
+    chords: [[55, 59, 62, 67], [52, 55, 59, 64], [48, 52, 55, 60], [50, 54, 57, 62]],
+    lead: [[79, 0, 0, 83, 0, 86, 0, 0, 84, 0, 83, 0, 79, 0, 0, 0], [76, 0, 0, 79, 0, 83, 0, 0, 81, 0, 79, 0, 76, 0, 0, 0],
+      [72, 0, 0, 76, 0, 79, 0, 84, 83, 0, 79, 0, 76, 0, 0, 0], [74, 0, 0, 78, 0, 81, 0, 86, 84, 0, 81, 0, 78, 0, 74, 0]] },
   // calm title loop
   title: { bpm: 96, bass: 'x.......x...x...', drums: 'x.......o.......',
     chords: [[60, 64, 67, 72], [55, 59, 62, 67], [57, 60, 64, 69], [53, 57, 60, 65]],
