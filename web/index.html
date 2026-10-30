@@ -76,35 +76,27 @@
       <div class="logo hub-logo"><img src="assets/crown.png" alt="">MIND<span>CLASH</span></div>
       <button class="mode px big" id="hub-ranked" style="--bg:url(assets/mode_ranked.webp)">
         <img class="mode-ico" src="assets/icon_swords.png" alt="">
-        <div class="mode-txt"><b>Ranked Duel</b><span id="hub-ranked-sub">1v1 vs real players</span></div>
+        <div class="mode-txt"><b>Ranked Duel</b><span id="hub-ranked-sub">1v1 · uses ⚡ energy · wins pay your island</span></div>
         <em class="tag lime" id="hub-ranked-tag">PLAY</em>
       </button>
-      <div class="mode-row">
-        <button class="mode px wide-mode" id="hub-classic" style="--bg:url(assets/arena_day.webp)">
-          <div class="mode-txt"><b>Classic</b><span>Everyone plays</span></div>
-          <em class="tag sky">OPEN</em>
+      <button class="mode px big island-big" id="hub-island">
+        <div class="mode-txt"><b>🏝️ Mind Island</b><span>Farm · raid · explore · makes ⚡ for Ranked</span></div>
+        <div class="isl-chips" id="hub-island-chips"></div>
+        <em class="tag lime">PLAY</em><b class="badge" id="hub-island-ready"></b>
+      </button>
+      <div class="mode-row three">
+        <button class="mode px" id="hub-classic" style="--bg:url(assets/arena_day.webp)">
+          <div class="mode-txt"><b>Classic</b><span>Everyone</span></div>
         </button>
-        <button class="mode px wide-mode island-mode" id="hub-island">
-          <div class="mode-txt"><b>Mind Island</b><span>Farm · build · grow</span></div>
-          <em class="tag lime">NEW</em><b class="badge" id="hub-island-ready"></b>
-        </button>
-      </div>
-      <div class="mode-row">
         <button class="mode px" id="hub-practice" style="--bg:url(assets/mode_practice.webp)">
           <div class="mode-txt"><b>Practice</b><span>vs bot</span></div>
         </button>
         <button class="mode px" id="hub-learn" style="--bg:url(assets/stage_meadow.webp)">
-          <div class="mode-txt"><b>Tutorial</b><span>Learn in 2 min</span></div>
+          <div class="mode-txt"><b>Tutorial</b><span>2 min</span></div>
         </button>
       </div>
-      <div class="mode-row">
-        <button class="mode px soon" id="hub-train" style="--bg:url(assets/mode_train.webp)">
-          <div class="mode-txt"><b>Train Mind</b><span>Coming soon</span></div>
-        </button>
-        <button class="mode px soon" id="hub-auto" style="--bg:url(assets/mode_auto.webp)">
-          <div class="mode-txt"><b>Auto Battle</b><span>Coming soon</span></div>
-        </button>
-      </div>
+      <button class="mode px soon" id="hub-train" hidden></button>
+      <button class="mode px soon" id="hub-auto" hidden></button>
       <div class="guest-note px" id="guest-note">Trial mode: play <b>Classic</b> with everyone and <b>Practice</b> vs bots using demo Minds. <a href="#" id="guest-connect">Connect a wallet</a> to play ranked with your own Minds.</div>
     </div>
     <button class="board-tab px" id="board-tab" title="Show leaderboard"><img src="assets/icon_trophy.png" alt=""><span>TOP</span><div class="tab-pfps" id="board-tab-pfps"></div><b>‹</b></button>
@@ -271,6 +263,7 @@
       <button class="iconbtn px" id="isl-shop" title="Shop">🛒</button>
     </div>
   </div>
+  <div class="isl-coach px" id="isl-coach"></div>
   <div class="isl-sub"><span id="isl-sync" class="isl-chip px">☁ Saved</span><span id="isl-bonus" class="isl-chip px"></span></div>
   <div class="isl-bottom">
     <div class="isl-tip px" id="isl-tip"></div>

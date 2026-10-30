@@ -630,6 +630,7 @@ function placeAt(k) {
   if (d.w > 1 && !(isle.state.stash?.[buildType] > 0) && !(countOf(isle.state, buildType) < maxOf(buildType, isle.minds))) setTool('hand');
 }
 function openBuild(force) {
+  tourStep('buildmenu');
   const box = $('#isl-build');
   if (!force && box.classList.contains('on') && box.dataset.mode !== 'stash') return closeBuild();
   box.dataset.mode = 'build';
@@ -663,6 +664,7 @@ function openBMenu(b) {
   const site = b.done && b.done > now();
   const canUp = !site && UPGRADABLE[b.type] && lvOf(b) < MAX_LV;
   if (b.type === 'well') {   // the Energy Well: why the island matters for Ranked
+    tourStep('wellmenu');
     const n = wellShards(isle.state, now()), have = isle.state.inv.shard || 0, wait = SHARD_MS - ((now() - isle.state.wellAt) % SHARD_MS);
     box.innerHTML = `<img src="${buildIcon('well')}" alt=""><div><b>⚡ Energy Well</b><span>${n}/${SHARD_CAP} shards ready · next in ${fmtTime(wait)} · you hold ${have}. ${SHARDS_PER_ENERGY} shards = +1 Ranked energy.</span></div><button data-bm="well" ${n ? '' : 'disabled'}>Collect ${n}</button><button data-bm="move">↔ Move</button><button data-bm="x">✕</button>`;
     box.dataset.id = b.id; box.classList.add('on'); sfx('click');
@@ -743,6 +745,44 @@ document.getElementById('isl-shop').onclick = () => cb.shop();
 document.getElementById('isl-bag').onclick = () => cb.bag();
 document.getElementById('isl-home').onclick = () => { fitCam(); sfx('click'); };
 
+// ---------- the island tour: a coach who waits until you really do each step ----------
+const TOUR = [
+  { say: "Welcome to your floating island! Everything you do here makes you stronger in the whole game. Let's try it.", next: true },
+  { say: 'Crops make Dust, the money of the game. Tap 🌱 Plant, then tap an empty brown plot.', mark: '[data-tool=plant]', wait: 'plant' },
+  { say: 'Nice! Your Mind does the work. Now tap 🪓 Clear and tap some tall grass. Clearing gives Dust, wood and stone, and frees up land.', mark: '[data-tool=clear]', wait: 'clear' },
+  { say: 'This is the most important one: tap the ⚡ Energy Well near your house. It makes shards: 3 shards = +1 Ranked energy. Your island is how you get more Ranked games!', well: true, wait: 'wellmenu' },
+  { say: 'Ranked wins also send Dust back here. So: play Ranked → earn Dust → grow your island → get more energy → play more Ranked.', next: true },
+  { say: 'Tap 🔨 Build. Cottages give more plots, the Mill earns more, and walls and towers protect your island from raids. A Mind builds each one.', mark: '[data-tool=build]', wait: 'buildmenu' },
+  { say: '🧭 Adventure: fly to wild islands for loot, herbs and Gems. ⚔️ Raid: train troops, attack other islands and steal Dust.', mark: '.go', next: true },
+  { say: "That's it! Here is a welcome gift: 200 ✨, 3 💎 and 4 Carrot seeds. Have fun!", finish: true },
+];
+let tour = -1;
+function paintTour() {
+  const box = $('#isl-coach'), s = TOUR[tour];
+  document.querySelectorAll('.coach-mark').forEach(e => e.classList.remove('coach-mark'));
+  if (!s) { box.classList.remove('on'); return; }
+  box.innerHTML = `<span class="coach-n">${tour + 1}/${TOUR.length}</span><p>${s.say}</p><div>${s.next || s.finish ? `<button class="btn small primary" data-tour="next">${s.finish ? 'Collect gift' : 'Next'}</button>` : '<em>Do it to continue…</em>'}${s.finish ? '' : '<button class="btn small" data-tour="skip">Skip tour</button>'}</div>`;
+  box.classList.add('on');
+  if (s.mark) document.querySelectorAll(s.mark).forEach(e => e.classList.add('coach-mark'));
+  if (s.well) { setTool('hand'); const we = wellOf(isle.state, w); cam.x = (we.x + 1) * T; cam.y = (we.y + 1) * T; clampCam(); }
+  sfx('pop');
+}
+function tourStep(ev) { if (tour >= 0 && TOUR[tour]?.wait === ev) { tour++; setTimeout(paintTour, 500); } }
+function tourEnd(skip) {
+  tour = -1; paintTour();
+  const r = doAct({ type: 'tutorial', skip });
+  if (!skip && !r.error) { sfx('levelup'); cb.toast('Welcome gift: +200 ✨  +3 💎  +4 Carrot seeds'); }
+  flush();
+}
+document.getElementById('isl-coach').addEventListener('click', e => {
+  const k = e.target.closest('[data-tour]')?.dataset.tour; if (!k) return;
+  if (k === 'skip') return tourEnd(true);
+  if (TOUR[tour]?.finish) return tourEnd(false);
+  tour++; paintTour();
+});
+onChange(info => { if (info.act) tourStep(info.act.type); });
+export const startTour = () => { tour = 0; paintTour(); };
+
 // ---------- open / close ----------
 export function openIsland({ minds: ids = [], toast, shop, bag } = {}) {
   cb = { toast: toast || cb.toast, shop: shop || cb.shop, bag: bag || cb.bag };
@@ -753,6 +793,7 @@ export function openIsland({ minds: ids = [], toast, shop, bag } = {}) {
   minds = ids.slice(0, 12).map(makeMind);
   fx = []; jobs = []; selected = null; hover = -1;
   resize(); fitCam(); setTool(tool); paintHud();
+  if (!isle.state.tut && tour < 0) setTimeout(() => { if (running && !isle.state.tut) startTour(); }, 700);
   if (!running) { running = true; last = performance.now(); raf = requestAnimationFrame(frame); }
 }
 export function closeIsland() {

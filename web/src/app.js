@@ -19,7 +19,7 @@ import { AREAS, POTIONS_MAX, SPOTS, SHIPS, spotLevel } from './island/adventure.
 import { openMap, updateMap, closeMap } from './island/worldmap.js';
 import { initAdmin, tryCode } from './admin.js';
 import { isle, loadIsland, doAct, flush as flushIsland, resetIsland, refreshIsland, now as islandNow } from './island/store.js';
-import { CROPS, RAW, growMs, permitCost, MAX_PERMITS, ripe, SHOP, RECIPES, TROOP_MAX, troopCount, costText, canAfford, BUILD, STASH_MAX, gemPrice, ENERGY_PRICE, SHARDS_PER_ENERGY, REFILLS_PER_DAY } from './island/rules.js';
+import { CROPS, RAW, growMs, permitCost, MAX_PERMITS, ripe, SHOP, RECIPES, TROOP_MAX, troopCount, costText, canAfford, BUILD, STASH_MAX, gemPrice, ENERGY_PRICE, SHARDS_PER_ENERGY, REFILLS_PER_DAY, wellShards } from './island/rules.js';
 import { buildIcon } from './island/buildings.js';
 import { islandThumb } from './island/art.js';
 import { hashStr } from './island/gen.js';
@@ -507,15 +507,21 @@ $('#set-code-go').onclick = async () => {
 $('#hub-shop').onclick = () => openShop();
 // the lobby tile shows a picture of your own island (made once, after the lobby has settled)
 let thumbFor = null;
+let islandPeek = false;
 function islandTile() {
   const id = me?.id || me?.name || 'guest';
   if (thumbFor !== id) {
     thumbFor = id;
     setTimeout(() => { try { $('#hub-island').style.setProperty('--bg', `url(${islandThumb(isle.loaded ? isle.seed : hashStr(id))})`); } catch { /* fine without a picture */ } }, 900);
   }
-  const ready = isle.state ? Object.values(isle.state.tiles).filter(t => ripe(t, islandNow(), isle.minds)).length : 0;
-  $('#hub-island-ready').textContent = ready ? `${ready} ready` : '';
-  $('#hub-island-ready').style.display = ready ? 'block' : '';
+  // live status on the lobby tile, so you can see what is waiting for you
+  const st = isle.state, ready = st ? Object.values(st.tiles).filter(t => ripe(t, islandNow(), isle.minds)).length : 0, shards = st ? wellShards(st, islandNow()) : 0;
+  const sites = st ? (st.b || []).filter(b => b.done && b.done > islandNow()).length : 0;
+  const chips = [ready && `🌾 ${ready} ready`, shards && `⚡ ${shards} shard${shards > 1 ? 's' : ''}`, sites && `🔨 ${sites} building`, st && `✨ ${st.dust.toLocaleString()}`].filter(Boolean);
+  $('#hub-island-chips').innerHTML = chips.map(c => `<span>${c}</span>`).join('');
+  $('#hub-island').classList.toggle('wants', !!(ready || shards));
+  $('#hub-island-ready').textContent = ''; $('#hub-island-ready').style.display = '';
+  if (!isle.loaded && !islandPeek && me) { islandPeek = true; ensureIsland().then(() => { islandPeek = false; islandTile(); }); }
 }
 
 let shopTab = 'seeds';

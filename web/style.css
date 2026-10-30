@@ -778,3 +778,24 @@ h3.raid-result { text-align: center; }
 #toast { top: 42%; bottom: auto; transform: translate(-50%, calc(-50% + 12px)); z-index: 90; padding: 14px 24px; font-size: 20px; font-weight: 800; max-width: min(560px, 88vw); box-shadow: 0 0 0 3px var(--ink), 0 8px 0 3px rgba(29,27,47,.3), 0 0 0 100vmax rgba(29,27,47,0); }
 #toast.on { transform: translate(-50%, -50%); }
 #toast.bad { background: #ffe0e3; color: #8a1f2a; }
+
+/* ---- lobby: the island is impossible to miss ---- */
+.mode.island-big { --bg: linear-gradient(135deg, #7fd8ff, #b8f0a0); background-size: cover; background-position: center; min-height: 150px; box-shadow: 0 0 0 3px var(--ink), 0 0 0 6px #4fae5a, 0 7px 0 5px rgba(29,27,47,.3); }
+.mode.island-big .mode-txt b { font-size: 32px; }
+.mode.island-big.wants { animation: islGlow 1.6s ease-in-out infinite; }
+@keyframes islGlow { 50% { box-shadow: 0 0 0 3px var(--ink), 0 0 0 6px #d4ff1f, 0 0 26px 8px rgba(212,255,31,.75); } }
+.isl-chips { position: relative; display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.isl-chips span { background: rgba(29,27,47,.85); color: #fff; font-size: 13px; font-weight: 800; padding: 2px 8px; }
+.mode-row.three { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.mode-row.three .mode-txt b { font-size: 19px; }
+.mode-row.three .mode-txt span { font-size: 12px; }
+.mode[hidden] { display: none; }
+/* ---- island coach ---- */
+.isl-coach { display: none; position: absolute; left: 50%; top: 70px; transform: translateX(-50%); z-index: 12; width: min(520px, 92vw); background: var(--paper); padding: 10px 14px; }
+.isl-coach.on { display: block; animation: drop .3s ease-out; }
+.isl-coach p { margin: 2px 0 8px; font-size: 16px; font-weight: 700; line-height: 1.3; }
+.isl-coach div { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+.isl-coach em { margin-right: auto; color: var(--muted); font-style: normal; font-size: 13px; font-weight: 800; }
+.coach-n { font-size: 12px; font-weight: 900; color: var(--muted); }
+.coach-mark { animation: coachPulse 1s ease-in-out infinite; position: relative; z-index: 3; }
+@keyframes coachPulse { 50% { box-shadow: 0 0 0 4px #d4ff1f, 0 0 20px 8px rgba(212,255,31,.8); transform: translateY(-3px); } }

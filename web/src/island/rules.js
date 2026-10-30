@@ -356,6 +356,12 @@ export function act(st, a, { seed, now, minds = 0, instant = false }) {   // ins
       done = 1;
       break;
     }
+    case 'tutorial': {   // finished the island tour: a one-time welcome gift (skipping gives none)
+      if (st.tut) return { error: 'already done' };
+      st.tut = 1; done = 1;
+      if (!a.skip) { pay('dust', 200); pay('gems', 3); pay('seed_carrot', 4); }
+      break;
+    }
     case 'well': {   // collect the shards the Energy Well has made
       const n = wellShards(st, now);
       if (n < 1) return { error: `The well is still filling: 1 ⚡ shard every 4 hours.` };
