@@ -48,14 +48,8 @@ export function gen(seed) {
   const hc = { x: OX + Math.round(OW / 2 - 6 + (r() - 0.5) * 4), y: OY + Math.round(OH / 2 - 3 + (r() - 0.5) * 2) };   // house: 3×3 tiles, door at the bottom middle
   const well = { x: hc.x + 5, y: hc.y + 4 };                                                              // 2×2
   const pond = { x: PX + (OW / 2 + 9 + (r() - 0.5) * 4) * T, y: PY + (OH / 2 + 6 + (r() - 0.5) * 2) * T, r: 26 + r() * 6 };
-  // floating islets around the main island (more room to clear, farm and build)
+  // (v5: no more islets around the island — the owner wanted one clean floating island)
   const islets = [];
-  const spots = [[0.07, 0.3], [0.08, 0.72], [0.93, 0.28], [0.92, 0.7], [0.5, 0.06], [0.3, 0.93], [0.72, 0.94]];
-  for (let i = 0; i < spots.length; i++) {
-    if (i >= 4 && r() < 0.35) continue;
-    const [fx, fy] = spots[i];
-    islets.push({ x: fx * WW + (r() - 0.5) * 40, y: fy * WH + (r() - 0.5) * 30, rx: 60 + r() * 34, ry: 46 + r() * 24 });
-  }
   const isletH = (x, y) => {   // nearest islet only; the noise is only worked out close to an islet (it is the slow part)
     let best = -9; for (const s of islets) best = Math.max(best, 1 - Math.hypot((x - s.x) / s.rx, (y - s.y) / s.ry));
     return best < -0.4 ? best : best + (fbm(n1, x / 40 + 7, y / 40 + 7, 3) - 0.5) * 0.45;
@@ -87,7 +81,7 @@ export function gen(seed) {
     sizes.push(n);
   }
   const mainComp = comp[k(hc.x + 1, hc.y + 1)];
-  const portals = [{ k: k(dockX, shore - 1), comp: mainComp }];   // the main portal: at the end of the path from the house
+  const portals = [];   // (v5: no portals)
   for (let id = 0; id < sizes.length; id++) {
     if (id === mainComp || sizes[id] < 12) continue;
     let best = -1, bd = 1e9;   // the islet tile closest to the main island, not right at the edge

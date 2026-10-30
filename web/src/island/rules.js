@@ -121,7 +121,7 @@ export function newIsland(seed, now) {
   for (const k of w.starter) tiles[k] = { s: 'p', t: now };
   const st = { v: 2, dust: 100, gems: 0, inv: { seed_bean: 6, seed_carrot: 2, troop_brawler: 6, troop_archer: 4, potion: 2, fuel: 1 }, tiles };
   migrate3(st, seed);
-  st.v = 4;
+  st.v = 5;
   return st;
 }
 export const maxPlots = (st, minds) => BASE_PLOTS + Math.min(minds, MIND_PLOTS) + Math.min(st.inv.permit || 0, MAX_PERMITS) + housePlots(st);
@@ -162,9 +162,20 @@ function migrate3(st, seed) {
 export function normalize(st, seed, now) {
   migrate(st); migrate3(st, seed);
   for (const b of st.b || []) if (b.done && b.done <= now) { if (b.uplv) b.lv = b.uplv; delete b.done; delete b.start; delete b.uplv; }   // finished building / upgrade
+  if ((st.v || 1) < 5) {   // v5: the islets are gone; anything built there goes to storage, farm tiles there are dropped
+    const w5 = gen(seed);
+    for (const b of [...(st.b || [])]) {
+      if (footprint(b).every(t => w5.land[t])) continue;
+      st.b = st.b.filter(x => x !== b);
+      for (const t of footprint(b)) if (st.tiles[t]?.s === 'b') delete st.tiles[t];
+      if (!BUILD[b.type]?.fixed) { st.stash ||= {}; st.stash[b.type] = (st.stash[b.type] || 0) + 1; }
+    }
+    for (const k of Object.keys(st.tiles)) if (!w5.land[+k]) delete st.tiles[k];
+    if ((st.v || 1) >= 4) st.v = 5;
+  }
   if ((st.v || 1) < 4) {   // v4: everyone gets the starter army + supplies once (older islands had none, so Raid seemed broken)
     for (const [k, n] of Object.entries({ troop_brawler: 6, troop_archer: 4, potion: 2, fuel: 1 })) st.inv[k] = (st.inv[k] || 0) + n;
-    st.v = 4;
+    st.v = 5;
   }
   const w = gen(seed);
   for (const [k, t] of Object.entries(st.tiles)) {

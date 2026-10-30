@@ -361,7 +361,7 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   ok(R.act(st, { type: 'build', item: 'crystal', tiles: [ck] }, ctx).done === 1 && st.gems === 0, 'gem-exclusive decorations cost gems');
   const v2 = { v: 2, dust: 0, inv: {}, tiles: {} };
   R.normalize(v2, seed, now);
-  ok(v2.v === 4 && v2.b.filter(b => b.type === 'home').length === 1 && v2.inv.troop_brawler === 6, 'older islands get their home as a movable building and a starter army');
+  ok(v2.v === 5 && v2.b.filter(b => b.type === 'home').length === 1 && v2.inv.troop_brawler === 6, 'older islands get their home as a movable building and a starter army');
   // raid: you bring troops you own; the ones you don't send come back
   const raidRoute = (await import('../lib/routes/raid.js')).default, RD = await import('../web/src/island/raid.js');
   const pl = await db.insert('players', { name: 'Trainer', is_guest: true });
@@ -506,6 +506,16 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   out = await call({ op: 'claim', tx: '0x' + 'd'.repeat(64), pack: 'pouch' });
   ok(out.code === 400 && /treasury/.test(out.body.error), 'payments to other addresses do not count');
   delete process.env.TREASURY_ADDRESS;
+}
+
+// ---- v5: no islets / portals; things built on old islets go to storage ----
+{
+  const R = await import('../web/src/island/rules.js'), { gen } = await import('../web/src/island/gen.js');
+  const w = gen(808);
+  ok(w.islets.length === 0 && w.portals.length === 0, 'the home island is one island again (no islets, no portals)');
+  const st = { v: 4, dust: 0, gems: 0, inv: {}, tiles: { 0: { s: 'b', t: 0 }, 1: { s: 'p', t: 0 } }, b: [{ id: 1, type: 'bench', k: 0 }], nb: 2 };
+  R.normalize(st, 808, Date.now());
+  ok(st.v === 5 && !st.b.some(b => b.type === 'bench') && st.stash.bench === 1 && !st.tiles[1], 'buildings on old islets move to storage; farm tiles there are dropped');
 }
 console.log(`
 ${pass} passed, ${fail} failed`);
