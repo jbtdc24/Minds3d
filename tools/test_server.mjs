@@ -51,7 +51,7 @@ function playAdv(map, opts, taps) {
   for (const a of taps) {
     if (S.over) break;
     inputs.push({ t: S.tick, ...a }); advInput(S, a);
-    for (let i = 0; i < 700 && !S.over && (S.hero.path.length || S.hero.gather || S.hero.target); i++) advStep(S);
+    for (let i = 0; i < 900 && !S.over && (S.hero.path.length || S.hero.gather || S.hero.target || S.hero.act === 'hit'); i++) advStep(S);
     S.fx.length = 0;
   }
   return { S, inputs, end: S.tick };

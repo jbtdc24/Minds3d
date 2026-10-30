@@ -117,8 +117,9 @@ export function advStep(S) {
     } else if ((h.swing += dt) > 0.3) { h.swing = 0; S.fx.push({ e: 'chop', c }); }
   } else if (h.gather && !h.path.length) {
     const n = h.gather, guard = S.mons.find(m => m.guards === n.id && !m.dead);
-    if (Math.hypot(n.x - h.x, n.y - h.y) > 24) h.gather = null;
-    else if (guard) { h.gather = null; h.target = guard; S.fx.push({ e: 'guarded', n }); }
+    if (Math.hypot(n.x - h.x, n.y - h.y) > 24) {   // a fight stopped you on the way: walk back when it is over
+      if (!foe && (h.repath -= dt) <= 0) { h.path = pathTo(S.w, tileOf(h.x, h.y), n.k); h.path.pop(); h.repath = 0.5; if (!h.path.length) h.gather = null; }
+    } else if (guard) { h.gather = null; h.target = guard; S.fx.push({ e: 'guarded', n }); }
     else if ((n.prog += dt / NODES[n.type].time) >= 1) { n.done = true; S.got.push(n.id); h.gather = null; S.fx.push({ e: 'node', n }); }
     else if ((h.swing += dt) > 0.35) { h.swing = 0; S.fx.push({ e: 'dig', n }); }
   }
