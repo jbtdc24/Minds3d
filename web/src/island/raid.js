@@ -335,6 +335,8 @@ export function lootOf(dust, barns, pct, share = LOOT_SHARE) {
 }
 // raids per day: 6 for everyone, +1 per Mind owned (max +3)
 export const raidsPerDay = minds => 6 + Math.min(3, minds | 0);
+// full loot of a game village by level (you get the % you destroy): 500 / 800 / 1,100
+export const botLoot = level => 200 + 300 * level;
 export const RAID_FEE_PER_SPACE = 5;                                   // supplies: 5 Dust per camp space you bring
 export const raidFee = troops => RAID_FEE_PER_SPACE * armyUsed(troops || {});
 

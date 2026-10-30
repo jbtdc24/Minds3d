@@ -2,6 +2,7 @@
 // uses the same numbers to check what you brought home). Nodes give loot when gathered; monsters roam and fight;
 // chests are guarded (you must beat the guard first). The ruined hut in the middle hides the boss and the big chest.
 import { gen, COVER, T, TW, TH, hash } from './gen.js';
+import { SHIP_COSTS } from './rules.js';
 
 // the world map: each area unlocks when you beat the Ogre of the one before; far areas cost Sky Fuel to fly to
 export const AREAS = [
@@ -13,9 +14,9 @@ export const AREAS = [
 // airships decide how far you can fly on the world map (tier 0 = the free balloon raft: the islands near home)
 export const SHIPS = [
   { name: 'Balloon Raft', icon: '🎈', cost: {}, gems: 0, desc: 'Reaches the islands near home.' },
-  { name: 'Sky Skiff', icon: '⛵', cost: { dust: 800, wood: 40 }, gems: 15, desc: 'Reaches the Crystal islands (tier 1).' },
-  { name: 'Cloud Galleon', icon: '🚢', cost: { dust: 3000, wood: 120, stone: 80 }, gems: 40, desc: 'Reaches the Ember islands (tier 2).' },
-  { name: 'Storm Cruiser', icon: '⚡', cost: { dust: 8000, wood: 250, stone: 200 }, gems: 90, desc: 'Reaches the Storm islands (tier 3).' },
+  { ...SHIP_COSTS[1], icon: '⛵', desc: 'Reaches the tier 1 islands.' },
+  { ...SHIP_COSTS[2], icon: '🚢', desc: 'Reaches the tier 2 islands.' },
+  { ...SHIP_COSTS[3], icon: '⚡', desc: 'Reaches the tier 3 islands.' },
 ];
 // places to fly to: x/y on the world map (0-1600 × 0-1000); tier = airship needed (and fuel per flight); level = monster strength
 export const SPOTS = [

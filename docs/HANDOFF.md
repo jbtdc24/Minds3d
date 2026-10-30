@@ -30,6 +30,12 @@ Owner: Mindclash game owner. Hates long text: short replies, decide for them, bu
 
 ## Notes 2026-10-30 late: islets + portals REMOVED from the home island (owner: not functional). Admin gifts now show (refreshIsland). Live smoke test: scratchpad smoke.mjs pattern (guest → island/shop/raid/adventure/gems/admin) all OK.
 
+## Round 7 status (2026-10-30): DONE = raid fix (chibi import), raid fee, lo-fi music, centred messages, Energy Well + energy refills, ranked Dust,
+lobby island tile, island tour, economy pass (docs/ECONOMY.md), retest list (docs/TESTLIST.md). Remaining ideas: richer world-map/island detail, Train Mind / Auto Battle, custom domain.
+RULES FOR NEXT SESSION: (1) test wallet-account paths, guests hide bugs; (2) run the undefined-name scan before shipping:
+`npx --yes eslint@8 --no-eslintrc --env browser,es2022,node --parser-options=sourceType:module,ecmaVersion:latest --rule '{"no-undef":"error"}' web/src lib api`
+(3) python patch scripts must assert every replacement (a silent miss cost us all the music); (4) never push with a failing test.
+
 ## NEXT TASKS — round 7 (owner 2026-10-30)
 1. [ ] Raid button "doesn't work again" — never fail silently: show every error, loading feedback; find root cause.
 2. [ ] Raids cost a Dust fee (entry fee) — part of the economy.

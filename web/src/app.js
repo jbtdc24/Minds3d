@@ -12,7 +12,7 @@ import { capOf, ENERGY_CAP } from './energy.js';
 import { openIsland, closeIsland, refreshHud, cropImg, fmtTime } from './island/island.js';
 import { chibi } from './island/chibi.js';
 import { openRaid, closeRaid } from './island/raidview.js';
-import { botVillage, armyCap, cleanArmy, armyUsed, TROOPS, DEFAULT_ARMY, raidsPerDay, raidFee } from './island/raid.js';
+import { botVillage, armyCap, cleanArmy, armyUsed, TROOPS, DEFAULT_ARMY, raidsPerDay, raidFee, botLoot } from './island/raid.js';
 import { troopIcon } from './island/troops.js';
 import { openAdventure, closeAdventure } from './island/advview.js';
 import { AREAS, POTIONS_MAX, SPOTS, SHIPS, spotLevel } from './island/adventure.js';
@@ -423,7 +423,7 @@ async function startRaid(revenge = 0) {
   closeIsland(); show('raid');
   await banner(`<div class="bt">RAID!</div><small>${esc(local ? snap.name : target.name)}'s island</small>`, 1100);
   openRaid({
-    snap, minds: [lead], army, name: `⚔️ ${local ? snap.name : target.name}`, loot: local ? Math.floor((snap.dust || 1000) * 0.18) : target.loot,
+    snap, minds: [lead], army, name: `⚔️ ${local ? snap.name : target.name}`, loot: local ? botLoot(snap.level || 1) : target.loot,
     toast: (m, bad) => toast(m, bad),
     onEnd: async (inputs, res0) => {
       let res = { ...res0, loot: 0 };
@@ -557,7 +557,7 @@ function paintShop() {
       : '<div class="inv-empty"><div class="inv-chest">🧺</div><b>Nothing to sell yet</b><span>Harvest crops on your island, or clear trees and rocks for wood and stone.</span></div>';
   } else if (shopTab === 'land') {
     const have = inv.permit || 0, cost = permitCost(have), max = have >= MAX_PERMITS;
-    html = shopCard('<i>📜</i>', 'Land Permit', `+1 farm plot forever. Plots: 6 free, +1 per Mind you own (up to 6), +1 per permit (up to ${MAX_PERMITS}).`, `${have}/${MAX_PERMITS}`,
+    html = shopCard('<i>📜</i>', 'Land Permit', `+1 farm plot forever. Plots: 12 free, +1 per Mind you own (up to 8), +2 or more per Cottage, +1 per permit (up to ${MAX_PERMITS}).`, `${have}/${MAX_PERMITS}`,
       max ? '<button class="btn small" disabled>All bought</button>' : `<button class="btn small primary" data-act="buy" data-item="permit" data-n="1" ${st.dust < cost ? 'disabled' : ''}>Buy · ${cost.toLocaleString()} ✨</button><button class="btn small gem" data-act="buy" data-gems="1" data-item="permit" data-n="1" ${(st.gems || 0) < gemPrice({ dust: cost }) ? 'disabled' : ''}>${gemPrice({ dust: cost })} 💎</button>`);
   } else if (shopTab === 'army' || shopTab === 'items' || shopTab === 'gems') {
     const keys = Object.keys(SHOP).filter(k => shopTab === 'army' ? k.startsWith('troop_') : shopTab === 'gems' ? SHOP[k].gem : !k.startsWith('troop_') && !SHOP[k].gem);
@@ -1323,6 +1323,8 @@ async function friendsPoll() {
 // ---------- rules ----------
 function renderCodex() {
   $('#codex').innerHTML = `
+  <h3>🏝️ Why your island matters</h3>
+  <p>Ranked uses ⚡ energy. Your island's <b>Energy Well</b> makes shards: <b>3 shards = +1 energy</b>. Ranked wins send <b>Dust</b> back to your island. Dust grows your farm, trains troops for <b>raids</b> and buys airships for <b>adventures</b>. The island never changes who wins a duel: it gives you more games, not more power.</p>
   <h3><img src="assets/crown.png" alt="">The goal</h3>
   <p>Get more crown points than your rival. Each round has <b>7 prizes</b> drawn at random from <b>1 to 15</b> points, so some values never come up. You only see the prize up for grabs now, plus a hint for the next one (<b>LOW</b> 1-5, <b>MID</b> 6-10, <b>HIGH</b> 11-15). Win <b>2 rounds</b> to win the match.</p>
   <h3><img src="assets/icon_swords.png" alt="">A turn</h3>

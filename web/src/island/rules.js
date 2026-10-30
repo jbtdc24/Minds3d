@@ -22,12 +22,12 @@ export const speedBonus = minds => Math.min(minds, 6) * 0.05;          // each M
 export const growMs = (crop, minds) => CROPS[crop].grow * (1 - speedBonus(minds));
 // village buildings + defences (see docs/VILLAGE_RAIDS.md). hp is used by raids.
 export const BUILD = {
-  house: { name: 'Cottage', icon: '🏡', w: 2, h: 2, cost: { dust: 200, wood: 15 }, max: 4, hp: 520, desc: '+2 farm plots each' },
-  mill: { name: 'Mill', icon: '🌾', w: 2, h: 2, cost: { dust: 400, wood: 25, stone: 10 }, max: 1, hp: 600, desc: 'Crops sell for 25% more' },
-  barn: { name: 'Barn', icon: '🛖', w: 2, h: 2, cost: { dust: 300, wood: 20 }, max: 2, hp: 700, desc: 'Keeps 1,000 ✨ safe from raiders' },
+  house: { name: 'Cottage', icon: '🏡', w: 2, h: 2, cost: { dust: 500, wood: 30 }, max: 4, hp: 520, desc: '+2 farm plots each' },
+  mill: { name: 'Mill', icon: '🌾', w: 2, h: 2, cost: { dust: 1500, wood: 60, stone: 30 }, max: 1, hp: 600, desc: 'Crops sell for 25% more' },
+  barn: { name: 'Barn', icon: '🛖', w: 2, h: 2, cost: { dust: 1000, wood: 50 }, max: 2, hp: 700, desc: 'Keeps 1,000 ✨ safe from raiders' },
   wall: { name: 'Wall', icon: '🧱', w: 1, h: 1, cost: { stone: 3 }, max: 80, hp: 160, desc: 'Blocks raiders. Drag to build a line.' },
-  tower: { name: 'Watchtower', icon: '🗼', w: 1, h: 1, cost: { dust: 150, wood: 10, stone: 15 }, max: m => Math.min(6, 2 + m), hp: 480, desc: 'Shoots raiders (2 + 1 per Mind you own, max 6)' },
-  trap: { name: 'Spike Trap', icon: '📌', w: 1, h: 1, cost: { dust: 40, wood: 4 }, max: 6, hp: 0, desc: 'Hidden from raiders. 35 damage, once per raid' },
+  tower: { name: 'Watchtower', icon: '🗼', w: 1, h: 1, cost: { dust: 600, wood: 25, stone: 40 }, max: m => Math.min(6, 2 + m), hp: 480, desc: 'Shoots raiders (2 + 1 per Mind you own, max 6)' },
+  trap: { name: 'Spike Trap', icon: '📌', w: 1, h: 1, cost: { dust: 100, wood: 8 }, max: 6, hp: 0, desc: 'Hidden from raiders. 35 damage, once per raid' },
   // always on the island, can be moved (not removed or stored)
   home: { name: 'Home', icon: '🏠', w: 3, h: 3, cost: {}, max: 1, hp: 1100, fixed: true, desc: 'Your house. Raiders want it.' },
   well: { name: 'Energy Well', icon: '⛲', w: 2, h: 2, cost: {}, max: 1, hp: 0, fixed: true, deco: true, desc: 'A glowing well.' },
@@ -76,7 +76,7 @@ export const SHOP = {
 export const TROOP_MAX = 60;                           // troops you can keep trained
 export const troopCount = st => Object.entries(st.inv).filter(([k]) => k.startsWith('troop_')).reduce((s, [, n]) => s + n, 0);
 // airship tiers (same numbers as adventure.js SHIPS; kept here so rules.js has no extra import)
-export const SHIP_COSTS = [null, { name: 'Sky Skiff', cost: { dust: 800, wood: 40 }, gems: 15 }, { name: 'Cloud Galleon', cost: { dust: 3000, wood: 120, stone: 80 }, gems: 40 }, { name: 'Storm Cruiser', cost: { dust: 8000, wood: 250, stone: 200 }, gems: 90 }];
+export const SHIP_COSTS = [null, { name: 'Sky Skiff', cost: { dust: 2000, wood: 80 }, gems: 24 }, { name: 'Cloud Galleon', cost: { dust: 10000, wood: 300, stone: 200 }, gems: 125 }, { name: 'Storm Cruiser', cost: { dust: 30000, wood: 800, stone: 600 }, gems: 375 }];
 export const RECIPES = { potion: { name: 'Health Potion', needs: { herb: 2 }, gives: { potion: 1 } } };
 export const HOME_HP = 1100;
 export const maxOf = (type, minds) => {
@@ -87,7 +87,7 @@ export const MILL_BONUS = 0.25, BARN_SAFE = 1000;
 export const UPGRADABLE = { home: 1, house: 1, mill: 1, barn: 1, tower: 1, wall: 1 };
 export const MAX_LV = 3;
 export const lvOf = b => b.lv || 1;
-export const upgradeCost = b => { const base = BUILD[b.type].cost, m = lvOf(b) * 1.6; const c = Object.fromEntries(Object.entries(base).map(([k, n]) => [k, Math.ceil(n * m)])); if (b.type === 'home') return { dust: 500 * lvOf(b), wood: 40 * lvOf(b), stone: 40 * lvOf(b) }; return c; };
+export const upgradeCost = b => { const base = BUILD[b.type].cost, m = lvOf(b) * 1.6; const c = Object.fromEntries(Object.entries(base).map(([k, n]) => [k, Math.ceil(n * m)])); if (b.type === 'home') return { dust: 1500 * lvOf(b), wood: 80 * lvOf(b), stone: 80 * lvOf(b) }; return c; };
 export const upgradeSecs = b => b.type === 'wall' ? 0 : Math.round((BUILD_SECS[b.type] || 300) * lvOf(b) * 1.5);
 export const hpMult = lv => 1 + 0.5 * ((lv || 1) - 1);
 const finished = (st, type) => (st.b || []).filter(b => b.type === type && (!b.done || b.uplv));   // being upgraded = still works at its old level

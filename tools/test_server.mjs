@@ -241,7 +241,7 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   st.dust = 5000; st.inv.wood = 500; st.inv.stone = 500;
   const spot = type => { for (let k = 0; k < TW * TH; k++) if (R.fits(st, w, type, k)) return k; return -1; };
   let r = R.act(st, { type: 'build', item: 'house', k: spot('house') }, ctx);
-  ok(r.done === 1 && st.dust === 4800 && R.maxPlots(st, 0) === 14, 'a cottage costs 200 Dust + wood and gives +2 plots');
+  ok(r.done === 1 && st.dust === 4500 && R.maxPlots(st, 0) === 14, 'a cottage costs 500 Dust + wood and gives +2 plots');
   const hk = st.b[0].k;
   ok(R.act(st, { type: 'build', item: 'barn', k: hk }, ctx).error, 'buildings cannot overlap');
   ok(R.coverAt(st, w, hk) === 5, 'building tiles count as fixed ground (no weeds, no plots)');
@@ -255,7 +255,7 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   ok(R.act(st, { type: 'build', item: 'tower', tiles: [spot('tower')] }, ctx).error, 'tower limit: 2 + 1 per Mind owned');
   const before = st.inv.stone;
   r = R.act(st, { type: 'demolish', id: st.b.find(b => b.type === 'tower').id }, ctx);
-  ok(r.done === 1 && st.inv.stone === before + 7, 'removing a building refunds half');
+  ok(r.done === 1 && st.inv.stone === before + 20, 'removing a building refunds half');
   // raid sim: deterministic, and the server replay = what the client saw
   const snap = RD.botVillage(4242, 1);
   const army = { troops: { brawler: 4, archer: 3, bomber: 1, giant: 0 }, hero: 'captain' };
@@ -382,7 +382,7 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   const callA = async body => { const token = signSession({ id: pl.id, address: null, is_guest: true }); let o = null; const res = { setHeader() {}, end(t) { o = { code: this.statusCode, body: JSON.parse(t) }; }, headersSent: false }; await advRoute({ method: 'POST', url: '/api/adventure', headers: { authorization: 'Bearer ' + token }, body, query: {} }, res); return o; };
   out = await callA({ op: 'start', spot: 4 });
   ok(out.code === 403 && /Skiff/.test(out.body.error), 'far islands need a better airship');
-  isl.state.dust = 900; isl.state.inv.wood = 40;
+  isl.state.dust = 2100; isl.state.inv.wood = 80;
   ok(R.act(isl.state, { type: 'ship' }, { seed: 4242, now: Date.now(), minds: 0 }).done === 1 && isl.state.ship === 1 && isl.state.dust === 100, 'upgrade the airship with Dust + wood');
   isl.state.inv.fuel = 0;
   out = await callA({ op: 'start', spot: 4 });
@@ -461,6 +461,7 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
 {
   const R = await import('../web/src/island/rules.js'), RD = await import('../web/src/island/raid.js'), AD = await import('../web/src/island/adventure.js');
   const { gen, TW, TH } = await import('../web/src/island/gen.js');
+  ok(RD.botLoot(1) === 500 && RD.botLoot(3) === 1100, 'game village loot grows with level');
   const v = RD.botVillage(777, 3);
   ok(v.b.filter(b => b.type === 'tower').length >= 3, 'game villages are finished (towers ready to shoot)');
   const seed = 66, now = Date.now(), st = R.newIsland(seed, now), w = gen(seed);
@@ -544,6 +545,45 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   await forfeit(m2.id, alice.id);
   const isl = T.islands.find(x => x.player_id === alice.id);
   ok(isl.state.dust === 100 + duelDust(false, 2, true), 'a ranked duel sends Dust to your island');
+}
+
+// ---- wallet (holder) accounts: the paths guests never reach ----
+{
+  const R = await import('../web/src/island/rules.js'), RD = await import('../web/src/island/raid.js'), chain = await import('../lib/chain.js');
+  const raidRoute = (await import('../lib/routes/raid.js')).default, advRoute = (await import('../lib/routes/adventure.js')).default, energyRoute = (await import('../lib/routes/energy.js')).default;
+  const { TW, TH } = await import('../web/src/island/gen.js');
+  const addr = '0x48C61f0Ca53259938F5B215ECf4f6b5246f3eA37';
+  const holder = await db.insert('players', { name: 'Holder', address: addr, pfp: 49, showcase: [49] });
+  const now = Date.now(), st = R.newIsland(11, now); st.dust = 2000; st.inv.shard = 3;
+  T.islands.push({ player_id: holder.id, seed: 11, state: st, minds: 2, rev: 0, updated_at: new Date().toISOString() });
+  const mc = chain.client.multicall;
+  chain.client.multicall = async ({ contracts }) => contracts.map(() => ({ status: 'success', result: addr }));
+  const call = async (fn, body, url) => { const token = signSession({ id: holder.id, address: addr }); let o = null; const res = { setHeader() {}, end(t) { o = { code: this.statusCode, body: JSON.parse(t) }; }, headersSent: false }; await fn({ method: 'POST', url, headers: { authorization: 'Bearer ' + token }, body, query: {} }, res); return o; };
+  const isl = T.islands.find(x => x.player_id === holder.id);
+  let out = await call(raidRoute, { op: 'find', minds: [49], army: { brawler: 4, archer: 3 } }, '/api/raid');
+  ok(out.code === 200 && out.body.hero === 'hero' && out.body.cap === 12 && out.body.fee === 35, 'a holder raids with their Mind as hero, a bigger camp, and pays supplies');
+  ok(isl.state.dust === 2000 - 35, 'raid supplies are paid in Dust');
+  const S = RD.createRaid(out.body.snap, { troops: out.body.army, hero: out.body.hero }), spots = [];
+  for (let k = 0; k < TW * TH; k++) if (RD.dropOk(S, k)) spots.push(k);
+  ok(!RD.input(S, { t: 0, drop: 'hero', k: spots[0] }) && !RD.input(S, { t: 1, cry: 1 }), 'the hero drops and shouts Battle Cry');
+  out = await call(raidRoute, { op: 'attack', id: out.body.id, inputs: [{ t: 0, drop: 'hero', k: spots[0] }, { t: 1, cry: 1 }], claim: 0 }, '/api/raid');
+  ok(out.code === 200, 'the holder raid finishes');
+  out = await call(advRoute, { op: 'start', spot: 0, mind: 49 }, '/api/adventure');
+  ok(out.code === 200 && out.body.heroKind === 'hero', 'a holder adventures with their Mind');
+  T.mind_energy.push({ token_id: 49, day: new Date().toISOString().slice(0, 10), used: 3 });
+  out = await call(energyRoute, { mind: 49, pay: 'shard' }, '/api/energy');
+  ok(out.code === 200 && !isl.state.inv.shard && T.mind_energy.find(e => e.token_id === 49).used === 2, '3 shards buy +1 energy');
+  out = await call(energyRoute, { mind: 49, pay: 'gems' }, '/api/energy');
+  ok(out.code === 403, 'energy with Gems needs Gems');
+  isl.state.gems = 20;
+  await call(energyRoute, { mind: 49, pay: 'gems' }, '/api/energy');
+  await call(energyRoute, { mind: 49, pay: 'gems' }, '/api/energy');
+  out = await call(energyRoute, { mind: 49, pay: 'gems' }, '/api/energy');
+  ok(out.code === 403 || out.code === 400, 'max 3 refills per Mind per day');
+  chain.client.multicall = async ({ contracts }) => contracts.map(() => ({ status: 'success', result: '0x000000000000000000000000000000000000dEaD' }));
+  out = await call(energyRoute, { mind: 50, pay: 'dust' }, '/api/energy');
+  ok(out.code === 403, "you cannot refill someone else's Mind");
+  chain.client.multicall = mc;
 }
 console.log(`
 ${pass} passed, ${fail} failed`);
