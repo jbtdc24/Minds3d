@@ -10,6 +10,8 @@ import { initAudio, sfx, music, setVolume } from './audio.js';
 import { PHRASES, MATCH_CHAT, FRIEND_CHAT, BOT_REPLIES } from './chat.js';
 import { capOf, ENERGY_CAP } from './energy.js';
 import { openIsland, closeIsland, refreshHud, cropImg, fmtTime } from './island/island.js';
+import { openRaid, closeRaid } from './island/raidview.js';
+import { botVillage, lootOf } from './island/raid.js';
 import { isle, loadIsland, doAct, flush as flushIsland, resetIsland, now as islandNow } from './island/store.js';
 import { CROPS, RAW, growMs, permitCost, MAX_PERMITS, ripe } from './island/rules.js';
 import { islandThumb } from './island/art.js';
@@ -328,10 +330,47 @@ async function goIsland() {
   if (!(await ensureIsland())) return;
   show('island'); stage.paused = true;
   openIsland({ minds: myMinds, toast: (m, bad) => toast(m, bad), shop: tab => openShop(tab), bag: () => { invTab = 'items'; openInventory(); } });
+  // raided while you were away?
+  const log = (isle.state?.raidLog || []).filter(e => e.at > (settings.raidSeen || 0));
+  if (log.length) {
+    settings.raidSeen = log[0].at; saveSettings();
+    const lost = log.reduce((s, e) => s + e.loot, 0), sh = isle.state.shield > Date.now() ? `<p>🛡 Your island is shielded for ${fmtTime(isle.state.shield - Date.now())}.</p>` : '';
+    modal(`<h3>⚔️ Your island was raided</h3>${log.map(e => `<p><b>${esc(e.by)}</b> · ${'★'.repeat(e.stars)}${'☆'.repeat(3 - e.stars)} · ${e.pct}% · −${e.loot.toLocaleString()} ✨</p>`).join('')}<p>Total lost: <b>${lost.toLocaleString()} ✨</b>. Build walls, towers and traps (🔨 Build), and barns keep Dust safe.</p>${sh}`, [['Got it', true, 'primary']]);
+  }
 }
 $('#hub-island').onclick = goIsland;
 $('#shop-go-island').onclick = goIsland;
 $('#isl-back').onclick = () => enterHub();
+// ---------- raids: attack another island (or a bot village when there is nobody / you are on a trial account) ----------
+async function startRaid() {
+  sfx('click');
+  const raiders = [...(picked().length ? picked() : myMinds)].slice(0, 3);
+  while (raiders.length < 3) raiders.push(raiders[0] ?? 49);
+  let target = null;
+  if (online && !guest) {
+    try { target = await api('raid', { op: 'find', minds: raiders }); }
+    catch (e) { if (e.status === 403) return toast(e.message, true); toast(`${e.message} Practice raid instead.`); }
+  }
+  const practice = !target?.snap;
+  const level = Math.min(3, 1 + Math.floor((settings.raidWins || 0) / 2));
+  const snap = practice ? botVillage((Math.random() * 2 ** 31) | 0, level) : target.snap;
+  closeIsland(); show('raid');
+  openRaid({
+    snap, minds: raiders, name: practice ? `🤖 ${snap.name} (practice)` : `⚔️ ${target.name}'s island`, loot: practice ? 0 : target.loot,
+    toast: (m, bad) => toast(m, bad),
+    onEnd: async (inputs, local) => {
+      let res = { ...local, loot: 0 };
+      if (!practice) {
+        try { res = await api('raid', { op: 'attack', id: target.id, inputs }); resetIsland(); }
+        catch (e) { toast(e.message, true); }
+      } else if (local.stars >= 2) { settings.raidWins = (settings.raidWins || 0) + 1; saveSettings(); }
+      const stars = '★'.repeat(res.stars) + '☆'.repeat(3 - res.stars);
+      await modal(`<h3 class="raid-result">${res.stars ? 'Raid won!' : 'Raid failed'}</h3><div class="raid-stars big">${stars}</div><p>${Math.round(res.pct * 100)}% destroyed${res.home ? ' · house down' : ''}</p>${practice ? '<p class="muted">Practice raid: no loot. Win with 2+ stars to face a tougher village.</p>' : `<p><b>+${(res.loot || 0).toLocaleString()} ✨</b> loot</p>`}`, [['Back to my island', true, 'primary']]);
+      closeRaid(); goIsland();
+    },
+  });
+}
+$('#isl-raid').onclick = () => startRaid();
 $('#hub-shop').onclick = () => openShop();
 // the lobby tile shows a picture of your own island (made once, after the lobby has settled)
 let thumbFor = null;

@@ -26,6 +26,7 @@ Demolish refunds 50%.
 
 ## Status
 - [x] rules: buildings in rules.js + art (island/buildings.js) + build mode UI (🔨 Build, tap building = move/remove)
-- [ ] raid sim + raid screen (practice vs bot village first)
-- [ ] server: find/attack route, loot, shields, raid log
-- [ ] test + ship
+- [x] raid sim (island/raid.js, balance: tools/sim_raid.mjs) + raid screen (island/raidview.js, ⚔ Raid on the island)
+- [x] server: lib/routes/raid.js find/attack, loot, shields, raid log + 'you were raided' notice
+- [x] test (74 server tests) + ship 2026-10-30
+- [ ] next ideas: building upgrades/levels, replay of raids on your island, revenge button, raid leaderboard points, Adventure (hunt in the wild)

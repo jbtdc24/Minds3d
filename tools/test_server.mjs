@@ -223,6 +223,62 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   out = await call(g.id, { acts: [{ type: 'sell', item: 'seed_bean', n: 1 }] });
   ok(out.body.results[0].error && out.body.points === 0, 'seeds cannot be sold; guests earn no points');
 }
+
+// ---- village buildings + raids ----
+{
+  const { gen, TW, TH } = await import('../web/src/island/gen.js');
+  const R = await import('../web/src/island/rules.js');
+  const RD = await import('../web/src/island/raid.js');
+  const seed = 777, now = Date.now(), st = R.newIsland(seed, now), w = gen(seed), ctx = { seed, now, minds: 0 };
+  st.dust = 5000; st.inv.wood = 500; st.inv.stone = 500;
+  const spot = type => { for (let k = 0; k < TW * TH; k++) if (R.fits(st, w, type, k)) return k; return -1; };
+  let r = R.act(st, { type: 'build', item: 'house', k: spot('house') }, ctx);
+  ok(r.done === 1 && st.dust === 4800 && R.maxPlots(st, 0) === 8, 'a cottage costs 200 Dust + wood and gives +2 plots');
+  const hk = st.b[0].k;
+  ok(R.act(st, { type: 'build', item: 'barn', k: hk }, ctx).error, 'buildings cannot overlap');
+  ok(R.coverAt(st, w, hk) === 5, 'building tiles count as fixed ground (no weeds, no plots)');
+  r = R.act(st, { type: 'build', item: 'mill', k: spot('mill') }, ctx);
+  ok(r.done === 1 && R.act(st, { type: 'build', item: 'mill', k: spot('mill') }, ctx).error, 'only one mill');
+  st.inv.crop_bean = 2;
+  r = R.act(st, { type: 'sell', item: 'crop_bean', n: 1 }, ctx);
+  ok(r.gain.dust === Math.round(15 * 1.25), 'the mill makes crops sell for 25% more');
+  const t3 = [spot('tower')]; R.act(st, { type: 'build', item: 'tower', tiles: t3 }, ctx);
+  R.act(st, { type: 'build', item: 'tower', tiles: [spot('tower')] }, ctx);
+  ok(R.act(st, { type: 'build', item: 'tower', tiles: [spot('tower')] }, ctx).error, 'tower limit: 2 + 1 per Mind owned');
+  const before = st.inv.stone;
+  r = R.act(st, { type: 'demolish', id: st.b.find(b => b.type === 'tower').id }, ctx);
+  ok(r.done === 1 && st.inv.stone === before + 7, 'removing a building refunds half');
+  // raid sim: deterministic, and the server replay = what the client saw
+  const snap = RD.botVillage(4242, 1);
+  const S = RD.createRaid(snap, 3), spots = [];
+  for (let k = 0; k < TW * TH; k++) if (RD.dropOk(S, k)) spots.push(k);
+  ok(spots.length > 50 && !RD.dropOk(S, S.structs[0].tiles[0]), 'drops only on open land away from buildings');
+  const inputs = [{ t: 0, drop: 0, k: spots[0] }, { t: 3, drop: 1, k: spots[5] }, { t: 7, drop: 2, k: spots[9] }, { t: 60, spell: 'rage', k: spots[0] }];
+  const a = RD.replay(snap, 3, inputs), b = RD.replay(JSON.parse(JSON.stringify(snap)), 3, inputs);
+  ok(a.stars === b.stars && a.pct === b.pct && a.S.tick === b.S.tick, 'raid replay is deterministic');
+  ok(RD.input(RD.createRaid(snap, 3), { t: 0, drop: 0, k: S.structs[0].tiles[0] }), 'cannot drop on a building');
+  ok(RD.lootOf(5000, 2, 1) === 750 && RD.lootOf(1500, 2, 1) === 0 && RD.lootOf(1e6, 0, 1) === RD.LOOT_MAX, 'barns protect Dust, loot is capped');
+  // raid route: loot moves, defender gets a shield and a log entry
+  const raidRoute = (await import('../lib/routes/raid.js')).default;
+  const atk = await db.insert('players', { name: 'Raider', address: '0x0000000000000000000000000000000000000abc' });
+  const def = await db.insert('players', { name: 'Defender', address: '0x0000000000000000000000000000000000000def' });
+  T.islands.push({ player_id: def.id, seed: 4242, state: { ...R.newIsland(4242, now), dust: 4000, b: snap.b }, minds: 1, rev: 0, updated_at: new Date().toISOString() });
+  T.islands.push({ player_id: atk.id, seed: 99, state: { ...R.newIsland(99, now), raid: { id: 'r1', target: def.id, name: 'Defender', snap, loot: RD.lootOf(4000, 1, 1), at: now } }, minds: 1, rev: 0, updated_at: new Date().toISOString() });
+  const callRaid = async body => {
+    const token = signSession({ id: atk.id, address: atk.address });
+    let out = null;
+    const res = { setHeader() {}, end(t) { out = { code: this.statusCode, body: JSON.parse(t) }; }, headersSent: false };
+    await raidRoute({ method: 'POST', url: '/api/raid', headers: { authorization: 'Bearer ' + token }, body, query: {} }, res);
+    return out;
+  };
+  let out = await callRaid({ op: 'attack', id: 'r1', inputs });
+  const dI = T.islands.find(x => x.player_id === def.id), aI = T.islands.find(x => x.player_id === atk.id);
+  ok(out.code === 200 && out.body.stars === a.stars, 'server raid result = client result');
+  ok(dI.state.dust === 4000 - out.body.loot && aI.state.dust === 100 + out.body.loot && !aI.state.raid, 'loot moves from defender to raider');
+  ok(dI.state.raidLog?.[0]?.by === 'Raider' && (out.body.stars ? dI.state.shield > now : true), 'defender gets a log entry (and a shield)');
+  out = await callRaid({ op: 'attack', id: 'r1', inputs });
+  ok(out.code === 400, 'a raid can only be cashed in once');
+}
 console.log(`
 ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
