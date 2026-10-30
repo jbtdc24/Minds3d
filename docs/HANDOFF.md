@@ -29,10 +29,10 @@ Owner: Mindclash game owner. Hates long text: short replies, decide for them, bu
 - Audio: web/src/audio.js synth (SFX + songs menu/battle/title/raid/adventure).
 
 ## NEXT TASKS — round 6 (owner 2026-10-30), do in this order
-1. [ ] Kill the annoying pulsing/thunder sound (world-map lightning boom + adventure footsteps) → soft rare rumble, quiet steps.
-2. [ ] Inventory vs 📦 storage are duplicates → 📦 = island storage drawer with Place buttons; Inventory only lists resources.
-3. [ ] Everything buyable with Gems too (seeds, supplies, troops, buildings, permits, airships): gemPrice(cost) in rules.js.
-4. [ ] Adventure islands must look different per biome (volcano, snow, crystal, mushroom, ruins, garden, dragon, storm):
+1. [x] Kill the annoying pulsing/thunder sound (world-map lightning boom + adventure footsteps) → soft rare rumble, quiet steps.
+2. [x] Inventory vs 📦 storage are duplicates → 📦 = island storage drawer with Place buttons; Inventory only lists resources.
+3. [x] Everything buyable with Gems too (seeds, supplies, troops, buildings, permits, airships): gemPrice(cost) in rules.js.
+4. [x] Adventure islands must look different per biome (volcano, snow, crystal, mushroom, ruins, garden, dragon, storm):
    recolored ground + trees, biome nodes, monsters themed + show their level; level = spot tier+1 (already scales HP).
 5. [ ] Building upgrades (levels 1-3: more HP/effect), raid revenge button from the raid log, bosses per tier in adventures.
 6. [ ] Cinematic light/particles in island/raid/adventure (task D). 7. Gems real-money payments (owner choice).

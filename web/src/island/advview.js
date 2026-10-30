@@ -6,7 +6,7 @@ import { drawSky, groundFor, sprites } from './art.js';
 import { bsprites } from './buildings.js';
 import { chibi } from './chibi.js';
 import { troopSprite, weapon, nodeSprite, monsterSprite } from './troops.js';
-import { advMap, advLoot, walkable, HEROES, MONSTERS, NODES, ADV_TIME, SPOTS, POTION_HEAL } from './adventure.js';
+import { advMap, advLoot, walkable, HEROES, MONSTERS, NODES, ADV_TIME, SPOTS, POTION_HEAL, BIOME, SPOT_BIOME } from './adventure.js';
 import { DROPS } from './rules.js';
 import { sfx, music } from '../audio.js';
 
@@ -14,11 +14,52 @@ const $ = s => document.querySelector(s);
 const cv = $('#adv-cv'), g = cv.getContext('2d');
 let A = null, running = false, raf = 0, last = 0, Tm = 0, W = 1, H = 1, DPR = 1, shake = 0, flashA = 0;
 const cam = { x: WW / 2, y: WH / 2, z: 3 };
-let parts = [], texts = [], w = null, gr = null;
+let parts = [], texts = [], w = null, gr = null, vig = null;
 const kx = k => k % TW, ky = k => (k / TW) | 0, cxOf = k => kx(k) * T + 8, cyOf = k => ky(k) * T + 12;
 const ICON = { dust: '✨', wood: '🪵', stone: '🪨', seed_carrot: '🥕', seed_melon: '🍈', seed_star: '⭐', herb: '🌿', gems: '💎' };
 const CUT = { [COVER.WEEDS]: 'weeds', [COVER.BUSH]: 'bush', [COVER.ROCK]: 'rock', [COVER.TREE]: 'tree' };
 
+// ---------- biomes: the same island art recoloured (grass / trees / rocks) + weather ----------
+const hex = c => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)];
+function recolor(srcCv, B) {
+  const c = document.createElement('canvas'); c.width = srcCv.width; c.height = srcCv.height;
+  const x = c.getContext('2d'); x.drawImage(srcCv, 0, 0);
+  const id = x.getImageData(0, 0, c.width, c.height), d = id.data, G = B.g.map(hex), TR = B.tree.map(hex), RK = B.rock.map(hex);
+  for (let i = 0; i < d.length; i += 4) {
+    if (!d[i + 3]) continue;
+    const r = d[i], g = d[i + 1], b = d[i + 2], mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (r * 0.3 + g * 0.59 + b * 0.11) / 255;
+    let ramp = null;
+    if (B.water && b > r + 30 && b > g - 10 && l > 0.3) { const W2 = B.water.map(hex), t = W2[Math.max(0, Math.min(3, Math.round(l * 4.4 - 1)))]; d[i] = t[0]; d[i + 1] = t[1]; d[i + 2] = t[2]; continue; }   // pond → lava / ice
+    if (g > r + 12 && g > b + 8) ramp = mx - mn > 70 && l < 0.5 ? TR : G;          // greens: grass and leaves
+    else if (r > b + 25 && r >= g && mx < 215 && mx - mn > 30) ramp = RK;             // browns: cliffs, trunks, dirt
+    if (!ramp) continue;
+    const k = Math.max(0, Math.min(3, Math.round(l * 4.2 - 0.6))), t = ramp[k];
+    d[i] = t[0]; d[i + 1] = t[1]; d[i + 2] = t[2];
+  }
+  x.putImageData(id, 0, 0);
+  return { cv: c, w: srcCv.width, h: srcCv.height };
+}
+const tintCache = new Map();
+const tinted = (spr, B, key) => { const kk = key + (B?.g?.[0] || ''); if (!B || B === BIOME.meadow) return spr; if (!tintCache.has(kk)) tintCache.set(kk, recolor(spr.cv, B)); return tintCache.get(kk); };
+let weather = [];
+function biomeFx(dt) {
+  const B = A.biome, v0 = toWorld(0, 0), v1 = toWorld(W, H), rx = () => v0.x + Math.random() * (v1.x - v0.x), ry = () => v0.y + Math.random() * (v1.y - v0.y);
+  if (B.snow && Math.random() < dt * 40) weather.push({ x: rx(), y: v0.y - 4, vx: 6, vy: 18, life: 6, c: '#ffffff' });
+  if (B.storm && Math.random() < dt * 70) weather.push({ x: rx(), y: v0.y - 4, vx: -20, vy: 160, life: 1.2, c: '#9fb4d8', rain: true });
+  if (B.volcano && Math.random() < dt * 14) weather.push({ x: rx(), y: v1.y + 2, vx: (Math.random() - 0.5) * 8, vy: -22, life: 5, c: Math.random() < 0.5 ? '#ffb347' : '#ff6a2a' });
+  if (B.dragon && Math.random() < dt * 8) weather.push({ x: rx(), y: v1.y + 2, vx: 4, vy: -16, life: 5, c: '#ff8a5a' });
+  if (B.crystal && Math.random() < dt * 12) weather.push({ x: rx(), y: ry(), vx: 0, vy: -4, life: 1, c: '#e0fbff', twinkle: true });
+  if (B.flowers && Math.random() < dt * 10) weather.push({ x: v0.x - 4, y: ry(), vx: 14, vy: 4, life: 7, c: Math.random() < 0.5 ? '#ffb3d2' : '#ffffff' });
+  if (B.mush && Math.random() < dt * 6) weather.push({ x: rx(), y: ry(), vx: 0, vy: -3, life: 2, c: '#d4ff7a', twinkle: true });
+  if (B.storm && (A.flash = (A.flash || 0) - dt) < -4 - Math.random() * 4) { A.flash = 0.15; sfx('rumble'); }
+  weather = weather.filter(p => {
+    p.life -= dt; p.x += p.vx * dt + (p.rain ? 0 : Math.sin(Tm * 2 + p.y * 0.1) * 0.2); p.y += p.vy * dt;
+    g.globalAlpha = p.twinkle ? Math.max(0, Math.sin(p.life * Math.PI)) : Math.min(1, p.life);
+    g.fillStyle = p.c; if (p.rain) g.fillRect(p.x, p.y, 1, 4); else g.fillRect(Math.round(p.x), Math.round(p.y), 1, 1);
+    return p.life > 0;
+  });
+  g.globalAlpha = 1;
+}
 function resize() { DPR = Math.min(2, devicePixelRatio || 1); W = innerWidth; H = innerHeight; cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR); cam.z = Math.max(2.4, Math.min(4, Math.min(W, H * 1.6) / 300)); }
 const toWorld = (sx, sy) => ({ x: (sx - W / 2) / cam.z + cam.x, y: (sy - H / 2) / cam.z + cam.y });
 const toScreen = (x, y) => ({ x: (x - cam.x) * cam.z + W / 2, y: (y - cam.y) * cam.z + H / 2 });
@@ -110,7 +151,7 @@ function update(dt) {
       m.angry = dh < D.aggro * T * 2.2;
       if (dh > Math.min(D.reach, 13)) step(m, h.x, h.y, D.speed * dt);
       else {
-        h.hp -= D.dps * dt; h.hit = 0.12; m.face = h.x < m.x ? -1 : 1;
+        h.hp -= D.dps * (1 + (A.level - 1) * 0.3) * dt; h.hit = 0.12; m.face = h.x < m.x ? -1 : 1;
         if ((m.swing = (m.swing || 0) + dt) > 0.6) { m.swing = 0; snd(m.type === 'slime' ? 'slime' : 'hit', 0.12); say(h.x, h.y - 26, `-${Math.round(D.dps * 0.6)}`, '#ff6a5a'); if (m.type === 'ogre') shake = 4; }
       }
       if (!m.roared && m.type !== 'slime') { m.roared = true; snd(m.type === 'boar' ? 'roar' : 'denied', 0.3); say(m.x, m.y - 24, '!', '#ff5a4a', true); }
@@ -150,7 +191,7 @@ function frame(now) {
   g.setTransform(DPR, 0, 0, DPR, 0, 0); g.imageSmoothingEnabled = false;
   drawSky(g, W, H, Tm);
   g.setTransform(cam.z * DPR, 0, 0, cam.z * DPR, (W / 2 - cam.x * cam.z + sx) * DPR, (H / 2 - cam.y * cam.z + sy) * DPR);
-  g.drawImage(gr.ground.cv, 0, 0);
+  g.drawImage(A.ground.cv, 0, 0);
   const wave = Math.sin(Tm * 1.4);
   g.globalAlpha = 0.45 + 0.45 * wave; g.drawImage(gr.foamA.cv, 0, 0); g.globalAlpha = 0.45 - 0.45 * wave; g.drawImage(gr.foamB.cv, 0, 0); g.globalAlpha = 1;
   const v0 = toWorld(0, 0), v1 = toWorld(W, H), items = [];
@@ -159,10 +200,11 @@ function frame(now) {
     const k = ty * TW + tx, cov = w.cover[k];
     if (!w.land[k] || A.cut.has(k)) continue;
     const cx = tx * T + 8, by = ty * T + 15, v = hash(tx, ty, 7) * 4 | 0;
-    if (cov === COVER.WEEDS) items.push({ y: by - 1, spr: sprites.weeds(v), x: cx, cut: k });
-    else if (cov === COVER.BUSH) items.push({ y: by, spr: sprites.bush(v % 3), x: cx, cut: k });
-    else if (cov === COVER.ROCK) items.push({ y: by - 1, spr: sprites.rock(v % 3), x: cx, cut: k });
-    else if (cov === COVER.TREE) items.push({ y: by, spr: sprites.tree(w.treeKinds[w.kind[k]], v % 3), x: cx, tree: true, cut: k });
+    const B = A.biome;
+    if (cov === COVER.WEEDS) items.push({ y: by - 1, spr: tinted(sprites.weeds(v), B, 'w' + v), x: cx, cut: k });
+    else if (cov === COVER.BUSH) items.push({ y: by, spr: tinted(sprites.bush(v % 3), B, 'b' + v % 3), x: cx, cut: k });
+    else if (cov === COVER.ROCK) items.push({ y: by - 1, spr: tinted(sprites.rock(v % 3), B, 'r' + v % 3), x: cx, cut: k });
+    else if (cov === COVER.TREE) { const kind = B === BIOME.meadow ? w.treeKinds[w.kind[k]] : B.snow || B.storm || B.crystal ? 'pine' : (w.kind[k] % 2 ? 'pine' : 'leaf'); items.push({ y: by, spr: tinted(sprites.tree(kind, v % 3), B, 't' + kind + v % 3), x: cx, tree: true, cut: k }); }
   }
   items.push({ y: (w.house.y + 3) * T - 4, spr: bsprites.rubble(3), x: (w.house.x + 1.5) * T });   // the ruined hut
   for (const n of A.nodes) if (!n.done) items.push({ y: n.y + 3, spr: nodeSprite(n.type), x: n.x, node: n });
@@ -186,7 +228,18 @@ function frame(now) {
   if (h.path.length) { const t = h.path[h.path.length - 1]; g.strokeStyle = `rgba(212,255,31,${0.5 + 0.4 * Math.sin(Tm * 8)})`; g.lineWidth = 1; g.strokeRect(kx(t) * T + 2.5, ky(t) * T + 2.5, T - 5, T - 5); }
   parts = parts.filter(q => { q.life -= dt; q.vy += q.g * dt; q.x += q.vx * dt; q.y += q.vy * dt; g.globalAlpha = Math.max(0, Math.min(1, q.life / q.max * 1.5)); g.fillStyle = q.c; g.fillRect(Math.round(q.x), Math.round(q.y), q.s, q.s); return q.life > 0; });
   g.globalAlpha = 1;
+  biomeFx(dt);
   g.setTransform(DPR, 0, 0, DPR, 0, 0);
+  // biome mood: a colour wash + vignette; storm lightning flash
+  if (A.biome.volcano || A.biome.dragon) { g.fillStyle = 'rgba(255,90,40,.08)'; g.fillRect(0, 0, W, H); }
+  if (A.biome.storm) { g.fillStyle = 'rgba(30,40,70,.18)'; g.fillRect(0, 0, W, H); if (A.flash > 0) { g.fillStyle = `rgba(230,240,255,${A.flash * 3})`; g.fillRect(0, 0, W, H); } }
+  if (A.biome.snow) { g.fillStyle = 'rgba(220,235,255,.08)'; g.fillRect(0, 0, W, H); }
+  if (!vig || vig.w !== W || vig.h !== H) { const c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d'), gr2 = x.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.75); gr2.addColorStop(0, 'rgba(0,0,0,0)'); gr2.addColorStop(1, 'rgba(15,10,30,.45)'); x.fillStyle = gr2; x.fillRect(0, 0, W, H); vig = { cv: c, w: W, h: H }; }
+  g.drawImage(vig.cv, 0, 0, W, H);
+  // monster levels
+  g.font = '800 11px Nunito, sans-serif'; g.textAlign = 'center';
+  for (const m of A.mons) { if (m.dead) continue; const p = toScreen(m.x, m.y - (m.type === 'ogre' ? 38 : m.type === 'boar' ? 22 : 24)); if (p.x < -20 || p.y < -20 || p.x > W + 20 || p.y > H + 20) continue; const lab = `Lv${A.level}${MONSTERS[m.type].boss ? ' BOSS' : ''}`; g.lineWidth = 3; g.strokeStyle = '#1d1b2f'; g.strokeText(lab, p.x, p.y); g.fillStyle = MONSTERS[m.type].boss ? '#ff6a5a' : '#ffe27a'; g.fillText(lab, p.x, p.y); }
+  g.textAlign = 'start';
   texts = texts.filter(t => {
     t.life -= dt; const p = toScreen(t.x, t.y), py = p.y - (1.3 - t.life) * 28;
     g.globalAlpha = Math.min(1, t.life * 2); g.font = `900 ${t.big ? 24 : 15}px Nunito, sans-serif`; g.textAlign = 'center';
@@ -283,14 +336,16 @@ $('#adv-home').onclick = () => { if (A && !A.over) { A.over = true; sfx('whoosh'
 export function openAdventure(opts) {
   const map = advMap(opts.seed, opts.level);
   w = gen(opts.seed); gr = groundFor(opts.seed);
+  const BB = BIOME[SPOT_BIOME[opts.area || 0]] || BIOME.meadow;
+  weather = [];
   const HD = HEROES[opts.heroKind];
   const s = map.start;
   A = {
-    ...opts, map, time: ADV_TIME, over: false, ko: false, bag: {}, got: [], beat: [], maxHp: HD.hp, cut: new Set(), cover: {}, potions: opts.potions || 0, gatherLeft: opts.gatherLeft ?? 40,
+    ...opts, biome: BB, ground: BB === BIOME.meadow ? gr.ground : recolor(gr.ground.cv, BB), map, time: ADV_TIME, over: false, ko: false, bag: {}, got: [], beat: [], maxHp: HD.hp, cut: new Set(), cover: {}, potions: opts.potions || 0, gatherLeft: opts.gatherLeft ?? 40,
     look: opts.heroKind === 'hero' ? chibi(opts.mind) : null,
     hero: { x: cxOf(s), y: cyOf(s), hp: HD.hp, path: [], face: 1, cd: 0, buff: 0, hit: 0, act: 'idle', target: null, gather: null },
     nodes: map.nodes.map(n => ({ ...n, x: cxOf(n.k), y: cyOf(n.k), prog: 0, done: false })),
-    mons: map.monsters.map(m => ({ ...m, x: cxOf(m.k), y: cyOf(m.k), hx: cxOf(m.k), hy: cyOf(m.k), max: m.hp, wt: Math.random() * 2, wx: cxOf(m.k), wy: cyOf(m.k), face: 1, hit: 0 })),
+    mons: map.monsters.map(m => ({ ...m, color: m.type === 'slime' ? (BB.volcano || BB.dragon ? 2 : BB.snow || BB.crystal || BB.storm ? 1 : m.color || 0) : m.color, x: cxOf(m.k), y: cyOf(m.k), hx: cxOf(m.k), hy: cyOf(m.k), max: m.hp, wt: Math.random() * 2, wx: cxOf(m.k), wy: cyOf(m.k), face: 1, hit: 0 })),
   };
   cam.x = A.hero.x; cam.y = A.hero.y;
   const ab = HD.ability;

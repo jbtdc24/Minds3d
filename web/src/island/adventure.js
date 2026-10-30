@@ -32,6 +32,20 @@ export const SPOTS = [
   { name: 'Sky Temple', icon: '🌀', tier: 3, x: 1450, y: 560, r: 96, desc: 'An old portal. Royal treasure.' },
   { name: 'Dragon Nest', icon: '🐉', tier: 3, x: 1380, y: 880, r: 80, desc: 'Something big lives here.' },
 ];
+// each island's look: grass / tree / rock colour ramps + a few flags for special scenery and weather
+export const BIOME = {
+  meadow: { g: ['#3f8d38', '#58b046', '#7fcf55', '#b3ea6e'], tree: ['#2d6a2f', '#3f8d38', '#58b046', '#8fd65a'], rock: ['#5e4330', '#7c5a40', '#9a7452', '#b89068'] },
+  mushroom: { g: ['#3f7a40', '#4f9a50', '#6fbf62', '#a3e08a'], tree: ['#2d6a2f', '#3f8d38', '#58b046', '#8fd65a'], rock: ['#5a4038', '#78564a', '#93705e', '#ad8a74'], mush: true },
+  crystal: { g: ['#2f7a72', '#3fa08f', '#5fc8b0', '#a8f0dc'], tree: ['#1f5a5a', '#2f7a72', '#3fa08f', '#7fd8c8'], rock: ['#3e3a5a', '#5b557e', '#7c75a0', '#a39dc8'], crystal: true },
+  volcano: { water: ['#8a1a0a', '#e0401a', '#ff8a2a', '#ffd84a'], g: ['#3a3236', '#4e4448', '#665a5c', '#8a7a70'], tree: ['#3a2a20', '#5a3a28', '#7a4a30', '#9a6040'], rock: ['#2a2022', '#3e3034', '#584448', '#74585a'], volcano: true },
+  snow: { water: ['#8fb8d8', '#b8d8ee', '#dcecf8', '#ffffff'], g: ['#b8c8dc', '#d4e0ee', '#ecf4fc', '#ffffff'], tree: ['#1f4f4a', '#2f6a5a', '#4a8a72', '#e8f4ff'], rock: ['#4a5a6e', '#66788e', '#8496ac', '#a8b8cc'], snow: true },
+  ember: { g: ['#7a6a2a', '#9a8a3a', '#b8a84a', '#d8c86a'], tree: ['#7a2416', '#c43c1c', '#ec7a2c', '#ffb347'], rock: ['#5e3a24', '#7c4e30', '#9a643c', '#b87e50'] },
+  ruins: { g: ['#5a7a3a', '#6a8f45', '#82a854', '#a8c870'], tree: ['#2d5a2f', '#3f7a38', '#58964a', '#8fbf62'], rock: ['#5b5a6e', '#7c7b8f', '#a3a2b5', '#cfcfdc'], ruins: true },
+  garden: { g: ['#4f8a3a', '#62a64a', '#7fc260', '#b3e08a'], tree: ['#b0457a', '#d9659a', '#f08bb8', '#ffd0e4'], rock: ['#5e4330', '#7c5a40', '#9a7452', '#b89068'], flowers: true },
+  dragon: { water: ['#7a1a0a', '#c43a1a', '#ff6a2a', '#ffb347'], g: ['#4a2a22', '#6a3a2a', '#8a4a32', '#aa6a44'], tree: ['#3a2020', '#5a2a2a', '#7a3a32', '#9a5a44'], rock: ['#2a1a1a', '#4a2a28', '#6a3a34', '#8a5048'], dragon: true },
+  storm: { g: ['#3a4256', '#4a546e', '#5e6a88', '#8290ae'], tree: ['#1f2a3a', '#2f3a4e', '#3f4e66', '#6a7a96'], rock: ['#22263a', '#33384e', '#474e66', '#5e6884'], storm: true },
+};
+export const SPOT_BIOME = ['meadow', 'mushroom', 'meadow', 'crystal', 'snow', 'ruins', 'volcano', 'meadow', 'garden', 'storm', 'ruins', 'dragon'];
 export const HOME_SPOT = { x: 190, y: 760, r: 100 };
 export const spotLevel = s => Math.min(4, SPOTS[s].tier + 1);
 export const GATHER_PER_HOUR = 40, POTION_HEAL = 120, POTIONS_MAX = 5;
