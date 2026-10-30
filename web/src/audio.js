@@ -1,7 +1,7 @@
 // All sound is synthesized with WebAudio: chiptune music loops + punchy SFX. No files to load.
 // Browsers only allow sound after the player's first tap/key press, so the song asked for before that is
 // remembered and starts the moment audio is unlocked.
-let ctx = null, master, musicBus, sfxBus, echoBus, noiseBuf, wanted = null;
+let ctx = null, master, musicBus, sfxBus, echoBus, noiseBuf, analyser, wanted = null;
 const vol = { music: 0.5, sfx: 0.8 };
 
 export function initAudio() {
@@ -9,6 +9,7 @@ export function initAudio() {
   setTimeout(() => { if (wanted) music(wanted); }, 0);
   ctx = new (window.AudioContext || window.webkitAudioContext)();
   master = ctx.createGain(); master.connect(ctx.destination);
+  analyser = ctx.createAnalyser(); analyser.fftSize = 2048; master.connect(analyser);
   const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 4; comp.connect(master);
   musicBus = ctx.createGain(); musicBus.connect(comp);
   sfxBus = ctx.createGain(); sfxBus.connect(comp);
@@ -22,10 +23,17 @@ export function initAudio() {
   const d = noiseBuf.getChannelData(0);
   for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
 }
+// how loud the output is right now (0-1), for checking the mix: { rms, peak, state }
+export function level() {
+  if (!analyser) return { rms: 0, peak: 0, state: 'off' };
+  const b = new Float32Array(analyser.fftSize); analyser.getFloatTimeDomainData(b);
+  let sum = 0, peak = 0; for (const v of b) { sum += v * v; peak = Math.max(peak, Math.abs(v)); }
+  return { rms: Math.sqrt(sum / b.length), peak, state: ctx.state, song: !!song, music: musicBus.gain.value, sfx: sfxBus.gain.value, master: master.gain.value, step, next: nextTime, now: ctx.currentTime, vol: { ...vol } };
+}
 export function setVolume(music, sfx) {
   vol.music = music; vol.sfx = sfx;
   if (!ctx) return;
-  musicBus.gain.value = music * 0.35;
+  musicBus.gain.value = music * 0.65;
   sfxBus.gain.value = sfx * 0.6;
 }
 
@@ -39,7 +47,7 @@ function tone(freq, t0, dur, { type = 'square', gain = 0.3, slide = 0, bus = sfx
   g.gain.exponentialRampToValueAtTime(gain, t0 + attack);
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
   o.connect(g); g.connect(bus);
-  if (echo) { const e = ctx.createGain(); e.gain.value = echo * (bus === musicBus ? vol.music * 0.35 : vol.sfx * 0.8); g.connect(e); e.connect(echoBus); }
+  if (echo) { const e = ctx.createGain(); e.gain.value = echo * (bus === musicBus ? vol.music * 0.65 : vol.sfx * 0.6); g.connect(e); e.connect(echoBus); }
   o.start(t0); o.stop(t0 + dur + 0.02);
 }
 function noise(t0, dur, { gain = 0.3, hp = 800, lp = 12000, bus = sfxBus } = {}) {
@@ -128,6 +136,21 @@ const SONGS = {
     chords: [[57, 60, 64, 69], [53, 57, 60, 65], [60, 64, 67, 72], [55, 59, 62, 67]],
     lead: [[81, 0, 79, 81, 0, 84, 0, 81, 79, 0, 76, 0, 79, 81, 0, 0], [77, 0, 76, 77, 0, 81, 0, 77, 76, 0, 72, 0, 74, 76, 0, 0],
       [79, 0, 76, 79, 0, 84, 0, 79, 83, 0, 84, 0, 86, 88, 0, 0], [86, 0, 83, 79, 0, 83, 0, 86, 91, 0, 88, 86, 83, 79, 0, 0]] },
+  // lo-fi: island / lobby (Fmaj7 - Em7 - Dm7 - Cmaj7)
+  lofi: { lofi: true, bpm: 76, bass: 'x......x..x.....', drums: 'x...o..hx.h.o..h',
+    chords: [[53, 57, 60, 64], [52, 55, 59, 62], [50, 53, 57, 60], [48, 52, 55, 59]],
+    lead: [[0, 0, 76, 0, 0, 0, 74, 0, 72, 0, 0, 0, 69, 0, 0, 0], [0, 0, 74, 0, 0, 72, 0, 71, 0, 0, 67, 0, 0, 0, 0, 0],
+      [0, 0, 72, 0, 0, 0, 69, 0, 65, 0, 0, 67, 0, 0, 0, 0], [0, 0, 71, 0, 72, 0, 0, 0, 67, 0, 0, 0, 0, 0, 64, 0]] },
+  // lo-fi: world map / adventures (Am7 - D9 - Gmaj7 - Cmaj7)
+  lofi2: { lofi: true, bpm: 82, bass: 'x.....x...x.....', drums: 'x..ho..hx..ho.h.',
+    chords: [[57, 60, 64, 67], [50, 54, 57, 64], [55, 59, 62, 66], [48, 52, 55, 59]],
+    lead: [[0, 0, 79, 0, 76, 0, 0, 72, 0, 0, 74, 0, 0, 0, 0, 0], [0, 0, 78, 0, 0, 74, 0, 0, 72, 0, 0, 69, 0, 0, 0, 0],
+      [0, 0, 74, 0, 78, 0, 0, 79, 0, 0, 81, 0, 0, 0, 0, 0], [0, 0, 76, 0, 0, 0, 72, 0, 71, 0, 0, 67, 0, 0, 0, 0]] },
+  // lo-fi beat with more drive: raids (Dm9 - Gm7 - Bbmaj7 - A7)
+  lofibeat: { lofi: true, punch: 0.62, bpm: 90, bass: 'x..x..x.x..x....', drums: 'x.h.o.hxx.hxo.hh',
+    chords: [[50, 53, 57, 64], [55, 58, 62, 65], [58, 62, 65, 69], [57, 61, 64, 67]],
+    lead: [[0, 0, 74, 0, 77, 0, 0, 76, 0, 74, 0, 0, 72, 0, 0, 0], [0, 0, 70, 0, 74, 0, 0, 72, 0, 70, 0, 0, 67, 0, 0, 0],
+      [0, 0, 77, 0, 81, 0, 0, 79, 0, 77, 0, 0, 74, 0, 0, 0], [0, 0, 76, 0, 73, 0, 0, 76, 0, 79, 0, 0, 81, 0, 0, 0]] },
   title: { bpm: 96, bass: 'x.......x...x...', drums: 'x.......o.......',
     chords: [[60, 64, 67, 72], [55, 59, 62, 67], [57, 60, 64, 69], [53, 57, 60, 65]],
     lead: [[79, 0, 0, 76, 0, 0, 72, 0, 74, 0, 76, 0, 0, 0, 0, 0], [74, 0, 0, 71, 0, 0, 67, 0, 69, 0, 71, 0, 0, 0, 0, 0],
@@ -148,6 +171,7 @@ export function music(name) {
   wanted = name;
   if (!ctx) return;
   if (song === SONGS[name]) return;
+  if (name && !SONGS[name]) console.error('[audio] no such song:', name);
   song = SONGS[name] || null;
   step = 0; nextTime = ctx.currentTime + 0.1;
   if (!timer) timer = setInterval(schedule, 25);
@@ -155,15 +179,15 @@ export function music(name) {
 // lo-fi: mellow electric-piano chords (soft attack, a sine octave below), round sine bass, soft kick + snare,
 // swung quiet hats, an echoing sparse melody and a little vinyl crackle
 function lofiStep(song, ch, bar, s, t, swing, spb, o) {
-  if (s === 0 || s === 10) ch.forEach((n, i) => { tone(N(n), t + i * 0.012, spb * (s ? 5 : 9), { ...o, type: 'triangle', gain: 0.03, attack: 0.03, echo: 0.2 }); tone(N(n) / 2, t, spb * 8, { ...o, type: 'sine', gain: 0.018, attack: 0.05 }); });
-  if (song.bass[s] === 'x') tone(N(ch[0] - 24), t, spb * 3, { ...o, type: 'sine', gain: 0.42, attack: 0.02 });
+  if (s === 0 || s === 10) ch.forEach((n, i) => { tone(N(n), t + i * 0.012, spb * (s ? 5 : 9), { ...o, type: 'triangle', gain: 0.14, attack: 0.03, echo: 0.2 }); tone(N(n) / 2, t, spb * 8, { ...o, type: 'sine', gain: 0.07, attack: 0.05 }); });
+  if (song.bass[s] === 'x') tone(N(ch[0] - 12), t, spb * 3, { ...o, type: 'triangle', gain: 0.32, attack: 0.02 });
   const L = song.lead[bar][s], cycle = Math.floor(step / 64) % 4;
-  if (L && cycle % 2 === 1) tone(N(L), t + swing, spb * 2.6, { ...o, type: 'sine', gain: 0.05, attack: 0.02, echo: 0.55, vib: 0.004 });
-  if (L && cycle === 2 && s % 4 === 0) tone(N(L) * 2, t + swing, spb * 1.4, { ...o, type: 'triangle', gain: 0.018, echo: 0.6 });
+  if (L && cycle !== 0) tone(N(L), t + swing, spb * 2.6, { ...o, type: 'triangle', gain: 0.2, attack: 0.02, echo: 0.55, vib: 0.004 });
+  if (L && cycle === 2 && s % 4 === 0) tone(N(L) * 2, t + swing, spb * 1.4, { ...o, type: 'sine', gain: 0.08, echo: 0.6 });
   const d = song.drums[s];
   if (d === 'x') tone(110, t, 0.22, { ...o, type: 'sine', gain: song.punch || 0.45, slide: 0.4 });
-  if (d === 'o') { noise(t, 0.16, { ...o, gain: 0.1, hp: 900, lp: 3200 }); tone(180, t, 0.07, { ...o, type: 'triangle', gain: 0.08, slide: 0.7 }); }
-  if (d === 'h') noise(t + swing, 0.03, { ...o, gain: 0.028, hp: 6500 });
+  if (d === 'o') { noise(t, 0.16, { ...o, gain: 0.2, hp: 900, lp: 3200 }); tone(180, t, 0.07, { ...o, type: 'triangle', gain: 0.18, slide: 0.7 }); }
+  if (d === 'h') noise(t + swing, 0.03, { ...o, gain: 0.06, hp: 6500 });
   if (Math.random() < 0.18) noise(t + Math.random() * spb, 0.006, { ...o, gain: 0.03, hp: 2500 });   // vinyl crackle
 }
 function schedule() {

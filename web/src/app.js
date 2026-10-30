@@ -27,8 +27,10 @@ import { hashStr } from './island/gen.js';
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
 const wait = ms => new Promise(r => setTimeout(r, ms / speedSetting));
-addEventListener('unhandledrejection', e => { const m = e.reason?.message || String(e.reason || ''); if (m && !/abort|cancel/i.test(m)) try { toast(`⚠ ${m}`, true); } catch { /* toast not ready */ } });
-addEventListener('error', e => { if (e.message && !/ResizeObserver|Script error/.test(e.message)) try { toast(`⚠ ${e.message}`, true); } catch { /* toast not ready */ } });
+// anything unexpected: a plain sentence for the player, the technical detail in the console for us
+const oops = detail => { console.error('[mindclash]', detail); try { toast('Something went wrong. Please try that again.', true); } catch { /* toast not ready */ } };
+addEventListener('unhandledrejection', e => { const m = e.reason?.message || String(e.reason || ''); if (m && !/abort|cancel/i.test(m)) oops(e.reason); });
+addEventListener('error', e => { if (e.message && !/ResizeObserver|Script error/.test(e.message)) oops(`${e.message} @ ${e.filename}:${e.lineno}`); });
 const thumb = id => `data/thumbs/${id || 1}.webp?v=${DATA_VERSION}`;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const RAR_COLOR = { Legendary: '#d68a00', Epic: '#9b6bff', Rare: '#2f8fd0', Uncommon: '#3a9a00', Common: '#6d6987' };
@@ -39,9 +41,10 @@ const narrow = () => innerWidth <= 900;
 
 // ---------- settings (per device) ----------
 const SKEY = 'mindclash.settings';
-const settings = { music: 0.45, sfx: 0.8, quality: 'high', speed: 1, picks: {}, tutorialDone: false, seen: {} };
+const settings = { music: 0.55, sfx: 0.8, quality: 'high', speed: 1, picks: {}, tutorialDone: false, seen: {} };
 try { Object.assign(settings, JSON.parse(localStorage.getItem(SKEY) || '{}')); } catch { /* defaults */ }
 settings.seen ||= {};
+if (!settings.audioV) { settings.audioV = 2; if (!settings.music) settings.music = 0.55; }
 const saveSettings = () => { try { localStorage.setItem(SKEY, JSON.stringify(settings)); } catch { /* private mode */ } };
 function applySettings() {
   setVolume(settings.music, settings.sfx); setQuality(settings.quality); setSpeed(settings.speed);
@@ -76,7 +79,7 @@ function closeWindow() {
 let toastT;
 function toast(msg, bad = false) {
   const t = $('#toast'); t.textContent = msg; t.classList.toggle('bad', bad); t.classList.add('on');
-  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 3200);
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), bad ? 4500 : 3000);
 }
 function modal(html, buttons) {
   return new Promise(res => {

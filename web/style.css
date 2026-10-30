@@ -773,3 +773,8 @@ h3.raid-result { text-align: center; }
 .gem-pack { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px; background: linear-gradient(180deg, #f3ecff, #dccdff); box-shadow: 0 0 0 2px var(--ink); text-align: center; }
 .gem-pack b { font-size: 26px; } .gem-pack em { font-style: normal; font-weight: 900; font-size: 18px; color: #6a3cff; } .gem-pack small { color: #c43c8a; font-weight: 800; } .gem-pack strong { font-size: 13px; }
 .army-facts { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 14px; margin-bottom: 4px; }
+
+/* messages: in the middle of the screen, easy to see */
+#toast { top: 42%; bottom: auto; transform: translate(-50%, calc(-50% + 12px)); z-index: 90; padding: 14px 24px; font-size: 20px; font-weight: 800; max-width: min(560px, 88vw); box-shadow: 0 0 0 3px var(--ink), 0 8px 0 3px rgba(29,27,47,.3), 0 0 0 100vmax rgba(29,27,47,0); }
+#toast.on { transform: translate(-50%, -50%); }
+#toast.bad { background: #ffe0e3; color: #8a1f2a; }

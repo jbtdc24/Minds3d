@@ -517,6 +517,17 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   R.normalize(st, 808, Date.now());
   ok(st.v === 5 && !st.b.some(b => b.type === 'bench') && st.stash.bench === 1 && !st.tiles[1], 'buildings on old islets move to storage; farm tiles there are dropped');
 }
+
+// ---- every song a screen asks for exists; every name in the client code is defined elsewhere (see docs/HANDOFF.md lint) ----
+{
+  const fs = await import('node:fs'), path = await import('node:path');
+  const dir = path.resolve('web/src'), files = [];
+  const walk = d => { for (const f of fs.readdirSync(d)) { const p = path.join(d, f); if (fs.statSync(p).isDirectory()) walk(p); else if (p.endsWith('.js')) files.push(p); } };
+  walk(dir);
+  const audio = fs.readFileSync(path.join(dir, 'audio.js'), 'utf8');
+  const want = new Set(files.flatMap(f => [...fs.readFileSync(f, 'utf8').matchAll(/\bmusic\('([a-z0-9]+)'\)/g)].map(m => m[1])));
+  ok(want.size >= 3 && [...want].every(n => new RegExp(`\b${n}: \{`).test(audio)), `every song exists (${[...want].join(', ')})`);
+}
 console.log(`
 ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
