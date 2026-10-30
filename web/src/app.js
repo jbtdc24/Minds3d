@@ -1351,11 +1351,11 @@ $('#pf-save').onclick = async () => {
   catch (e) { $('#pf-err').textContent = e.message; }
 };
 
+const chat = chatSigner(api);
 initMindTalk({ minds: () => (guest ? [] : myMinds), esc });
 initTown({ minds: () => (guest ? [] : myMinds), api, esc, toast, online: () => online, go: townGo, me: () => me?.id, name: () => me?.name || 'You', canChat: () => online && !guest, chat });
 
 // ---------- friends + friend chat (preset lines) ----------
-const chat = chatSigner(api);
 let frTick = 0, friendsList = [], chatWith = null, frUnwatch = null, frTimer = null;
 const seenAt = id => settings.seen[id] || 0;
 async function loadFriends() {

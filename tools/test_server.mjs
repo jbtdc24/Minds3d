@@ -986,6 +986,71 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   const names = await Promise.all(Array.from({ length: 200 }, (_, i) => freeBotName(i * 31)));
   ok(names.every(x => !taken.includes(x.toLowerCase())), 'a game-run opponent never uses a real player name');
 }
+
+// ---- round 2 audit: login, sessions, limits and duel rules ----
+{
+  const http = await import('../lib/http.js'), adm = await import('../lib/admin.js');
+  const R = await import('../web/src/island/rules.js');
+  const rt = n => import(`../lib/routes/${n}.js`).then(m => m.default);
+  const [nonce, verify, island, match_act, match_chat, match_forfeit, leaderboard, queue_join, friend] = await Promise.all(['auth_nonce', 'auth_verify', 'island', 'match_act', 'match_chat', 'match_forfeit', 'leaderboard', 'queue_join', 'friend'].map(rt));
+  const { default: gemsRoute } = await import('../lib/routes/gems.js');
+  const raw = async (fn, { body, tok, method = 'POST', host = 'mindsclash.test', query = {} }) => { let o = null; const res = { setHeader() {}, end(t) { o = { code: this.statusCode, body: JSON.parse(t) }; }, headersSent: false }; await fn({ method, url: '/api/x', headers: { host, ...(tok ? { authorization: 'Bearer ' + tok } : {}) }, body, query }, res); return o; };
+  const wallet = privateKeyToAccount('0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba');
+  T.nonces.length = 0;
+  const m1 = (await raw(nonce, { body: { address: wallet.address } })).body.message, sig1 = await wallet.signMessage({ message: m1 });
+  T.nonces[0].created_at = T.nonces[0].created_at || new Date().toISOString();
+  const bad = await raw(verify, { body: { address: wallet.address, signature: sig1 }, host: 'evil.example' });
+  ok(bad.code === 401 || bad.code === 400, 'a signature made for another site is refused');
+  const m2 = (await raw(nonce, { body: { address: wallet.address } })).body.message, sig2 = await wallet.signMessage({ message: m2 });
+  const good = await raw(verify, { body: { address: wallet.address, signature: sig2 } });
+  ok(good.code === 200 && good.body.token, 'a correct wallet signature logs in');
+  ok((await raw(verify, { body: { address: wallet.address, signature: sig2 } })).code === 400, 'a login signature cannot be replayed');
+  await raw(nonce, { body: { address: wallet.address } });
+  T.nonces[0].created_at = new Date(Date.now() - 11 * 60e3).toISOString();
+  const old = await wallet.signMessage({ message: loginMessage(wallet.address, T.nonces[0].nonce, 'mindsclash.test') });
+  ok((await raw(verify, { body: { address: wallet.address, signature: old } })).code === 400, 'an expired login is refused');
+  const me = T.players.find(p => p.address === wallet.address);
+  const body = Buffer.from(JSON.stringify({ pid: me.id, exp: Date.now() - 1000 })).toString('base64url');
+  const { createHmac, createHash } = await import('node:crypto');
+  const stale = `${body}.${createHmac('sha256', createHash('sha256').update('mindclash-session:test-secret').digest()).update(body).digest('base64url')}`;
+  ok(readSession({ headers: { authorization: 'Bearer ' + stale } }) === null, 'an expired session is refused');
+  ok((await raw(island, { body: { acts: [] }, tok: 'x.y' })).code === 401, 'a junk session is refused');
+  // bans reach every route
+  T.players.find(p => p.id === me.id).banned_until = '2999-01-01T00:00:00Z'; adm.forgetBan(me.id);
+  ok((await raw(island, { body: { acts: [] }, tok: good.body.token })).code === 403, 'a banned player is locked out');
+  T.players.find(p => p.id === me.id).banned_until = null; adm.forgetBan(me.id);
+  // rate limit
+  const rpc = db.rpc; db.rpc = async () => false;
+  ok((await raw(island, { body: { acts: [] }, tok: good.body.token })).code === 429, 'the rate limit refuses extra calls');
+  db.rpc = rpc;
+  // a feature that is switched off says so
+  const tre = process.env.TREASURY_ADDRESS; delete process.env.TREASURY_ADDRESS;
+  const off = await raw(gemsRoute, { body: { op: 'claim', tx: '0x' + 'a'.repeat(64), pack: 'pouch' }, tok: good.body.token });
+  ok(off.code === 503 && /not switched on/.test(off.body.error), 'a switched-off feature gives a clear message');
+  process.env.TREASURY_ADDRESS = tre;
+  ok((await raw(island, { body: '{not json', tok: good.body.token })).code === 400, 'broken JSON is a clean refusal');
+  ok((await raw(queue_join, { body: { minds: 'abc' }, tok: good.body.token })).code < 500, 'a bad Mind list is a clean refusal');
+  // duel rules
+  const Ga = await db.insert('players', { name: 'DuelA', address: '0x' + 'a'.repeat(40) }), Gb = await db.insert('players', { name: 'DuelB', address: '0x' + 'b'.repeat(40) }), Gc = await db.insert('players', { name: 'DuelC', address: '0x' + 'c'.repeat(40) });
+  const tk = p => signSession({ id: p.id, address: p.address }), m = await startMatch({ player: Ga, minds: [1] }, { player: Gb, minds: [2] }, { ranked: true });
+  const play = (p, a) => raw(match_act, { body: { id: m.id, ...a }, tok: tk(p) });
+  ok((await play(Gc, { card: 1 })).code === 403, 'an outsider cannot play in your match');
+  ok((await raw(match_forfeit, { body: { id: m.id }, tok: tk(Gc) })).code === 403, 'an outsider cannot forfeit your match');
+  ok((await raw(match_chat, { body: { id: m.id, phrase: 1 }, tok: tk(Gc) })).code === 403, 'an outsider cannot chat in your match');
+  for (const card of [99, -1, 'x', null, 1.5]) ok((await play(Ga, { card })).code >= 400, `an impossible card is refused (${card})`);
+  ok((await play(Ga, { card: 1, spell: 'nuke' })).code >= 400, 'an unknown spell is refused');
+  ok((await play(Ga, { card: 1 })).code === 200, 'a real card is accepted');
+  ok((await play(Ga, { card: 2 })).code >= 400, 'you cannot change your pick after locking in');
+  await play(Gb, { card: 2 });
+  const hand = (await getView(m.id, Ga.id)).view.me.cards;
+  ok(!hand.includes(1), 'a played card is gone from your hand');
+  ok((await play(Ga, { card: 1 })).code >= 400, 'a used card cannot be played twice');
+  // the leaderboard
+  const lb = await raw(leaderboard, { method: 'GET' });
+  ok(lb.body.players.every(p => !p.guest), 'trial accounts never appear on the leaderboard');
+  ok(!JSON.stringify(lb.body).includes('0x' + 'a'.repeat(40)), 'the leaderboard shows no full wallet address');
+  ok((await raw(friend, { body: { op: 'add', id: Ga.id }, tok: tk(Ga) })).code === 400, 'you cannot friend yourself');
+}
 console.log(`
 ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
