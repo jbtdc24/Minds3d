@@ -6,7 +6,7 @@ import { sfx } from '../audio.js';
 import { gen, COVER, T, TW, TH, WW, WH, hash } from './gen.js';
 import { drawSky, groundFor, sprites, sprouts, heart, SOIL, toolSprites } from './art.js';
 import { rng } from './pixel.js';
-import { CROPS, coverAt, ripe, growMs, regrowMs, maxPlots, plotCount, PLOT_COST, speedBonus, BUILD, buildingAt, fits, footprint, maxOf, countOf, canAfford, costText, homeOf, wellOf, STASH_MAX, rushGems, builders, busy } from './rules.js';
+import { CROPS, coverAt, ripe, growMs, regrowMs, maxPlots, plotCount, PLOT_COST, speedBonus, BUILD, buildingAt, fits, footprint, maxOf, countOf, canAfford, costText, homeOf, wellOf, STASH_MAX, rushGems, builders, busy, gemPrice } from './rules.js';
 import { bsprites, drawSails, buildIcon } from './buildings.js';
 import { isle, doAct, now, onChange, flush } from './store.js';
 
@@ -16,7 +16,7 @@ const $ = s => document.querySelector(s);
 const SPEED = 15;                  // Mind walking speed, px / s
 let w = null, gr = null, minds = [], fx = [], running = false, raf = 0, last = 0, Tm = 0;
 let W = 1, H = 1, DPR = 1, zMin = 2, zMax = 8, selected = null, selectedT = 0, hover = -1;
-let buildType = 'house', moving = null;
+let buildType = 'house', moving = null, payGems = false;
 let tool = 'hand', seed = 'bean', cb = { toast: () => {}, shop: () => {}, bag: () => {} };
 const cam = { x: WW / 2, y: WH / 2, z: 3 };
 const clouds = [];
@@ -612,10 +612,10 @@ function placeAt(k) {
     sfx('land'); bits(kx(k) * T + 8, ky(k) * T + 12, ['#c99a63', '#a3a2b5', '#f3dfb6'], 14, 40);
     moving = null; setTool('hand'); return;
   }
-  const d = BUILD[buildType], stored = isle.state.stash?.[buildType] > 0;
-  if (!stored && !canAfford(isle.state, d.cost)) { if (!strokeErr) { strokeErr = true; sfx('denied'); cb.toast(`A ${d.name} costs ${costText(d.cost)}.`, true); } return; }
+  const d = BUILD[buildType], stored = isle.state.stash?.[buildType] > 0, price = payGems ? { gems: gemPrice(d.cost) } : d.cost;
+  if (!stored && !canAfford(isle.state, price)) { if (!strokeErr) { strokeErr = true; sfx('denied'); cb.toast(`A ${d.name} costs ${costText(price)}.`, true); } return; }
   const kind = stored ? 'place' : 'build';
-  const res = doAct(d.w === 1 ? { type: kind, item: buildType, tiles: [k] } : { type: kind, item: buildType, k });
+  const res = doAct(d.w === 1 ? { type: kind, item: buildType, tiles: [k], gems: payGems } : { type: kind, item: buildType, k, gems: payGems });
   if (res.error) { if (!strokeErr) { strokeErr = true; sfx('denied'); cb.toast(res.error, true); } return; }
   if (!res.done) return;
   const x = kx(k) * T + d.w * 8, y = ky(k) * T + d.h * 14;
@@ -627,17 +627,32 @@ function placeAt(k) {
 }
 function openBuild(force) {
   const box = $('#isl-build');
-  if (!force && box.classList.contains('on')) return closeBuild();
+  if (!force && box.classList.contains('on') && box.dataset.mode !== 'stash') return closeBuild();
+  box.dataset.mode = 'build';
   const st = isle.state;
   const stash = Object.entries(st.stash || {}).filter(([, n]) => n > 0), used = stash.reduce((s, [, n]) => s + n, 0);
   box.innerHTML = (stash.length ? `<div class="bm-head">📦 Storage ${used}/${STASH_MAX} · place for free</div>` + stash.map(([type, n]) => `<button data-build="${type}" class="stored ${type === buildType ? 'on' : ''}"><img src="${buildIcon(type)}" alt=""><b>${BUILD[type].name}</b><span>In storage</span><em>×${n}</em></button>`).join('') + '<div class="bm-head">🔨 Build</div>' : '')
+    + `<div class="bm-head"><label class="paygems"><input type="checkbox" id="pay-gems" ${payGems ? 'checked' : ''}> 💎 Pay with Gems (you have ${st.gems || 0})</label></div>`
     + Object.entries(BUILD).filter(([, d]) => !d.fixed).map(([type, d]) => {
-      const n = countOf(st, type), max = maxOf(type, isle.minds), full = n >= max, poor = !canAfford(st, d.cost);
-      return `<button data-build="${type}" class="${type === buildType ? 'on' : ''} ${full || poor ? 'none' : ''} ${d.gem ? 'gem' : ''}"><img src="${buildIcon(type)}" alt=""><b>${d.name}</b><span>${d.desc}</span><span>${costText(d.cost)}</span><em>${n}/${max}</em></button>`;
+      const price = payGems ? { gems: gemPrice(d.cost) } : d.cost;
+      const n = countOf(st, type), max = maxOf(type, isle.minds), full = n >= max, poor = !canAfford(st, price);
+      return `<button data-build="${type}" class="${type === buildType ? 'on' : ''} ${full || poor ? 'none' : ''} ${d.gem ? 'gem' : ''}"><img src="${buildIcon(type)}" alt=""><b>${d.name}</b><span>${d.desc}</span><span>${costText(price)}</span><em>${n}/${max}</em></button>`;
     }).join('');
   box.classList.add('on');
 }
 function closeBuild() { $('#isl-build')?.classList.remove('on'); }
+// 📦 storage drawer: the buildings you stored, ready to place again (free)
+function openStorage() {
+  const box = $('#isl-build');
+  if (box.classList.contains('on') && box.dataset.mode === 'stash') { box.classList.remove('on'); return; }
+  const st = isle.state, stash = Object.entries(st.stash || {}).filter(([, n]) => n > 0), used = stash.reduce((s, [, n]) => s + n, 0);
+  box.dataset.mode = 'stash';
+  box.innerHTML = `<div class="bm-head">📦 Island storage ${used}/${STASH_MAX} · tap one, then tap where it goes (free)</div>`
+    + (stash.map(([type, n]) => `<button data-build="${type}" class="stored"><img src="${buildIcon(type)}" alt=""><b>${BUILD[type].name}</b><span>Place for free</span><em>×${n}</em></button>`).join('')
+      || '<div class="bm-empty">Nothing stored. Tap a building on your island → 📦 Store to keep it here.</div>');
+  box.classList.add('on'); sfx('click');
+}
+document.getElementById('isl-stash').addEventListener('click', () => { closeSeeds(); closeBMenu(); openStorage(); });
 function openBMenu(b) {
   const d = BUILD[b.type], refund = costText(Object.fromEntries(Object.entries(d.cost).map(([i, n]) => [i, Math.floor(n / 2)])));
   const box = $('#isl-bmenu');
@@ -679,6 +694,7 @@ function paintHud() {
 }
 onChange(info => { if (info.failed && running) cb.toast('Island not saved yet: ' + info.failed, true); if (info.points) cb.toast(`+${info.points} leaderboard points from selling!`); paintHud(); });
 setInterval(() => { if (running) paintHud(); }, 1000);
+document.getElementById('isl-build').addEventListener('change', e => { if (e.target.id === 'pay-gems') { payGems = e.target.checked; openBuild(true); } });
 document.getElementById('isl-build').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   buildType = b.dataset.build; moving = null; closeBuild(); setTool('build'); sfx('select');

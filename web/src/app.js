@@ -18,7 +18,7 @@ import { AREAS, POTIONS_MAX, SPOTS, SHIPS, spotLevel } from './island/adventure.
 import { openMap, updateMap, closeMap } from './island/worldmap.js';
 import { initAdmin, tryCode } from './admin.js';
 import { isle, loadIsland, doAct, flush as flushIsland, resetIsland, now as islandNow } from './island/store.js';
-import { CROPS, RAW, growMs, permitCost, MAX_PERMITS, ripe, SHOP, RECIPES, TROOP_MAX, troopCount, costText, canAfford, BUILD, STASH_MAX } from './island/rules.js';
+import { CROPS, RAW, growMs, permitCost, MAX_PERMITS, ripe, SHOP, RECIPES, TROOP_MAX, troopCount, costText, canAfford, BUILD, STASH_MAX, gemPrice } from './island/rules.js';
 import { buildIcon } from './island/buildings.js';
 import { islandThumb } from './island/art.js';
 import { hashStr } from './island/gen.js';
@@ -298,7 +298,7 @@ function invItems() {
   const stashN = Object.values(isle.state.stash || {}).reduce((s, n) => s + n, 0);
   return `<div class="items-grid">${cells.join('')}</div>`
     + `<h4 class="items-h">⚔️ Army camp <span class="muted">${troopCount(isle.state)}/${TROOP_MAX}</span></h4><div class="items-grid">${troops.join('') || '<p class="muted">No troops. Train them in Shop → Army.</p>'}</div>`
-    + `<h4 class="items-h" id="inv-stash">📦 Island storage <span class="muted">${stashN}/${STASH_MAX}</span></h4><div class="items-grid">${stash.join('') || '<p class="muted">Empty. Tap a building on your island → 📦 Store. Place it again from 🔨 Build.</p>'}</div>`
+    + `<p class="muted items-note">📦 ${stashN} stored building${stashN === 1 ? '' : 's'} · open 📦 on your island to place them.</p>`
     + `<div class="items-foot"><button class="btn small" id="inv-go-island">🏝️ Go to my island</button><button class="btn small" id="inv-go-shop">🛒 Shop</button></div>`;
 }
 document.addEventListener('click', e => {
@@ -355,7 +355,6 @@ async function goIsland() {
 $('#hub-island').onclick = goIsland;
 $('#shop-go-island').onclick = goIsland;
 $('#isl-back').onclick = () => enterHub();
-$('#isl-stash').onclick = () => { invTab = 'items'; openInventory(); setTimeout(() => $('#inv-stash')?.scrollIntoView({ block: 'center' }), 60); };
 // ---------- raids: attack another island (or a bot village when there is nobody / you are on a trial account) ----------
 // pick your army (camp size grows a little with the Minds you own; your Mind leads as the hero)
 function pickArmy(cap, hero, lead) {
@@ -518,7 +517,7 @@ function paintShop() {
   $('#shop-note').textContent = guest ? 'Trial island: selling gives no leaderboard points.' : 'Selling crops: +1 leaderboard point per 100 ✨ (max 20 a day)';
   let html = '';
   if (shopTab === 'seeds') html = Object.entries(CROPS).map(([c, d]) => shopCard(`<img src="${cropImg(c)}" alt="">`, `${d.name} seeds`, `Grows in ${fmtTime(growMs(c, isle.minds))} · sells for ${d.sell} ✨`, inv['seed_' + c] || 0,
-    `<button class="btn small primary" data-act="buy" data-item="seed_${c}" data-n="1" ${st.dust < d.seed ? 'disabled' : ''}>Buy 1 · ${d.seed} ✨</button><button class="btn small" data-act="buy" data-item="seed_${c}" data-n="10" ${st.dust < d.seed * 10 ? 'disabled' : ''}>Buy 10 · ${d.seed * 10} ✨</button>`)).join('');
+    `<button class="btn small primary" data-act="buy" data-item="seed_${c}" data-n="1" ${st.dust < d.seed ? 'disabled' : ''}>Buy 1 · ${d.seed} ✨</button><button class="btn small" data-act="buy" data-item="seed_${c}" data-n="10" ${st.dust < d.seed * 10 ? 'disabled' : ''}>Buy 10 · ${d.seed * 10} ✨</button><button class="btn small gem" data-act="buy" data-gems="1" data-item="seed_${c}" data-n="10" ${(st.gems || 0) < gemPrice({ dust: d.seed * 10 }) ? 'disabled' : ''}>10 · ${gemPrice({ dust: d.seed * 10 })} 💎</button>`)).join('');
   else if (shopTab === 'sell') {
     const items = [...Object.keys(CROPS).map(c => ['crop_' + c, CROPS[c].name, CROPS[c].sell, `<img src="${cropImg(c)}" alt="">`]), ...Object.entries(RAW).map(([k, d]) => [k, d.name, d.sell, `<i>${RAW_ICON[k]}</i>`])].filter(([k]) => inv[k] > 0);
     html = items.length ? items.map(([k, name, price, img]) => shopCard(img, name, `${price} ✨ each`, inv[k], `<button class="btn small primary" data-act="sell" data-item="${k}" data-n="${inv[k]}">Sell all · ${price * inv[k]} ✨</button><button class="btn small" data-act="sell" data-item="${k}" data-n="1">Sell 1</button>`)).join('')
@@ -526,7 +525,7 @@ function paintShop() {
   } else if (shopTab === 'land') {
     const have = inv.permit || 0, cost = permitCost(have), max = have >= MAX_PERMITS;
     html = shopCard('<i>📜</i>', 'Land Permit', `+1 farm plot forever. Plots: 6 free, +1 per Mind you own (up to 6), +1 per permit (up to ${MAX_PERMITS}).`, `${have}/${MAX_PERMITS}`,
-      max ? '<button class="btn small" disabled>All bought</button>' : `<button class="btn small primary" data-act="buy" data-item="permit" data-n="1" ${st.dust < cost ? 'disabled' : ''}>Buy · ${cost.toLocaleString()} ✨</button>`);
+      max ? '<button class="btn small" disabled>All bought</button>' : `<button class="btn small primary" data-act="buy" data-item="permit" data-n="1" ${st.dust < cost ? 'disabled' : ''}>Buy · ${cost.toLocaleString()} ✨</button><button class="btn small gem" data-act="buy" data-gems="1" data-item="permit" data-n="1" ${(st.gems || 0) < gemPrice({ dust: cost }) ? 'disabled' : ''}>${gemPrice({ dust: cost })} 💎</button>`);
   } else if (shopTab === 'army' || shopTab === 'items' || shopTab === 'gems') {
     const keys = Object.keys(SHOP).filter(k => shopTab === 'army' ? k.startsWith('troop_') : shopTab === 'gems' ? SHOP[k].gem : !k.startsWith('troop_') && !SHOP[k].gem);
     const have = k => { const g = Object.keys(SHOP[k].gives)[0]; return g === 'dust' ? null : inv[g] || 0; };
@@ -535,7 +534,7 @@ function paintShop() {
       : `<div class="shop-info px">🧪 Bring potions on adventures (your hero does not heal by itself). Craft them from herbs found on adventures, or buy them.</div>`;
     const icon = k => k.startsWith('troop_') ? `<img src="${troopIcon(k.slice(6))}" alt="">` : `<i>${SHOP[k].icon}</i>`;
     html = head + keys.map(k => { const it = SHOP[k], ok = canAfford(st, it.price), h = have(k);
-      return shopCard(icon(k), it.name, it.desc, h, `<button class="btn small ${it.gem ? 'gem' : 'primary'}" data-act="shop" data-item="${k}" data-n="1" ${ok ? '' : 'disabled'}>${costText(it.price)}</button>${it.gem ? '' : `<button class="btn small" data-act="shop" data-item="${k}" data-n="5" ${canAfford(st, Object.fromEntries(Object.entries(it.price).map(([a, n]) => [a, n * 5]))) ? '' : 'disabled'}>×5</button>`}`, it.gem ? 'gemcard' : ''); }).join('')
+      return shopCard(icon(k), it.name, it.desc, h, `<button class="btn small ${it.gem ? 'gem' : 'primary'}" data-act="shop" data-item="${k}" data-n="1" ${ok ? '' : 'disabled'}>${costText(it.price)}</button>${it.gem ? '' : `<button class="btn small" data-act="shop" data-item="${k}" data-n="5" ${canAfford(st, Object.fromEntries(Object.entries(it.price).map(([a, n]) => [a, n * 5]))) ? '' : 'disabled'}>×5</button><button class="btn small gem" data-act="shop" data-gems="1" data-item="${k}" data-n="1" ${(st.gems || 0) < gemPrice(it.price) ? 'disabled' : ''}>${gemPrice(it.price)} 💎</button>`}`, it.gem ? 'gemcard' : ''); }).join('')
       + (shopTab === 'items' && SHIPS[(st.ship || 0) + 1] ? shopCard(`<i>${SHIPS[(st.ship || 0) + 1].icon}</i>`, `Airship: ${SHIPS[(st.ship || 0) + 1].name}`, `${SHIPS[(st.ship || 0) + 1].desc} You have the ${SHIPS[st.ship || 0].name}.`, null, `<button class="btn small primary" data-ship="1">${costText(SHIPS[(st.ship || 0) + 1].cost)}</button><button class="btn small gem" data-ship="2">${SHIPS[(st.ship || 0) + 1].gems} 💎</button>`) : '')
       + (shopTab === 'items' ? Object.entries(RECIPES).map(([k, r]) => shopCard('<i>⚗️</i>', `Craft: ${r.name}`, `Uses ${costText(r.needs)}`, inv.herb || 0, `<button class="btn small primary" data-act="craft" data-item="${k}" data-n="1" ${canAfford(st, r.needs) ? '' : 'disabled'}>Craft</button>`)).join('') : '');
   } else {
@@ -560,7 +559,7 @@ $('#shop-grid').addEventListener('click', e => {
 $('#shop-tabs').onclick = e => { const v = e.target.closest('button')?.dataset.v; if (!v) return; shopTab = v; paintShop(); };
 $('#shop-grid').onclick = e => {
   const b = e.target.closest('button[data-act]'); if (!b || b.disabled) return;
-  const res = doAct({ type: b.dataset.act, item: b.dataset.item, n: +b.dataset.n });
+  const res = doAct({ type: b.dataset.act, item: b.dataset.item, n: +b.dataset.n, gems: !!b.dataset.gems });
   if (res.error) { sfx('denied'); return toast(res.error, true); }
   sfx('coin');
   const g = res.gain || {};

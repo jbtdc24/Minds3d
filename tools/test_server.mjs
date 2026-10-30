@@ -440,6 +440,22 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   R.normalize(st, seed, now + 3600e3);
   ok(!st.b.some(b => b.done), 'buildings finish when their time is up');
 }
+
+// ---- gems buy everything ----
+{
+  const R = await import('../web/src/island/rules.js'), { gen, TW, TH } = await import('../web/src/island/gen.js');
+  const seed = 55, now = Date.now(), st = R.newIsland(seed, now), w = gen(seed), ctx = { seed, now, minds: 0, instant: true };
+  st.dust = 0; st.gems = 100;
+  let r = R.act(st, { type: 'buy', item: 'seed_star', n: 2, gems: true }, ctx);
+  ok(r.done === 2 && st.gems === 98 && st.inv.seed_star === 2, 'seeds with Gems');
+  r = R.act(st, { type: 'shop', item: 'troop_giant', n: 1, gems: true }, ctx);
+  ok(r.done === 1 && st.gems === 96, 'troops with Gems');
+  let k = -1; for (let t = 0; t < TW * TH && k < 0; t++) if (R.fits(st, w, 'mill', t)) k = t;
+  r = R.act(st, { type: 'build', item: 'mill', k, gems: true }, ctx);
+  ok(r.done === 1 && st.gems === 96 - R.gemPrice(R.BUILD.mill.cost), 'buildings with Gems');
+  r = R.act(st, { type: 'buy', item: 'permit', gems: true }, ctx);
+  ok(r.done === 1 && st.inv.permit === 1, 'land permits with Gems');
+}
 console.log(`
 ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -210,7 +210,7 @@ function frame(now) {
     lg.fillStyle = '#ffffff';
     while (y < sp.y * PS - 20) { const nx = x + (Math.random() - 0.5) * 6; for (let i = 0; i < 4; i++) P(x + (nx - x) * i / 4, y + i, i % 2 ? '#fff3b0' : '#ffffff'); x = nx; y += 4; }
     lg.globalAlpha = 0.15; lg.fillStyle = '#e0e8ff'; lg.fillRect(0, 0, BW, BH); lg.globalAlpha = 1;
-    if (art.bolt > 0.16 && M) sfx('boom');
+    if (art.bolt > 0.16 && M && Math.random() < 0.35) sfx('rumble');   // a soft, far-away rumble now and then
   }
   // crystal / portal sparkles
   SPOTS.forEach((s, i) => { if (['crystal', 'ruins'].includes(SPOT_BIOME[i]) && Math.random() < dt * 6) { const a = Math.random() * 6.28; P(s.x * PS + Math.cos(a) * s.r * PS * 0.5, s.y * PS + Math.sin(a) * s.r * PS * 0.3 - 4, '#e0fbff'); } });

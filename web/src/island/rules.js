@@ -42,6 +42,9 @@ export const BUILD = {
   fountain: { name: 'Golden Fountain', icon: '⛲', w: 2, h: 2, cost: { gems: 25 }, max: 1, hp: 0, deco: true, gem: true, desc: 'The richest island in the sky. Gem exclusive.' },
 };
 export const STASH_MAX = 12;
+// anything can be paid with Gems instead: about 1 💎 per 100 Dust of value (wood 5, stone 6 Dust each)
+export const gemPrice = cost => cost.gems ? cost.gems : Math.max(1, Math.ceil(((cost.dust || 0) + (cost.wood || 0) * 5 + (cost.stone || 0) * 6) / 100));
+const priceOf = (cost, gems) => gems ? { gems: gemPrice(cost) } : cost;
 // building takes time (like a real build game): seconds per building; 0 = instant (walls, fences, flowers so you can drag lines)
 export const BUILD_SECS = { house: 300, mill: 900, barn: 600, tower: 480, trap: 60, lamp: 30, bench: 30, banner: 30, lantern: 20, crystal: 20, fountain: 60 };
 export const builders = minds => Math.max(1, Math.min(5, minds | 0));      // one builder per Mind you own (at least 1, max 5)
@@ -213,16 +216,18 @@ export function act(st, a, { seed, now, minds = 0, instant = false }) {   // ins
     case 'buy': {
       const n = Math.max(1, Math.min(99, a.n | 0));
       if (a.item === 'permit') {
-        const have = st.inv.permit || 0, cost = permitCost(have);
+        const have = st.inv.permit || 0, price = priceOf({ dust: permitCost(have) }, a.gems);
         if (have >= MAX_PERMITS) return { error: 'You have every Land Permit.' };
-        if (st.dust < cost) return { error: `A Land Permit costs ${cost} Dust.` };
-        pay('dust', -cost); pay('permit', 1); done = 1; break;
+        if (!canAfford(st, price)) return { error: `A Land Permit costs ${costText(price)}.` };
+        for (const [k, m] of Object.entries(price)) pay(k, -m);
+        pay('permit', 1); done = 1; break;
       }
       const crop = String(a.item).replace(/^seed_/, '');
       if (!CROPS[crop]) return { error: 'unknown item' };
-      const cost = CROPS[crop].seed * n;
-      if (st.dust < cost) return { error: `That costs ${cost} Dust.` };
-      pay('dust', -cost); pay('seed_' + crop, n); done = n;
+      const price = priceOf({ dust: CROPS[crop].seed * n }, a.gems);
+      if (!canAfford(st, price)) return { error: `That costs ${costText(price)}.` };
+      for (const [k, m] of Object.entries(price)) pay(k, -m);
+      pay('seed_' + crop, n); done = n;
       break;
     }
     case 'build': {
@@ -233,10 +238,11 @@ export function act(st, a, { seed, now, minds = 0, instant = false }) {   // ins
       for (const k of spots) {
         if (countOf(st, a.item) >= maxOf(a.item, minds)) return done ? { gain, done } : { error: `You can have ${maxOf(a.item, minds)} ${d.name}${maxOf(a.item, minds) > 1 ? 's' : ''}.` };
         if (!fits(st, w, a.item, k)) { if (d.w > 1) return { error: 'It does not fit there: it needs open, cleared ground.' }; continue; }
-        if (!canAfford(st, d.cost)) return done ? { gain, done } : { error: `A ${d.name} costs ${costText(d.cost)}.` };
+        const cost = priceOf(d.cost, a.gems);
+        if (!canAfford(st, cost)) return done ? { gain, done } : { error: `A ${d.name} costs ${costText(cost)}.` };
         const secs = instant ? 0 : BUILD_SECS[a.item] || 0;
         if (secs && busy(st) >= builders(minds)) return done ? { gain, done } : { error: `All your builders are busy (${builders(minds)}: one per Mind you own). Wait, or finish a build with 💎.` };
-        for (const [i, n] of Object.entries(d.cost)) pay(i, -n);
+        for (const [i, n] of Object.entries(cost)) pay(i, -n);
         const b = { id: st.nb++, type: a.item, k };
         if (secs) { b.done = now + secs * 1000; b.start = now; }
         st.b.push(b);
@@ -302,8 +308,9 @@ export function act(st, a, { seed, now, minds = 0, instant = false }) {   // ins
       for (let i = 0; i < n; i++) {
         if (it.gives.potion && (st.inv.potion || 0) >= 30) { if (!done) return { error: 'Your bag holds 30 potions.' }; break; }
         if (Object.keys(it.gives).some(k => k.startsWith('troop_')) && troopCount(st) + Object.entries(it.gives).filter(([k]) => k.startsWith('troop_')).reduce((s, [, m]) => s + m, 0) > TROOP_MAX) { if (!done) return { error: `Your army camp holds ${TROOP_MAX} troops.` }; break; }
-        if (!canAfford(st, it.price)) { if (!done) return { error: `That costs ${costText(it.price)}.` }; break; }
-        for (const [k, m] of Object.entries(it.price)) pay(k, -m);
+        const price = priceOf(it.price, a.gems);
+        if (!canAfford(st, price)) { if (!done) return { error: `That costs ${costText(price)}.` }; break; }
+        for (const [k, m] of Object.entries(price)) pay(k, -m);
         for (const [k, m] of Object.entries(it.gives)) pay(k, m);
         done++;
       }

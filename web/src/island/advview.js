@@ -62,7 +62,7 @@ function update(dt) {
     if (d <= sp) { h.x = tx; h.y = ty; h.path.shift(); } else { h.x += dx / d * sp; h.y += dy / d * sp; }
     if (Math.abs(dx) > 0.5) h.face = dx < 0 ? -1 : 1;
     h.act = 'walk';
-    if ((h.step = (h.step || 0) + dt) > 0.28) { h.step = 0; snd('step', 0.2); }
+    if ((h.step = (h.step || 0) + dt) > 0.42) { h.step = 0; snd('step', 0.35); }
   } else h.act = 'idle';
   // fighting: the targeted monster, else anything next to you
   const alive = A.mons.filter(m => !m.dead);
