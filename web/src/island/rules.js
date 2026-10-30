@@ -61,6 +61,8 @@ export const SHOP = {
 };
 export const TROOP_MAX = 60;                           // troops you can keep trained
 export const troopCount = st => Object.entries(st.inv).filter(([k]) => k.startsWith('troop_')).reduce((s, [, n]) => s + n, 0);
+// airship tiers (same numbers as adventure.js SHIPS; kept here so rules.js has no extra import)
+export const SHIP_COSTS = [null, { name: 'Sky Skiff', cost: { dust: 800, wood: 40 }, gems: 15 }, { name: 'Cloud Galleon', cost: { dust: 3000, wood: 120, stone: 80 }, gems: 40 }, { name: 'Storm Cruiser', cost: { dust: 8000, wood: 250, stone: 200 }, gems: 90 }];
 export const RECIPES = { potion: { name: 'Health Potion', needs: { herb: 2 }, gives: { potion: 1 } } };
 export const HOME_HP = 1100;
 export const maxOf = (type, minds) => {
@@ -289,6 +291,15 @@ export function act(st, a, { seed, now, minds = 0 }) {
         for (const [k, m] of Object.entries(it.gives)) pay(k, m);
         done++;
       }
+      break;
+    }
+    case 'ship': {   // upgrade your airship one tier (Dust + wood + stone, or Gems)
+      const t = (st.ship || 0) + 1, sh = SHIP_COSTS[t];
+      if (!sh) return { error: 'Your airship is already the best there is.' };
+      const price = a.gems ? { gems: sh.gems } : sh.cost;
+      if (!canAfford(st, price)) return { error: `The ${sh.name} costs ${costText(price)}.` };
+      for (const [k, m] of Object.entries(price)) pay(k, -m);
+      st.ship = t; done = 1;
       break;
     }
     case 'demolish': {

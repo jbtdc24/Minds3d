@@ -10,6 +10,30 @@ export const AREAS = [
   { name: 'Ember Reach', icon: '🔥', level: 3, fuel: 2, x: 64, y: 58, desc: 'Hot winds, tough boars, rich loot.' },
   { name: 'Storm Spire', icon: '⚡', level: 4, fuel: 3, x: 84, y: 24, desc: 'The hardest sky. Royal treasure.' },
 ];
+// airships decide how far you can fly on the world map (tier 0 = the free balloon raft: the islands near home)
+export const SHIPS = [
+  { name: 'Balloon Raft', icon: '🎈', cost: {}, gems: 0, desc: 'Reaches the islands near home.' },
+  { name: 'Sky Skiff', icon: '⛵', cost: { dust: 800, wood: 40 }, gems: 15, desc: 'Reaches the Crystal islands (tier 1).' },
+  { name: 'Cloud Galleon', icon: '🚢', cost: { dust: 3000, wood: 120, stone: 80 }, gems: 40, desc: 'Reaches the Ember islands (tier 2).' },
+  { name: 'Storm Cruiser', icon: '⚡', cost: { dust: 8000, wood: 250, stone: 200 }, gems: 90, desc: 'Reaches the Storm islands (tier 3).' },
+];
+// places to fly to: x/y on the world map (0-1600 × 0-1000); tier = airship needed (and fuel per flight); level = monster strength
+export const SPOTS = [
+  { name: 'Mossy Rocks', icon: '🌿', tier: 0, x: 430, y: 640, r: 70, desc: 'Slimes and berries. A good first trip.' },
+  { name: 'Mushroom Hollow', icon: '🍄', tier: 0, x: 250, y: 470, r: 80, desc: 'Giant mushrooms and herbs.' },
+  { name: 'Whisper Isle', icon: '🌾', tier: 0, x: 520, y: 380, r: 66, desc: 'Quiet fields, wild boars.' },
+  { name: 'Crystal Cliffs', icon: '💎', tier: 1, x: 760, y: 220, r: 92, desc: 'Ore everywhere. Bandits guard the chests.' },
+  { name: 'Ore Spire', icon: '⛏️', tier: 1, x: 900, y: 520, r: 70, desc: 'Rich stone and tough boars.' },
+  { name: 'Bandit Perch', icon: '🏴', tier: 1, x: 640, y: 820, r: 76, desc: 'Bandit camps and loot chests.' },
+  { name: 'Ember Reach', icon: '🔥', tier: 2, x: 1110, y: 300, r: 96, desc: 'Hot winds, rich loot.' },
+  { name: 'Waterfall Keep', icon: '💧', tier: 2, x: 1180, y: 690, r: 90, desc: 'Falls pour into the clouds.' },
+  { name: 'Sunken Garden', icon: '🌸', tier: 2, x: 930, y: 860, r: 70, desc: 'Flowers hide royal chests.' },
+  { name: 'Storm Spire', icon: '⚡', tier: 3, x: 1420, y: 200, r: 90, desc: 'The hardest sky.' },
+  { name: 'Sky Temple', icon: '🌀', tier: 3, x: 1450, y: 560, r: 96, desc: 'An old portal. Royal treasure.' },
+  { name: 'Dragon Nest', icon: '🐉', tier: 3, x: 1380, y: 880, r: 80, desc: 'Something big lives here.' },
+];
+export const HOME_SPOT = { x: 190, y: 760, r: 100 };
+export const spotLevel = s => Math.min(4, SPOTS[s].tier + 1);
 export const GATHER_PER_HOUR = 40, POTION_HEAL = 120, POTIONS_MAX = 5;
 export const ADV_TIME = 180;                                   // seconds on the island
 export const advPerDay = minds => 5 + Math.min(3, minds | 0);  // adventures per day: 5 (+1 per Mind owned, max +3)
