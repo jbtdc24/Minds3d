@@ -130,7 +130,7 @@ export function newIsland(seed, now = 0) {
   for (const k of w.starter) tiles[k] = { s: 'p', t: now };
   const st = { v: 2, dust: 100, gems: 0, inv: { seed_bean: 6, seed_carrot: 2, troop_brawler: 6, troop_archer: 4, potion: 2, fuel: 1 }, tiles };
   migrate3(st, seed);
-  st.v = 5; st.wellAt = now;
+  st.v = 5; st.wellAt = now; st.npcAt = now;
   return st;
 }
 export const maxPlots = (st, minds) => BASE_PLOTS + Math.min(minds, MIND_PLOTS) + Math.min(st.inv.permit || 0, MAX_PERMITS) + housePlots(st);

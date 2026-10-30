@@ -9,7 +9,7 @@ import { coverAt, BUILD } from './rules.js';
 import { troopSprite, weapon, troopIcon } from './troops.js';
 import { drawCinema, dropShadow } from './cinema.js';
 import { createRaid, input, step, score, dropOk, SPELLS, TROOPS, CRY, TICK, MAX_TICKS, DROP_UNTIL } from './raid.js';
-import { sfx, music } from '../audio.js';
+import { sfx, music, squeak } from '../audio.js';
 
 const $ = s => document.querySelector(s), $$ = s => document.querySelectorAll(s);
 const cv = $('#raid-cv'), g = cv.getContext('2d');
@@ -43,12 +43,14 @@ function burst(x, y, cols, n = 12, sp = 50, grav = 90) { for (let i = 0; i < n; 
 function ring(x, y, col, r = 60) { for (let i = 0; i < 28; i++) { const a = i / 28 * Math.PI * 2; parts.push({ x, y, vx: Math.cos(a) * r, vy: Math.sin(a) * r * 0.6, g: 0, life: 0.6, max: 0.6, c: col, s: 2 }); } }
 const say = (x, y, text, c, big) => texts.push({ x, y, text, c, life: 1.3, big });
 const sndGate = {};
+let squeakAt = 0;
+const sq = (kind, gap = 0.28) => { const now = performance.now() / 1000; if (squeakAt > now) return; squeakAt = now + gap; squeak(kind, Math.random() * 400 | 0); };
 const snd = (name, gap = 0.06) => { const now = performance.now() / 1000; if ((sndGate[name] || 0) > now) return; sndGate[name] = now + gap; sfx(name); };
 function takeFx() {
   for (const f of S.fx) {
     if (f.e === 'shot') { shots.push({ ...f, t: 0 }); snd('twang', 0.08); }
     else if (f.e === 'arrow') { shots.push({ ...f, t: 0, mine: true }); snd('twang', 0.1); }
-    else if (f.e === 'smack') { burst(f.x, f.y, f.kind === 'giant' ? ['#c4b49c', '#ffffff', '#8a6a3a'] : ['#ffffff', '#ffe27a', '#c99a63'], f.kind === 'giant' ? 8 : 4, 40); snd('smash', 0.07); if (f.kind === 'giant') shake = Math.max(shake, 2); }
+    else if (f.e === 'smack') { if (Math.random() < 0.25) sq('scream', 0.5); burst(f.x, f.y, f.kind === 'giant' ? ['#c4b49c', '#ffffff', '#8a6a3a'] : ['#ffffff', '#ffe27a', '#c99a63'], f.kind === 'giant' ? 8 : 4, 40); snd('smash', 0.07); if (f.kind === 'giant') shake = Math.max(shake, 2); }
     else if (f.e === 'dmg') say(f.x, f.y, `-${f.n}`, '#ff8a7a');
     else if (f.e === 'bomb') { burst(f.x, f.y, ['#ff9a4a', '#ffd84a', '#2b2340', '#ffffff'], 30, 90); ring(f.x, f.y, '#ffb347', 70); shake = Math.max(shake, 6); flashA = 0.25; snd('boom', 0.05); }
     else if (f.e === 'boom') {
@@ -62,8 +64,8 @@ function takeFx() {
         snd('coins', 0.1);
       }
     }
-    else if (f.e === 'ko') { burst(f.x, f.y - 8, ['#ffffff', '#cfcfdc', '#fff3b0'], 14, 40); snd(f.kind === 'guard' ? 'ko' : 'miss', 0.1); if (f.kind === 'guard') say(f.x, f.y - 24, 'Guard down!', '#d4ff1f'); if (f.kind === 'hero' || f.kind === 'captain') say(f.x, f.y - 24, `${f.kind === 'hero' ? 'Hero' : 'Captain'} down`, '#ff6a5a'); }
-    else if (f.e === 'drop') { burst(f.x, f.y, ['#f3dfb6', '#ffffff', '#c99a63'], f.kind === 'hero' ? 24 : 8, f.kind === 'hero' ? 60 : 35); snd(f.kind === 'hero' || f.kind === 'giant' ? 'land' : 'drop', 0.04); if (f.kind === 'hero') { ring(f.x, f.y, '#ffd84a', 50); snd('horn', 1); } if (f.kind === 'giant') snd('roar', 0.5); }
+    else if (f.e === 'ko') { sq(f.kind === 'guard' ? 'ow' : 'bye', 0.12); burst(f.x, f.y - 8, ['#ffffff', '#cfcfdc', '#fff3b0'], 14, 40); snd(f.kind === 'guard' ? 'ko' : 'miss', 0.1); if (f.kind === 'guard') say(f.x, f.y - 24, 'Guard down!', '#d4ff1f'); if (f.kind === 'hero' || f.kind === 'captain') say(f.x, f.y - 24, `${f.kind === 'hero' ? 'Hero' : 'Captain'} down`, '#ff6a5a'); }
+    else if (f.e === 'drop') { sq('scream'); burst(f.x, f.y, ['#f3dfb6', '#ffffff', '#c99a63'], f.kind === 'hero' ? 24 : 8, f.kind === 'hero' ? 60 : 35); snd(f.kind === 'hero' || f.kind === 'giant' ? 'land' : 'drop', 0.04); if (f.kind === 'hero') { ring(f.x, f.y, '#ffd84a', 50); snd('horn', 1); } if (f.kind === 'giant') snd('roar', 0.5); }
     else if (f.e === 'trap') { burst(f.x, f.y, ['#ffffff', '#cfcfdc', '#ff5a4a'], 14, 55); shake = Math.max(shake, 3); snd('trap', 0.1); say(f.x, f.y - 14, 'TRAP!', '#ff6a5a'); }
     else if (f.e === 'cry') { ring(f.x, f.y, '#ffd84a', CRY.radius * 1.4); ring(f.x, f.y, '#ff4d6d', CRY.radius); flashA = 0.2; snd('horn', 0.5); say(f.x, f.y - 30, 'BATTLE CRY!', '#ffd84a', true); }
     else if (f.e === 'spell') {

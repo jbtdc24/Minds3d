@@ -66,6 +66,7 @@
       <button class="iconbtn px shopbtn" id="hub-shop" title="Shop">🛒</button>
       <button class="iconbtn px invbtn" id="hub-inv" title="Inventory">🎒<i class="enbadge" id="inv-badge"></i></button>
       <button class="iconbtn px" data-go="leaderboard" title="Leaderboard"><img src="assets/icon_trophy.png" alt="Leaderboard"></button>
+      <button class="iconbtn px" id="hub-mail" title="Mail">✉️<i class="badge" id="mail-badge"></i></button>
       <button class="iconbtn px" id="hub-friends" title="Friends"><img src="assets/icon_friends.png" alt="Friends"><i class="badge" id="friends-badge"></i></button>
       <button class="iconbtn px" id="hub-tutorial" title="Tutorial"><img src="assets/icon_book.png" alt="Tutorial"></button>
       <button class="iconbtn px" data-go="settings" title="Settings"><img src="assets/icon_gear.png" alt="Settings"></button>
@@ -258,6 +259,7 @@
     </div>
     <div class="isl-right">
       <button class="iconbtn px" id="isl-home" title="Back to my house">🏠</button>
+      <button class="iconbtn px" id="isl-minds" title="Talk to your Minds, give them jobs">🧠</button>
       <button class="iconbtn px" id="isl-stash" title="Storage (stored buildings)">📦</button>
       <button class="iconbtn px" id="isl-bag" title="Inventory">🎒</button>
       <button class="iconbtn px" id="isl-shop" title="Shop">🛒</button>
@@ -354,6 +356,7 @@
       <div class="row">Rules <button class="btn small" id="set-rules">How to play</button></div>
       <div class="row">Account <span class="muted ellip" id="set-account"></span></div>
       <div class="row">Code <span class="codebox"><input id="set-code" placeholder="enter a code" autocomplete="off"><button class="btn small" id="set-code-go">OK</button></span></div>
+      <div class="row">Something wrong? <button class="btn small" id="set-report">Report a problem</button></div>
       <div class="row"><span></span><button class="btn" id="set-logout">Sign out</button></div>
     </div>
   </div>
@@ -367,6 +370,7 @@
       <div class="adm-left panel px">
         <div class="adm-search"><input id="adm-q" placeholder="name, 0x wallet or id"><button class="btn small primary" id="adm-go">Find</button></div>
         <div id="adm-results"></div>
+        <div class="adm-tabs"><button class="btn small" id="adm-stats">📊 Players</button><button class="btn small" id="adm-mail">✉️ Send mail</button><button class="btn small" id="adm-reports">🐞 Reports <b id="adm-open"></b></button></div>
         <h3>🚩 Cheat meter <button class="btn small" id="adm-refresh">↻</button></h3>
         <div id="adm-meter"></div>
       </div>
@@ -394,8 +398,26 @@
   <div id="fr-chat-view" class="fr-chat">
     <button class="btn small" id="fr-back">‹ Friends</button>
     <div class="fr-msgs" id="fr-msgs"></div>
+    <div class="fr-add"><input id="fr-text" maxlength="400" placeholder="Type a message…"><button class="btn small primary" id="fr-send">Send</button></div>
     <div class="phrases small" id="fr-phrases"></div>
+    <div class="fr-tools"><small class="muted">Messages delete after 30 days.</small><button class="btn small" id="fr-report">Report</button><button class="btn small red" id="fr-unfriend">Unfriend</button></div>
   </div>
+</aside>
+
+<!-- MAIL -->
+<aside class="drawer px" id="maild">
+  <div class="drawer-head"><span class="dh-ico">✉️</span><h3>Mail</h3><button class="iconbtn px small" id="mail-close">✕</button></div>
+  <div class="fr-list" id="mail-list"></div>
+</aside>
+
+<!-- TALK TO A MIND -->
+<aside class="drawer px" id="mindp">
+  <div class="drawer-head"><span class="dh-ico">🧠</span><h3 id="mp-title">Minds</h3><em id="mp-slots"></em><button class="iconbtn px small" id="mp-close">✕</button></div>
+  <div class="mp-list" id="mp-list"></div>
+  <div class="mp-job" id="mp-job"></div>
+  <p class="mp-desc" id="mp-desc"></p>
+  <div class="fr-msgs" id="mp-chat"></div>
+  <div class="fr-add"><input id="mp-in" maxlength="120" placeholder="Tell this Mind what to do…"><button class="btn small primary" id="mp-send">Send</button></div>
 </aside>
 
 <div class="modal-wrap" id="modal"><div class="panel px modal"><div id="modal-body"></div><div class="modal-btns" id="modal-btns"></div></div></div>

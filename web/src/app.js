@@ -8,6 +8,7 @@ import { DATA_VERSION } from './config.js';
 import { api, session, walletLogin, guestLogin, logout, hasWallet, watch, serverOnline, LocalMatch, setTokenIds } from './net.js';
 import { initAudio, sfx, music, setVolume } from './audio.js';
 import { PHRASES, MATCH_CHAT, FRIEND_CHAT, BOT_REPLIES } from './chat.js';
+import { initMindTalk, openMinds } from './mindtalk.js';
 import { capOf, ENERGY_CAP } from './energy.js';
 import { openIsland, closeIsland, refreshHud, cropImg, fmtTime } from './island/island.js';
 import { chibi } from './island/chibi.js';
@@ -349,7 +350,9 @@ async function ensureIsland() {
 async function goIsland() {
   if (!(await ensureIsland())) return;
   show('island'); stage.paused = true; music('cozy');
-  openIsland({ minds: myMinds, toast: (m, bad) => toast(m, bad), shop: tab => openShop(tab), bag: () => { invTab = 'items'; openInventory(); } });
+  openIsland({ minds: myMinds, toast: (m, bad) => toast(m, bad), shop: tab => openShop(tab), bag: () => { invTab = 'items'; openInventory(); }, mind: id => openMinds(id) });
+  const worked = (isle.state?.jobLog || []).filter(e => e.at > (settings.jobSeen || 0)).slice(0, 6);
+  if (worked.length) { settings.jobSeen = worked[0].at; saveSettings(); }
   // raided while you were away?
   const log = (isle.state?.raidLog || []).filter(e => e.at > (settings.raidSeen || 0));
   if (log.length) {
@@ -358,7 +361,7 @@ async function goIsland() {
     const canRev = log.find(e => (e.pid || e.npc) && !e.avenged);
     modal(`<h3>⚔️ Your island was raided</h3>${log.map(e => `<p><b>${esc(e.by)}</b> · ${e.beaten ? `your defences beat them! +${e.beaten} ✨` : `${'★'.repeat(e.stars)}${'☆'.repeat(3 - e.stars)} · ${e.pct}% · −${e.loot.toLocaleString()} ✨`}</p>`).join('')}<p>Total lost: <b>${lost.toLocaleString()} ✨</b>. Build walls, towers and traps (🔨 Build), and barns keep Dust safe.</p>${sh}`,
       canRev ? [[`⚔️ Revenge on ${esc(canRev.by)}`, canRev.at, 'primary'], ['Later', 0]] : [['Got it', 0, 'primary']]).then(at => { if (at) startRaid(at); });
-  }
+  } else if (worked.length) modal(`<h3>🧠 While you were away</h3>${worked.map(e => `<p><b>${e.id ? 'Mind #' + e.id : 'Captain'}</b> ${esc(e.text)}.</p>`).join('')}`, [['Nice!', 0, 'primary']]);
 }
 $('#hub-island').onclick = goIsland;
 setInterval(() => { if (online && ['island', 'shop', 'inventory'].includes(current)) refreshIsland().then(() => { refreshHud(); if (current === 'shop') paintShop(); if (current === 'inventory') paintInventory(); }); }, 20000);
@@ -439,6 +442,7 @@ async function startRaid(revenge = 0) {
   });
 }
 $('#isl-raid').onclick = () => startRaid();
+$('#isl-minds').onclick = () => openMinds();
 $('#isl-raid').addEventListener('contextmenu', e => e.preventDefault());
 // ---------- adventure: explore a wild island ----------
 // the world map screen: pick an island your airship can reach, bring potions, fly
@@ -1259,6 +1263,8 @@ $('#pf-save').onclick = async () => {
   catch (e) { $('#pf-err').textContent = e.message; }
 };
 
+initMindTalk({ minds: () => (guest ? [] : myMinds), esc });
+
 // ---------- friends + friend chat (preset lines) ----------
 let friendsList = [], chatWith = null, frUnwatch = null, frTimer = null;
 const seenAt = id => settings.seen[id] || 0;
@@ -1305,20 +1311,61 @@ async function loadChat() {
   try {
     const r = await api(`messages?with=${pid}`);
     if (chatWith?.player.id !== pid) return;   // closed or switched while loading
-    $('#fr-msgs').innerHTML = r.messages.length ? r.messages.map(m => `<div class="msg ${m.mine ? 'mine' : ''}">${esc(PHRASES[m.phrase] || '')}<time>${new Date(m.at).toLocaleString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}</time></div>`).join('') : '<div class="board-empty">Say hi! 👋</div>';
+    $('#fr-msgs').innerHTML = r.messages.length ? r.messages.map(m => `<div class="msg ${m.mine ? 'mine' : ''}">${esc(m.text || PHRASES[m.phrase] || '')}<time>${new Date(m.at).toLocaleString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}</time></div>`).join('') : '<div class="board-empty">Say hi! 👋</div>';
     $('#fr-msgs').scrollTop = 1e9;
     settings.seen[pid] = Date.now(); saveSettings();
     renderFriends();
   } catch (e) { toast(e.message, true); }
 }
 $('#fr-back').onclick = () => { chatWith = null; openFriends(); };
+async function sendChat() {
+  const box = $('#fr-text'), text = box.value.trim();
+  if (!text || !chatWith) return;
+  box.value = '';
+  try { await api('messages', { to: chatWith.player.id, text }); sfx('pop'); loadChat(); } catch (err) { box.value = text; toast(err.message, true); }
+}
+$('#fr-send').onclick = sendChat;
+$('#fr-text').addEventListener('keydown', e => { if (e.key === 'Enter') sendChat(); });
+$('#fr-unfriend').onclick = async () => {
+  const f = chatWith; if (!f) return;
+  if (!(await modal(`<h3>Unfriend ${esc(f.player.name)}?</h3><p>You will stop seeing each other's chat.</p>`, [['Unfriend', 1, 'primary'], ['Cancel', 0]]))) return;
+  try { await api('friend', { op: 'remove', id: f.player.id }); chatWith = null; toast(`${f.player.name} removed.`); openFriends(); } catch (e) { toast(e.message, true); }
+};
+$('#fr-report').onclick = () => { if (chatWith) reportBox('player', chatWith.player); };
+// report a bug, or a player; the owner reads these in Admin → Reports
+async function reportBox(kind, who) {
+  if (!online || !session.token) return toast('Sign in to send a report.', true);
+  const go = await modal(`<h3>${who ? `Report ${esc(who.name)}` : 'Report a problem'}</h3><p class="muted">Tell us what happened.</p><textarea id="rep-text" class="rep-text" maxlength="1000" rows="5"></textarea>`, [['Send', 1, 'primary'], ['Cancel', 0]]);
+  const text = go && document.getElementById('rep-text')?.value;
+  if (!go) return;
+  try { await api('report', { kind, text, target: who?.id, place: current }); toast('Thanks! We got your report.'); } catch (e) { toast(e.message, true); }
+}
+$('#set-report').onclick = () => reportBox('bug');
+// ---------- mail: announcements, updates, gifts ----------
+let mailBox = [];
+const mailSeen = () => settings.mailSeen || 0;
+function paintMail() {
+  const fresh = mailBox.filter(m => Date.parse(m.at) > mailSeen() || (m.gift && !m.taken)).length, b = $('#mail-badge');
+  b.textContent = fresh; b.classList.toggle('on', fresh > 0);
+  $('#mail-list').innerHTML = mailBox.length ? mailBox.map(m => `<article class="letter"><h4>${esc(m.title)}</h4><time>${new Date(m.at).toLocaleDateString()}</time><p>${esc(m.body)}</p>${m.gift ? `<button class="btn small ${m.taken ? '' : 'primary'}" data-mail="${m.id}" ${m.taken ? 'disabled' : ''}>${m.taken ? 'Taken' : `Take ${m.gift.dust ? m.gift.dust + ' ✨ ' : ''}${m.gift.gems ? m.gift.gems + ' 💎' : ''}`}</button>` : ''}</article>`).join('') : '<div class="board-empty">No mail yet.</div>';
+}
+async function loadMail() {
+  if (!online || !session.token) return;
+  try { mailBox = (await api('mail')).mail; paintMail(); } catch { /* mail is set up by supabase/007_community.sql */ }
+}
+$('#hub-mail').onclick = async () => { $('#maild').classList.add('on'); await loadMail(); settings.mailSeen = Date.now(); saveSettings(); };
+$('#mail-close').onclick = () => { $('#maild').classList.remove('on'); paintMail(); };
+$('#mail-list').onclick = async e => {
+  const b = e.target.closest('[data-mail]'); if (!b) return;
+  try { await api('mail', { op: 'claim', id: +b.dataset.mail }); sfx('coins'); resetIsland(); toast('Gift added to your island!'); loadMail(); } catch (err) { toast(err.message, true); }
+};
 $('#fr-phrases').onclick = async e => {
   const p = e.target.closest('[data-p]'); if (!p || !chatWith) return;
   try { await api('messages', { to: chatWith.player.id, phrase: +p.dataset.p }); sfx('pop'); loadChat(); } catch (err) { toast(err.message, true); }
 };
 async function friendsPoll() {
   if (!online || guest || !me) { renderFriends(); return; }
-  loadFriends();
+  loadFriends(); loadMail();
   if (!frUnwatch) frUnwatch = await watch(`player:${me.id}`, () => { loadFriends(); if (chatWith) loadChat(); sfx('notify'); });
   clearInterval(frTimer); frTimer = setInterval(() => { if (current === 'hub') { loadFriends(); if (chatWith) loadChat(); } }, 25000);
 }

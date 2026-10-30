@@ -815,3 +815,33 @@ h3.raid-result { text-align: center; }
   .board-tab { display: flex !important; }
   #s-hub:not(.board-closed) .board-tab { display: none !important; }
 }
+
+/* ---- talk to a Mind ---- */
+#mindp { display: flex; flex-direction: column; gap: 8px; }
+#mindp .drawer-head em { margin-left: auto; font-style: normal; font-size: 13px; font-weight: 800; color: var(--muted); }
+.dh-ico { font-size: 24px; }
+.mp-list { display: flex; gap: 6px; overflow-x: auto; flex: none; padding: 3px; scrollbar-width: thin; }
+.mp-list button { position: relative; flex: none; width: 58px; padding: 3px; background: #fff; box-shadow: 0 0 0 2px var(--ink); border: 0; cursor: pointer; font: 800 11px var(--body, inherit); }
+.mp-list button.on { background: var(--lime); }
+.mp-list img { width: 36px; height: 36px; object-fit: contain; image-rendering: pixelated; display: block; margin: 0 auto; }
+.mp-list span { display: block; overflow: hidden; }
+.mp-list i { position: absolute; top: 0; right: 2px; font-style: normal; font-size: 13px; }
+.mp-job { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; flex: none; }
+.mp-job button { padding: 5px 2px; background: #fff; box-shadow: 0 0 0 2px var(--ink); border: 0; cursor: pointer; font: 800 12px inherit; line-height: 1.1; }
+.mp-job button.on { background: var(--lime); }
+.mp-job i { display: block; font-style: normal; font-size: 18px; }
+.mp-desc { margin: 0; font-size: 13px; color: var(--muted); font-weight: 700; flex: none; }
+#mp-chat { flex: 1; min-height: 120px; overflow: auto; display: flex; flex-direction: column; gap: 5px; }
+.msg small { display: block; font-size: 12px; color: var(--muted); }
+
+/* ---- chat, mail, reports ---- */
+.fr-tools { display: flex; align-items: center; gap: 6px; } .fr-tools small { flex: 1; font-size: 12px; }
+.rep-text { width: 100%; padding: 8px; font: 700 15px var(--font); box-sizing: border-box; resize: vertical; }
+.letter { background: #fff; box-shadow: 0 0 0 2px var(--ink); padding: 8px 10px; margin-bottom: 8px; }
+.letter h4 { margin: 0; font-size: 16px; } .letter time { font-size: 12px; color: var(--muted); } .letter p { margin: 4px 0; font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.iconbtn .badge { position: absolute; }
+.adm-tabs { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0; }
+.adm-box input.wide { width: 100%; }
+.adm-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+.adm-stats div { background: var(--paper-2); padding: 8px; } .adm-stats b { display: block; font-size: 26px; } .adm-stats span { font-size: 12px; color: var(--muted); font-weight: 800; }
+.adm-report { background: var(--paper-2); padding: 8px; margin-bottom: 6px; } .adm-report.done { opacity: .55; } .adm-report p { margin: 4px 0; white-space: pre-wrap; overflow-wrap: anywhere; }

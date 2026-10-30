@@ -2,6 +2,7 @@
 // Hand: drag to look around, tap to do the obvious thing. Tools: drag across tiles. Your Minds walk over and do each job.
 import { rarityOf } from '../nft2d.js';
 import { chibi } from './chibi.js';
+import { babble } from '../audio.js';
 import { sfx } from '../audio.js';
 import { gen, COVER, T, TW, TH, WW, WH, hash } from './gen.js';
 import { drawSky, groundFor, sprites, sprouts, heart, SOIL, toolSprites } from './art.js';
@@ -143,6 +144,11 @@ function assignJobs() {
 }
 function updateMind(m, dt, night) {
   m.hop = Math.max(0, m.hop - dt);
+  m.talk = (m.talk ?? 2 + m.r() * 12) - dt;
+  if (m.talk <= 0) {   // cute gibberish now and then, quieter than the game sounds
+    m.talk = 10 + m.r() * 18;
+    popText(m.x, m.y - m.c.h - 4, babble(m.id, m.state === 'work' ? 'work' : 'chat', 0.5));
+  }
   if (m.state === 'go') {
     const mc = compOf(m.x, m.y), dc = compOf(m.tx, m.ty);
     if (mc >= 0 && dc >= 0 && mc !== dc) {   // another island: walk into this island's portal, come out of the other one
@@ -507,12 +513,12 @@ function apply(type, k, extra = {}) {
 // tap with the hand: do the obvious thing for that tile
 function smart(k, p) {
   const m = [...minds].sort((a, b) => b.y - a.y).find(m => Math.abs(p.x - m.x) < m.c.w / 2 && p.y < m.y + 2 && p.y > m.y - m.c.h);
-  if (m) { m.hop = 0.5; m.state = 'idle'; m.timer = 2; selected = m; selectedT = 3; emote(m, 'heart'); sfx('pop'); return; }
+  if (m) { m.hop = 0.5; m.state = 'idle'; m.timer = 2; selected = m; selectedT = 3; emote(m, 'heart'); sfx('pop'); cb.mind?.(m.id); return; }
   if (k < 0 || !w.land[k] || pathSet().has(k)) return;
   const t = isle.state.tiles[k], cov = coverAt(isle.state, w, k);
   const bd = buildingAt(isle.state, k);
   if (bd) return openBMenu(bd);
-  if (isFixed(k)) return cb.toast('Energy Well: it will make energy shards (3 shards = +1 ranked energy). Coming soon.');
+  if (isFixed(k)) return;
   if (t?.s === 'p') {
     if (ripe(t, now(), isle.minds)) return enqueue('harvest', k);
     if (t.c) { sfx('click'); return cb.toast(`${CROPS[t.c].name}: ready in ${fmtTime(growMs(t.c, isle.minds) - (now() - t.p))}.`); }

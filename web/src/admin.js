@@ -13,7 +13,7 @@ export async function tryCode(code) {
 function open() {
   K.show('admin');
   $('#adm-detail').innerHTML = '<p class="muted">Search a player by name, wallet (0x…) or id.</p>';
-  meter();
+  meter(); stats();
 }
 async function search() {
   const q = $('#adm-q').value.trim();
@@ -25,6 +25,24 @@ async function meter() {
   const r = await K.api('admin', { op: 'flags' }).catch(e => ({ players: [], err: e.message }));
   $('#adm-meter').innerHTML = r.setup ? '<p class="muted">Run supabase/005_admin.sql to switch on the cheat meter.</p>'
     : (r.players.map(p => `<button class="adm-row" data-pid="${p.pid}"><b>${K.esc(p.name)}</b><span>🚩 ${p.n} · ${Object.entries(p.kinds).map(([k, n]) => `${k} ×${n}`).join(', ')}</span></button>`).join('') || '<p class="muted">No suspicious activity. 👍</p>');
+}
+const when = t => new Date(t).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+async function stats() {
+  const r = await K.api('admin', { op: 'stats' });
+  const box = [['🟢 Online now', r.online], ['🎮 Playing this minute', r.playing], ['📅 Active 24 hours', r.day], ['🗓 Active 7 days', r.week], ['👥 Registered', r.players], ['👛 Wallets', r.wallets], ['🧪 Trial accounts', r.trials], ['🆕 New 24 hours', r.newDay], ['🆕 New 7 days', r.newWeek], ['⚔️ Live matches', r.live], ['⏳ In queue', r.queue], ['🏝️ Islands', r.islands], ['🏘️ In Mind Town', r.town ?? '–'], ['🤖 AI keys', r.keys ?? '–'], ['💎 Gems sold', r.gems]];
+  $('#adm-open').textContent = r.open || '';
+  $('#adm-detail').innerHTML = `<h3>📊 Players</h3><div class="adm-stats">${box.map(([k, v]) => `<div><b>${(v ?? 0).toLocaleString()}</b><span>${k}</span></div>`).join('')}</div>`;
+}
+async function mailForm() {
+  const r = await K.api('admin', { op: 'mails' }).catch(() => ({ mail: [] }));
+  $('#adm-detail').innerHTML = `<h3>✉️ Mail to every player</h3>
+    <div class="adm-box"><input id="ml-title" class="wide" maxlength="80" placeholder="Title"><textarea id="ml-body" class="rep-text" rows="5" maxlength="2000" placeholder="Announcement or update"></textarea>
+    <input id="ml-dust" type="number" min="0" placeholder="Gift ✨"><input id="ml-gems" type="number" min="0" placeholder="Gift 💎"><input id="ml-to" class="wide" placeholder="Player id (empty = everyone)"><button class="btn small primary" data-a="mail">Send</button></div>
+    ${r.mail.map(m => `<div class="adm-row"><b>${K.esc(m.title)}</b><span>${when(m.created_at)} · ${m.to_id ? 'one player' : 'everyone'}${m.gift ? ' · gift' : ''}</span><button class="btn small" data-del="${m.id}">Delete</button></div>`).join('')}`;
+}
+async function reports() {
+  const r = await K.api('admin', { op: 'reports' });
+  $('#adm-detail').innerHTML = `<h3>🐞 Reports</h3>${r.reports.map(x => `<div class="adm-report ${x.done ? 'done' : ''}"><b>${x.kind === 'player' ? `🚩 ${K.esc(x.about || 'a player')}` : '🐞 Bug'}</b> <small>by ${K.esc(x.by)} · ${when(x.created_at)}${x.place ? ' · ' + K.esc(x.place) : ''}</small><p>${K.esc(x.text)}</p>${x.player_id ? `<button class="btn small" data-pid="${x.player_id}">Open reporter</button>` : ''}${x.target ? `<button class="btn small" data-pid="${x.target}">Open reported</button>` : ''}<button class="btn small" data-rep="${x.id}" data-v="${x.done ? 0 : 1}">${x.done ? 'Reopen' : 'Done'}</button></div>`).join('') || '<p class="muted">No reports yet.</p>'}`;
 }
 async function show(pid) {
   const r = await K.api('admin', { op: 'player', pid });
@@ -48,6 +66,19 @@ document.addEventListener('click', async e => {
     if (row) return await show(row.dataset.pid);
     if (e.target.closest('#adm-go')) return await search();
     if (e.target.closest('#adm-refresh')) return await meter();
+    if (e.target.closest('#adm-stats')) return await stats();
+    if (e.target.closest('#adm-mail')) return await mailForm();
+    if (e.target.closest('#adm-reports')) return await reports();
+    const rep = e.target.closest('[data-rep]');
+    if (rep) { await K.api('admin', { op: 'report_done', id: +rep.dataset.rep, done: rep.dataset.v === '1' }); return await reports(); }
+    const del = e.target.closest('[data-del]');
+    if (del) { await K.api('admin', { op: 'mail_del', id: +del.dataset.del }); return await mailForm(); }
+    if (e.target.closest('[data-a="mail"]')) {
+      const to = $('#ml-to').value.trim();
+      if (!(await K.modal(`<h3>Send to ${to ? 'this player' : 'EVERY player'}?</h3>`, [['Send', 1, 'primary'], ['Cancel', 0]]))) return;
+      await K.api('admin', { op: 'mail', title: $('#ml-title').value, body: $('#ml-body').value, to, gift: { dust: +$('#ml-dust').value || 0, gems: +$('#ml-gems').value || 0 } });
+      K.toast('Mail sent.'); return await mailForm();
+    }
     const a = e.target.closest('[data-a]')?.dataset.a;
     if (!a || !cur) return;
     if (a === 'give') {
