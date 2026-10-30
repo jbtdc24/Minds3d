@@ -38,11 +38,12 @@ const M = [
 ];
 const only = process.argv[2];
 rmSync(TMP, { recursive: true, force: true }); mkdirSync(TMP);
-for (const d of ['lib', 'api', 'web/src', 'tools']) cpSync(d, `${TMP}/${d}`, { recursive: true, filter: f => !f.includes('assets') });
-cpSync('package.json', `${TMP}/package.json`);
+for (const d of ['lib', 'api', 'web/src', 'tools', 'supabase']) cpSync(d, `${TMP}/${d}`, { recursive: true, filter: f => !f.includes('assets') });
+cpSync('package.json', `${TMP}/package.json`); cpSync('vercel.json', `${TMP}/vercel.json`);
 const run = () => { const r = spawnSync('node', ['tools/test_server.mjs'], { cwd: TMP, encoding: 'utf8', timeout: 60000 }); const m = /(\d+) passed, (\d+) failed/.exec(r.stdout || ''); return { fails: m ? +m[2] : -1, crashed: !m, first: (r.stdout || '').split('\n').find(l => l.startsWith('FAIL')) || (r.stderr || '').split('\n').find(l => /Error/.test(l)) || '' }; };
 const base = run();
 console.log('baseline failures:', base.fails);
+if (base.fails !== 0) { console.log('BASELINE NOT CLEAN: results would mean nothing'); process.exit(2); }
 let missed = 0;
 for (const [name, file, from, to] of M) {
   if (only && !name.includes(only)) continue;
@@ -50,7 +51,7 @@ for (const [name, file, from, to] of M) {
   if (!src.includes(from)) { console.log('SKIPPED (text not found)', name); missed++; continue; }
   writeFileSync(p, src.replace(from, to));
   const r = run();
-  const caught = r.fails !== 0;
+  const caught = r.fails > 0;   // a crash is not a catch: a named test must fail
   if (!caught) missed++;
   console.log(caught ? 'CAUGHT' : 'MISSED', name, '→', r.first.slice(0, 80));
   writeFileSync(p, src);
