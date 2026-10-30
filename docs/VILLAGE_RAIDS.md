@@ -43,3 +43,15 @@ Demolish refunds 50%.
 
 - [x] Duel filler bots: player-style names, think 1.5-10 s, no BOT label (Practice still says bot). Internally still half rating/points.
 - [ ] Next:, building upgrades, raid replays/revenge, adventure bosses per level
+
+## Round 3 (owner 2026-10-30) — task list in order
+- [ ] Raid button not working (bug)
+- [ ] Minds smaller on the island (they are taller than the house door)
+- [ ] Bigger island, floating sky islands (fantasy/futuristic, no sea), more farm plots, more details/decor
+- [ ] Raid economy: troops cost Dust to train (Barracks); explain how you get an army (farm/adventure → Dust → train)
+- [ ] Adventure: no free HP regen; potions (buy in shop / craft from herbs); gather grass/trees/rocks with an hourly cap
+- [ ] World map: pick an area to fly to; areas unlock (beat the previous boss) and cost Sky Fuel/Dust to travel
+- [ ] Rearrange island: move house/well/everything; island storage (stash buildings, place later; limited slots)
+- [ ] Gems 💎 (premium currency): server-side balance + ledger; gem shop (speed-ups, exclusive decor, potions, troop packs)
+- [ ] Big shop with many items (Dust + Gems tabs)
+- [ ] Buy gems with real money: needs the owner's choice of payment (card provider / crypto on Robinhood Chain), keys in Vercel, SQL table for payments (owner runs)
