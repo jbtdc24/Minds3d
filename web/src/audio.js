@@ -126,25 +126,33 @@ export function sfx(name, delay = 0) {
 // Minds talk in cute gibberish: 2-5 little syllables, each a quick blip. Every Mind has its own pitch.
 // mood: 'chat' | 'work' | 'happy' | 'sad'. id keeps one Mind's voice the same every time. Returns the words to show.
 const SYL = ['mi', 'mo', 'bu', 'pa', 'nya', 'bi', 'doo', 'ta', 'wa', 'ni', 'pu', 'ko'];
+// about one line in four is a real word or two, so players catch what their Minds are saying
+const REAL = {
+  chat: ['gm!', 'hello!', 'nice day', 'so sleepy', 'where is my Dust?', "let's duel!", 'I love this town', 'hehe', 'wow!', 'hungry...', 'who stole my hat?', 'gg!', 'crown is mine'],
+  work: ['almost done!', 'heave ho!', 'so much work', 'I need a break', 'this one is heavy', 'nearly there', 'for the island!'],
+  happy: ['yay!', 'nice!', 'okay!', 'on it!', 'love you!', 'hehe yes!'],
+  sad: ['oh no...', 'hmm?', 'sorry...', 'I am confused'],
+};
 export function babble(id = 1, mood = 'chat', loud = 1) {
-  const base = 330 + ((id * 37) % 260), n = 2 + (Math.random() * 4 | 0), words = [];
+  const base = 330 + ((id * 37) % 260), real = Math.random() < 0.25 ? REAL[mood][Math.random() * REAL[mood].length | 0] : null;
+  const n = real ? Math.min(6, 2 + real.split(' ').length) : 2 + (Math.random() * 4 | 0), words = [];
   for (let i = 0; i < n; i++) {
     words.push(SYL[Math.random() * SYL.length | 0]);
     if (!ctx) continue;
     const t = ctx.currentTime + i * 0.105, f = base * (1 + Math.random() * 0.35) * (mood === 'sad' ? 0.8 : mood === 'happy' ? 1.25 : 1);
     const end = mood === 'sad' ? 0.7 : i === n - 1 ? 1.5 : 0.88 + Math.random() * 0.3;
-    tone(f, t, 0.09, { type: 'triangle', gain: 0.1 * loud, slide: end, attack: 0.012 });
-    tone(f * 2.02, t, 0.07, { type: 'sine', gain: 0.035 * loud, slide: end, attack: 0.012 });
+    tone(f, t, 0.1, { type: 'triangle', gain: 0.3 * loud, slide: end, attack: 0.012 });
+    tone(f * 2.02, t, 0.08, { type: 'sine', gain: 0.1 * loud, slide: end, attack: 0.012 });
   }
-  return words.join(mood === 'work' ? '-' : ' ');
+  return real || words.join(mood === 'work' ? '-' : ' ');
 }
 // a tiny cute battle squeak: scream (attack), ow (hit), bye (fell)
 export function squeak(kind = 'scream', id = 1) {
   if (!ctx) return;
   const t = ctx.currentTime, f = (520 + (id * 53) % 420) * (1 + Math.random() * 0.2);
-  if (kind === 'scream') { tone(f, t, 0.14, { type: 'triangle', gain: 0.1, slide: 1.7, attack: 0.01 }); tone(f * 1.5, t + 0.07, 0.1, { type: 'sine', gain: 0.05, slide: 1.3 }); }
-  else if (kind === 'ow') tone(f * 1.2, t, 0.12, { type: 'triangle', gain: 0.1, slide: 0.55, attack: 0.008 });
-  else { tone(f, t, 0.3, { type: 'triangle', gain: 0.1, slide: 0.3, attack: 0.01 }); tone(f * 0.5, t + 0.1, 0.22, { type: 'sine', gain: 0.05, slide: 0.5 }); }
+  if (kind === 'scream') { tone(f, t, 0.14, { type: 'triangle', gain: 0.24, slide: 1.7, attack: 0.01 }); tone(f * 1.5, t + 0.07, 0.1, { type: 'sine', gain: 0.12, slide: 1.3 }); }
+  else if (kind === 'ow') tone(f * 1.2, t, 0.12, { type: 'triangle', gain: 0.24, slide: 0.55, attack: 0.008 });
+  else { tone(f, t, 0.3, { type: 'triangle', gain: 0.24, slide: 0.3, attack: 0.01 }); tone(f * 0.5, t + 0.1, 0.22, { type: 'sine', gain: 0.12, slide: 0.5 }); }
 }
 
 // ---------- music: a small chiptune sequencer (chords, bass, arp, lead, drums) ----------

@@ -147,7 +147,7 @@ function updateMind(m, dt, night) {
   m.talk = (m.talk ?? 2 + m.r() * 12) - dt;
   if (m.talk <= 0) {   // cute gibberish now and then, quieter than the game sounds
     m.talk = 10 + m.r() * 18;
-    popText(m.x, m.y - m.c.h - 4, babble(m.id, m.state === 'work' ? 'work' : 'chat', 0.5));
+    popText(m.x, m.y - m.c.h - 4, babble(m.id, m.state === 'work' ? 'work' : 'chat', 0.9));
   }
   if (m.state === 'go') {
     const mc = compOf(m.x, m.y), dc = compOf(m.tx, m.ty);

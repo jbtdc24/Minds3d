@@ -6,7 +6,7 @@ import { Fighter, shoot } from './fighter2d.js';
 import { SPELLS, SPELL_INFO, RULES, CARD_VALUES, createMatch, submit, viewFor } from './duel/engine.js';
 import { DATA_VERSION } from './config.js';
 import { api, session, walletLogin, guestLogin, logout, hasWallet, watch, serverOnline, LocalMatch, setTokenIds } from './net.js';
-import { initAudio, sfx, music, setVolume } from './audio.js';
+import { initAudio, sfx, music, setVolume, babble } from './audio.js';
 import { PHRASES, MATCH_CHAT, FRIEND_CHAT, BOT_REPLIES } from './chat.js';
 import { initMindTalk, openMinds } from './mindtalk.js';
 import { initTown, openTown, closeTown } from './town.js';
@@ -149,11 +149,18 @@ function lobbyScene(ids) {
   list.forEach((id, i) => {
     const f = new Fighter(id, xs[i], 0, { scale: 0.72 });
     f.dropIn(0.2 + i * 0.18);
+    f.mindId = id;
     stageFighters.push(f);
     if (current === 'hub') tag(f, `#${id} <i>${rarityOf(id)}</i>${!guest && myMinds.includes(id) ? ` <span class="ten">⚡${energyOf(id)}/${capFor(id)}</span>` : ''}`);
   });
   lobbyLayout();
 }
+// the Minds on the plaza chat now and then
+setInterval(() => {
+  if (current !== 'hub' || document.hidden || !stageFighters.length || Math.random() < 0.4) return;
+  const f = stageFighters[Math.random() * stageFighters.length | 0];
+  if (f.mindId) tag(f, esc(babble(f.mindId, 'chat', 0.9)), 'bubble', 2400);
+}, 7000);
 addEventListener('resize', () => { if (current === 'hub') paintBoardOpen(); if (current === 'duel') duelLayout(); });
 
 // ---------- account ----------
@@ -287,6 +294,15 @@ $('#hub-practice').onclick = () => openPrep('practice');
 $('#hub-classic').onclick = () => openPrep('classic');
 $('#hub-town').onclick = () => { closeIsland(); stage.paused = true; show('town'); openTown(); };
 $('#town-back').onclick = () => { closeTown(); enterHub(); };
+// tapping a building in town: walk over, then use it
+const townGo = where => {
+  if (where === 'mail') return $('#hub-mail').click();
+  closeTown(); enterHub();
+  if (where === 'ranked') $('#hub-ranked').click();
+  else if (where === 'shop') $('#hub-shop').click();
+  else if (where === 'cup') $('#hub-cup').click();
+  else if (where === 'island') $('#hub-island').click();
+};
 $('#hub-cup').onclick = () => openCup();
 // ---------- Daily Siege Cup: same village, same army for everyone; all entry Gems go to the winners ----------
 async function openCup() {
@@ -1319,7 +1335,7 @@ $('#pf-save').onclick = async () => {
 };
 
 initMindTalk({ minds: () => (guest ? [] : myMinds), esc });
-initTown({ minds: () => (guest ? [] : myMinds), api, esc, toast, online: () => online });
+initTown({ minds: () => (guest ? [] : myMinds), api, esc, toast, online: () => online, go: townGo });
 
 // ---------- friends + friend chat (preset lines) ----------
 let friendsList = [], chatWith = null, frUnwatch = null, frTimer = null;

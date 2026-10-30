@@ -850,7 +850,7 @@ h3.raid-result { text-align: center; }
 #town-cv { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; image-rendering: pixelated; }
 .town-top { position: absolute; top: 8px; left: 8px; right: 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; background: var(--paper); padding: 6px 10px; font-weight: 800; font-size: 14px; }
 #town-stay { color: var(--muted); font-size: 13px; }
-#town-find { margin-left: auto; }
+.town-zoom { margin-left: auto; display: flex; gap: 5px; }
 .town-side { position: absolute; right: 8px; bottom: 8px; width: min(320px, calc(100vw - 16px)); max-height: 42vh; display: flex; flex-direction: column; gap: 6px; background: var(--paper); padding: 8px; }
 .town-side h4 { margin: 0; font-size: 15px; }
 #town-feed { flex: 1; min-height: 60px; overflow: auto; font-size: 14px; overflow-wrap: anywhere; }
