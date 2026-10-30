@@ -33,13 +33,13 @@ A. [x] (code done; OWNER MUST: run supabase/005_admin.sql + set Vercel env ADMIN
    Hidden admin screen (open with a secret code in Settings): give Dust/Gems/items, ban / suspend / unsuspend, player lookup,
    cheat meter (flags table: suspicious adventure/raid submits, rate-limit hits). Needs supabase/005_admin.sql (owner runs).
 B. [x] Home island: remove the plank bridges; each islet gets a portal, main island has a portal; Minds teleport between them.
-C. [ ] World map in detailed PIXEL ART like the refs (pixel buffer scaled up): different biome/boss islands (volcano with lava +
+C. [x] (v1 done: worldmap.js pixel buffer, biomes, smoke/lightning/birds/clouds; can get more detail) World map in detailed PIXEL ART like the refs (pixel buffer scaled up): different biome/boss islands (volcano with lava +
    smoke, crystal, ice, giant mushroom, ruins/portal, dragon nest), baked shadows on clouds, particles (smoke, sparkles, birds, wind).
 E. [x] (fixed: old islands had 0 troops → v4 starter army) Raid button "doesn't work" (reported twice) — check live with an OLD account (no troops? modal? error?).
 F. [x] Building takes time like CoC: a free Mind walks over and builds (timer by building), builders = Minds you own (min 1),
    Gems finish instantly. Show timers/progress bars on the island.
 G. [x] Island inventory/storage must be visible: stored buildings in the Inventory window (Items tab) + a 📦 button on the island.
-H. [ ] Airship flight + world map must look pixel-art/cinematic (sprite ship, parallax clouds, no smooth vector shapes).
+H. [x] (pixel airship sprites + cloud trail) Airship flight + world map must look pixel-art/cinematic (sprite ship, parallax clouds, no smooth vector shapes).
 I. [ ] Audio: catchier music, better SFX (the flying/whoosh sounds are bad).
 D. [ ] Same treatment for the island/raid/adventure scenes: cinematic light, baked shadows, wind, particles.
 (older list below)
