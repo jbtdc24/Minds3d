@@ -22,7 +22,8 @@ export const HERO = {
 export const CRY = { radius: 3.5 * T, ticks: 70, mult: 1.5, heal: 120 };                // the hero's Battle Cry (once)
 export const GUARD = { hp: 260, dps: 20, speed: 32, reach: 12, aggro: 6 * T };
 export const ARMY_BASE = 10, ARMY_PER_MIND = 1, ARMY_MAX_BONUS = 3;                   // army size: 10 (+1 per Mind owned, max +3)
-export const armyCap = minds => ARMY_BASE + Math.min(ARMY_MAX_BONUS, (minds | 0) * ARMY_PER_MIND);
+export const CAMP_SPACE = 3;                                                          // each Army Camp level adds 3 space
+export const armyCap = (minds, camps = 0) => ARMY_BASE + Math.min(ARMY_MAX_BONUS, (minds | 0) * ARMY_PER_MIND) + (camps | 0) * CAMP_SPACE;
 export const guardsFor = minds => 2 + Math.min(2, minds | 0);                         // every base: 2 guards, +1 per Mind (max 4)
 export const TOWER = { range: 5 * T, dmg: 26, every: 10 };
 export const TRAP_DMG = 45, WALL_COST = 9, COVER_COST = 3;
@@ -327,6 +328,20 @@ export function replay(snap, army, inputs) {
   return { S, ...score(S) };
 }
 
+// a simple plan for an AI player: everything lands on the spot nearest the village, hero first, then Battle Cry
+export function autoPlan(snap, army) {
+  const S = createRaid(snap, army), spots = [];
+  for (let k = 0; k < TW * TH; k++) if (dropOk(S, k)) spots.push(k);
+  if (!spots.length) return [];
+  const bs = snap.b || [], mx = bs.reduce((s, b) => s + kx(b.k), 0) / (bs.length || 1), my = bs.reduce((s, b) => s + ky(b.k), 0) / (bs.length || 1);
+  const k = spots.reduce((a, b) => Math.hypot(kx(b) - mx, ky(b) - my) < Math.hypot(kx(a) - mx, ky(a) - my) ? b : a), inputs = [];
+  let t = 0;
+  inputs.push({ t, drop: 'hero', k });
+  for (const [kind, n] of Object.entries(S.left || {})) for (let i = 0; i < n && inputs.length < 58; i++) inputs.push({ t: (t += 3), drop: kind, k });
+  if (army.hero === 'hero') inputs.push({ t: t + 12, cry: 1 });
+  return inputs;
+}
+
 // loot: share of the defender's unprotected Dust (barns keep some safe), capped
 export const LOOT_SHARE = 0.25, LOOT_MAX = 2000, BARN_SAFE = 1000, SHIELD_MS = 8 * 3600e3;
 export function lootOf(dust, barns, pct, share = LOOT_SHARE) {
@@ -334,7 +349,7 @@ export function lootOf(dust, barns, pct, share = LOOT_SHARE) {
   return Math.min(LOOT_MAX, Math.floor(open * share * pct));
 }
 // raids per day: 6 for everyone, +1 per Mind owned (max +3)
-export const raidsPerDay = minds => 6 + Math.min(3, minds | 0);
+export const raidsPerDay = (minds, camps = 0) => 6 + Math.min(3, minds | 0) + Math.min(3, camps | 0);
 // full loot of a game village by level (you get the % you destroy): 500 / 800 / 1,100
 export const botLoot = level => 200 + 300 * level;
 export const RAID_FEE_PER_SPACE = 5;                                   // supplies: 5 Dust per camp space you bring

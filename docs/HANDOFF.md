@@ -37,6 +37,18 @@ RULES FOR NEXT SESSION: (1) test wallet-account paths, guests hide bugs; (2) run
 `npx --yes eslint@8 --no-eslintrc --env browser,es2022,node --parser-options=sourceType:module,ecmaVersion:latest --rule '{"no-undef":"error"}' web/src lib api`
 (3) python patch scripts must assert every replacement (a silent miss cost us all the music); (4) never push with a failing test.
 
+## NEXT TASKS — round 8 (owner 2026-10-30) — do top to bottom
+1. [ ] Bugs: lobby title cropped; Friends error "Cannot read properties of null (reading 'player')"; huge "Tap where..." message box; explain/remove unclear messages.
+2. [ ] Music: never overlaps; different music per mode; softer catchy duel song.
+3. [ ] Minds talk cute gibberish (town/island, when working); small cute screams in raids.
+4. [ ] Mail (announcements, updates, admin can send). Free friend chat, deleted after 30 days. Unfriend. Report bug/player; admin can read reports.
+5. [ ] Admin stats: registered, active, playing.
+6. [ ] More camp space + more ways to raid. NPC raiders attack inactive/any villages sometimes.
+7. [ ] Mind tasks: give each Mind a preset or custom job to grind, tap and talk to a Mind (one account, every Mind it owns).
+8. [ ] Mind Player API: private keys so an outside AI can play the whole game (same limits, log, Ranked labelled). Server-run adventure.
+9. [ ] Gem entry tournaments: entry pool, winners take it. REAL PLAYERS ONLY, no disguised bots. No real-money cash-out without legal advice.
+10. [ ] Mind Town: all 3k Minds live there, walk around, interact; a place to keep open even AFK; something other games don't have.
+
 ## NEXT TASKS — round 7 (owner 2026-10-30)
 1. [ ] Raid button "doesn't work again" — never fail silently: show every error, loading feedback; find root cause.
 2. [ ] Raids cost a Dust fee (entry fee) — part of the economy.

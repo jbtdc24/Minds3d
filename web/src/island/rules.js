@@ -2,6 +2,7 @@
 // State: { dust, inv: { seed_bean: 3, crop_bean: 1, wood: 4, stone: 2, permit: 0 }, tiles: { k: tile } }
 // tile: { s: 'c' cleared | 'p' plot | 'w' weeds grew back | 'b' under a building, t: last touched (ms), c: crop, p: planted at (ms) }
 // buildings: st.b = [{ id, type, k }] (k = top-left tile), st.nb = next id
+import { JOBS, jobSlots } from './jobs.js';
 import { gen, COVER, TW, TH, hash, oldKey } from './gen.js';
 
 const H = 3600e3;
@@ -24,6 +25,7 @@ export const growMs = (crop, minds) => CROPS[crop].grow * (1 - speedBonus(minds)
 export const BUILD = {
   house: { name: 'Cottage', icon: '🏡', w: 2, h: 2, cost: { dust: 500, wood: 30 }, max: 4, hp: 520, desc: '+2 farm plots each' },
   mill: { name: 'Mill', icon: '🌾', w: 2, h: 2, cost: { dust: 1500, wood: 60, stone: 30 }, max: 1, hp: 600, desc: 'Crops sell for 25% more' },
+  camp: { name: 'Army Camp', icon: '⛺', w: 2, h: 2, cost: { dust: 800, wood: 40 }, max: 3, hp: 500, desc: '+3 camp space per level and +1 raid a day' },
   barn: { name: 'Barn', icon: '🛖', w: 2, h: 2, cost: { dust: 1000, wood: 50 }, max: 2, hp: 700, desc: 'Keeps 1,000 ✨ safe from raiders' },
   wall: { name: 'Wall', icon: '🧱', w: 1, h: 1, cost: { stone: 3 }, max: 80, hp: 160, desc: 'Blocks raiders. Drag to build a line.' },
   tower: { name: 'Watchtower', icon: '🗼', w: 1, h: 1, cost: { dust: 600, wood: 25, stone: 40 }, max: m => Math.min(6, 2 + m), hp: 480, desc: 'Shoots raiders (2 + 1 per Mind you own, max 6)' },
@@ -50,7 +52,7 @@ export const wellShards = (st, now) => Math.min(SHARD_CAP, Math.floor((now - (st
 export const gemPrice = cost => cost.gems ? cost.gems : Math.max(1, Math.ceil(((cost.dust || 0) + (cost.wood || 0) * 5 + (cost.stone || 0) * 6) / 100));
 const priceOf = (cost, gems) => gems ? { gems: gemPrice(cost) } : cost;
 // building takes time (like a real build game): seconds per building; 0 = instant (walls, fences, flowers so you can drag lines)
-export const BUILD_SECS = { house: 300, mill: 900, barn: 600, tower: 480, trap: 60, lamp: 30, bench: 30, banner: 30, lantern: 20, crystal: 20, fountain: 60 };
+export const BUILD_SECS = { camp: 420, house: 300, mill: 900, barn: 600, tower: 480, trap: 60, lamp: 30, bench: 30, banner: 30, lantern: 20, crystal: 20, fountain: 60 };
 export const builders = minds => Math.max(1, Math.min(5, minds | 0));      // one builder per Mind you own (at least 1, max 5)
 export const busy = st => (st.b || []).filter(b => b.done).length;            // buildings still going up
 export const rushGems = (b, now) => Math.max(1, Math.ceil((b.done - now) / 300e3));   // 1 💎 per 5 minutes left
@@ -69,6 +71,7 @@ export const SHOP = {
   gem_potions: { name: 'Potion Crate', icon: '🧪', price: { gems: 5 }, gives: { potion: 6 }, desc: '6 health potions', gem: true },
   gem_fuel: { name: 'Fuel Tank', icon: '⛽', price: { gems: 5 }, gives: { fuel: 6 }, desc: '6 sky fuel', gem: true },
   gem_army: { name: 'War Chest', icon: '⚔️', price: { gems: 12 }, gives: { troop_brawler: 6, troop_archer: 4, troop_bomber: 2, troop_giant: 1 }, desc: 'A full army, ready to raid', gem: true },
+  raid_pass: { name: 'War Horn', icon: '📯', price: { dust: 600 }, gives: { raid_ticket: 1 }, desc: 'One extra raid today' },
   gem_raid: { name: 'Raid Ticket', icon: '🎟️', price: { gems: 4 }, gives: { raid_ticket: 1 }, desc: 'One extra raid today', gem: true },
   gem_adv: { name: 'Adventure Ticket', icon: '🧭', price: { gems: 4 }, gives: { adv_ticket: 1 }, desc: 'One extra adventure today', gem: true },
   gem_dust: { name: 'Sack of Dust', icon: '✨', price: { gems: 10 }, gives: { dust: 1200 }, desc: '1,200 Dust', gem: true },
@@ -84,7 +87,7 @@ export const maxOf = (type, minds) => {
 export const countOf = (st, type) => (st.b || []).filter(b => b.type === type).length;
 export const MILL_BONUS = 0.25, BARN_SAFE = 1000;
 // building levels (1-3): upgrading costs more each level, takes a builder and time; effects grow with the level
-export const UPGRADABLE = { home: 1, house: 1, mill: 1, barn: 1, tower: 1, wall: 1 };
+export const UPGRADABLE = { camp: 1, home: 1, house: 1, mill: 1, barn: 1, tower: 1, wall: 1 };
 export const MAX_LV = 3;
 export const lvOf = b => b.lv || 1;
 export const upgradeCost = b => { const base = BUILD[b.type].cost, m = lvOf(b) * 1.6; const c = Object.fromEntries(Object.entries(base).map(([k, n]) => [k, Math.ceil(n * m)])); if (b.type === 'home') return { dust: 1500 * lvOf(b), wood: 80 * lvOf(b), stone: 80 * lvOf(b) }; return c; };
@@ -92,6 +95,8 @@ export const upgradeSecs = b => b.type === 'wall' ? 0 : Math.round((BUILD_SECS[b
 export const hpMult = lv => 1 + 0.5 * ((lv || 1) - 1);
 const finished = (st, type) => (st.b || []).filter(b => b.type === type && (!b.done || b.uplv));   // being upgraded = still works at its old level
 export const millBonus = st => { const m = finished(st, 'mill')[0]; return m ? MILL_BONUS + 0.1 * (lvOf(m) - 1) : 0; };
+export const campLevels = st => finished(st, 'camp').reduce((s, b) => s + lvOf(b), 0);
+export const campCount = st => finished(st, 'camp').length;
 export const barnSafe = st => finished(st, 'barn').reduce((s, b) => s + BARN_SAFE * lvOf(b), 0) / BARN_SAFE;   // in "barns" (1 = 1,000 Dust)
 const housePlots = st => finished(st, 'house').reduce((s, b) => s + 1 + lvOf(b), 0);
 export const footprint = b => { const d = BUILD[b.type], out = []; for (let y = 0; y < d.h; y++) for (let x = 0; x < d.w; x++) out.push(b.k + y * TW + x); return out; };
@@ -360,6 +365,16 @@ export function act(st, a, { seed, now, minds = 0, instant = false }) {   // ins
       if (st.tut) return { error: 'already done' };
       st.tut = 1; done = 1;
       if (!a.skip) { pay('dust', 200); pay('gems', 3); pay('seed_carrot', 4); }
+      break;
+    }
+    case 'job': {   // give a Mind a job (jobs.js); rest frees its slot
+      const id = Number(a.mind);
+      if (!Number.isInteger(id) || id < 0 || id > 3333 || !JOBS[a.job]) return { error: 'unknown job' };
+      st.jobs ||= {};
+      if (a.job === 'rest') { delete st.jobs[id]; done = 1; break; }
+      if (!st.jobs[id] && Object.keys(st.jobs).length >= jobSlots(minds)) return { error: `All ${jobSlots(minds)} work slots are in use. Own more Minds for more slots, or rest one.` };
+      st.jobs[id] = { job: a.job, at: now, ...(CROPS[a.crop] ? { crop: a.crop } : {}) };
+      done = 1;
       break;
     }
     case 'well': {   // collect the shards the Energy Well has made

@@ -142,6 +142,25 @@ export function advMap(seed, level = 1) {
 function scale(loot, level) { const o = {}; for (const [k, n] of Object.entries(loot)) o[k] = k.startsWith('seed_') || k === 'gems' || k === 'herb' ? n : Math.round(n * (1 + (level - 1) * 0.35)); return o; }
 
 // what you get for what you did (the server recomputes this from the ids you send)
+// an AI player's trip, worked out on the server: it fights the weakest things first, drinks potions when it must,
+// and stops when time runs out. No client numbers are trusted, and the trip costs the same adventure as a human's.
+export function autoAdventure(map, heroKind, potions = 0) {
+  const H = HEROES[heroKind] || HEROES.captain, beat = [], got = [];
+  let hp = H.hp, time = ADV_TIME * 0.8, left = potions;
+  for (const m of [...map.monsters].sort((a, b) => a.hp - b.hp)) {
+    const secs = m.hp / H.dps, hurt = secs * (MONSTERS[m.type].dps * 0.7);
+    while (hp <= hurt && left > 0) { hp = Math.min(H.hp, hp + POTION_HEAL); left--; }
+    if (hp <= hurt || time < secs + 4) continue;
+    hp -= hurt; time -= secs + 4; beat.push(m.id);
+  }
+  for (const n of map.nodes) {
+    if (time < 6) break;
+    const guard = map.monsters.find(m => m.guards === n.id);
+    if (guard && !beat.includes(guard.id)) continue;
+    got.push(n.id); time -= 6;
+  }
+  return { got, beat, potionsLeft: left };
+}
 export function advLoot(map, got = [], beat = []) {
   const out = {}, add = l => { for (const [k, n] of Object.entries(l)) out[k] = (out[k] || 0) + n; };
   const beaten = new Set(beat.filter(id => map.monsters.some(m => m.id === id)));

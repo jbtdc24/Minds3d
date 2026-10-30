@@ -12,14 +12,14 @@ import { capOf, ENERGY_CAP } from './energy.js';
 import { openIsland, closeIsland, refreshHud, cropImg, fmtTime } from './island/island.js';
 import { chibi } from './island/chibi.js';
 import { openRaid, closeRaid } from './island/raidview.js';
-import { botVillage, armyCap, cleanArmy, armyUsed, TROOPS, DEFAULT_ARMY, raidsPerDay, raidFee, botLoot } from './island/raid.js';
+import { botVillage, armyCap, cleanArmy, armyUsed, TROOPS, DEFAULT_ARMY, raidsPerDay, raidFee, botLoot, CAMP_SPACE } from './island/raid.js';
 import { troopIcon } from './island/troops.js';
 import { openAdventure, closeAdventure } from './island/advview.js';
 import { AREAS, POTIONS_MAX, SPOTS, SHIPS, spotLevel } from './island/adventure.js';
 import { openMap, updateMap, closeMap } from './island/worldmap.js';
 import { initAdmin, tryCode } from './admin.js';
 import { isle, loadIsland, doAct, flush as flushIsland, resetIsland, refreshIsland, now as islandNow } from './island/store.js';
-import { CROPS, RAW, growMs, permitCost, MAX_PERMITS, ripe, SHOP, RECIPES, TROOP_MAX, troopCount, costText, canAfford, BUILD, STASH_MAX, gemPrice, ENERGY_PRICE, SHARDS_PER_ENERGY, REFILLS_PER_DAY, wellShards } from './island/rules.js';
+import { CROPS, RAW, growMs, permitCost, MAX_PERMITS, ripe, campLevels, campCount, SHOP, RECIPES, TROOP_MAX, troopCount, costText, canAfford, BUILD, STASH_MAX, gemPrice, ENERGY_PRICE, SHARDS_PER_ENERGY, REFILLS_PER_DAY, wellShards } from './island/rules.js';
 import { buildIcon } from './island/buildings.js';
 import { islandThumb } from './island/art.js';
 import { hashStr } from './island/gen.js';
@@ -348,15 +348,15 @@ async function ensureIsland() {
 }
 async function goIsland() {
   if (!(await ensureIsland())) return;
-  show('island'); stage.paused = true; music('lofi');
+  show('island'); stage.paused = true; music('cozy');
   openIsland({ minds: myMinds, toast: (m, bad) => toast(m, bad), shop: tab => openShop(tab), bag: () => { invTab = 'items'; openInventory(); } });
   // raided while you were away?
   const log = (isle.state?.raidLog || []).filter(e => e.at > (settings.raidSeen || 0));
   if (log.length) {
     settings.raidSeen = log[0].at; saveSettings();
     const lost = log.reduce((s, e) => s + e.loot, 0), sh = isle.state.shield > Date.now() ? `<p>🛡 Your island is shielded for ${fmtTime(isle.state.shield - Date.now())}.</p>` : '';
-    const canRev = log.find(e => e.pid && !e.avenged);
-    modal(`<h3>⚔️ Your island was raided</h3>${log.map(e => `<p><b>${esc(e.by)}</b> · ${'★'.repeat(e.stars)}${'☆'.repeat(3 - e.stars)} · ${e.pct}% · −${e.loot.toLocaleString()} ✨</p>`).join('')}<p>Total lost: <b>${lost.toLocaleString()} ✨</b>. Build walls, towers and traps (🔨 Build), and barns keep Dust safe.</p>${sh}`,
+    const canRev = log.find(e => (e.pid || e.npc) && !e.avenged);
+    modal(`<h3>⚔️ Your island was raided</h3>${log.map(e => `<p><b>${esc(e.by)}</b> · ${e.beaten ? `your defences beat them! +${e.beaten} ✨` : `${'★'.repeat(e.stars)}${'☆'.repeat(3 - e.stars)} · ${e.pct}% · −${e.loot.toLocaleString()} ✨`}</p>`).join('')}<p>Total lost: <b>${lost.toLocaleString()} ✨</b>. Build walls, towers and traps (🔨 Build), and barns keep Dust safe.</p>${sh}`,
       canRev ? [[`⚔️ Revenge on ${esc(canRev.by)}`, canRev.at, 'primary'], ['Later', 0]] : [['Got it', 0, 'primary']]).then(at => { if (at) startRaid(at); });
   }
 }
@@ -373,10 +373,10 @@ function pickArmy(cap, hero, lead) {
   return new Promise(done => {
     const draw = () => {
       const used = armyUsed(army);
-      const st = isle.state || { inv: {} }, day = new Date().toISOString().slice(0, 10), done = st.rd?.day === day ? st.rd.n : 0, left = Math.max(0, raidsPerDay(guest ? 0 : myMinds.length) - done);
+      const st = isle.state || { inv: {} }, day = new Date().toISOString().slice(0, 10), done = st.rd?.day === day ? st.rd.n : 0, left = Math.max(0, raidsPerDay(guest ? 0 : myMinds.length, campCount(st)) - done);
       $('#modal-body').innerHTML = `<h3>⚔️ Your army</h3>
         <div class="army-facts"><span>🎟️ Raids left today: <b>${left}</b>${st.inv.raid_ticket ? ` (+${st.inv.raid_ticket} ticket${st.inv.raid_ticket > 1 ? 's' : ''})` : ''}</span><span>✨ Supplies: <b>${raidFee(army)}</b> Dust (you have ${(st.dust || 0).toLocaleString()})</span></div>
-        <div class="army-cap"><b>${used}/${cap}</b> camp space${cap > 10 ? ` <span class="muted">(+${cap - 10} from your Minds)</span>` : ' <span class="muted">(owning Minds adds space)</span>'}</div>
+        <div class="army-cap"><b>${used}/${cap}</b> camp space <span class="muted">${campCount(st) ? `(+${cap - armyCap(guest ? 0 : myMinds.length)} from Army Camps)` : `Build an ⛺ Army Camp for +${CAMP_SPACE} space and +1 raid a day`}</span></div>
         <div class="army-list">${Object.entries(TROOPS).map(([k, d]) => `<div class="army-row"><img src="${troopIcon(k)}" alt=""><div><b>${d.name}</b> <span class="muted">· ${d.cost} space · you have ${owned(k)}</span><small>${d.desc}</small></div><button class="btn small" data-a="${k}" data-d="-1">−</button><em>${army[k]}</em><button class="btn small" data-a="${k}" data-d="1">+</button></div>`).join('')}</div>
         <div class="army-hero">${hero === 'hero' ? `<img src="${chibi(lead).full.cv.toDataURL()}" alt=""><span><b>Hero: Mind #${lead}</b><small>Stronger leader + 📯 Battle Cry</small></span>` : `<img src="${troopIcon('captain')}" alt=""><span><b>Captain</b><small>Own a Mind to lead with it (stronger + Battle Cry)</small></span>`}</div>`;
     };
@@ -402,8 +402,8 @@ function pickArmy(cap, hero, lead) {
 async function startRaid(revenge = 0) {
   sfx('click');
   const lead = (picked()[0] ?? myMinds[0]) || 49, holder = online && !guest && myMinds.length;
-  const cap = armyCap(guest ? 0 : myMinds.length);
   if (!(await ensureIsland())) return;
+  const cap = armyCap(guest ? 0 : myMinds.length, campLevels(isle.state));
   const troops = await pickArmy(cap, holder ? 'hero' : 'captain', lead);
   if (!troops) return;
   let target = null;
@@ -776,7 +776,7 @@ function startDuel(local, first = local.view(), opts = {}) {
   buildTable();
   $('#d-chat').style.display = D.tutorial ? 'none' : '';
   $('#d-chatpick').classList.remove('on');
-  show('duel'); music('battle');
+  show('duel'); music('duel');
   paintDuel();
   duelLayout(); camSnap(0, 1.25, 0.6); camTo(0, 1, 0, 2.5);
   if (!local) {
@@ -1290,7 +1290,8 @@ $('#fr-list').onclick = async e => {
   const row = e.target.closest('[data-fid]'); if (!row) return;
   const op = e.target.closest('[data-op]')?.dataset.op, id = row.dataset.fid;
   if (op === 'accept' || op === 'remove') { try { await api('friend', { op, id }); sfx(op === 'accept' ? 'coin' : 'deselect'); loadFriends(); } catch (err) { toast(err.message, true); } return; }
-  if (row.dataset.st === 'accepted') openChat(friendsList.find(f => f.player.id === id));
+  const fr = friendsList.find(f => f.player.id === id);
+  if (fr && row.dataset.st === 'accepted') openChat(fr);
 };
 async function openChat(f) {
   chatWith = f; $('#fr-title').textContent = f.player.name;
@@ -1300,11 +1301,13 @@ async function openChat(f) {
 }
 async function loadChat() {
   if (!chatWith) return;
+  const pid = chatWith.player.id;
   try {
-    const r = await api(`messages?with=${chatWith.player.id}`);
+    const r = await api(`messages?with=${pid}`);
+    if (chatWith?.player.id !== pid) return;   // closed or switched while loading
     $('#fr-msgs').innerHTML = r.messages.length ? r.messages.map(m => `<div class="msg ${m.mine ? 'mine' : ''}">${esc(PHRASES[m.phrase] || '')}<time>${new Date(m.at).toLocaleString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}</time></div>`).join('') : '<div class="board-empty">Say hi! 👋</div>';
     $('#fr-msgs').scrollTop = 1e9;
-    settings.seen[chatWith.player.id] = Date.now(); saveSettings();
+    settings.seen[pid] = Date.now(); saveSettings();
     renderFriends();
   } catch (e) { toast(e.message, true); }
 }

@@ -53,6 +53,17 @@ export function barn() {
     for (let x = 13; x <= 18; x++) for (let y = 6; y <= 9; y++) set(x, y, y === 6 || x === 13 || x === 18 ? WOOD[1] : '#ffd84a');   // hay loft
   });
 }
+export function camp() {   // a war tent with a banner and a weapon rack
+  return sprite(32, 30, set => {
+    for (let y = 6; y <= 27; y++) { const half = Math.round((y - 5) * 0.72); for (let x = 15 - half; x <= 16 + half; x++) set(x, y, x <= 15 ? (x + y) % 5 ? '#8a7a55' : '#766844' : (x + y) % 5 ? '#a8966a' : '#94835a'); }
+    for (let i = 0; i < 22; i++) { const y = 6 + i, h = Math.round(i * 0.72); set(15 - h, y, '#4e4530'); set(16 + h, y, '#4e4530'); }
+    for (let y = 16; y <= 27; y++) { const h = Math.round((y - 15) * 0.42); for (let x = 16 - h; x <= 15 + h; x++) set(x, y, '#2b2340'); }
+    for (let y = 0; y <= 8; y++) set(15, y, WOOD[0]);
+    for (let y = 0; y <= 3; y++) for (let x = 16; x <= 23 - y; x++) set(x, y, y === 3 ? '#7a2416' : '#a8341f');
+    for (let x = 2; x <= 9; x++) { set(x, 22, WOOD[1]); set(x, 25, WOOD[1]); }
+    for (const x of [3, 6, 8]) for (let y = 17; y <= 28; y++) set(x, y, y < 20 ? '#cfcfdc' : WOOD[0]);
+  });
+}
 export function millBody() {
   return sprite(28, 34, set => {
     for (let y = 8; y <= 33; y++) {
@@ -119,6 +130,7 @@ const once = (k, f) => cache.get(k) || (cache.set(k, f()), cache.get(k));
 export const bsprites = {
   house: n => once('h' + !!n, () => cottage(!!n)),
   barn: () => once('barn', barn),
+  camp: () => once('camp', camp),
   mill: () => once('mill', millBody),
   tower: () => once('tower', tower),
   trap: () => once('trap', trap),

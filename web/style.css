@@ -92,8 +92,8 @@ input[type=range] { width: 180px; accent-color: var(--ink); }
 .topbtns { display: flex; gap: 14px; }
 .lobby { position: absolute; inset: 82px 16px max(16px, env(safe-area-inset-bottom)); display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; pointer-events: none; }
 .lobby > * { pointer-events: auto; }
-.col-play { width: min(400px, 34vw); display: flex; flex-direction: column; gap: 16px; max-height: 100%; overflow: auto; padding: 4px 8px 14px 4px; }
-.hub-logo { justify-content: flex-start; font-size: clamp(37px, 5.4vw, 59px); margin: 0 0 2px; }
+.col-play { container-type: inline-size; width: min(400px, 34vw); display: flex; flex-direction: column; gap: 16px; max-height: 100%; overflow: auto; padding: 4px 8px 14px 4px; }
+.hub-logo { justify-content: flex-start; font-size: clamp(26px, 12cqw, 52px); margin: 0 0 2px; }
 .mode { position: relative; min-height: 96px; padding: 10px 12px; text-align: left; display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; width: 100%;
   background: var(--bg) center / cover, var(--paper); transition: transform .1s; }
 .mode::before { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 25%, rgba(29,27,47,.82)); }
@@ -438,7 +438,7 @@ img.vi { width: .9em; height: .9em; object-fit: contain; vertical-align: -.1em; 
 .col-play { overflow-x: hidden; gap: 12px; scrollbar-width: thin; }
 .mode.big { min-height: 128px; } .mode { min-height: 82px; } .mode.soon { min-height: 66px; }
 @media (max-height: 760px) and (min-width: 901px) {
-  .hub-logo { font-size: 44px; } .mode.big { min-height: 108px; } .mode.wide-mode { min-height: 72px; } .mode { min-height: 70px; } .mode.soon { min-height: 56px; }
+  .hub-logo { font-size: clamp(26px, 11cqw, 44px); } .mode.big { min-height: 108px; } .mode.wide-mode { min-height: 72px; } .mode { min-height: 70px; } .mode.soon { min-height: 56px; }
   .mode.big .mode-txt b { font-size: 30px; } .guest-note { font-size: 13px; padding: 7px 9px; }
 }
 .prep-note { margin: 4px 0 0; padding: 8px 10px; background: #eef9ff; border-left: 5px solid var(--sky); font-size: 15px; }
@@ -630,9 +630,7 @@ p, li, .muted, .fine, .pitch, .coach p, .codex, .modal p, .guest-note { line-hei
 .item-img i { font-style: normal; font-size: 30px; }
 .item b { font-size: 13px; line-height: 1.1; } .item em { font: 400 18px var(--pix); font-style: normal; }
 .items-foot { display: flex; gap: 10px; justify-content: center; margin-top: 14px; }
-body.in-island #toast { bottom: 150px; }
 .mode-row .mode.wide-mode .mode-txt b { font-size: 21px; }
-@media (max-width: 720px) { body.in-island #toast { bottom: 130px; } }
 
 /* ---- the prize: hidden 1-15 values, made big and obvious ---- */
 .prize { gap: 6px; }
