@@ -59,6 +59,8 @@ export function snapshotOf(seed, st, guards = 2, extra = {}) {
   return { seed, tiles, b: (st.b || []).filter(b => !b.done || b.uplv).map(b => ({ id: b.id, type: b.type, k: b.k, lv: b.lv || 1 })), guards: Math.max(2, Math.min(4, guards | 0)), ...extra };
 }
 
+// what the raider's browser gets: hidden traps stay on the server, which replays the real snapshot
+export const publicSnap = s => ({ ...s, b: s.b.filter(x => x.type !== 'trap') });
 // army: { troops: {...}, hero: 'hero' | 'captain' }
 export function createRaid(snap, army = {}) {
   const w = gen(snap.seed), st = { tiles: snap.tiles, b: snap.b };

@@ -9,6 +9,7 @@ import { api, session, walletLogin, guestLogin, logout, hasWallet, watch, server
 import { initAudio, sfx, music, setVolume, babble } from './audio.js';
 import { PHRASES, MATCH_CHAT, FRIEND_CHAT, BOT_REPLIES } from './chat.js';
 import { initMindTalk, openMinds } from './mindtalk.js';
+import { chatSigner } from './chatsign.js';
 import { initTown, openTown, closeTown } from './town.js';
 import { capOf, ENERGY_CAP } from './energy.js';
 import { openIsland, closeIsland, refreshHud, cropImg, fmtTime } from './island/island.js';
@@ -507,7 +508,7 @@ async function startRaid(revenge = 0) {
       } else if (res0.stars >= 2) { settings.raidWins = (settings.raidWins || 0) + 1; saveSettings(); }
       const stars = '★'.repeat(res.stars) + '☆'.repeat(3 - res.stars);
       if (res.stars) sfx('victory');
-      await modal(`<h3 class="raid-result">${res.stars ? 'Raid won!' : 'Raid failed'}</h3><div class="raid-stars big">${stars}</div><p>${Math.round(res.pct * 100)}% destroyed${res.home ? ' · house down' : ''}</p>${local ? '<p class="muted">Offline raid: loot is not saved.</p>' : `<p class="raid-loot-won"><b>+${(res.loot || 0).toLocaleString()} ✨</b> loot</p>${target.raidsLeft != null ? `<p class="muted">${target.raidsLeft} raid${target.raidsLeft === 1 ? '' : 's'} left today</p>` : ''}`}`, [['Back to my island', true, 'primary']]);
+      await modal(`<h3 class="raid-result">${res.stars ? 'Raid won!' : 'Raid failed'}</h3><div class="raid-stars big">${stars}</div><p>${Math.round(res.pct * 100)}% destroyed${res.home ? ' · house down' : ''}${res.traps ? ` · ${res.traps} hidden trap${res.traps > 1 ? 's' : ''} hit your troops` : ''}</p>${local ? '<p class="muted">Offline raid: loot is not saved.</p>' : `<p class="raid-loot-won"><b>+${(res.loot || 0).toLocaleString()} ✨</b> loot</p>${target.raidsLeft != null ? `<p class="muted">${target.raidsLeft} raid${target.raidsLeft === 1 ? '' : 's'} left today</p>` : ''}`}`, [['Back to my island', true, 'primary']]);
       closeRaid(); goIsland();
     },
   });
@@ -855,7 +856,12 @@ function startDuel(local, first = local.view(), opts = {}) {
   paintDuel();
   duelLayout(); camSnap(0, 1.25, 0.6); camTo(0, 1, 0, 2.5);
   if (!local) {
-    watch(`match:${D.id}`, p => { if (p.say && Number.isInteger(p.say.seat) && p.say.seat !== D?.v.seat) sayNow(p.say.seat, p.say.phrase | 0); else if (!p.say) refresh(); }).then(un => { if (D) D.unwatch = un; });
+    const topic = `match:${D.id}`;
+    watch(topic, async p => {
+      if (!p.cert) return refresh();
+      const m = await chat.open(topic, p), said = m?.body;   // only your rival can make a chat bubble appear
+      if (said && D && m.name === D.v.view.rival.name.replace(' 🤖', '') && Number.isInteger(said.seat) && said.seat !== D.v.seat) sayNow(said.seat, said.phrase | 0);
+    }).then(un => { if (D) D.unwatch = un; });
     D.poll = setInterval(() => { if (D && !D.busy) refresh(); }, 2500);
   }
   D.clock = setInterval(paintTimer, 250);
@@ -1044,7 +1050,7 @@ $('#d-phrases').onclick = async e => {
   }
   const seat = D.v.seat;
   sayNow(seat, phrase);
-  D.unwatch?.send?.({ say: { seat, phrase } });
+  chat.seal(`match:${D.id}`, { seat, phrase }).then(m => m && D?.unwatch?.send?.(m));
   try { const r = await api('match/chat', { id: D.id, phrase }); D.unwatch?.send?.({}); showChat(r.chat, seat, r.serverTime); }
   catch (err) { toast(err.message, true); }
 };
@@ -1346,9 +1352,10 @@ $('#pf-save').onclick = async () => {
 };
 
 initMindTalk({ minds: () => (guest ? [] : myMinds), esc });
-initTown({ minds: () => (guest ? [] : myMinds), api, esc, toast, online: () => online, go: townGo, me: () => me?.id, name: () => me?.name || 'You', canChat: () => online && !guest });
+initTown({ minds: () => (guest ? [] : myMinds), api, esc, toast, online: () => online, go: townGo, me: () => me?.id, name: () => me?.name || 'You', canChat: () => online && !guest, chat });
 
 // ---------- friends + friend chat (preset lines) ----------
+const chat = chatSigner(api);
 let frTick = 0, friendsList = [], chatWith = null, frUnwatch = null, frTimer = null;
 const seenAt = id => settings.seen[id] || 0;
 async function loadFriends() {
@@ -1394,7 +1401,7 @@ function paintMsgs() {
   const saved = chatRows.map(m => `${m.mine}|${m.text}`);
   liveMsgs = liveMsgs.filter(m => Date.now() - Date.parse(m.at) < 15000 && !saved.includes(`${m.mine}|${m.text}`));
   const rows = [...chatRows, ...liveMsgs];
-  $('#fr-msgs').innerHTML = rows.length ? rows.map(m => `<div class="msg ${m.mine ? 'mine' : ''} ${m.live ? 'unsaved' : ''}">${esc(m.text || PHRASES[m.phrase] || '')}<time>${new Date(m.at).toLocaleString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}</time></div>`).join('') : '<div class="board-empty">Say hi! 👋</div>';
+  $('#fr-msgs').innerHTML = rows.length ? rows.map(m => `<div class="msg ${m.mine ? 'mine' : ''}"">${esc(m.text || PHRASES[m.phrase] || '')}<time>${new Date(m.at).toLocaleString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}</time></div>`).join('') : '<div class="board-empty">Say hi! 👋</div>';
   $('#fr-msgs').scrollTop = 1e9;
 }
 async function loadChat() {
@@ -1415,7 +1422,7 @@ async function sendChat() {
   box.value = '';
   const to = chatWith.player.id;
   liveMsgs.push({ mine: true, text, at: new Date().toISOString() }); paintMsgs(); sfx('pop');
-  ping(`player:${to}`, { from: me.id, text });
+  chat.seal(`player:${to}`, { text }).then(m => m && ping(`player:${to}`, m));
   try { await api('messages', { to, text }); ping(`player:${to}`); loadChat(); } catch (err) { liveMsgs = []; paintMsgs(); box.value = text; toast(err.message, true); }
 }
 $('#fr-send').onclick = sendChat;
@@ -1459,10 +1466,14 @@ $('#fr-phrases').onclick = async e => {
 };
 async function friendsPoll() {
   if (!online || guest || !me) { renderFriends(); return; }
-  loadFriends(); loadMail();
-  if (!frUnwatch) frUnwatch = await watch(`player:${me.id}`, p => {
-    if (p.text && chatWith?.player.id === p.from) { liveMsgs.push({ mine: false, live: true, text: String(p.text).slice(0, 400), at: new Date().toISOString() }); paintMsgs(); sfx('pop'); return; }
-    if (p.text) return;
+  loadFriends(); loadMail(); chat.ready().catch(() => {});
+  const myTopic = `player:${me.id}`;
+  if (!frUnwatch) frUnwatch = await watch(myTopic, async p => {
+    if (p.cert) {   // a signed line: it shows only if it is genuinely from the friend whose chat is open
+      const m = await chat.open(myTopic, p);
+      if (m && chatWith?.player.id === m.pid) { liveMsgs.push({ mine: false, text: String(m.body?.text).slice(0, 400), at: new Date().toISOString() }); paintMsgs(); sfx('pop'); }
+      return;
+    }
     loadFriends(); if (chatWith) loadChat(); else sfx('notify');
   });
   clearInterval(frTimer); frTimer = setInterval(() => { if (document.hidden) return; if (chatWith) loadChat(); if (++frTick % 6 === 0 || $('#friends').classList.contains('on')) loadFriends(); }, 4000);

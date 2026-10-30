@@ -865,6 +865,4 @@ h3.raid-result { text-align: center; }
 .ai-row small { grid-column: 1; color: var(--muted); } .ai-row label { font-size: 13px; font-weight: 800; } .ai-row button { grid-column: 2; grid-row: 1 / span 2; }
 .mode.town-tile .mode-txt span, .mode.cup-tile .mode-txt span { font-size: 12px; white-space: nowrap; }
 
-/* a live line stays faint until the server confirms who really sent it */
-.unsaved { opacity: .62; }
 @media (max-height: 520px) { .town-side { width: min(250px, 42vw); max-height: 46vh; padding: 5px; gap: 3px; } .town-side h4 { display: none; } #town-feed { min-height: 34px; font-size: 12px; } .town-top { padding: 3px 6px; } }

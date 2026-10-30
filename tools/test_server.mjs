@@ -34,7 +34,7 @@ db.remove = async (t, q) => { T[t] = T[t].filter(r => !parse(q)(r)); return []; 
 db.upsert = async (t, row) => { const k = t === 'queue' || t === 'town_now' ? 'player_id' : 'address'; const ex = T[t].find(r => r[k] === row[k]); if (ex) Object.assign(ex, row); else T[t].push({ ...row }); return clone(ex || row); };
 db.rpc = async () => true;
 db.count = async (t, q = '') => T[t].filter(parse(q)).length;
-const PK = { mail_claims: ['mail_id', 'player_id'], cup_entries: ['day', 'player_id'], cups: ['day'] }, rawInsert = db.insert;
+const PK = { payments: ['tx'], mail_claims: ['mail_id', 'player_id'], cup_entries: ['day', 'player_id'], cups: ['day'] }, rawInsert = db.insert;
 db.insert = async (t, row) => {
   if (PK[t] && T[t].some(r => PK[t].every(k => r[k] === row[k]))) throw Object.assign(new Error('dup'), { dbStatus: 409 });
   return rawInsert(t, t === 'cup_entries' ? { tries: 0, best: 0, stars: 0, pct: 0, ...row } : t === 'town_chat' ? { ...row } : t === 'agent_keys' ? { revoked: false, gems: false, log: [], ...row } : t === 'cups' ? { settled: false, ...row } : row);
@@ -735,8 +735,11 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   await hit(town, A, { x: 100, y: 100, mind: 49 });
   ok(Date.parse(T.town_now.find(x => x.player_id === A.id).since) > s0, 'standing still pauses Town Time');
   rowA.since = T.town_now.find(x => x.player_id === A.id).since; const s1 = rowA.since;
-  await hit(town, A, { x: 120, y: 100, mind: 49, active: true });
-  ok(T.town_now.find(x => x.player_id === A.id).since === s1, 'taking part keeps the Town Time clock running');
+  await hit(town, A, { x: 100, y: 100, mind: 49, active: true });
+  ok(Date.parse(T.town_now.find(x => x.player_id === A.id).since) >= Date.parse(s1), 'a forged active flag earns nothing');
+  const sBefore = T.town_now.find(x => x.player_id === A.id).since;
+  await hit(town, A, { x: 140, y: 100, mind: 49 });
+  ok(Date.parse(T.town_now.find(x => x.player_id === A.id).since) < Date.parse(sBefore), 'really walking keeps the Town Time clock running');
 }
 
 // ---- cheat tests: each one really tries the attack ----
@@ -842,6 +845,146 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   T.mail.push({ id: 99, to_id: V.id, title: 'For Vera', body: '', gift: { gems: 5 }, created_at: new Date().toISOString() });
   ok((await hit(mail, X, { op: 'claim', id: 99 })).code === 404, 'you cannot take someone else\'s mail gift');
   ok(!(await hit(mail, X, null, 'GET')).body.mail.some(x => x.id === 99), 'you cannot read someone else\'s mail');
+}
+
+// ---- round 2 audit: confirmed holes, each tried for real ----
+{
+  const R = await import('../web/src/island/rules.js'), RD = await import('../web/src/island/raid.js'), chain = await import('../lib/chain.js'), G = await import('../web/src/island/gen.js');
+  const { chatSigner } = await import('../web/src/chatsign.js'), { certify, chatServerKey } = await import('../lib/chatcert.js');
+  const { freeBotName } = await import('../lib/names.js');
+  const rt = n => import(`../lib/routes/${n}.js`).then(m => m.default);
+  const [raid, cup, island, town, agent, gems, chatCert, friend, messages, match_chat, match_act] = await Promise.all(['raid', 'cup', 'island', 'town', 'agent', 'gems', 'chat_cert', 'friend', 'messages', 'match_chat', 'match_act'].map(rt));
+  const { agentKeys } = await import('../lib/routes/agent.js');
+  let n = 500;
+  const mk = async (name, st0 = {}) => { n++; const p = await db.insert('players', { name, name_key: name.toLowerCase(), address: '0x' + String(n).padStart(40, '0'), showcase: [] }); const st = R.newIsland(n, Date.now()); Object.assign(st, { dust: 5000, gems: 40 }, st0); st.inv.wood = 500; st.inv.stone = 500; T.islands.push({ player_id: p.id, seed: n, state: st, minds: 0, minds_at: new Date().toISOString(), rev: 0, updated_at: new Date().toISOString() }); return p; };
+  const isl = p => T.islands.find(x => x.player_id === p.id);
+  const hit = async (fn, p, body, { method = 'POST', query = {}, tok, ip = '1.1.1.' + (p.id.charCodeAt(0) % 200) } = {}) => { const token = tok || signSession({ id: p.id, address: p.address }); let o = null; const res = { setHeader() {}, end(t) { o = { code: this.statusCode, body: JSON.parse(t) }; }, headersSent: false }; await fn({ method, url: '/api/x', headers: { authorization: 'Bearer ' + token, 'x-forwarded-for': ip }, body, query }, res); return o; };
+  const openLand = p => { const s = isl(p).state, w = G.gen(isl(p).seed); for (let i = 0; i < 64 * 48; i++) if (w.land[i] && R.coverAt(s, w, i)) s.tiles[i] = { s: 'c', t: Date.now() }; return w; };
+  const mc = chain.client.multicall; chain.client.multicall = async ({ contracts }) => contracts.map(() => ({ status: 'failure' }));
+
+  // hidden traps
+  const Att = await mk('TrapAtt'), Def = await mk('TrapDef');
+  const fullSnap = RD.botVillage(777, 3); isl(Att).state.raid = { id: 'r1', snap: fullSnap, army: {}, at: Date.now() };
+  ok(fullSnap.b.some(b => b.type === 'trap'), 'the test village really has traps');
+  let out = await hit(island, Att, { acts: [] });
+  ok(!JSON.stringify(out.body).includes('"trap"') && !out.body.island.state.raid, 'island data never carries the raid snapshot');
+  ok(!RD.publicSnap(fullSnap).b.some(b => b.type === 'trap') && RD.publicSnap(fullSnap).b.length > 3, 'the raider gets the village without hidden traps');
+  delete isl(Att).state.raid;
+  out = await hit(raid, Att, { op: 'find', army: { brawler: 4 } });
+  ok(out.code === 200 && !JSON.stringify(out.body).includes('"trap"') && isl(Att).state.raid.snap.b, 'a raid target arrives with no traps in it');
+  const drops = RD.autoPlan(fullSnap, { troops: { brawler: 6 }, hero: 'captain' }), real = RD.replay(fullSnap, { troops: { brawler: 6 }, hero: 'captain' }, drops), seen = RD.replay(RD.publicSnap(fullSnap), { troops: { brawler: 6 }, hero: 'captain' }, drops);
+  ok(real.S.traps.length > 0 && seen.S.traps.length === 0, 'the server still fights with the real traps');
+
+  // build timer
+  const Bd = await mk('Timer'), wB = openLand(Bd), sB = isl(Bd).state; let spot = -1;
+  for (let i = 0; i < 64 * 48 && spot < 0; i++) if (R.fits(sB, wB, 'barn', i)) spot = i;
+  const cx = { seed: isl(Bd).seed, now: Date.now(), minds: 0 };
+  R.act(sB, { type: 'build', item: 'barn', k: spot }, cx);
+  ok(R.act(sB, { type: 'store', id: sB.b.at(-1).id }, cx).error && sB.b.at(-1).done, 'storing a half-built building cannot skip its timer');
+
+  // AI key and Gems
+  const Ai = await mk('AiOwner'), Other = await mk('AiOther'), key = (await hit(agentKeys, Ai, { op: 'new' })).body.key, wA = openLand(Ai); let kk = -1;
+  for (let i = 0; i < 64 * 48 && kk < 0; i++) if (R.fits(isl(Ai).state, wA, 'crystal', i)) kk = i;
+  out = await hit(agent, Ai, { op: 'do', actions: [{ type: 'build', item: 'crystal', tiles: [kk] }] }, { tok: key });
+  ok(out.code === 403 && isl(Ai).state.gems === 40, 'an AI cannot buy Gem-only decorations without permission');
+  const kid = T.agent_keys.find(k => k.player_id === Ai.id).id;
+  await hit(agentKeys, Other, { op: 'off', id: kid }); await hit(agentKeys, Other, { op: 'gems', id: kid, on: true });
+  ok(!T.agent_keys.find(k => k.id === kid).revoked && !T.agent_keys.find(k => k.id === kid).gems, 'another player cannot touch your AI key');
+  ok((await hit(agentKeys, Ai, { op: 'off', id: "x&revoked=eq.true" })).code === 400, 'a key id cannot carry extra database filters');
+
+  // Town Time
+  const Tn = await mk('Twin'); await hit(town, Tn, { x: 10, y: 10, mind: 1 });
+  const row = () => T.town_now.find(x => x.player_id === Tn.id), dT = isl(Tn).state.dust;
+  row().since = new Date(Date.now() - 11 * 60e3).toISOString(); row().at = new Date(Date.now() - 5e3).toISOString();
+  const pair = await Promise.all([hit(town, Tn, { x: 10, y: 10, mind: 1 }), hit(town, Tn, { x: 10, y: 10, mind: 1 })]);
+  ok(pair.filter(p => p.body.got).length === 1 && isl(Tn).state.dust === dT + 40, 'two requests at once pay one Town Time');
+  for (let i = 0; i < 9; i++) { row().since = new Date(Date.now() - 11 * 60e3).toISOString(); row().at = new Date(Date.now() - 5e3).toISOString(); await hit(town, Tn, { x: 10, y: 10, mind: 1 }); }
+  ok(isl(Tn).state.tn.n === 6 && isl(Tn).state.dust === dT + 240, 'Town Time stops at 6 a day, however many requests');
+  isl(Tn).state.tn.day = '2000-01-01'; row().since = new Date(Date.now() - 11 * 60e3).toISOString(); row().at = new Date(Date.now() - 5e3).toISOString();
+  ok((await hit(town, Tn, { x: 10, y: 10, mind: 1 })).body.got?.n === 1, 'the Town Time count starts again the next day');
+
+  // the cup
+  T.cups.length = 0; T.cup_entries.length = 0;
+  const Cp = await mk('Cupper'), Cq = await mk('Cupper2');
+  await hit(cup, Cp, { op: 'join' }); await hit(cup, Cq, { op: 'join' });
+  const v1 = await hit(cup, Cp, { op: 'start' }), v1b = await hit(cup, Cq, { op: 'start' });
+  ok(JSON.stringify(v1.body.snap.b) === JSON.stringify(v1b.body.snap.b), 'everyone gets the same village on the same try');
+  ok(!JSON.stringify(v1.body).includes('"trap"'), 'cup villages arrive without hidden traps');
+  const planA = RD.autoPlan(v1.body.snap, v1.body.army);
+  const both = await Promise.all([hit(cup, Cp, { op: 'score', inputs: planA }), hit(cup, Cp, { op: 'score', inputs: planA })]);
+  ok(both.filter(x => x.code === 200).length === 1, 'one try gives one score, even with two requests at once');
+  const v2 = await hit(cup, Cp, { op: 'start' });
+  ok(JSON.stringify(v1.body.snap.b) !== JSON.stringify(v2.body.snap.b), 'each try is a new village, so a rehearsal of one does not help the next');
+
+  // moving Dust between your own accounts
+  const Main = await mk('MainAcc', { dust: 100 }), Alt = await mk('AltAcc', { dust: 50000 });
+  let got = 0, raids = 0;
+  for (let i = 0; i < 6; i++) {
+    isl(Main).state.raidLog = [{ at: 1000 + i, by: 'AltAcc', pid: Alt.id, stars: 1, pct: 30, loot: 0 }];
+    Object.assign(isl(Main).state.inv, { troop_brawler: 10, troop_archer: 10 }); isl(Main).state.dust += 100;
+    const f = await hit(raid, Main, { op: 'find', revenge: 1000 + i, army: { brawler: 6, archer: 4 } }, { ip: '9.9.9.1' });
+    if (f.code !== 200) continue;
+    const a = await hit(raid, Main, { op: 'attack', id: f.body.id, inputs: RD.autoPlan(isl(Main).state.raid.snap, { troops: f.body.army, hero: f.body.hero }) }, { ip: '9.9.9.1' });
+    if (a.code === 200) { got += a.body.loot; raids++; }
+  }
+  ok(raids === 6 && got <= 4000, 'one player can only take Dust from one island twice a day');
+  isl(Alt).state.dk = (await import('../lib/http.js')).deviceKey({ headers: { 'x-forwarded-for': '7.7.7.7' } });
+  isl(Main).state.pl = null; isl(Main).state.raidLog = [{ at: 2000, by: 'AltAcc', pid: Alt.id, stars: 1, pct: 30, loot: 0 }]; Object.assign(isl(Main).state.inv, { troop_brawler: 10, troop_archer: 10 });
+  const sd = await hit(raid, Main, { op: 'find', revenge: 2000, army: { brawler: 6, archer: 4 } }, { ip: '7.7.7.7' });
+  ok(sd.code === 200 && sd.body.loot === 0, 'raids between accounts on one connection pay nothing');
+  chain.client.multicall = mc;
+
+  // payments
+  process.env.TREASURY_ADDRESS = '0x48C61f0Ca53259938F5B215ECf4f6b5246f3eA37';
+  const Pay = await mk('Payer'), hash = '0x' + 'f'.repeat(64), tre = process.env.TREASURY_ADDRESS;
+  chain.client.getTransaction = async () => ({ to: tre, from: Pay.address, value: 10n ** 16n, chainId: 4663 });
+  chain.client.getTransactionReceipt = async () => ({ status: 'success', blockNumber: 96n }); chain.client.getBlockNumber = async () => 100n;
+  ok((await hit(gems, Pay, { op: 'claim', tx: hash, pack: 'pouch' })).body.pending, 'a payment waits for 6 confirmations');
+  chain.client.getBlockNumber = async () => 101n;
+  const upd = db.update; db.update = async (t, q, p) => (t === 'islands' ? [] : upd(t, q, p));
+  const g0 = isl(Pay).state.gems, busy = await hit(gems, Pay, { op: 'claim', tx: hash, pack: 'pouch' });
+  db.update = upd;
+  ok(busy.body.pending && !T.payments.some(x => x.tx === hash), 'a busy island never swallows a payment');
+  ok((await hit(gems, Pay, { op: 'claim', tx: hash, pack: 'pouch' })).body.ok && isl(Pay).state.gems === g0 + 50, 'the retry delivers the Gems');
+  ok((await hit(gems, Pay, { op: 'claim', tx: hash, pack: 'pouch' })).code === 409 && isl(Pay).state.gems === g0 + 50, 'a retry after delivery pays nothing');
+  const races = await Promise.all([hit(gems, Pay, { op: 'claim', tx: '0x' + '1'.repeat(64), pack: 'pouch' }), hit(gems, Pay, { op: 'claim', tx: '0x' + '1'.repeat(64), pack: 'pouch' })]);
+  ok(races.filter(x => x.body.ok).length === 1 && isl(Pay).state.gems === g0 + 100, 'two claims at once pay once');
+  chain.client.getTransactionReceipt = async () => ({ status: 'reverted', blockNumber: 5n });
+  ok((await hit(gems, Pay, { op: 'claim', tx: '0x' + '2'.repeat(64), pack: 'pouch' })).code === 400, 'a failed transaction pays nothing');
+  chain.client.getTransactionReceipt = async () => ({ status: 'success', blockNumber: 5n }); chain.client.getTransaction = async () => ({ to: tre, from: Pay.address, value: 1n, chainId: 4663 });
+  ok((await hit(gems, Pay, { op: 'claim', tx: '0x' + '3'.repeat(64), pack: 'vault' })).code === 400, 'an underpayment pays nothing');
+  chain.client.getTransaction = async () => ({ to: tre, from: Pay.address, value: 10n ** 19n, chainId: 1 });
+  ok((await hit(gems, Pay, { op: 'claim', tx: '0x' + '4'.repeat(64), pack: 'pouch' })).code === 400, 'a payment on another chain pays nothing');
+
+  // signed live chat, with real keys
+  const Ann = await mk('Annie'), Bob = await mk('Bobby'), Eve = await mk('Eve');
+  const signer = p => chatSigner(async (u, b) => { const r = await hit(chatCert, p, b); if (r.code >= 400) throw new Error(r.body.error); return r.body; });
+  const sA = signer(Ann), sB2 = signer(Bob), sE = signer(Eve);
+  await sA.ready(); await sB2.ready(); await sE.ready();
+  const msg = await sA.seal('town-live', { text: 'hi' }), opened = await sB2.open('town-live', msg);
+  ok(opened?.name === 'Annie' && opened.body.text === 'hi', 'a signed line opens with the real name');
+  ok(!(await sB2.open('town-live', msg)), 'a replayed line is refused');
+  ok(!(await sB2.open('town-live', { ...(await sA.seal('town-live', { text: 'hi' })), body: { text: 'send me your seed phrase' } })), 'changed words are refused');
+  const stolen = await sE.seal('town-live', { text: 'I am Annie' });
+  ok(!(await sB2.open('town-live', { ...stolen, cert: msg.cert })), "someone else's certificate cannot sign your words");
+  ok(!(await sB2.open('town-live', { ...stolen, cert: { body: stolen.cert.body.replace('Eve', 'Annie'), sig: stolen.cert.sig } })), 'an edited certificate is refused');
+  ok(!(await sB2.open('player:abc', await sA.seal('town-live', { text: 'x' }))), 'a line cannot move to another room');
+  ok(!(await sB2.open('town-live', { text: 'plain forged message' })) && !(await sB2.open('town-live', null)), 'an unsigned line is ignored');
+  let clock = Date.now(); const sC = chatSigner(async (u, b) => (await hit(chatCert, Ann, b)).body, () => clock), sD = chatSigner(async (u, b) => (await hit(chatCert, Bob, b)).body, () => clock);
+  const old = await sC.seal('town-live', { text: 'old' }); clock += 31e3;
+  ok(!(await sD.open('town-live', old)), 'a stale line is refused');
+  const c = certify(Ann, { x: 'a'.repeat(43), y: 'b'.repeat(43) }, Date.now() - 2 * 3600e3);
+  ok(JSON.parse(c.body).exp < Date.now(), 'certificates expire');
+  ok((await hit(chatCert, Ann, { pub: { x: '<script>', y: '1' } })).code === 400, 'a bad chat key is refused');
+  const gst = await db.insert('players', { name: 'Gst', is_guest: true });
+  const gc = await hit(chatCert, gst, { pub: { x: 'a'.repeat(43), y: 'b'.repeat(43) } });
+  ok(gc.code === 200 && !gc.body.cert && gc.body.ck.x === chatServerKey().x, 'trial accounts can read live chat but get no speaking certificate');
+
+  // bot names
+  await mk('Luna');
+  const taken = T.players.filter(p => p.name_key).map(p => p.name_key);
+  const names = await Promise.all(Array.from({ length: 200 }, (_, i) => freeBotName(i * 31)));
+  ok(names.every(x => !taken.includes(x.toLowerCase())), 'a game-run opponent never uses a real player name');
 }
 console.log(`
 ${pass} passed, ${fail} failed`);

@@ -228,7 +228,7 @@ async function beat() {
   const say = sayQ; sayQ = '';
   beating = true;
   try {
-    const r = await K.api('town', { x: meP.x | 0, y: meP.y | 0, mind: meP.mind, say, after: chatAfter, active: Date.now() - actedAt < 120e3 });
+    const r = await K.api('town', { x: meP.x | 0, y: meP.y | 0, mind: meP.mind, say, after: chatAfter });
     if (say) room?.ping();
     room?.move(myPos());
     roster = new Map(r.people.map(o => [o.id, o.name])); rosterAt = Date.now();
@@ -241,7 +241,7 @@ async function beat() {
     for (const c of r.chat) {
       chatAfter = Math.max(chatAfter, c.id);
       const hit = pendingLines.findIndex(l => l.name === c.name && l.text === c.text);
-      if (hit >= 0) { pendingLines[hit].el.className = ''; pendingLines.splice(hit, 1); continue; }   // already on screen: it arrived live
+      if (hit >= 0) { pendingLines.splice(hit, 1); continue; }   // already on screen: it arrived live
       addLine(c.name, c.text, c.kind === 'news');
       const who = c.kind === 'chat' && [...people.values()].find(o => o.name === c.name);
       if (who) bubbles.push({ who: who.id, text: c.text.slice(0, 48), life: 5 });
@@ -263,13 +263,13 @@ function addLine(name, text, news) {
   return el;
 }
 // a message from another player arrives directly; the name comes from the server's list, never from the message
-function liveLine(name, text, own) { const el = addLine(name, text); if (!own) el.className = 'unsaved'; pendingLines.push({ name, text, at: Date.now(), el }); }
-function onSay({ id, text }) {
-  const name = roster.get(id);
-  if (!name || typeof text !== 'string') return;
-  const clean = text.slice(0, 120);
-  liveLine(name, clean); sfx('pop');
-  if (people.has(id)) bubbles.push({ who: id, text: clean.slice(0, 48), life: 5 });
+function liveLine(name, text) { pendingLines.push({ name, text, at: Date.now(), el: addLine(name, text) }); }
+async function onSay(signed) {
+  const m = await K.chat.open('town-live', signed);   // the name comes from the signed certificate, so it cannot be faked
+  if (!m || m.pid === K.me() || typeof m.body?.text !== 'string') return;
+  const clean = m.body.text.slice(0, 120);
+  liveLine(m.name, clean); sfx('pop');
+  if (people.has(m.pid)) bubbles.push({ who: m.pid, text: clean.slice(0, 48), life: 5 });
 }
 const acted = () => { actedAt = Date.now(); };
 function walkTo(o, x, y) { if (o.goX === x && o.goY === y) return; o.goX = x; o.goY = y; o.path = pathTo(o.x, o.y, x, y); o.tx = x; o.ty = y; }
@@ -333,7 +333,8 @@ function send() {
   if (!text) return;
   if (!K.canChat()) return K.toast('Connect a wallet to chat in town.', true);
   b.value = ''; sayQ = text; acted(); paintStay();
-  liveLine(K.name(), text, true); room?.say(text);
+  liveLine(K.name(), text);
+  K.chat.seal('town-live', { text }).then(m => m && room?.say(m));
   bubbles.push({ me: 1, text: text.slice(0, 48), life: 5 });
   beat();
 }

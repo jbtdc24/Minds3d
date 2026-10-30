@@ -86,7 +86,7 @@ export async function liveRoom(topic, id, me, { onChange, onPing, onSay }) {
     list: () => Object.values(ch.presenceState()).map(m => m[0]),
     move: pos => { mine = pos; if (live) ch.track(pos); },
     ping: () => { if (live) ch.send({ type: 'broadcast', event: 'update', payload: {} }); },
-    say: text => { if (live) ch.send({ type: 'broadcast', event: 'say', payload: { id, text } }); },
+    say: signed => { if (live) ch.send({ type: 'broadcast', event: 'say', payload: signed }); },
     leave: () => sb.removeChannel(ch),
   };
 }

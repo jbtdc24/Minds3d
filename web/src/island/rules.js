@@ -298,6 +298,7 @@ export function act(st, a, { seed, now, minds = 0, instant = false }) {   // ins
       const b = (st.b || []).find(x => x.id === Number(a.id));
       if (!b) return { error: 'that building is gone' };
       if (BUILD[b.type].fixed) return { error: `Your ${BUILD[b.type].name} stays on the island (you can move it).` };
+      if (b.done) return { error: 'Finish building it before you store it.' };
       st.stash ||= {};
       if (Object.values(st.stash).reduce((s, n) => s + n, 0) >= STASH_MAX) return { error: `Storage is full (${STASH_MAX}). Place something first.` };
       for (const t of footprint(b)) st.tiles[t] = { s: 'c', t: now };
