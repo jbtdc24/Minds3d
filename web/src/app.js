@@ -554,8 +554,8 @@ function openPrep(mode) {
   prep.level = settings.picks.level || 'normal';
   $('#prep-title').textContent = { ranked: 'Ranked Duel', classic: 'Classic Duel', practice: 'Practice vs bot' }[mode];
   $('#prep-go').textContent = mode === 'practice' ? 'Start practice' : 'Find match';
-  $('#prep-note').textContent = mode === 'classic' ? 'Classic: real players, with or without Minds. Just for fun: no rating or points. No player in 20 s? You play a bot.'
-    : mode === 'ranked' ? 'Ranked: rating and points count. No player in 20 s? You play a Hard bot (counts half).' : '';
+  $('#prep-note').textContent = mode === 'classic' ? 'Classic: play anyone, with or without Minds. Just for fun: no rating or points.'
+    : mode === 'ranked' ? 'Ranked: rating and points count.' : '';
   $('#prep-level').style.display = mode === 'practice' ? 'inline-flex' : 'none';
   $$('#prep-level button').forEach(b => b.classList.toggle('on', b.dataset.v === prep.level));
   renderPrepGrid();
@@ -574,7 +574,7 @@ function paintPrep() {
   if (prep.mode === 'ranked') {
     const n = prep.minds.length;
     $('#prep-note').innerHTML = n ? `<span class="stake"><b class="sx">STAKE x${n}</b><b class="sw">WIN +${winReward(prep.minds)}</b><b class="sl">LOSE −${lossRisk(prep.minds)}</b><b class="se">⚡ −1 × ${n} Mind${n > 1 ? 's' : ''}</b></span>
-      <small>Every Mind you stake multiplies the win and the loss, and each one spends 1 ⚡ (refills in ${resetText()}). Bot games count half.</small>` : 'Pick 1 to 3 Minds to stake.';
+      <small>Every Mind you stake multiplies the win and the loss, and each one spends 1 ⚡ (refills in ${resetText()}).</small>` : 'Pick 1 to 3 Minds to stake.';
   }
   $('#prep-go').disabled = !prep.minds.length;
   $('#prep-err').textContent = prep.minds.length ? '' : 'Pick at least 1 Mind.';
@@ -608,9 +608,9 @@ function queueLoop() {
   const tick = async () => {
     try {
       const r = await api('queue/poll', {});
-      if (r.match) { stopQueue(); if (r.bot) toast('No player found in time: you are playing a BOT.'); return openMatch(r.match); }
+      if (r.match) { stopQueue(); return openMatch(r.match); }
       if (r.idle) { stopQueue(); return enterHub(); }
-      $('#queue-msg').textContent = r.botIn > 0 ? `Searching players… a bot joins in ${r.botIn}s` : 'Starting a bot match…';
+      $('#queue-msg').textContent = r.waited > 10 ? 'Looking a bit wider for a rival…' : 'Searching players near your rating…';
     } catch (e) { toast(e.message, true); }
   };
   stopQueue(); tick(); queueTimer = setInterval(tick, 2000);
@@ -987,8 +987,8 @@ async function finish(v) {
   $('#r-stats').innerHTML = [
     [v.ranked ? `${d > 0 ? '+' : ''}${d}` : '—', 'Rating', d > 0 ? 'up' : d < 0 ? 'down' : ''],
     ...(v.ranked && v.pts != null ? [[`${v.pts > 0 ? '+' : v.pts < 0 ? '−' : ''}${Math.abs(v.pts)}`, `Points · stake x${v.view.me.minds.length}`, v.pts > 0 ? 'up' : v.pts < 0 ? 'down' : '']] : []),
-    [v.vsBot ? 'BOT' : 'Player', v.vsBot ? `Rival · ${v.botLevel}` : 'Rival', ''],
-    [v.ranked ? 'Ranked' : !v.vsBot || prep.mode === 'classic' ? 'Classic' : 'Practice', 'Mode', ''],
+    [v.vsBot ? 'BOT' : esc(v.view.rival.name), v.vsBot ? `Rival · ${v.botLevel}` : 'Rival', ''],
+    [v.ranked ? 'Ranked' : v.vsBot ? 'Practice' : 'Classic', 'Mode', ''],
   ].map(([b, s, c]) => `<div><b class="${c}">${esc(b)}</b><span>${s}</span></div>`).join('');
   const again = v.ranked ? 'ranked' : prep.mode === 'classic' && !D?.local ? 'classic' : 'practice';
   $('#r-again').onclick = () => openPrep(again);
@@ -1209,13 +1209,12 @@ function renderCodex() {
   <li>You can always see which cards and spells your rival has left.</li></ul>
   <h3>⚡ Mind Energy</h3>
   <ul><li>Every Mind has daily energy for <b>ranked</b>: ${Object.entries(ENERGY_CAP).map(([r, n]) => `${r} ${n}`).join(', ')}. It refills every day at 00:00 UTC.</li>
-  <li><b>Stake:</b> every Mind you bring is staked. A ranked match uses <b>1 ⚡ from each</b>. A win pays <b>10 points per Mind</b> (+ rarity bonus), a loss costs <b>5 points per Mind</b>. Bot games count half.</li>
+  <li><b>Stake:</b> every Mind you bring is staked. A ranked match uses <b>1 ⚡ from each</b>. A win pays <b>10 points per Mind</b> (+ rarity bonus), a loss costs <b>5 points per Mind</b>.</li>
   <li>More Minds = more ranked games every day. Energy belongs to the Mind, so it follows the NFT if it changes wallet.</li>
   <li><b>Classic, Practice and the Tutorial are free</b> and unlimited.</li></ul>
   <h3><img src="assets/icon_trophy.png" alt="">Ranking and fairness</h3>
-  <ul><li>Ranked wins and losses change your <b>rating</b>. Games vs bots count half.</li>
+  <ul><li>Ranked wins and losses change your <b>rating</b>.</li>
   <li><b>Points</b>: +10 per Mind staked on a ranked win, −5 per Mind on a loss, + rarity bonus on wins (Uncommon +5%, Rare +10%, Epic +15%, Legendary +20%). Rarity never changes how a Mind plays.</li>
-  <li>No player in 20 seconds? You play a <b>bot</b>, always labelled BOT.</li>
   <li>Every turn runs on the game server and your rival's card is never sent to your device, so nobody can cheat.</li></ul>
   <p class="muted">Tip: press 1–7 to pick a card and Enter to lock in.</p>`;
 }

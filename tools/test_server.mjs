@@ -51,10 +51,14 @@ ok(checkName('ab') && checkName('bad name!') && checkName('fuck_you') && checkNa
 // ---- bot match, full game ----
 const A = await db.insert('players', { name: 'Alice', name_key: 'alice', address: acct.address });
 let m = await startMatch({ player: A, minds: [1, 2] }, null, { ranked: true, botLevel: 'normal' });
+ok(m.state.botAt > Date.now() && !/bot/i.test(m.state.p[1].name) && !m.state.p[1].pending, 'a filler rival has a player name and takes its time to pick');
+const ready = () => { for (const r of T.matches) if (r.state?.botAt) r.state.botAt = 0; };
+ready();
 let v = await getView(m.id, A.id), turns = 0;
-ok(v.view.rival.locked === true, 'bot locks in right away');
+ok(v.view.rival.locked === true && v.vsBot === false && v.botLevel === null, 'once it has thought, it locks in; the client is not told it is a bot');
 ok(!JSON.stringify(v).includes('"pending"') && !('play' in v.view.rival), 'hidden picks never sent to the client');
 while (v.status === 'live' && turns < 60) {
+  ready();
   v = await act(m.id, A.id, { card: v.view.me.cards[0], spell: v.view.me.spells[0] || null });
   turns++;
 }

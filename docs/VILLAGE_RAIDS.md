@@ -41,4 +41,5 @@ Demolish refunds 50%.
 - [x] Sound + juice: raid music, SFX for every hit/arrow/explosion/drop/spell, coins flying out of destroyed buildings, damage numbers.
 - [x] Adventure (island/adventure.js content, island/advview.js screen, lib/routes/adventure.js): walk your hero on a wild island, gather chests/ore/herbs, fight roaming monsters (real time), loot validated by the server.
 
-- [ ] Next: hide bot labels in duels too (owner asked; flagged trust risk for ranked), building upgrades, raid replays/revenge, adventure bosses per level
+- [x] Duel filler bots: player-style names, think 1.5-10 s, no BOT label (Practice still says bot). Internally still half rating/points.
+- [ ] Next:, building upgrades, raid replays/revenge, adventure bosses per level
