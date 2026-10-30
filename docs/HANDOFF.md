@@ -28,6 +28,8 @@ Owner: Mindclash game owner. Hates long text: short replies, decide for them, bu
 - Economy: Dust ✨, Gems 💎 (st.gems, server-only; Ogres drop 2), Shop tabs Seeds/Army/Supplies/Gems/Sell/Land (SHOP + RECIPES in rules.js).
 - Audio: web/src/audio.js synth (SFX + songs menu/battle/title/raid/adventure).
 
+## Notes 2026-10-30 late: islets + portals REMOVED from the home island (owner: not functional). Admin gifts now show (refreshIsland). Live smoke test: scratchpad smoke.mjs pattern (guest → island/shop/raid/adventure/gems/admin) all OK.
+
 ## NEXT TASKS — round 6 (owner 2026-10-30), do in this order
 1. [x] Kill the annoying pulsing/thunder sound (world-map lightning boom + adventure footsteps) → soft rare rumble, quiet steps.
 2. [x] Inventory vs 📦 storage are duplicates → 📦 = island storage drawer with Place buttons; Inventory only lists resources.
