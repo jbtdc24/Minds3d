@@ -37,6 +37,8 @@ RULES FOR NEXT SESSION: (1) test wallet-account paths, guests hide bugs; (2) run
 `npx --yes eslint@8 --no-eslintrc --env browser,es2022,node --parser-options=sourceType:module,ecmaVersion:latest --rule '{"no-undef":"error"}' web/src lib api`
 (3) python patch scripts must assert every replacement (a silent miss cost us all the music); (4) never push with a failing test.
 
+## Audit round 2 (2026-10-31): fixes are in LOCAL commits on `island`, NOT deployed. Owner's brief forbade deploying without explicit approval. Report: docs/AUDIT.md. Tools: tools/fuzz_server.mjs, tools/mutation_check.mjs.
+
 ## Round 9 notes (2026-10-31): live chat = words sent directly over Supabase broadcast the moment you press Send, server copy confirms (unconfirmed lines vanish after 15 s). One socket may join a topic once: send on a watched topic via the watch() handle, never a second channel. Player counts are hidden from players (admin only).
 OWNER IDEA FOR SOON: an office in town (not designed yet: ask what it is for).
 
