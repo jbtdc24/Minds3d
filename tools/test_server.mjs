@@ -961,6 +961,11 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
     if (a.code === 200) { got += a.body.loot; raids++; }
   }
   ok(raids === 6 && got <= 4000, 'one player can only take Dust from one island twice a day');
+  const Rich = await mk('RichTarget', { dust: 90000 });
+  isl(Main).state.pl = { day: new Date().toISOString().slice(0, 10), got: 5900, m: {} }; isl(Main).state.raidLog = [{ at: 1500, by: 'RichTarget', pid: Rich.id, stars: 1, pct: 30, loot: 0 }]; Object.assign(isl(Main).state.inv, { troop_brawler: 10, troop_archer: 10 });
+  const ceiling = await hit(raid, Main, { op: 'find', revenge: 1500, army: { brawler: 6, archer: 4 } }, { ip: '9.9.9.2' });
+  ok(ceiling.code === 200 && isl(Main).state.raid.loot <= 100, 'Dust taken from real players stops at the daily ceiling');
+  delete isl(Main).state.raid;
   isl(Alt).state.dk = (await import('../lib/http.js')).deviceKey({ headers: { 'x-forwarded-for': '7.7.7.7' } });
   isl(Main).state.pl = null; isl(Main).state.raidLog = [{ at: 2000, by: 'AltAcc', pid: Alt.id, stars: 1, pct: 30, loot: 0 }]; Object.assign(isl(Main).state.inv, { troop_brawler: 10, troop_archer: 10 });
   const sd = await hit(raid, Main, { op: 'find', revenge: 2000, army: { brawler: 6, archer: 4 } }, { ip: '7.7.7.7' });
