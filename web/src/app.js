@@ -10,6 +10,7 @@ import { initAudio, sfx, music, setVolume } from './audio.js';
 import { PHRASES, MATCH_CHAT, FRIEND_CHAT, BOT_REPLIES } from './chat.js';
 import { capOf, ENERGY_CAP } from './energy.js';
 import { openIsland, closeIsland, refreshHud, cropImg, fmtTime } from './island/island.js';
+import { chibi } from './island/chibi.js';
 import { openRaid, closeRaid } from './island/raidview.js';
 import { botVillage, armyCap, cleanArmy, armyUsed, TROOPS, DEFAULT_ARMY, raidsPerDay, raidFee } from './island/raid.js';
 import { troopIcon } from './island/troops.js';
