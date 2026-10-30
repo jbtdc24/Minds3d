@@ -237,7 +237,7 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   const { gen, TW, TH } = await import('../web/src/island/gen.js');
   const R = await import('../web/src/island/rules.js');
   const RD = await import('../web/src/island/raid.js');
-  const seed = 777, now = Date.now(), st = R.newIsland(seed, now), w = gen(seed), ctx = { seed, now, minds: 0 };
+  const seed = 777, now = Date.now(), st = R.newIsland(seed, now), w = gen(seed), ctx = { seed, now, minds: 0, instant: true };
   st.dust = 5000; st.inv.wood = 500; st.inv.stone = 500;
   const spot = type => { for (let k = 0; k < TW * TH; k++) if (R.fits(st, w, type, k)) return k; return -1; };
   let r = R.act(st, { type: 'build', item: 'house', k: spot('house') }, ctx);
@@ -329,7 +329,7 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
 {
   const R = await import('../web/src/island/rules.js');
   const { gen, TW, TH } = await import('../web/src/island/gen.js');
-  const now = Date.now(), seed = 31337, ctx = { seed, now, minds: 0 };
+  const now = Date.now(), seed = 31337, ctx = { seed, now, minds: 0, instant: true };
   const st = R.newIsland(seed, now);
   ok(st.b.some(b => b.type === 'home') && st.b.some(b => b.type === 'well') && st.inv.troop_brawler > 0, 'a new island starts with its home, well and a few troops');
   st.dust = 1000;
@@ -421,6 +421,24 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   out = await call(islandRoute, joe.id, {}, '/api/island');
   ok(out.code === 200, 'unsuspended players can play again');
   delete process.env.ADMIN_PLAYER_IDS;
+}
+
+// ---- building takes time ----
+{
+  const R = await import('../web/src/island/rules.js'), { gen, TW, TH } = await import('../web/src/island/gen.js');
+  const seed = 2024, now = Date.now(), st = R.newIsland(seed, now), w = gen(seed);
+  st.dust = 5000; st.inv.wood = 200; st.inv.stone = 200;
+  const spot = type => { for (let k = 0; k < TW * TH; k++) if (R.fits(st, w, type, k)) return k; return -1; };
+  let r = R.act(st, { type: 'build', item: 'house', k: spot('house') }, { seed, now, minds: 0 });
+  const h = st.b.find(b => b.type === 'house');
+  ok(r.done === 1 && h.done > now && R.maxPlots(st, 0) === 12, 'a cottage takes time; it only counts once finished');
+  ok(R.act(st, { type: 'build', item: 'barn', k: spot('barn') }, { seed, now, minds: 0 }).error, 'no Minds = 1 builder: one build at a time');
+  ok(R.act(st, { type: 'build', item: 'barn', k: spot('barn') }, { seed, now, minds: 2 }).done === 1, 'more Minds = more builders');
+  ok(R.act(st, { type: 'build', item: 'wall', tiles: [spot('wall')] }, { seed, now, minds: 0 }).done === 1, 'walls are instant');
+  st.gems = 1;
+  ok(R.act(st, { type: 'rush', id: h.id }, { seed, now, minds: 0 }).done === 1 && !h.done && st.gems === 0, 'Gems finish a building now');
+  R.normalize(st, seed, now + 3600e3);
+  ok(!st.b.some(b => b.done), 'buildings finish when their time is up');
 }
 console.log(`
 ${pass} passed, ${fail} failed`);

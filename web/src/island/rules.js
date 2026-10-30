@@ -41,7 +41,14 @@ export const BUILD = {
   crystal: { name: 'Crystal Statue', icon: '💠', w: 1, h: 1, cost: { gems: 15 }, max: 4, hp: 0, deco: true, gem: true, desc: 'A glowing sky crystal. Gem exclusive.' },
   fountain: { name: 'Golden Fountain', icon: '⛲', w: 2, h: 2, cost: { gems: 25 }, max: 1, hp: 0, deco: true, gem: true, desc: 'The richest island in the sky. Gem exclusive.' },
 };
-export const STASH_MAX = 12;                           // buildings you can keep in storage
+export const STASH_MAX = 12;
+// building takes time (like a real build game): seconds per building; 0 = instant (walls, fences, flowers so you can drag lines)
+export const BUILD_SECS = { house: 300, mill: 900, barn: 600, tower: 480, trap: 60, lamp: 30, bench: 30, banner: 30, lantern: 20, crystal: 20, fountain: 60 };
+export const builders = minds => Math.max(1, Math.min(5, minds | 0));      // one builder per Mind you own (at least 1, max 5)
+export const busy = st => (st.b || []).filter(b => b.done).length;            // buildings still going up
+export const rushGems = (b, now) => Math.max(1, Math.ceil((b.done - now) / 300e3));   // 1 💎 per 5 minutes left
+// effects only count finished buildings
+export const activeOf = (st, type) => (st.b || []).filter(b => b.type === type && !b.done).length;                           // buildings you can keep in storage
 export const homeOf = (st, w) => { const b = (st.b || []).find(x => x.type === 'home'); return b ? { x: b.k % TW, y: (b.k / TW) | 0 } : w.house; };
 export const wellOf = (st, w) => { const b = (st.b || []).find(x => x.type === 'well'); return b ? { x: b.k % TW, y: (b.k / TW) | 0 } : w.well; };
 // things to buy (Dust or Gems). gives: what lands in your bag
@@ -103,7 +110,7 @@ export function newIsland(seed, now) {
   st.v = 4;
   return st;
 }
-export const maxPlots = (st, minds) => BASE_PLOTS + Math.min(minds, MIND_PLOTS) + Math.min(st.inv.permit || 0, MAX_PERMITS) + 2 * countOf(st, 'house');
+export const maxPlots = (st, minds) => BASE_PLOTS + Math.min(minds, MIND_PLOTS) + Math.min(st.inv.permit || 0, MAX_PERMITS) + 2 * activeOf(st, 'house');
 export const plotCount = st => Object.values(st.tiles).filter(t => t.s === 'p').length;
 // what is on a tile right now
 export function coverAt(st, w, k) {
@@ -140,6 +147,7 @@ function migrate3(st, seed) {
 // weeds creep back over ground nobody looks after
 export function normalize(st, seed, now) {
   migrate(st); migrate3(st, seed);
+  for (const b of st.b || []) if (b.done && b.done <= now) { delete b.done; delete b.start; }   // finished building
   if ((st.v || 1) < 4) {   // v4: everyone gets the starter army + supplies once (older islands had none, so Raid seemed broken)
     for (const [k, n] of Object.entries({ troop_brawler: 6, troop_archer: 4, potion: 2, fuel: 1 })) st.inv[k] = (st.inv[k] || 0) + n;
     st.v = 4;
@@ -156,7 +164,7 @@ export function normalize(st, seed, now) {
 const okTile = (w, k) => Number.isInteger(k) && k >= 0 && k < TW * TH && w.land[k] === 1;
 const add = (o, k, n) => { if (n) o[k] = (o[k] || 0) + n; };
 // apply one action; returns what changed ({ gain, done }) or { error }
-export function act(st, a, { seed, now, minds = 0 }) {
+export function act(st, a, { seed, now, minds = 0, instant = false }) {   // instant: tests only
   const w = gen(seed), gain = {}, tiles = [...new Set((Array.isArray(a.tiles) ? a.tiles : []).map(Number))].slice(0, 200);
   let done = 0;
   const pay = (k, n) => { add(gain, k, n); if (k === 'dust') st.dust += n; else if (k === 'gems') st.gems = (st.gems || 0) + n; else st.inv[k] = (st.inv[k] || 0) + n; };
@@ -226,8 +234,11 @@ export function act(st, a, { seed, now, minds = 0 }) {
         if (countOf(st, a.item) >= maxOf(a.item, minds)) return done ? { gain, done } : { error: `You can have ${maxOf(a.item, minds)} ${d.name}${maxOf(a.item, minds) > 1 ? 's' : ''}.` };
         if (!fits(st, w, a.item, k)) { if (d.w > 1) return { error: 'It does not fit there: it needs open, cleared ground.' }; continue; }
         if (!canAfford(st, d.cost)) return done ? { gain, done } : { error: `A ${d.name} costs ${costText(d.cost)}.` };
+        const secs = instant ? 0 : BUILD_SECS[a.item] || 0;
+        if (secs && busy(st) >= builders(minds)) return done ? { gain, done } : { error: `All your builders are busy (${builders(minds)}: one per Mind you own). Wait, or finish a build with 💎.` };
         for (const [i, n] of Object.entries(d.cost)) pay(i, -n);
         const b = { id: st.nb++, type: a.item, k };
+        if (secs) { b.done = now + secs * 1000; b.start = now; }
         st.b.push(b);
         for (const t of footprint(b)) st.tiles[t] = { s: 'b', t: now };
         done++;
@@ -298,6 +309,14 @@ export function act(st, a, { seed, now, minds = 0 }) {
       }
       break;
     }
+    case 'rush': {   // finish a building right now with Gems
+      const b = (st.b || []).find(x => x.id === Number(a.id));
+      if (!b?.done) return { error: 'That is already built.' };
+      const cost = rushGems(b, now);
+      if ((st.gems || 0) < cost) return { error: `Finishing now costs ${cost} 💎.` };
+      pay('gems', -cost); delete b.done; delete b.start; done = 1;
+      break;
+    }
     case 'ship': {   // upgrade your airship one tier (Dust + wood + stone, or Gems)
       const t = (st.ship || 0) + 1, sh = SHIP_COSTS[t];
       if (!sh) return { error: 'Your airship is already the best there is.' };
@@ -318,7 +337,7 @@ export function act(st, a, { seed, now, minds = 0 }) {
       break;
     }
     case 'sell': {
-      const item = String(a.item), mill = countOf(st, 'mill') ? 1 + MILL_BONUS : 1;
+      const item = String(a.item), mill = activeOf(st, 'mill') ? 1 + MILL_BONUS : 1;
       const price = item.startsWith('crop_') ? Math.round((CROPS[item.slice(5)]?.sell || 0) * mill) : RAW[item]?.sell;
       if (!price) return { error: 'that cannot be sold' };
       const n = Math.max(1, Math.min(st.inv[item] || 0, a.n | 0 || 1));

@@ -18,7 +18,8 @@ import { AREAS, POTIONS_MAX, SPOTS, SHIPS, spotLevel } from './island/adventure.
 import { openMap, updateMap, closeMap } from './island/worldmap.js';
 import { initAdmin, tryCode } from './admin.js';
 import { isle, loadIsland, doAct, flush as flushIsland, resetIsland, now as islandNow } from './island/store.js';
-import { CROPS, RAW, growMs, permitCost, MAX_PERMITS, ripe, SHOP, RECIPES, TROOP_MAX, troopCount, costText, canAfford } from './island/rules.js';
+import { CROPS, RAW, growMs, permitCost, MAX_PERMITS, ripe, SHOP, RECIPES, TROOP_MAX, troopCount, costText, canAfford, BUILD, STASH_MAX } from './island/rules.js';
+import { buildIcon } from './island/buildings.js';
 import { islandThumb } from './island/art.js';
 import { hashStr } from './island/gen.js';
 
@@ -290,7 +291,15 @@ function invItems() {
   if (inv.wood) cells.push(cell('<i>🪵</i>', 'Wood', inv.wood));
   if (inv.stone) cells.push(cell('<i>🪨</i>', 'Stone', inv.stone));
   if (inv.permit) cells.push(cell('<i>📜</i>', 'Land Permit', inv.permit));
-  return `<div class="items-grid">${cells.join('')}</div><div class="items-foot"><button class="btn small" id="inv-go-island">🏝️ Go to my island</button><button class="btn small" id="inv-go-shop">🛒 Shop</button></div>`;
+  cells.splice(1, 0, cell('<i>💎</i>', 'Gems', isle.state.gems || 0));
+  for (const [k, name, icon] of [['potion', 'Health Potion', '🧪'], ['fuel', 'Sky Fuel', '⛽'], ['herb', 'Glow Herb', '🌿'], ['raid_ticket', 'Raid Ticket', '🎟️'], ['adv_ticket', 'Adventure Ticket', '🧭']]) if (inv[k]) cells.push(cell(`<i>${icon}</i>`, name, inv[k]));
+  const troops = Object.keys(TROOPS).filter(t => inv['troop_' + t]).map(t => cell(`<img src="${troopIcon(t)}" alt="">`, TROOPS[t].name, inv['troop_' + t]));
+  const stash = Object.entries(isle.state.stash || {}).filter(([, n]) => n > 0).map(([t, n]) => cell(`<img src="${buildIcon(t)}" alt="">`, BUILD[t]?.name || t, n));
+  const stashN = Object.values(isle.state.stash || {}).reduce((s, n) => s + n, 0);
+  return `<div class="items-grid">${cells.join('')}</div>`
+    + `<h4 class="items-h">⚔️ Army camp <span class="muted">${troopCount(isle.state)}/${TROOP_MAX}</span></h4><div class="items-grid">${troops.join('') || '<p class="muted">No troops. Train them in Shop → Army.</p>'}</div>`
+    + `<h4 class="items-h" id="inv-stash">📦 Island storage <span class="muted">${stashN}/${STASH_MAX}</span></h4><div class="items-grid">${stash.join('') || '<p class="muted">Empty. Tap a building on your island → 📦 Store. Place it again from 🔨 Build.</p>'}</div>`
+    + `<div class="items-foot"><button class="btn small" id="inv-go-island">🏝️ Go to my island</button><button class="btn small" id="inv-go-shop">🛒 Shop</button></div>`;
 }
 document.addEventListener('click', e => {
   if (e.target.closest('#inv-go-island')) goIsland();
@@ -346,6 +355,7 @@ async function goIsland() {
 $('#hub-island').onclick = goIsland;
 $('#shop-go-island').onclick = goIsland;
 $('#isl-back').onclick = () => enterHub();
+$('#isl-stash').onclick = () => { invTab = 'items'; openInventory(); setTimeout(() => $('#inv-stash')?.scrollIntoView({ block: 'center' }), 60); };
 // ---------- raids: attack another island (or a bot village when there is nobody / you are on a trial account) ----------
 // pick your army (camp size grows a little with the Minds you own; your Mind leads as the hero)
 function pickArmy(cap, hero, lead) {

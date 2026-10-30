@@ -6,7 +6,7 @@ import { sfx } from '../audio.js';
 import { gen, COVER, T, TW, TH, WW, WH, hash } from './gen.js';
 import { drawSky, groundFor, sprites, sprouts, heart, SOIL, toolSprites } from './art.js';
 import { rng } from './pixel.js';
-import { CROPS, coverAt, ripe, growMs, regrowMs, maxPlots, plotCount, PLOT_COST, speedBonus, BUILD, buildingAt, fits, footprint, maxOf, countOf, canAfford, costText, homeOf, wellOf, STASH_MAX } from './rules.js';
+import { CROPS, coverAt, ripe, growMs, regrowMs, maxPlots, plotCount, PLOT_COST, speedBonus, BUILD, buildingAt, fits, footprint, maxOf, countOf, canAfford, costText, homeOf, wellOf, STASH_MAX, rushGems, builders, busy } from './rules.js';
 import { bsprites, drawSails, buildIcon } from './buildings.js';
 import { isle, doAct, now, onChange, flush } from './store.js';
 
@@ -143,6 +143,7 @@ function updateMind(m, dt, night) {
   m.hop = Math.max(0, m.hop - dt);
   if (m.state === 'go') {
     const dx = m.tx - m.x, dy = m.ty - m.y, d = Math.hypot(dx, dy);
+    if (d < 1.5 && m.site && !m.job) { m.state = 'work'; m.t = 0; m.dur = 1e9; m.dir = kx(m.site.k) * T + 8 > m.x ? 1 : -1; return; }
     if (d < 1.5) {
       const j = m.job;
       if (!j || !jobs.includes(j) || !valid(j.type, j.k)) { if (j) jobs = jobs.filter(x => x !== j); m.job = null; m.state = 'idle'; m.timer = 0.1; return; }
@@ -152,6 +153,11 @@ function updateMind(m, dt, night) {
   } else if (m.state === 'work') {
     const before = m.t; m.t += dt;
     const j = m.job, sw = 0.32;
+    if (m.site && !j) {
+      if (!m.site.done || m.site.done <= now()) { m.site = null; m.state = 'idle'; m.timer = 0.2; emote(m, 'heart'); return; }
+      if (Math.floor(m.t / sw) > Math.floor(before / sw)) { bits(m.x + m.dir * 6, m.y - 8, ['#c99a63', '#ffffff'], 2, 16); if (Math.random() < 0.35) sfx('tick'); }
+      return;
+    }
     if (Math.floor(m.t / sw) > Math.floor(before / sw) && j) {   // each swing knocks a few bits off
       const x = kx(j.k) * T + 8, y = ky(j.k) * T + 10;
       const col = j.type === 'till' ? [SOIL.base, SOIL.light] : j.type === 'plant' ? ['#f3dc9e'] : j.type === 'harvest' ? ['#fff3b0', '#d4ff1f']
@@ -171,6 +177,32 @@ function updateMind(m, dt, night) {
     }
     if (m.state !== 'walk') m.timer = 1;
   }
+}
+// a building going up: wooden frame that fills in as it gets closer to done, plus a progress bar and time left
+function drawSite(b, nowMs) {
+  const d = BUILD[b.type], x0 = kx(b.k) * T, y0 = ky(b.k) * T, w2 = d.w * T, h2 = d.h * T, total = (b.done - (b.start || b.done - 60e3)), left = b.done - nowMs;
+  const u = Math.max(0, Math.min(1, 1 - left / Math.max(1, total)));
+  g.fillStyle = 'rgba(139,90,52,.35)'; g.fillRect(x0 + 1, y0 + 2, w2 - 2, h2 - 3);
+  const top = y0 + h2 - 4 - Math.round((h2 + 10) * (0.35 + 0.65 * u));
+  g.fillStyle = '#8b5a34';
+  for (let x = x0 + 2; x < x0 + w2 - 1; x += 7) g.fillRect(x, top, 2, y0 + h2 - top - 2);
+  for (let y = top; y < y0 + h2 - 2; y += 6) g.fillRect(x0 + 1, y, w2 - 2, 2);
+  g.fillStyle = '#c99a63'; g.fillRect(x0 + 1, top, w2 - 2, 2);
+  if (Math.random() < 0.08) bits(x0 + w2 / 2 + (Math.random() - 0.5) * w2, top + 4, ['#c99a63', '#f3dfb6', '#ffffff'], 2, 20);
+  g.fillStyle = '#1d1b2f'; g.fillRect(x0 + w2 / 2 - 13, top - 9, 26, 5);
+  g.fillStyle = '#d4ff1f'; g.fillRect(x0 + w2 / 2 - 12, top - 8, Math.round(24 * u), 3);
+  b._label = { x: x0 + w2 / 2, y: top - 12, text: fmtTime(Math.max(0, left)) };
+}
+// builders: the first free Minds walk to each building site and hammer away
+function assignBuilders(nowMs) {
+  const sites = (isle.state.b || []).filter(b => b.done && b.done > nowMs);
+  minds.forEach((m, i) => {
+    const s = sites[i];
+    if (!s) { if (m.site) { m.site = null; m.state = 'idle'; m.timer = 0.3; } return; }
+    if (m.job) return;
+    const d = BUILD[s.type], tx = kx(s.k) * T - 4 + (i % 2) * (d.w * T + 8), ty = (ky(s.k) + d.h) * T + 2;
+    if (m.site !== s) { m.site = s; m.tx = tx; m.ty = ty; m.state = 'go'; }
+  });
 }
 function drawMind(m) {
   const c = m.c, moving = m.state === 'walk' || m.state === 'go', s = Math.sin(m.phase);
@@ -193,8 +225,8 @@ function drawMind(m) {
   g.drawImage(c.legR.cv, ox + c.mid, oy + c.hip + legR);
   g.drawImage(c.body.cv, ox, oy + body);
   const job = m.job;
-  if (job && (m.state === 'work' || m.state === 'go')) {
-    const tl = toolSprites[toolFor(job)];
+  if ((job || m.site) && (m.state === 'work' || m.state === 'go')) {
+    const tl = toolSprites[job ? toolFor(job) : 'pick'];
     g.save();
     g.translate(ox + c.hand.x, oy + c.hand.y + body);
     g.rotate(m.state === 'go' ? -0.4 : ang);
@@ -291,7 +323,7 @@ function frame(nowT) {
   if (innerWidth !== W || innerHeight !== H) { const first = W < 2; resize(); if (first) fitCam(); }
   if (!isle.state) return;
   const L = light(), nowMs = now(), st = isle.state;
-  assignJobs();
+  assignJobs(); assignBuilders(nowMs);
   for (const m of minds) updateMind(m, dt, L.night);
   spawnFx(dt, L);
   g.setTransform(DPR, 0, 0, DPR, 0, 0);
@@ -331,6 +363,11 @@ function frame(nowT) {
   const maskOf = (set, k) => (set.has(k - TW) ? 1 : 0) | (kx(k) < TW - 1 && set.has(k + 1) ? 2 : 0) | (set.has(k + TW) ? 4 : 0) | (kx(k) > 0 && set.has(k - 1) ? 8 : 0);
   for (const b of st.b || []) {
     if (moving && b.id === moving.id) continue;
+    if (b.done && b.done > nowMs) {   // under construction: scaffolding, a timer, and a Mind with a hammer
+      const d = BUILD[b.type], x0 = kx(b.k) * T, y0 = ky(b.k) * T;
+      items.push({ y: y0 + d.h * T - 1, site: b, x: x0 + d.w * T / 2 });
+      continue;
+    }
     const d = BUILD[b.type], x0 = kx(b.k) * T, y0 = ky(b.k) * T, cx = x0 + d.w * T / 2, by = y0 + d.h * T - 1;
     if (b.type === 'wall') {
       const k = b.k, mask = (wallAt.has(k - TW) ? 1 : 0) | (kx(k) < TW - 1 && wallAt.has(k + 1) ? 2 : 0) | (wallAt.has(k + TW) ? 4 : 0) | (kx(k) > 0 && wallAt.has(k - 1) ? 8 : 0);
@@ -354,6 +391,7 @@ function frame(nowT) {
   }
   for (const it of items) {
     if (it.mind) { drawMind(it.mind); continue; }
+    if (it.site) { drawSite(it.site, nowMs); continue; }
     const s = it.spr;
     if (it.tree) { g.fillStyle = 'rgba(43,35,64,.22)'; g.beginPath(); g.ellipse(it.x, it.y - 1, 9, 3, 0, 0, Math.PI * 2); g.fill(); }
     let dx = 0, dy = 0;
@@ -393,6 +431,10 @@ function frame(nowT) {
       const left = growMs(t.c, isle.minds) - (nowMs - t.p);
       label = { x: kx(hover) * T + 8, y: ky(hover) * T - 6, text: left > 0 ? `${CROPS[t.c].name} · ${fmtTime(left)}` : `${CROPS[t.c].name} · ready!`, a: 1 };
     }
+  }
+  for (const b of st.b || []) if (b.done && b.done > nowMs && b._label) {   // time left above every building site
+    const p = toScreen(b._label.x, b._label.y);
+    g.font = '800 12px Nunito, sans-serif'; g.textAlign = 'center'; g.lineWidth = 3; g.strokeStyle = '#1d1b2f'; g.strokeText(`🔨 ${b._label.text}`, p.x, p.y); g.fillStyle = '#fff8e4'; g.fillText(`🔨 ${b._label.text}`, p.x, p.y); g.textAlign = 'start';
   }
   if (label) {
     const p = toScreen(label.x, label.y);
@@ -521,7 +563,7 @@ const TIPS = {
   till: `Drag across open ground to make farm plots (${PLOT_COST} ✨ each)`,
   plant: 'Drag across empty plots to plant. Tap 🌱 again to pick another seed.',
   harvest: 'Drag across ripe crops to harvest them',
-  build: 'Pick a building, then tap open cleared ground. Walls and traps: drag a line. Tap 🔨 again to pick another.',
+  build: 'Pick a building, then tap open cleared ground. A Mind builds it (one builder per Mind you own). Walls/fences: drag a line.',
 };
 export function setTool(t) {
   tool = t;
@@ -570,7 +612,8 @@ function closeBuild() { $('#isl-build')?.classList.remove('on'); }
 function openBMenu(b) {
   const d = BUILD[b.type], refund = costText(Object.fromEntries(Object.entries(d.cost).map(([i, n]) => [i, Math.floor(n / 2)])));
   const box = $('#isl-bmenu');
-  box.innerHTML = `<img src="${buildIcon(b.type)}" alt=""><div><b>${d.name}</b><span>${d.desc}</span></div><button data-bm="move">↔ Move</button>${d.fixed ? '' : `<button data-bm="store" title="Keep it in storage and place it later">📦 Store</button><button data-bm="demolish" title="Get back ${refund}">🗑 Remove</button>`}<button data-bm="x">✕</button>`;
+  const site = b.done && b.done > now();
+  box.innerHTML = `<img src="${buildIcon(b.type)}" alt=""><div><b>${d.name}${site ? ' 🔨' : ''}</b><span>${site ? `Being built · ${fmtTime(b.done - now())} left` : d.desc}</span></div>${site ? `<button data-bm="rush">⚡ Finish · ${rushGems(b, now())} 💎</button>` : ''}<button data-bm="move">↔ Move</button>${d.fixed ? '' : `<button data-bm="store" title="Keep it in storage and place it later">📦 Store</button><button data-bm="demolish" title="Get back ${refund}">🗑 Remove</button>`}<button data-bm="x">✕</button>`;
   box.dataset.id = b.id; box.classList.add('on'); sfx('click');
 }
 function closeBMenu() { $('#isl-bmenu')?.classList.remove('on'); }
@@ -621,6 +664,7 @@ document.getElementById('isl-bmenu').addEventListener('click', e => {
   closeBMenu();
   if (!b || btn.dataset.bm === 'x') return;
   if (btn.dataset.bm === 'move') { moving = b; setTool('build'); return; }
+  if (btn.dataset.bm === 'rush') { const r = doAct({ type: 'rush', id: b.id }); if (r.error) { sfx('denied'); return cb.toast(r.error, true); } sfx('levelup'); bits(kx(b.k) * T + 16, ky(b.k) * T + 10, ['#ffd84a', '#ffffff', '#c9a6ff'], 24, 60); return cb.toast(`${BUILD[b.type].name} finished!`); }
   if (btn.dataset.bm === 'store') { const r = doAct({ type: 'store', id: b.id }); if (r.error) return cb.toast(r.error, true); sfx('pop'); return cb.toast(`${BUILD[b.type].name} put in storage. Place it again from 🔨 Build.`); }
   const res = doAct({ type: 'demolish', id: b.id });
   if (res.error) return cb.toast(res.error, true);

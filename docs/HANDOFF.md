@@ -36,9 +36,9 @@ B. [ ] Home island: remove the plank bridges; each islet gets a portal, main isl
 C. [ ] World map in detailed PIXEL ART like the refs (pixel buffer scaled up): different biome/boss islands (volcano with lava +
    smoke, crystal, ice, giant mushroom, ruins/portal, dragon nest), baked shadows on clouds, particles (smoke, sparkles, birds, wind).
 E. [x] (fixed: old islands had 0 troops → v4 starter army) Raid button "doesn't work" (reported twice) — check live with an OLD account (no troops? modal? error?).
-F. [ ] Building takes time like CoC: a free Mind walks over and builds (timer by building), builders = Minds you own (min 1),
+F. [x] Building takes time like CoC: a free Mind walks over and builds (timer by building), builders = Minds you own (min 1),
    Gems finish instantly. Show timers/progress bars on the island.
-G. [ ] Island inventory/storage must be visible: stored buildings in the Inventory window (Items tab) + a 📦 button on the island.
+G. [x] Island inventory/storage must be visible: stored buildings in the Inventory window (Items tab) + a 📦 button on the island.
 H. [ ] Airship flight + world map must look pixel-art/cinematic (sprite ship, parallax clouds, no smooth vector shapes).
 I. [ ] Audio: catchier music, better SFX (the flying/whoosh sounds are bad).
 D. [ ] Same treatment for the island/raid/adventure scenes: cinematic light, baked shadows, wind, particles.
