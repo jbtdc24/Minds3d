@@ -526,7 +526,24 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   walk(dir);
   const audio = fs.readFileSync(path.join(dir, 'audio.js'), 'utf8');
   const want = new Set(files.flatMap(f => [...fs.readFileSync(f, 'utf8').matchAll(/\bmusic\('([a-z0-9]+)'\)/g)].map(m => m[1])));
-  ok(want.size >= 3 && [...want].every(n => new RegExp(`\b${n}: \{`).test(audio)), `every song exists (${[...want].join(', ')})`);
+  ok(want.size >= 3 && [...want].every(n => audio.includes(`  ${n}: {`)), `every song exists (${[...want].join(', ')})`);
+}
+
+// ---- island ↔ ranked ----
+{
+  const R = await import('../web/src/island/rules.js'), { duelDust } = await import('../lib/rating.js');
+  const now = Date.now(), st = R.newIsland(9, now);
+  ok(R.act(st, { type: 'well' }, { seed: 9, now, minds: 0 }).error, 'the Energy Well starts empty');
+  let r = R.act(st, { type: 'well' }, { seed: 9, now: now + 9 * 3600e3, minds: 0 });
+  ok(r.done === 2 && st.inv.shard === 2, 'the well makes 1 shard every 4 hours');
+  ok(R.wellShards({ wellAt: 0 }, 1e12) === R.SHARD_CAP, 'the well holds at most 6 shards');
+  ok(duelDust(true, 3, false) === 180 && duelDust(false, 1, false) === 15 && duelDust(true, 1, true) === 30, 'ranked duels pay Dust by stake (bots half)');
+  const alice = await db.insert('players', { name: 'Duelist', address: acct.address });
+  T.islands.push({ player_id: alice.id, seed: 9, state: R.newIsland(9, now), minds: 0, rev: 0, updated_at: new Date().toISOString() });
+  const m2 = await startMatch({ player: alice, minds: [1, 2] }, null, { ranked: true, botLevel: 'normal' });
+  await forfeit(m2.id, alice.id);
+  const isl = T.islands.find(x => x.player_id === alice.id);
+  ok(isl.state.dust === 100 + duelDust(false, 2, true), 'a ranked duel sends Dust to your island');
 }
 console.log(`
 ${pass} passed, ${fail} failed`);

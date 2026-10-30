@@ -19,7 +19,7 @@ import { AREAS, POTIONS_MAX, SPOTS, SHIPS, spotLevel } from './island/adventure.
 import { openMap, updateMap, closeMap } from './island/worldmap.js';
 import { initAdmin, tryCode } from './admin.js';
 import { isle, loadIsland, doAct, flush as flushIsland, resetIsland, refreshIsland, now as islandNow } from './island/store.js';
-import { CROPS, RAW, growMs, permitCost, MAX_PERMITS, ripe, SHOP, RECIPES, TROOP_MAX, troopCount, costText, canAfford, BUILD, STASH_MAX, gemPrice } from './island/rules.js';
+import { CROPS, RAW, growMs, permitCost, MAX_PERMITS, ripe, SHOP, RECIPES, TROOP_MAX, troopCount, costText, canAfford, BUILD, STASH_MAX, gemPrice, ENERGY_PRICE, SHARDS_PER_ENERGY, REFILLS_PER_DAY } from './island/rules.js';
 import { buildIcon } from './island/buildings.js';
 import { islandThumb } from './island/art.js';
 import { hashStr } from './island/gen.js';
@@ -298,7 +298,7 @@ function invItems() {
   if (inv.stone) cells.push(cell('<i>🪨</i>', 'Stone', inv.stone));
   if (inv.permit) cells.push(cell('<i>📜</i>', 'Land Permit', inv.permit));
   cells.splice(1, 0, cell('<i>💎</i>', 'Gems', isle.state.gems || 0));
-  for (const [k, name, icon] of [['potion', 'Health Potion', '🧪'], ['fuel', 'Sky Fuel', '⛽'], ['herb', 'Glow Herb', '🌿'], ['raid_ticket', 'Raid Ticket', '🎟️'], ['adv_ticket', 'Adventure Ticket', '🧭']]) if (inv[k]) cells.push(cell(`<i>${icon}</i>`, name, inv[k]));
+  for (const [k, name, icon] of [['shard', 'Energy Shard', '⚡'], ['potion', 'Health Potion', '🧪'], ['fuel', 'Sky Fuel', '⛽'], ['herb', 'Glow Herb', '🌿'], ['raid_ticket', 'Raid Ticket', '🎟️'], ['adv_ticket', 'Adventure Ticket', '🧭']]) if (inv[k]) cells.push(cell(`<i>${icon}</i>`, name, inv[k]));
   const troops = Object.keys(TROOPS).filter(t => inv['troop_' + t]).map(t => cell(`<img src="${troopIcon(t)}" alt="">`, TROOPS[t].name, inv['troop_' + t]));
   const stash = Object.entries(isle.state.stash || {}).filter(([, n]) => n > 0).map(([t, n]) => cell(`<img src="${buildIcon(t)}" alt="">`, BUILD[t]?.name || t, n));
   const stashN = Object.values(isle.state.stash || {}).reduce((s, n) => s + n, 0);
@@ -525,6 +525,16 @@ async function openShop(tab) {
   paintShop(); show('shop');
 }
 const shopCard = (img, name, desc, have, btns, cls = '') => `<div class="shop-card px ${cls}"><div class="shop-img">${img}</div><div class="shop-txt"><b>${name}</b><span>${desc}</span>${have !== null ? `<em>You have ${have}</em>` : ''}</div><div class="shop-btns">${btns}</div></div>`;
+// +1 ranked energy on a Mind: island shards, Dust or Gems
+async function refillEnergy(id) {
+  await ensureIsland();
+  const inv = isle.state?.inv || {}, shards = inv.shard || 0;
+  const pay = await modal(`<h3>⚡ Refill Mind #${id}</h3><p>This Mind has <b>${energyOf(id)}/${capFor(id)}</b> energy. It refills by itself in ${resetText()}.</p><p>Your ⚡ shards: <b>${shards}</b> <span class="muted">(the Energy Well on your island makes 1 every 4 hours)</span></p><p class="muted">Max ${REFILLS_PER_DAY} refills per Mind per day.</p>`,
+    [[`${SHARDS_PER_ENERGY} ⚡ shards`, 'shard', shards >= SHARDS_PER_ENERGY ? 'primary' : ''], [`${ENERGY_PRICE.dust} ✨`, 'dust'], [`${ENERGY_PRICE.gems} 💎`, 'gems', 'gem'], ['Not now', 0]]);
+  if (!pay) return;
+  try { const r = await api('energy', { mind: id, pay }); energy[id] = r.energy; sfx('levelup'); toast(`Mind #${id} now has ${r.energy} ⚡`); resetIsland(); await ensureIsland(); refreshEnergy(); if (current === 'prep') renderPrepGrid(); if (current === 'inventory') paintInventory(); }
+  catch (e) { sfx('denied'); toast(e.message, true); }
+}
 const RAW_ICON = { wood: '🪵', stone: '🪨' };
 function paintShop() {
   const st = isle.state, inv = st.inv;
@@ -614,7 +624,8 @@ $('#inv-minds').onclick = async e => {
   const m = e.target.closest('[data-id]'); if (!m || guest || !online) return;
   const id = +m.dataset.id, n = energyOf(id), c = capFor(id), inShow = (me.showcase || []).includes(id);
   const r = await modal(`<img class="inv-big" src="${thumb(id)}" alt=""><h3>Mind #${id}</h3><p><b style="color:${RAR_COLOR[rarityOf(id)]}">${rarityOf(id)}</b> · ⚡${n}/${c} ranked energy today${n ? '' : ` · refills in ${resetText()}`}</p>`,
-    [['Set as profile picture', 1, 'primary'], [inShow ? 'Remove from showcase' : 'Add to lobby showcase', 2], ['Close', 0]]);
+    [['Set as profile picture', 1, 'primary'], [inShow ? 'Remove from showcase' : 'Add to lobby showcase', 2], ...(n < c ? [['⚡ Refill energy', 3]] : []), ['Close', 0]]);
+  if (r === 3) return refillEnergy(id);
   try {
     if (r === 1) { me = (await api('profile', { pfp: id })).player; toast('Profile picture updated!'); }
     if (r === 2) {
@@ -699,7 +710,7 @@ function paintPrep() {
 $('#prep-minds').onclick = e => {
   const m = e.target.closest('[data-id]'); if (!m) return;
   const id = +m.dataset.id, i = prep.minds.indexOf(id);
-  if (i < 0 && m.classList.contains('tired')) return toast(`#${id} is out of energy. It refills in ${resetText()}.`, true);
+  if (i < 0 && m.classList.contains('tired')) return refillEnergy(id);
   if (i >= 0) prep.minds.splice(i, 1); else if (prep.minds.length < 3) prep.minds.push(id); else return toast('Max 3 Minds. Tap one to remove it first.');
   sfx('select'); paintPrep();
 };
@@ -1104,6 +1115,7 @@ async function finish(v) {
   $('#r-stats').innerHTML = [
     [v.ranked ? `${d > 0 ? '+' : ''}${d}` : '—', 'Rating', d > 0 ? 'up' : d < 0 ? 'down' : ''],
     ...(v.ranked && v.pts != null ? [[`${v.pts > 0 ? '+' : v.pts < 0 ? '−' : ''}${Math.abs(v.pts)}`, `Points · stake x${v.view.me.minds.length}`, v.pts > 0 ? 'up' : v.pts < 0 ? 'down' : '']] : []),
+    ...(v.dustWon ? [[`+${v.dustWon} ✨`, 'Sent to your island', 'up']] : []),
     [v.vsBot ? 'BOT' : esc(v.view.rival.name), v.vsBot ? `Rival · ${v.botLevel}` : 'Rival', ''],
     [v.ranked ? 'Ranked' : v.vsBot ? 'Practice' : 'Classic', 'Mode', ''],
   ].map(([b, s, c]) => `<div><b class="${c}">${esc(b)}</b><span>${s}</span></div>`).join('');
@@ -1369,7 +1381,7 @@ function tapToStart() {
   applySettings();
   lobbyScene(legendIds());
   bootBar(100);
-  music('title');
+  music('lofi');
   await tapToStart();
   if (online && session.token) {
     const cached = loadAccount();

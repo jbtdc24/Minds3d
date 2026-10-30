@@ -42,6 +42,10 @@ export const BUILD = {
   fountain: { name: 'Golden Fountain', icon: '⛲', w: 2, h: 2, cost: { gems: 25 }, max: 1, hp: 0, deco: true, gem: true, desc: 'The richest island in the sky. Gem exclusive.' },
 };
 export const STASH_MAX = 12;
+// the link between the island and Ranked: the Energy Well slowly fills with shards; 3 shards = +1 ranked energy on a Mind
+export const SHARD_MS = 4 * 3600e3, SHARD_CAP = 6, SHARDS_PER_ENERGY = 3;
+export const ENERGY_PRICE = { dust: 300, gems: 3 }, REFILLS_PER_DAY = 3;   // or buy it: max 3 refills per Mind per day
+export const wellShards = (st, now) => Math.min(SHARD_CAP, Math.floor((now - (st.wellAt ?? now)) / SHARD_MS));
 // anything can be paid with Gems instead: about 1 💎 per 100 Dust of value (wood 5, stone 6 Dust each)
 export const gemPrice = cost => cost.gems ? cost.gems : Math.max(1, Math.ceil(((cost.dust || 0) + (cost.wood || 0) * 5 + (cost.stone || 0) * 6) / 100));
 const priceOf = (cost, gems) => gems ? { gems: gemPrice(cost) } : cost;
@@ -116,12 +120,12 @@ export function fits(st, w, type, k, ignore = null) {
 }
 export const POINTS_PER_DUST = 100, POINTS_DAY_CAP = 20;                 // selling: 1 leaderboard point per 100 Dust, max 20 a day
 
-export function newIsland(seed, now) {
+export function newIsland(seed, now = 0) {
   const w = gen(seed), tiles = {};
   for (const k of w.starter) tiles[k] = { s: 'p', t: now };
   const st = { v: 2, dust: 100, gems: 0, inv: { seed_bean: 6, seed_carrot: 2, troop_brawler: 6, troop_archer: 4, potion: 2, fuel: 1 }, tiles };
   migrate3(st, seed);
-  st.v = 5;
+  st.v = 5; st.wellAt = now;
   return st;
 }
 export const maxPlots = (st, minds) => BASE_PLOTS + Math.min(minds, MIND_PLOTS) + Math.min(st.inv.permit || 0, MAX_PERMITS) + housePlots(st);
@@ -161,6 +165,7 @@ function migrate3(st, seed) {
 // weeds creep back over ground nobody looks after
 export function normalize(st, seed, now) {
   migrate(st); migrate3(st, seed);
+  st.wellAt ??= now;
   for (const b of st.b || []) if (b.done && b.done <= now) { if (b.uplv) b.lv = b.uplv; delete b.done; delete b.start; delete b.uplv; }   // finished building / upgrade
   if ((st.v || 1) < 5) {   // v5: the islets are gone; anything built there goes to storage, farm tiles there are dropped
     const w5 = gen(seed);
@@ -349,6 +354,12 @@ export function act(st, a, { seed, now, minds = 0, instant = false }) {   // ins
       for (const [k, m] of Object.entries(price)) pay(k, -m);
       if (secs) { b.uplv = lvOf(b) + 1; b.done = now + secs * 1000; b.start = now; } else b.lv = lvOf(b) + 1;
       done = 1;
+      break;
+    }
+    case 'well': {   // collect the shards the Energy Well has made
+      const n = wellShards(st, now);
+      if (n < 1) return { error: `The well is still filling: 1 ⚡ shard every 4 hours.` };
+      pay('shard', n); st.wellAt = now; done = n;
       break;
     }
     case 'rush': {   // finish a building right now with Gems

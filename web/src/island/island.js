@@ -6,7 +6,7 @@ import { sfx } from '../audio.js';
 import { gen, COVER, T, TW, TH, WW, WH, hash } from './gen.js';
 import { drawSky, groundFor, sprites, sprouts, heart, SOIL, toolSprites } from './art.js';
 import { rng } from './pixel.js';
-import { CROPS, coverAt, ripe, growMs, regrowMs, maxPlots, plotCount, PLOT_COST, speedBonus, BUILD, buildingAt, fits, footprint, maxOf, countOf, canAfford, costText, homeOf, wellOf, STASH_MAX, rushGems, builders, busy, gemPrice, UPGRADABLE, MAX_LV, lvOf, upgradeCost } from './rules.js';
+import { CROPS, coverAt, ripe, growMs, regrowMs, maxPlots, plotCount, PLOT_COST, speedBonus, BUILD, buildingAt, fits, footprint, maxOf, countOf, canAfford, costText, homeOf, wellOf, STASH_MAX, rushGems, builders, busy, gemPrice, UPGRADABLE, MAX_LV, lvOf, upgradeCost, wellShards, SHARD_CAP, SHARD_MS, SHARDS_PER_ENERGY } from './rules.js';
 import { bsprites, drawSails, buildIcon } from './buildings.js';
 import { drawCinema, dropShadow } from './cinema.js';
 import { isle, doAct, now, onChange, flush } from './store.js';
@@ -662,6 +662,12 @@ function openBMenu(b) {
   const box = $('#isl-bmenu');
   const site = b.done && b.done > now();
   const canUp = !site && UPGRADABLE[b.type] && lvOf(b) < MAX_LV;
+  if (b.type === 'well') {   // the Energy Well: why the island matters for Ranked
+    const n = wellShards(isle.state, now()), have = isle.state.inv.shard || 0, wait = SHARD_MS - ((now() - isle.state.wellAt) % SHARD_MS);
+    box.innerHTML = `<img src="${buildIcon('well')}" alt=""><div><b>⚡ Energy Well</b><span>${n}/${SHARD_CAP} shards ready · next in ${fmtTime(wait)} · you hold ${have}. ${SHARDS_PER_ENERGY} shards = +1 Ranked energy.</span></div><button data-bm="well" ${n ? '' : 'disabled'}>Collect ${n}</button><button data-bm="move">↔ Move</button><button data-bm="x">✕</button>`;
+    box.dataset.id = b.id; box.classList.add('on'); sfx('click');
+    return;
+  }
   box.innerHTML = `<img src="${buildIcon(b.type)}" alt=""><div><b>${d.name} · Lv${lvOf(b)}${site ? ' 🔨' : ''}</b><span>${site ? `${b.uplv ? 'Upgrading' : 'Being built'} · ${fmtTime(b.done - now())} left` : d.desc}</span></div>${site ? `<button data-bm="rush">⚡ Finish · ${rushGems(b, now())} 💎</button>` : ''}${canUp ? `<button data-bm="upgrade" title="Stronger, more HP, better effect">⬆ Lv${lvOf(b) + 1} · ${costText(upgradeCost(b))}</button><button data-bm="upgems">⬆ ${gemPrice(upgradeCost(b))} 💎</button>` : ''}<button data-bm="move">↔ Move</button>${d.fixed ? '' : `<button data-bm="store" title="Keep it in storage and place it later">📦 Store</button><button data-bm="demolish" title="Get back ${refund}">🗑 Remove</button>`}<button data-bm="x">✕</button>`;
   box.dataset.id = b.id; box.classList.add('on'); sfx('click');
 }
@@ -714,6 +720,7 @@ document.getElementById('isl-bmenu').addEventListener('click', e => {
   closeBMenu();
   if (!b || btn.dataset.bm === 'x') return;
   if (btn.dataset.bm === 'move') { moving = b; setTool('build'); return; }
+  if (btn.dataset.bm === 'well') { const r = doAct({ type: 'well' }); if (r.error) { sfx('denied'); return cb.toast(r.error, true); } sfx('magic'); bits(kx(b.k) * T + 16, ky(b.k) * T + 8, ['#d4ff1f', '#ffffff', '#7fe8ff'], 20, 50); return cb.toast(`+${r.done} ⚡ shard${r.done > 1 ? 's' : ''}! Spend them on Ranked energy: tap a tired Mind.`); }
   if (btn.dataset.bm === 'upgrade' || btn.dataset.bm === 'upgems') { const r = doAct({ type: 'upgrade', id: b.id, gems: btn.dataset.bm === 'upgems' }); if (r.error) { sfx('denied'); return cb.toast(r.error, true); } sfx('levelup'); return cb.toast(`${BUILD[b.type].name} is being upgraded to Lv${(b.uplv || b.lv)}!`); }
   if (btn.dataset.bm === 'rush') { const r = doAct({ type: 'rush', id: b.id }); if (r.error) { sfx('denied'); return cb.toast(r.error, true); } sfx('levelup'); bits(kx(b.k) * T + 16, ky(b.k) * T + 10, ['#ffd84a', '#ffffff', '#c9a6ff'], 24, 60); return cb.toast(`${BUILD[b.type].name} finished!`); }
   if (btn.dataset.bm === 'store') { const r = doAct({ type: 'store', id: b.id }); if (r.error) return cb.toast(r.error, true); sfx('pop'); return cb.toast(`${BUILD[b.type].name} put in storage. Place it again from 🔨 Build.`); }
