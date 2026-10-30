@@ -1051,6 +1051,61 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   ok(!JSON.stringify(lb.body).includes('0x' + 'a'.repeat(40)), 'the leaderboard shows no full wallet address');
   ok((await raw(friend, { body: { op: 'add', id: Ga.id }, tok: tk(Ga) })).code === 400, 'you cannot friend yourself');
 }
+
+// ---- round 2 audit: more races, plus checks on the files themselves ----
+{
+  const fs = await import('node:fs'), R = await import('../web/src/island/rules.js'), chain = await import('../lib/chain.js');
+  const rt = n => import(`../lib/routes/${n}.js`).then(m => m.default);
+  const [mail, cup, energy, island, agent, messages] = await Promise.all(['mail', 'cup', 'energy', 'island', 'agent', 'messages'].map(rt));
+  const { agentKeys } = await import('../lib/routes/agent.js');
+  let n = 800;
+  const mk = async name => { n++; const p = await db.insert('players', { name, name_key: name.toLowerCase(), address: '0x' + String(n).padStart(40, '0'), showcase: [] }); const st = R.newIsland(n, Date.now()); Object.assign(st, { dust: 5000, gems: 40 }); T.islands.push({ player_id: p.id, seed: n, state: st, minds: 1, minds_at: new Date().toISOString(), rev: 0, updated_at: new Date().toISOString() }); return p; };
+  const isl = p => T.islands.find(x => x.player_id === p.id);
+  const hit = async (fn, p, body, method = 'POST', query = {}, tok) => { const token = tok || signSession({ id: p.id, address: p.address }); let o = null; const res = { setHeader() {}, end(t) { o = { code: this.statusCode, body: JSON.parse(t) }; }, headersSent: false }; await fn({ method, url: '/api/x', headers: { authorization: 'Bearer ' + token }, body, query }, res); return o; };
+
+  const P = await mk('Racer');
+  T.mail.push({ id: 700, to_id: null, title: 'Gift', body: '', gift: { gems: 7 }, created_at: new Date().toISOString() });
+  const g0 = isl(P).state.gems;
+  await Promise.all(Array.from({ length: 5 }, () => hit(mail, P, { op: 'claim', id: 700 })));
+  ok(isl(P).state.gems === g0 + 7, 'five gift claims at once pay once');
+  T.cups.length = 0; T.cup_entries.length = 0;
+  const g1 = isl(P).state.gems;
+  await Promise.all(Array.from({ length: 5 }, () => hit(cup, P, { op: 'join' })));
+  ok(isl(P).state.gems === g1 - 5 && T.cup_entries.filter(e => e.player_id === P.id).length === 1, 'five cup entries at once charge once');
+  const starts = await Promise.all(Array.from({ length: 6 }, () => hit(cup, P, { op: 'start' })));
+  ok(starts.filter(s => s.code === 200).length <= 3 && T.cup_entries[0].tries <= 3, 'six cup starts at once give at most three tries');
+  const d0 = isl(P).state.dust;
+  await Promise.all(Array.from({ length: 4 }, () => hit(island, P, { acts: [{ type: 'buy', item: 'seed_bean', n: 1 }] })));
+  ok(isl(P).state.dust === d0 - 4 * R.CROPS.bean.seed && isl(P).rev >= 4, 'four tabs saving at once lose nothing');
+  const mc = chain.client.multicall; chain.client.multicall = async ({ contracts }) => contracts.map(() => ({ status: 'success', result: P.address }));
+  T.mind_energy.push({ token_id: 900, day: new Date().toISOString().slice(0, 10), used: 3 });
+  const s0 = isl(P).state; s0.inv.shard = 3;
+  await Promise.all([hit(energy, P, { mind: 900, pay: 'shard' }), hit(energy, P, { mind: 900, pay: 'shard' })]);
+  ok(isl(P).state.inv.shard === undefined && T.mind_energy.find(e => e.token_id === 900).used === 2, 'two refills at once spend the shards once');
+  const key = (await hit(agentKeys, P, { op: 'new' })).body.key;
+  await hit(agent, P, { op: 'duel_join', mode: 'classic', minds: [900] }, 'POST', {}, key);
+  ok(T.players.find(p => p.id === P.id).ai_until && Date.parse(T.players.find(p => p.id === P.id).ai_until) > Date.now(), 'an AI duel marks the player as AI-played');
+  const am = await startMatch({ player: T.players.find(p => p.id === P.id), minds: [900] }, null, { ranked: false, botLevel: 'easy', practice: true });
+  ok(/🤖/.test(am.state.p[0].name), 'an AI duel shows the robot label');
+  chain.client.multicall = mc;
+  const longText = await hit(messages, P, { to: 'nope', text: 'x' });
+  ok(longText.code === 400, 'a bad friend id is refused');
+
+  // the files themselves
+  const sql = fs.readdirSync('supabase').map(f => fs.readFileSync('supabase/' + f, 'utf8')).join('\n');
+  const tables = [...sql.matchAll(/create table if not exists (\w+)/g)].map(m => m[1]);
+  ok(tables.length >= 15 && tables.every(t => new RegExp(`alter table ${t}\\s+enable row level security`).test(sql)), 'every database table has row security turned on');
+  ok([...sql.matchAll(/create or replace function (\w+)/g)].every(m => new RegExp(`revoke all on function ${m[1]}`).test(sql)), 'no database function is open to the public');
+  const csp = JSON.parse(fs.readFileSync('vercel.json', 'utf8')).headers.flatMap(h => h.headers).find(h => h.key === 'Content-Security-Policy').value;
+  ok(!/script-src[^;]*unsafe/.test(csp) && /frame-ancestors 'none'/.test(csp) && /object-src 'none'/.test(csp), 'the content policy allows no inline or eval scripts');
+  const walk = d => fs.readdirSync(d, { withFileTypes: true }).flatMap(e => (e.isDirectory() ? walk(`${d}/${e.name}`) : [`${d}/${e.name}`]));
+  const client = walk('web/src').filter(f => f.endsWith('.js')), text = client.map(f => fs.readFileSync(f, 'utf8')).join('\n');
+  ok(!/sb_secret|service_role|PRIVATE_KEY|SUPABASE_SECRET|ADMIN_ADDRESSES\s*=/.test(text), 'no secret appears in the browser code');
+  ok(!/\beval\(|new Function\(|document\.write\(/.test(text + walk('lib').map(f => fs.readFileSync(f, 'utf8')).join('\n')), 'no code runs text as a program');
+  const unsafe = client.flatMap(f => fs.readFileSync(f, 'utf8').split('\n').filter(l => /(innerHTML|insertAdjacentHTML|modal\(|tag\()/.test(l) && /\$\{[^}]*\b(\w+\.name|\.text|\.title|\.body|\.by|\.reason|\.message)\b[^}]*\}/.test(l.replace(/esc\([^)]*\)/g, '').replace(/\bd\.name\b|\bpk\.name\b|\bs\.name\b|\bsh\.name\b|\bCROPS\[[^\]]*\]\.name\b|TROOPS\[[^\]]*\]\.name\b|BUILD\[[^\]]*\]\.name\b/g, ''))));
+  if (unsafe.length) console.log(unsafe.slice(0, 6).map(l => l.trim().slice(0, 150)).join('\n'));
+  ok(!unsafe.length, 'player text is always escaped before it reaches the page');
+}
 console.log(`
 ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
