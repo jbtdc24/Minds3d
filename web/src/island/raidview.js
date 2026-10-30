@@ -2,7 +2,7 @@
 // Pick a troop (or your hero / a spell) in the bar, then tap open land outside the red zone. Hold to drop several.
 // Every input is recorded with its tick so the server can replay the exact same raid.
 import { gen, COVER, T, TW, TH, WW, WH, hash } from './gen.js';
-import { groundFor, sprites, SOIL } from './art.js';
+import { drawSky, groundFor, sprites, SOIL } from './art.js';
 import { bsprites, drawSails } from './buildings.js';
 import { chibi } from './chibi.js';
 import { coverAt } from './rules.js';
@@ -142,7 +142,7 @@ function frame(now) {
   paintHud(sc);
   const sx = (Math.random() - 0.5) * shake, sy = (Math.random() - 0.5) * shake; shake = Math.max(0, shake - dt * 20);
   g.setTransform(DPR, 0, 0, DPR, 0, 0); g.imageSmoothingEnabled = false;
-  g.fillStyle = '#3b86d1'; g.fillRect(0, 0, W, H);
+  drawSky(g, W, H, Tm);
   g.setTransform(cam.z * DPR, 0, 0, cam.z * DPR, (W / 2 - cam.x * cam.z + sx) * DPR, (H / 2 - cam.y * cam.z + sy) * DPR);
   g.drawImage(gr.ground.cv, 0, 0);
   const wave = Math.sin(Tm * 1.4);

@@ -4,7 +4,7 @@ import { rarityOf } from '../nft2d.js';
 import { chibi } from './chibi.js';
 import { sfx } from '../audio.js';
 import { gen, COVER, T, TW, TH, WW, WH, hash } from './gen.js';
-import { groundFor, sprites, sprouts, heart, SOIL, toolSprites } from './art.js';
+import { drawSky, groundFor, sprites, sprouts, heart, SOIL, toolSprites } from './art.js';
 import { rng } from './pixel.js';
 import { CROPS, coverAt, ripe, growMs, regrowMs, maxPlots, plotCount, PLOT_COST, speedBonus, BUILD, buildingAt, fits, footprint, maxOf, countOf, canAfford, costText } from './rules.js';
 import { bsprites, drawSails, buildIcon } from './buildings.js';
@@ -294,7 +294,7 @@ function frame(nowT) {
   spawnFx(dt, L);
   g.setTransform(DPR, 0, 0, DPR, 0, 0);
   g.imageSmoothingEnabled = false;
-  g.fillStyle = '#3b86d1'; g.fillRect(0, 0, W, H);
+  drawSky(g, W, H, Tm);
   g.setTransform(cam.z * DPR, 0, 0, cam.z * DPR, (W / 2 - cam.x * cam.z) * DPR, (H / 2 - cam.y * cam.z) * DPR);
   g.drawImage(gr.ground.cv, 0, 0);
   const wave = Math.sin(Tm * 1.4);

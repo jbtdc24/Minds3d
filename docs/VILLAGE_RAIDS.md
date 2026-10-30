@@ -45,9 +45,9 @@ Demolish refunds 50%.
 - [ ] Next:, building upgrades, raid replays/revenge, adventure bosses per level
 
 ## Round 3 (owner 2026-10-30) — task list in order
-- [ ] Raid button not working (bug)
-- [ ] Minds smaller on the island (they are taller than the house door)
-- [ ] Bigger island, floating sky islands (fantasy/futuristic, no sea), more farm plots, more details/decor
+- [x] Raid button not working (bug)
+- [x] Minds smaller on the island (they are taller than the house door)
+- [x] Bigger island, floating sky islands (fantasy/futuristic, no sea), more farm plots, more details/decor
 - [ ] Raid economy: troops cost Dust to train (Barracks); explain how you get an army (farm/adventure → Dust → train)
 - [ ] Adventure: no free HP regen; potions (buy in shop / craft from herbs); gather grass/trees/rocks with an hourly cap
 - [ ] World map: pick an area to fly to; areas unlock (beat the previous boss) and cost Sky Fuel/Dust to travel

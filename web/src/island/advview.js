@@ -2,7 +2,7 @@
 // gather it). Monsters roam and chase you; guards watch their chests; the Ogre sits at the ruined hut.
 // Go home any time (or when the timer ends) to keep what you found; knocked out = you keep half.
 import { gen, COVER, T, TW, TH, WW, WH, hash } from './gen.js';
-import { groundFor, sprites } from './art.js';
+import { drawSky, groundFor, sprites } from './art.js';
 import { bsprites } from './buildings.js';
 import { chibi } from './chibi.js';
 import { troopSprite, weapon, nodeSprite, monsterSprite } from './troops.js';
@@ -138,7 +138,7 @@ function frame(now) {
   cam.x += (h.x - cam.x) * Math.min(1, dt * 6); cam.y += (h.y - 10 - cam.y) * Math.min(1, dt * 6);
   const sx = (Math.random() - 0.5) * shake, sy = (Math.random() - 0.5) * shake; shake = Math.max(0, shake - dt * 20);
   g.setTransform(DPR, 0, 0, DPR, 0, 0); g.imageSmoothingEnabled = false;
-  g.fillStyle = '#3b86d1'; g.fillRect(0, 0, W, H);
+  drawSky(g, W, H, Tm);
   g.setTransform(cam.z * DPR, 0, 0, cam.z * DPR, (W / 2 - cam.x * cam.z + sx) * DPR, (H / 2 - cam.y * cam.z + sy) * DPR);
   g.drawImage(gr.ground.cv, 0, 0);
   const wave = Math.sin(Tm * 1.4);

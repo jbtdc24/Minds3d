@@ -2,7 +2,7 @@
 // State: { dust, inv: { seed_bean: 3, crop_bean: 1, wood: 4, stone: 2, permit: 0 }, tiles: { k: tile } }
 // tile: { s: 'c' cleared | 'p' plot | 'w' weeds grew back | 'b' under a building, t: last touched (ms), c: crop, p: planted at (ms) }
 // buildings: st.b = [{ id, type, k }] (k = top-left tile), st.nb = next id
-import { gen, COVER, TW, TH, hash } from './gen.js';
+import { gen, COVER, TW, TH, hash, oldKey } from './gen.js';
 
 const H = 3600e3;
 export const CROPS = {
@@ -13,7 +13,7 @@ export const CROPS = {
 };
 export const RAW = { wood: { name: 'Wood', sell: 2 }, stone: { name: 'Stone', sell: 3 } };
 export const PLOT_COST = 10;                        // Dust to till one plot
-export const BASE_PLOTS = 6, MIND_PLOTS = 6, MAX_PERMITS = 12;
+export const BASE_PLOTS = 12, MIND_PLOTS = 8, MAX_PERMITS = 16;
 export const permitCost = n => Math.min(16000, 1000 * 2 ** n);   // 1,000 → 2,000 → 4,000 … (max 16,000)
 export const DROPS = { [COVER.WEEDS]: { dust: 1 }, [COVER.BUSH]: { dust: 2, wood: 1 }, [COVER.ROCK]: { stone: 2 }, [COVER.TREE]: { wood: 3 } };
 export const PLOT_IDLE = 48 * H;                    // an empty plot left alone this long goes back to weeds
@@ -62,7 +62,7 @@ export const POINTS_PER_DUST = 100, POINTS_DAY_CAP = 20;                 // sell
 export function newIsland(seed, now) {
   const w = gen(seed), tiles = {};
   for (const k of w.starter) tiles[k] = { s: 'p', t: now };
-  return { v: 1, dust: 100, inv: { seed_bean: 6, seed_carrot: 2 }, tiles };
+  return { v: 2, dust: 100, inv: { seed_bean: 6, seed_carrot: 2 }, tiles };
 }
 export const maxPlots = (st, minds) => BASE_PLOTS + Math.min(minds, MIND_PLOTS) + Math.min(st.inv.permit || 0, MAX_PERMITS) + 2 * countOf(st, 'house');
 export const plotCount = st => Object.values(st.tiles).filter(t => t.s === 'p').length;
@@ -75,8 +75,20 @@ export function coverAt(st, w, k) {
 export const isPlot = (st, k) => st.tiles[k]?.s === 'p';
 export const ripe = (t, now, minds) => !!t?.c && now - t.p >= growMs(t.c, minds);
 
+// v1 islands (48×36 tiles) move into the middle of the bigger v2 map
+export function migrate(st) {
+  if ((st.v || 1) >= 2) return st;
+  const tiles = {};
+  for (const [k, t] of Object.entries(st.tiles || {})) tiles[oldKey(+k)] = t;
+  st.tiles = tiles;
+  for (const b of st.b || []) b.k = oldKey(b.k);
+  delete st.raid; delete st.adv;
+  st.v = 2;
+  return st;
+}
 // weeds creep back over ground nobody looks after
 export function normalize(st, seed, now) {
+  migrate(st);
   const w = gen(seed);
   for (const [k, t] of Object.entries(st.tiles)) {
     const back = (t.s === 'c' && now - t.t > regrowMs(+k, seed)) || (t.s === 'p' && !t.c && now - t.t > PLOT_IDLE);

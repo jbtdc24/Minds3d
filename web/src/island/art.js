@@ -6,6 +6,7 @@ export { WW, WH };
 
 const C = {
   deep: '#3b86d1', water: '#4fb0ec', shallow: '#86d8f7', foam: '#f2fdff',
+  rock: '#7c5a44', rockM: '#6a4a38', rockD: '#4a3428', root: '#5f7a3a', crystal: '#7fe8ff', crystalL: '#e0fbff',
   sandWet: '#e3c384', sand: '#f3dc9e', sandL: '#fff0c2', sandD: '#dcbf80',
   grassD: '#4a9c38', grass: '#62bb45', grassL: '#8fd95a', lip: '#b3ec72', tuft: '#3f8a31',
   cliffL: '#c98e55', cliff: '#a86e3e', cliffD: '#7c4c2a',
@@ -235,19 +236,25 @@ export function groundFor(seed) {
     cls[k] = v < -0.1 ? 0 : v < 0 ? 1 : v < 0.05 ? 2 : v < 0.15 ? 3 : w.inPond(x, y) ? 5 : 4;
   }
   const at = (x, y) => (x < 0 || y < 0 || x >= WW || y >= WH) ? 0 : cls[y * WW + x];
-  const px = new Uint32Array(N), fa = new Uint32Array(N), fb = new Uint32Array(N), foam = rgba(C.foam);
+  const px = new Uint32Array(N), fa = new Uint32Array(N), fb = new Uint32Array(N), lastLand = new Int32Array(WW).fill(-1);
   for (let y = 0; y < WH; y++) for (let x = 0; x < WW; x++) {
     const k = y * WW + x, c = cls[k], v = h[k], d = bayer(x, y);
-    let col;
-    if (c === 0) col = fbm(n2, x / 22, y / 9, 2) + d * 0.25 > 0.68 ? C.water : C.deep;
-    else if (c === 1) col = fbm(n2, x / 18, y / 8, 2) + d * 0.2 > 0.72 ? C.shallow : C.water;
-    else if (c === 2) col = n3(x / 5, y / 3) + d * 0.3 > 1.05 ? C.foam : C.shallow;
-    else if (c === 3) {
+    if (c >= 3) lastLand[x] = y;
+    let col = null;
+    if (c <= 2) {
+      // open sky, except right under the island: its rocky underside hangs down, deeper in the middle
+      const up = lastLand[x] >= 0 && y - lastLand[x] <= 46 ? y - lastLand[x] : 0;
+      const depth = 10 + fbm(n1, x / 26, 3.7, 2) * 40 * Math.min(1, (v + 0.6) * 1.4);
+      if (up && up <= depth) {
+        const t = up / depth, stripe = ((y + Math.round(n3(x / 9, y / 9) * 6)) % 7) < 2;
+        col = up <= 2 ? C.cliffL : t > 0.82 ? C.rockD : stripe ? C.rockM : t > 0.5 ? C.rock : C.cliff;
+        if (n3(x / 3, y / 3) > 0.83 && t > 0.3 && t < 0.9) col = (x + y) % 5 === 0 ? C.crystalL : C.crystal;   // glowing crystals
+      } else if (up && up <= depth + 9 && x % 9 === (up * 3) % 9 && n2(x / 4, 1) > 0.55) col = C.root;      // hanging roots
+    } else if (c === 3) {
       let up = 0;
       for (let j = 1; j <= 4; j++) if (at(x, y - j) >= 4) { up = j; break; }
       if (up) col = up === 1 ? C.cliffL : up <= 3 ? (x % 5 === 0 && up === 2 ? C.cliffD : C.cliff) : C.cliffD;
-      else if (v < 0.07) col = C.sandWet;
-      else { const s = n3(x / 6, y / 6) + d * 0.3; col = s > 0.92 ? C.sandL : s < 0.42 ? C.sandD : C.sand; }
+      else { const g = fbm(n2, x / 24, y / 24, 3) + (d - 0.5) * 0.2; col = at(x, y + 2) < 3 ? C.lip : g > 0.6 ? C.grassL : C.grass; }
     } else if (c === 5) {
       let up = 0;
       for (let j = 1; j <= 3; j++) if (at(x, y - j) !== 5) { up = j; break; }
@@ -257,9 +264,9 @@ export function groundFor(seed) {
       if (below < 4) col = C.lip;
       else { const g = fbm(n2, x / 24, y / 24, 3) + (n3(x / 4, y / 4) - 0.5) * 0.25 + (d - 0.5) * 0.18; col = g < 0.38 ? C.grassD : g > 0.62 ? C.grassL : C.grass; }
     }
-    px[k] = rgba(col);
-    if (c === 2 && v > 0.03) fa[k] = foam;
-    if (c === 1 && v > -0.025) fb[k] = foam;
+    if (col) px[k] = rgba(col);
+    // twinkles: soft glow on the crystals under the island
+    if (col === C.crystal || col === C.crystalL) (x + y) % 2 ? (fa[k] = rgba(C.crystalL)) : (fb[k] = rgba('#ffffff'));
   }
   const put = (x, y, col) => { x = Math.floor(x); y = Math.floor(y); if (x >= 0 && y >= 0 && x < WW && y < WH) px[y * WW + x] = rgba(col); };
   // grass tufts and flowers (decoration only)
@@ -280,7 +287,15 @@ export function groundFor(seed) {
     const tx = k % TW, ty = (k / TW) | 0;
     for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
       const X = tx * T + x, Y = ty * T + y;
-      if (at(X, Y) < 3) continue;
+      if (at(X, Y) < 3 || w.bridges.has(k)) {   // a plank bridge over the open sky, with rope rails
+        if (!w.bridges.has(k)) continue;
+        const along = isPath(tx - 1, ty) || isPath(tx + 1, ty);
+        const a = along ? x : y, b = along ? y : x;
+        if (b < 3 || b > 12) continue;
+        put(X, Y, b === 3 || b === 12 ? R.wood[0] : a % 4 === 0 ? R.wood[1] : b === 4 ? R.wood[3] : R.wood[2]);
+        if (b === 3 || b === 12) { if (a % 8 === 1) { put(X, Y - 1, R.wood[0]); put(X, Y - 2, R.wood[0]); } }
+        continue;
+      }
       const wob = (n3(X / 3, Y / 3) - 0.5) * 3;
       const dL = isPath(tx - 1, ty) ? 9 : x - 2 + wob, dR = isPath(tx + 1, ty) ? 9 : T - 3 - x + wob;
       const dU = isPath(tx, ty - 1) ? 9 : y - 2 + wob, dD = isPath(tx, ty + 1) ? 9 : T - 3 - y + wob;
@@ -298,7 +313,7 @@ export function groundFor(seed) {
   for (const x of [dx - 7, dx + 5]) for (let y = sy + 40; y < sy + 43; y++) { put(x, y, R.wood[0]); put(x + 1, y, R.wood[0]); }
   for (let x = dx - 8; x <= dx + 7; x++) put(x, sy + 40, '#2f6fb0');
   const waterPts = [];
-  for (let i = 0; i < 9000 && waterPts.length < 900; i++) { const x = Math.floor(r() * WW), y = Math.floor(r() * WH); if (at(x, y) <= 1) waterPts.push({ x, y }); }
+  for (let i = 0; i < 9000 && waterPts.length < 300; i++) { const x = Math.floor(r() * WW), y = Math.floor(r() * WH); if (px[y * WW + x] === rgba(C.crystal)) waterPts.push({ x, y }); }
   const out = { ground: toCanvas(px, WW, WH), foamA: toCanvas(fa, WW, WH), foamB: toCanvas(fb, WW, WH), waterPts, flowerSpots };
   groundCache.set(seed, out);
   if (groundCache.size > 3) groundCache.delete(groundCache.keys().next().value);
@@ -335,3 +350,17 @@ export const toolSprites = {
   pouch: toolSprite(['.d.', 'tbt', 'ttt', 'btb']),
   basket: toolSprite(['.bbbb.', 'b.ky.b', 'tbtbtb', 'btbtbt', '.tbtb.']),
 };
+
+// ---------- the sky behind the floating islands ----------
+let skyGrad = null, skyH = 0;
+const farRocks = Array.from({ length: 9 }, (_, i) => ({ x: (i * 0.137 + 0.05) % 1, y: 0.15 + ((i * 0.61) % 1) * 0.75, s: 0.4 + ((i * 0.37) % 1) * 0.8, v: 3 + i % 4 }));
+export function drawSky(g, W, H, t) {
+  if (!skyGrad || skyH !== H) { skyGrad = g.createLinearGradient(0, 0, 0, H); skyGrad.addColorStop(0, '#6fc7ff'); skyGrad.addColorStop(0.55, '#a9e2ff'); skyGrad.addColorStop(1, '#f1d9ff'); skyH = H; }
+  g.fillStyle = skyGrad; g.fillRect(0, 0, W, H);
+  for (const r of farRocks) {
+    const x = ((r.x * W + t * r.v) % (W + 200)) - 100, y = r.y * H + Math.sin(t * 0.4 + r.x * 9) * 4, s = r.s * 26;
+    g.fillStyle = 'rgba(120,150,200,.35)'; g.beginPath(); g.ellipse(x, y, s * 1.6, s * 0.45, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = 'rgba(110,120,170,.28)'; g.beginPath(); g.moveTo(x - s * 1.3, y); g.lineTo(x, y + s * 1.4); g.lineTo(x + s * 1.3, y); g.fill();
+    g.fillStyle = 'rgba(160,220,170,.35)'; g.fillRect(x - s * 1.4, y - s * 0.5, s * 2.8, s * 0.3);
+  }
+}
