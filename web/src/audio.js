@@ -1,7 +1,7 @@
 // All sound is synthesized with WebAudio: chiptune music loops + punchy SFX. No files to load.
 // Browsers only allow sound after the player's first tap/key press, so the song asked for before that is
 // remembered and starts the moment audio is unlocked.
-let ctx = null, master, musicBus, sfxBus, noiseBuf, wanted = null;
+let ctx = null, master, musicBus, sfxBus, echoBus, noiseBuf, wanted = null;
 const vol = { music: 0.5, sfx: 0.8 };
 
 export function initAudio() {
@@ -12,6 +12,11 @@ export function initAudio() {
   const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 4; comp.connect(master);
   musicBus = ctx.createGain(); musicBus.connect(comp);
   sfxBus = ctx.createGain(); sfxBus.connect(comp);
+  // echo: delay → low-pass → feedback, mixed back in quietly
+  echoBus = ctx.createGain(); echoBus.gain.value = 0.3;
+  const dl = ctx.createDelay(1), fb = ctx.createGain(), lp = ctx.createBiquadFilter();
+  dl.delayTime.value = 0.21; fb.gain.value = 0.32; lp.type = 'lowpass'; lp.frequency.value = 2600;
+  echoBus.connect(dl); dl.connect(lp); lp.connect(fb); fb.connect(dl); lp.connect(comp);
   setVolume(vol.music, vol.sfx);
   noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
   const d = noiseBuf.getChannelData(0);
@@ -24,8 +29,9 @@ export function setVolume(music, sfx) {
   sfxBus.gain.value = sfx * 0.8;
 }
 
-function tone(freq, t0, dur, { type = 'square', gain = 0.3, slide = 0, bus = sfxBus, attack = 0.005 } = {}) {
+function tone(freq, t0, dur, { type = 'square', gain = 0.3, slide = 0, bus = sfxBus, attack = 0.005, echo = 0, vib = 0 } = {}) {
   const o = ctx.createOscillator(), g = ctx.createGain();
+  if (vib) { const l = ctx.createOscillator(), lg = ctx.createGain(); l.frequency.value = 5.5; lg.gain.value = freq * vib; l.connect(lg); lg.connect(o.frequency); l.start(t0); l.stop(t0 + dur + 0.05); }
   o.type = type;
   o.frequency.setValueAtTime(freq, t0);
   if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(20, freq * slide), t0 + dur);
@@ -33,6 +39,7 @@ function tone(freq, t0, dur, { type = 'square', gain = 0.3, slide = 0, bus = sfx
   g.gain.exponentialRampToValueAtTime(gain, t0 + attack);
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
   o.connect(g); g.connect(bus);
+  if (echo) { const e = ctx.createGain(); e.gain.value = echo * (bus === musicBus ? vol.music * 0.35 : vol.sfx * 0.8); g.connect(e); e.connect(echoBus); }
   o.start(t0); o.stop(t0 + dur + 0.02);
 }
 function noise(t0, dur, { gain = 0.3, hp = 800, lp = 12000, bus = sfxBus } = {}) {
@@ -46,13 +53,20 @@ function noise(t0, dur, { gain = 0.3, hp = 800, lp = 12000, bus = sfxBus } = {})
   s.start(t0, Math.random() * 0.5); s.stop(t0 + dur + 0.02);
 }
 
+function sweep(t0, dur, f0, f1, gain = 0.3, q = 2) {
+  const s = ctx.createBufferSource(), g = ctx.createGain(), f = ctx.createBiquadFilter();
+  s.buffer = noiseBuf; s.loop = true; f.type = 'bandpass'; f.Q.value = q;
+  f.frequency.setValueAtTime(f0, t0); f.frequency.exponentialRampToValueAtTime(f1, t0 + dur);
+  g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(gain, t0 + dur * 0.35); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  s.connect(f); f.connect(g); g.connect(sfxBus); s.start(t0); s.stop(t0 + dur + 0.05);
+}
 const SFX = {
   click: t => tone(880, t, 0.05, { gain: 0.12 }),
   hover: t => tone(1320, t, 0.03, { gain: 0.05, type: 'triangle' }),
   select: t => { tone(660, t, 0.06, { gain: 0.15 }); tone(990, t + 0.05, 0.08, { gain: 0.15 }); },
   deselect: t => { tone(660, t, 0.06, { gain: 0.12 }); tone(440, t + 0.05, 0.08, { gain: 0.12 }); },
   denied: t => tone(140, t, 0.15, { gain: 0.2, type: 'sawtooth' }),
-  whoosh: t => noise(t, 0.25, { gain: 0.25, hp: 600, lp: 3000 }),
+  whoosh: t => { sweep(t, 0.9, 300, 2400, 0.35, 1.2); sweep(t + 0.15, 1.1, 1800, 400, 0.2, 2); tone(220, t, 0.9, { type: 'sine', gain: 0.08, slide: 2, echo: 0.3 }); },   // wind rushing past
   hit: t => { tone(160, t, 0.18, { type: 'sine', gain: 0.7, slide: 0.4 }); noise(t, 0.09, { gain: 0.45, hp: 1500 }); },
   crit: t => { tone(120, t, 0.35, { type: 'sine', gain: 0.9, slide: 0.3 }); noise(t, 0.2, { gain: 0.6, hp: 900 }); tone(1760, t + 0.02, 0.25, { gain: 0.12, type: 'triangle' }); },
   miss: t => { noise(t, 0.15, { gain: 0.2, hp: 3000 }); tone(1200, t, 0.12, { gain: 0.06, slide: 1.6, type: 'sine' }); },
@@ -66,18 +80,18 @@ const SFX = {
   cast: t => { tone(300, t, 0.35, { type: 'sawtooth', gain: 0.12, slide: 3 }); noise(t, 0.3, { gain: 0.1, hp: 2000 }); },
   energy: t => { tone(880, t, 0.1, { type: 'sine', gain: 0.15 }); tone(1320, t + 0.08, 0.15, { type: 'sine', gain: 0.15 }); },
   ko: t => { tone(400, t, 0.8, { type: 'sawtooth', gain: 0.25, slide: 0.15 }); noise(t, 0.5, { gain: 0.4, hp: 200 }); },
-  land: t => { tone(90, t, 0.2, { type: 'sine', gain: 0.6, slide: 0.5 }); noise(t, 0.12, { gain: 0.2, hp: 400, lp: 2000 }); },
+  land: t => { tone(90, t, 0.2, { type: 'sine', gain: 0.6, slide: 0.5 }); noise(t, 0.12, { gain: 0.2, hp: 400, lp: 2000 }); [523, 659, 784].forEach((f, i) => tone(f, t + 0.08 + i * 0.06, 0.16, { type: 'triangle', gain: 0.08, echo: 0.3 })); },
   round: t => { tone(523, t, 0.12, { gain: 0.15 }); tone(784, t + 0.12, 0.2, { gain: 0.15 }); },
   fight: t => { tone(392, t, 0.1, { gain: 0.2 }); tone(523, t + 0.1, 0.1, { gain: 0.2 }); tone(784, t + 0.2, 0.35, { gain: 0.22 }); },
   victory: t => [523, 659, 784, 1046, 784, 1046].forEach((f, i) => tone(f, t + i * 0.12, i === 5 ? 0.6 : 0.14, { gain: 0.2 })),
   defeat: t => [392, 349, 311, 262].forEach((f, i) => tone(f, t + i * 0.22, 0.3, { gain: 0.18, type: 'triangle' })),
-  levelup: t => [523, 784, 1046, 1568].forEach((f, i) => tone(f, t + i * 0.07, 0.2, { type: 'triangle', gain: 0.18 })),
+  levelup: t => [523, 659, 784, 1046, 1318].forEach((f, i) => tone(f, t + i * 0.07, i === 4 ? 0.5 : 0.18, { type: 'triangle', gain: 0.18, echo: 0.35 })),
   flip: t => { noise(t, 0.06, { gain: 0.3, hp: 2500, lp: 9000 }); tone(1200, t, 0.05, { type: 'triangle', gain: 0.08, slide: 1.5 }); },
-  coin: t => { tone(988, t, 0.08, { type: 'square', gain: 0.12 }); tone(1319, t + 0.07, 0.25, { type: 'square', gain: 0.12 }); },
+  coin: t => { tone(988, t, 0.07, { type: 'square', gain: 0.1 }); tone(1319, t + 0.06, 0.28, { type: 'square', gain: 0.1, echo: 0.25 }); },
   pop: t => { tone(600, t, 0.08, { type: 'sine', gain: 0.25, slide: 2.2 }); },
   notify: t => { tone(784, t, 0.1, { type: 'triangle', gain: 0.18 }); tone(1047, t + 0.1, 0.18, { type: 'triangle', gain: 0.18 }); },
   tick: t => tone(1800, t, 0.03, { type: 'square', gain: 0.06 }),
-  magic: t => [523, 784, 1047, 1568, 2093].forEach((f, i) => tone(f, t + i * 0.04, 0.3, { type: 'sine', gain: 0.1 })),
+  magic: t => { [523, 784, 1047, 1568, 2093].forEach((f, i) => tone(f, t + i * 0.04, 0.3, { type: 'sine', gain: 0.1, echo: 0.4 })); sweep(t, 0.5, 4000, 900, 0.08, 3); },
   trap: t => { tone(200, t, 0.25, { type: 'sawtooth', gain: 0.3, slide: 0.5 }); noise(t, 0.15, { gain: 0.5, hp: 600 }); tone(90, t + 0.05, 0.3, { type: 'sine', gain: 0.6, slide: 0.5 }); },
   reverse: t => { tone(300, t, 0.4, { type: 'sawtooth', gain: 0.12, slide: 3 }); tone(900, t + 0.2, 0.4, { type: 'sawtooth', gain: 0.1, slide: 0.33 }); },
   // raids + adventure
@@ -86,7 +100,7 @@ const SFX = {
   smash: t => { tone(110, t, 0.12, { type: 'square', gain: 0.25, slide: 0.5 }); noise(t, 0.1, { gain: 0.3, hp: 700, lp: 4000 }); },
   boom: t => { tone(70, t, 0.6, { type: 'sine', gain: 0.9, slide: 0.35 }); noise(t, 0.5, { gain: 0.6, hp: 150, lp: 2500 }); noise(t + 0.05, 0.3, { gain: 0.3, hp: 2000 }); },
   crumble: t => { noise(t, 0.4, { gain: 0.4, hp: 300, lp: 3000 }); tone(90, t, 0.3, { type: 'sine', gain: 0.4, slide: 0.6 }); },
-  horn: t => { tone(196, t, 0.5, { type: 'sawtooth', gain: 0.18, attack: 0.05 }); tone(294, t + 0.25, 0.7, { type: 'sawtooth', gain: 0.18, attack: 0.05 }); tone(392, t + 0.25, 0.7, { type: 'triangle', gain: 0.12, attack: 0.05 }); },
+  horn: t => { for (const [f, d, at] of [[196, 0.28, 0], [262, 0.28, 0.22], [392, 0.75, 0.44]]) { tone(f, t + at, d, { type: 'triangle', gain: 0.2, attack: 0.04, vib: 0.012, echo: 0.35 }); tone(f * 2, t + at, d, { type: 'square', gain: 0.04, attack: 0.05 }); } },   // a heroic little fanfare
   coins: t => [1319, 1568, 1976, 2349].forEach((f, i) => tone(f, t + i * 0.05, 0.12, { type: 'square', gain: 0.07 })),
   drop: t => { tone(300, t, 0.12, { type: 'sine', gain: 0.3, slide: 0.4 }); noise(t + 0.08, 0.1, { gain: 0.2, hp: 500, lp: 2000 }); },
   roar: t => { tone(110, t, 0.5, { type: 'sawtooth', gain: 0.25, slide: 0.7 }); noise(t, 0.4, { gain: 0.25, hp: 200, lp: 1500 }); },
@@ -103,31 +117,30 @@ export function sfx(name, delay = 0) {
 // ---------- music: a small chiptune sequencer (chords, bass, arp, lead, drums) ----------
 const N = n => 440 * Math.pow(2, (n - 69) / 12);
 const SONGS = {
-  // bright and bouncy for the plaza (C - Am - F - G)
-  menu: { bpm: 112, bass: 'x...x.x.x...x.x.', drums: 'x...o..hx.x.o..h',
-    chords: [[60, 64, 67, 71], [57, 60, 64, 67], [53, 57, 60, 64], [55, 59, 62, 67]],
-    lead: [[76, 0, 79, 0, 84, 0, 79, 0, 81, 0, 79, 0, 76, 0, 0, 0], [72, 0, 76, 0, 81, 0, 76, 0, 79, 0, 76, 0, 72, 0, 0, 0],
-      [77, 0, 81, 0, 84, 0, 81, 0, 79, 0, 77, 0, 76, 0, 74, 0], [74, 0, 79, 0, 83, 0, 79, 0, 86, 0, 83, 0, 79, 0, 0, 0]] },
-  // driving duel theme (Am - F - C - G)
-  battle: { bpm: 146, bass: 'x.x.x.x.x.x.x.xx', drums: 'x.h.o.h.x.xho.h.',
+  // the plaza: bouncy, sing-along hook (C - G - Am - F)
+  menu: { bpm: 118, bass: 'x..x..x.x..x..x.', drums: 'x..hx.o.x.hhx.oh',
+    chords: [[60, 64, 67, 72], [55, 59, 62, 67], [57, 60, 64, 69], [53, 57, 60, 65]],
+    lead: [[72, 0, 76, 79, 0, 76, 74, 0, 72, 0, 74, 76, 0, 0, 0, 0], [71, 0, 74, 79, 0, 74, 72, 0, 71, 0, 72, 74, 0, 0, 67, 0],
+      [72, 0, 76, 81, 0, 79, 76, 0, 74, 0, 76, 72, 0, 0, 0, 0], [69, 0, 72, 77, 0, 76, 74, 0, 72, 74, 76, 79, 0, 0, 0, 0]] },
+  // duels: driving and tense (Am - F - C - G)
+  battle: { bpm: 150, bass: 'x.xx.x.xx.xx.x.x', drums: 'x.h.o.hxx.h.o.ho',
     chords: [[57, 60, 64, 69], [53, 57, 60, 65], [60, 64, 67, 72], [55, 59, 62, 67]],
-    lead: [[81, 0, 84, 81, 0, 79, 0, 76, 79, 0, 81, 0, 84, 0, 88, 0], [89, 0, 88, 84, 0, 81, 0, 84, 0, 0, 81, 0, 77, 0, 79, 0],
-      [76, 0, 79, 84, 0, 88, 0, 84, 86, 0, 84, 0, 79, 0, 76, 0], [79, 0, 83, 86, 0, 91, 0, 86, 83, 0, 79, 0, 86, 84, 83, 79]] },
-  // war drums for raids (Dm - Bb - C - A)
-  raid: { bpm: 132, bass: 'x..xx..xx..xx.x.', drums: 'x.ox.ox.x.oxx.oh',
-    chords: [[62, 65, 69, 74], [58, 62, 65, 70], [60, 64, 67, 72], [57, 61, 64, 69]],
-    lead: [[74, 0, 77, 0, 81, 0, 79, 77, 76, 0, 74, 0, 72, 0, 74, 0], [70, 0, 74, 0, 77, 0, 74, 0, 72, 0, 70, 0, 69, 0, 0, 0],
-      [72, 0, 76, 0, 79, 0, 84, 0, 83, 0, 79, 0, 76, 0, 79, 0], [81, 0, 79, 0, 76, 0, 73, 0, 76, 0, 79, 0, 81, 0, 85, 0]] },
-  // adventure: open and curious (G - Em - C - D)
-  adventure: { bpm: 104, bass: 'x...x...x.x.x...', drums: 'x..h..h.o..h..h.',
-    chords: [[55, 59, 62, 67], [52, 55, 59, 64], [48, 52, 55, 60], [50, 54, 57, 62]],
-    lead: [[79, 0, 0, 83, 0, 86, 0, 0, 84, 0, 83, 0, 79, 0, 0, 0], [76, 0, 0, 79, 0, 83, 0, 0, 81, 0, 79, 0, 76, 0, 0, 0],
-      [72, 0, 0, 76, 0, 79, 0, 84, 83, 0, 79, 0, 76, 0, 0, 0], [74, 0, 0, 78, 0, 81, 0, 86, 84, 0, 81, 0, 78, 0, 74, 0]] },
-  // calm title loop
+    lead: [[81, 0, 79, 81, 0, 84, 0, 81, 79, 0, 76, 0, 79, 81, 0, 0], [77, 0, 76, 77, 0, 81, 0, 77, 76, 0, 72, 0, 74, 76, 0, 0],
+      [79, 0, 76, 79, 0, 84, 0, 79, 83, 0, 84, 0, 86, 88, 0, 0], [86, 0, 83, 79, 0, 83, 0, 86, 91, 0, 88, 86, 83, 79, 0, 0]] },
   title: { bpm: 96, bass: 'x.......x...x...', drums: 'x.......o.......',
     chords: [[60, 64, 67, 72], [55, 59, 62, 67], [57, 60, 64, 69], [53, 57, 60, 65]],
     lead: [[79, 0, 0, 76, 0, 0, 72, 0, 74, 0, 76, 0, 0, 0, 0, 0], [74, 0, 0, 71, 0, 0, 67, 0, 69, 0, 71, 0, 0, 0, 0, 0],
       [76, 0, 0, 72, 0, 0, 69, 0, 71, 0, 72, 0, 0, 0, 0, 0], [72, 0, 0, 69, 0, 0, 65, 0, 67, 0, 69, 0, 71, 0, 0, 0]] },
+  // raids: war drums and a bold call (Dm - Bb - C - A)
+  raid: { bpm: 138, bass: 'x..xx..xx.xx.x.x', drums: 'x.oxx.o.x.oxxooh',
+    chords: [[62, 65, 69, 74], [58, 62, 65, 70], [60, 64, 67, 72], [57, 61, 64, 69]],
+    lead: [[74, 0, 74, 77, 0, 74, 81, 0, 79, 0, 77, 0, 76, 0, 74, 0], [70, 0, 70, 74, 0, 70, 77, 0, 76, 0, 74, 0, 72, 0, 0, 0],
+      [72, 0, 72, 76, 0, 72, 79, 0, 84, 0, 83, 0, 79, 0, 76, 0], [73, 0, 76, 81, 0, 79, 76, 0, 73, 0, 76, 79, 81, 0, 85, 0]] },
+  // adventure / world map: an airy, curious melody (G - Em - C - D)
+  adventure: { bpm: 108, bass: 'x...x.x.x...x.x.', drums: 'x..h..h.o..hx.h.',
+    chords: [[55, 59, 62, 67], [52, 55, 59, 64], [48, 52, 55, 60], [50, 54, 57, 62]],
+    lead: [[79, 0, 83, 86, 0, 83, 0, 79, 81, 0, 83, 0, 0, 0, 0, 0], [76, 0, 79, 83, 0, 79, 0, 76, 78, 0, 79, 0, 0, 0, 74, 0],
+      [72, 0, 76, 79, 0, 84, 0, 83, 81, 0, 79, 0, 76, 0, 0, 0], [74, 0, 78, 81, 0, 86, 0, 84, 83, 0, 81, 0, 78, 79, 81, 0]] },
 };
 let song = null, step = 0, nextTime = 0, timer = null;
 export function music(name) {
@@ -148,10 +161,10 @@ function schedule() {
     if (song.bass[s] === 'x') tone(N(ch[0] - 24), t, spb * 1.8, { ...o, type: 'triangle', gain: 0.5 });
     if (s % 2 === 0) tone(N(ch[(s / 2) % 4] + 12), t + swing, spb * 0.9, { ...o, type: 'square', gain: 0.05 });
     const L = song.lead[bar][s], cycle = Math.floor(step / 64) % 4;
-    if (L && cycle !== 0) tone(N(L - (cycle === 3 ? 12 : 0)), t + swing, spb * 1.7, { ...o, type: 'square', gain: 0.07 });
+    if (L && cycle !== 0) { tone(N(L - (cycle === 3 ? 12 : 0)), t + swing, spb * 1.8, { ...o, type: 'square', gain: 0.06, echo: 0.45, vib: 0.006 }); tone(N(L) / 2, t + swing, spb * 1.6, { ...o, type: 'triangle', gain: 0.04 }); }
     const d = song.drums[s];
     if (d === 'x') tone(150, t, 0.18, { ...o, type: 'sine', gain: 0.8, slide: 0.3 });
-    if (d === 'o') noise(t, 0.12, { ...o, gain: 0.32, hp: 1200 });
+    if (d === 'o') { noise(t, 0.13, { ...o, gain: 0.3, hp: 1400 }); tone(190, t, 0.08, { ...o, type: 'triangle', gain: 0.25, slide: 0.6 }); }
     if (d === 'h') noise(t + swing, 0.04, { ...o, gain: 0.1, hp: 7000 });
     nextTime += spb; step++;
   }

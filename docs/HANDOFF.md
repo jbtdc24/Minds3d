@@ -29,6 +29,8 @@ Owner: Mindclash game owner. Hates long text: short replies, decide for them, bu
 - Audio: web/src/audio.js synth (SFX + songs menu/battle/title/raid/adventure).
 
 ## NEXT TASKS (in order) — round 5 (owner 2026-10-30)
+Remaining now: D (cinematic light/particles in island/raid/adventure scenes), richer world-map detail, Gems payments (owner choice),
+building upgrades, raid replays/revenge. OWNER TODO: run supabase/005_admin.sql, set Vercel env ADMIN_ADDRESSES.
 A. [x] (code done; OWNER MUST: run supabase/005_admin.sql + set Vercel env ADMIN_ADDRESSES=<wallet>) Admin/dev tools only the owner can use: server checks ADMIN_ADDRESSES (Vercel env, comma list of wallets) — not in the repo.
    Hidden admin screen (open with a secret code in Settings): give Dust/Gems/items, ban / suspend / unsuspend, player lookup,
    cheat meter (flags table: suspicious adventure/raid submits, rate-limit hits). Needs supabase/005_admin.sql (owner runs).
@@ -40,7 +42,7 @@ F. [x] Building takes time like CoC: a free Mind walks over and builds (timer by
    Gems finish instantly. Show timers/progress bars on the island.
 G. [x] Island inventory/storage must be visible: stored buildings in the Inventory window (Items tab) + a 📦 button on the island.
 H. [x] (pixel airship sprites + cloud trail) Airship flight + world map must look pixel-art/cinematic (sprite ship, parallax clouds, no smooth vector shapes).
-I. [ ] Audio: catchier music, better SFX (the flying/whoosh sounds are bad).
+I. [x] (echo bus, new hooks, wind whoosh, fanfare horn; owner may want more) Audio: catchier music, better SFX (the flying/whoosh sounds are bad).
 D. [ ] Same treatment for the island/raid/adventure scenes: cinematic light, baked shadows, wind, particles.
 (older list below)
 1. [DONE 2026-10-30] World map screen (web/src/island/worldmap.js, #s-map): 12 SPOTS + home, airships SHIPS (adventure.js) /
