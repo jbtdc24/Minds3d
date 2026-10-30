@@ -18,7 +18,7 @@ export async function loadIsland({ online, guestSeed, minds = 0 }) {
     isle.loaded = true; emit({}); return isle;
   }
   const r = await api('island', { acts: [] });
-  take(r); isle.loaded = true; emit({});
+  take(r); isle.loaded = true; isle.at = Date.now(); emit({});
   return isle;
 }
 function take(r) {
@@ -47,9 +47,14 @@ export async function flush() {
   if (inflight || !queue.length || isle.offline) return inflight;
   const batch = queue; queue = [];
   inflight = api('island', { acts: batch })
-    .then(r => { take(r); isle.error = ''; emit({ synced: true, points: r.points }); })
+    .then(r => { take(r); isle.at = Date.now(); isle.error = ''; emit({ synced: true, points: r.points }); })
     .catch(e => { isle.error = e.message; queue = batch.concat(queue); emit({ failed: e.message }); setTimeout(flush, 4000); })
     .finally(() => { inflight = null; if (queue.length) { clearTimeout(timer); timer = setTimeout(flush, 300); } });
   return inflight;
+}
+// re-read the island from the server (gifts, raids on you, payments… change it from outside)
+export async function refreshIsland() {
+  if (isle.offline || !isle.loaded || queue.length || inflight) return;
+  try { const r = await api('island', { acts: [] }); if (!queue.length && !inflight) { take(r); isle.at = Date.now(); emit({ synced: true }); } } catch { /* next time */ }
 }
 export function resetIsland() { isle.state = null; isle.loaded = false; queue = []; }

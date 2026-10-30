@@ -54,7 +54,7 @@ document.addEventListener('click', async e => {
       const items = {}; const it = $('#adm-item').value.trim(), q = +$('#adm-qty').value || 0;
       if (it && q) items[it] = q;
       await K.api('admin', { op: 'give', pid: cur.id, dust: +$('#adm-dust').value || 0, gems: +$('#adm-gems').value || 0, points: +$('#adm-pts').value || 0, items });
-      K.toast('Sent.');
+      K.toast('Sent.'); K.onGive?.(cur.id);
     } else if (a === 'suspend' || a === 'ban') {
       if (!(await K.modal(`<h3>${a === 'ban' ? 'Ban' : 'Suspend'} ${K.esc(cur.name)}?</h3>`, [['Yes', 1, 'primary'], ['Cancel', 0]]))) return;
       await K.api('admin', { op: 'ban', pid: cur.id, hours: a === 'ban' ? 0 : +$('#adm-hours').value || 24, reason: $('#adm-reason').value });

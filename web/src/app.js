@@ -17,7 +17,7 @@ import { openAdventure, closeAdventure } from './island/advview.js';
 import { AREAS, POTIONS_MAX, SPOTS, SHIPS, spotLevel } from './island/adventure.js';
 import { openMap, updateMap, closeMap } from './island/worldmap.js';
 import { initAdmin, tryCode } from './admin.js';
-import { isle, loadIsland, doAct, flush as flushIsland, resetIsland, now as islandNow } from './island/store.js';
+import { isle, loadIsland, doAct, flush as flushIsland, resetIsland, refreshIsland, now as islandNow } from './island/store.js';
 import { CROPS, RAW, growMs, permitCost, MAX_PERMITS, ripe, SHOP, RECIPES, TROOP_MAX, troopCount, costText, canAfford, BUILD, STASH_MAX, gemPrice } from './island/rules.js';
 import { buildIcon } from './island/buildings.js';
 import { islandThumb } from './island/art.js';
@@ -336,7 +336,7 @@ $('#hub-inv').onclick = openInventory;
 
 // ---------- Mind Island: farm, Shop, and island items in the inventory ----------
 async function ensureIsland() {
-  if (isle.loaded && isle.offline === !online) return true;
+  if (isle.loaded && isle.offline === !online) { if (online && Date.now() - (isle.at || 0) > 8000) await refreshIsland(); return true; }
   try { await loadIsland({ online, guestSeed: me?.id || me?.name, minds: guest ? 0 : myMinds.length }); return true; }
   catch (e) { toast(e.message, true); return false; }
 }
@@ -355,6 +355,7 @@ async function goIsland() {
   }
 }
 $('#hub-island').onclick = goIsland;
+setInterval(() => { if (online && ['island', 'shop', 'inventory'].includes(current)) refreshIsland().then(() => { refreshHud(); if (current === 'shop') paintShop(); if (current === 'inventory') paintInventory(); }); }, 20000);
 $('#shop-go-island').onclick = goIsland;
 $('#isl-back').onclick = () => enterHub();
 // ---------- raids: attack another island (or a bot village when there is nobody / you are on a trial account) ----------
@@ -483,7 +484,7 @@ async function launchAdventure(pick) {
 }
 $('#isl-adv').onclick = () => startAdventure();
 // codes in Settings (the admin screen opens only for the owner's wallet; checked on the server)
-initAdmin({ api, toast: (m, bad) => toast(m, bad), show, modal, esc });
+initAdmin({ api, toast: (m, bad) => toast(m, bad), show, modal, esc, onGive: pid => { if (pid === me?.id) refreshIsland(); } });
 $('#set-code-go').onclick = async () => {
   const code = $('#set-code').value.trim(); $('#set-code').value = '';
   if (!code) return;
