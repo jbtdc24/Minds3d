@@ -30,6 +30,14 @@ Owner: Mindclash game owner. Hates long text: short replies, decide for them, bu
 
 ## Notes 2026-10-30 late: islets + portals REMOVED from the home island (owner: not functional). Admin gifts now show (refreshIsland). Live smoke test: scratchpad smoke.mjs pattern (guest → island/shop/raid/adventure/gems/admin) all OK.
 
+## NEXT TASKS — round 7 (owner 2026-10-30)
+1. [ ] Raid button "doesn't work again" — never fail silently: show every error, loading feedback; find root cause.
+2. [ ] Raids cost a Dust fee (entry fee) — part of the economy.
+3. [ ] Audio: soft lofi/relaxing music everywhere except PvP duels (keep battle there).
+4. [ ] Connect PvP to the island: duel wins pay Dust to your island (stake-scaled), small consolation for losses.
+5. [ ] Buy more ranked energy (Dust or Gems, max 3 refills per Mind per day).
+6. [ ] Economy math pass: income vs costs (farming, adventures, raids, buildings, airships, gems) → docs/ECONOMY.md + rebalance.
+
 ## NEXT TASKS — round 6 (owner 2026-10-30), do in this order
 1. [x] Kill the annoying pulsing/thunder sound (world-map lightning boom + adventure footsteps) → soft rare rumble, quiet steps.
 2. [x] Inventory vs 📦 storage are duplicates → 📦 = island storage drawer with Place buttons; Inventory only lists resources.
