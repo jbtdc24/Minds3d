@@ -8,6 +8,7 @@ import { chibi } from './chibi.js';
 import { troopSprite, weapon, nodeSprite, monsterSprite } from './troops.js';
 import { advMap, advLoot, walkable, HEROES, MONSTERS, NODES, ADV_TIME, SPOTS, POTION_HEAL, BIOME, SPOT_BIOME } from './adventure.js';
 import { DROPS } from './rules.js';
+import { drawCinema } from './cinema.js';
 import { sfx, music } from '../audio.js';
 
 const $ = s => document.querySelector(s);
@@ -234,8 +235,8 @@ function frame(now) {
   if (A.biome.volcano || A.biome.dragon) { g.fillStyle = 'rgba(255,90,40,.08)'; g.fillRect(0, 0, W, H); }
   if (A.biome.storm) { g.fillStyle = 'rgba(30,40,70,.18)'; g.fillRect(0, 0, W, H); if (A.flash > 0) { g.fillStyle = `rgba(230,240,255,${A.flash * 3})`; g.fillRect(0, 0, W, H); } }
   if (A.biome.snow) { g.fillStyle = 'rgba(220,235,255,.08)'; g.fillRect(0, 0, W, H); }
-  if (!vig || vig.w !== W || vig.h !== H) { const c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d'), gr2 = x.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.75); gr2.addColorStop(0, 'rgba(0,0,0,0)'); gr2.addColorStop(1, 'rgba(15,10,30,.45)'); x.fillStyle = gr2; x.fillRect(0, 0, W, H); vig = { cv: c, w: W, h: H }; }
-  g.drawImage(vig.cv, 0, 0, W, H);
+  drawCinema(g, W, H, Tm, dt, { motes: A.biome.snow || A.biome.storm ? 'none' : 'pollen', rays: !A.biome.storm });
+  if (false) { const c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d'), gr2 = x.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.75); gr2.addColorStop(0, 'rgba(0,0,0,0)'); gr2.addColorStop(1, 'rgba(15,10,30,.45)'); x.fillStyle = gr2; x.fillRect(0, 0, W, H); vig = { cv: c, w: W, h: H }; }
   // monster levels
   g.font = '800 11px Nunito, sans-serif'; g.textAlign = 'center';
   for (const m of A.mons) { if (m.dead) continue; const p = toScreen(m.x, m.y - (MONSTERS[m.type].boss ? 38 : m.type === 'boar' ? 22 : 24)); if (p.x < -20 || p.y < -20 || p.x > W + 20 || p.y > H + 20) continue; const lab = `Lv${A.level}${MONSTERS[m.type].boss ? ' BOSS' : ''}`; g.lineWidth = 3; g.strokeStyle = '#1d1b2f'; g.strokeText(lab, p.x, p.y); g.fillStyle = MONSTERS[m.type].boss ? '#ff6a5a' : '#ffe27a'; g.fillText(lab, p.x, p.y); }

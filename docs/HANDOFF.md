@@ -35,7 +35,7 @@ Owner: Mindclash game owner. Hates long text: short replies, decide for them, bu
 4. [x] Adventure islands must look different per biome (volcano, snow, crystal, mushroom, ruins, garden, dragon, storm):
    recolored ground + trees, biome nodes, monsters themed + show their level; level = spot tier+1 (already scales HP).
 5. [x] Building upgrades (levels 1-3: more HP/effect), raid revenge button from the raid log, bosses per tier in adventures.
-6. [ ] Cinematic light/particles in island/raid/adventure (task D).
+6. [x] (v1: island/cinema.js god rays, grade, motes, vignette, drop shadows, grass wind) Cinematic light/particles in island/raid/adventure (task D).
 7. [x] Gems for ETH on Robinhood Chain (lib/routes/gems.js, web/src/gems.js packs, supabase/006_payments.sql). OWNER TODO: run 006 SQL + set Vercel env TREASURY_ADDRESS.
 8. Later: Train Mind / Auto Battle modes ("coming soon" tiles), custom domain play.minds.games.
 

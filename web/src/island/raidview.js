@@ -7,6 +7,7 @@ import { bsprites, drawSails } from './buildings.js';
 import { chibi } from './chibi.js';
 import { coverAt, BUILD } from './rules.js';
 import { troopSprite, weapon, troopIcon } from './troops.js';
+import { drawCinema, dropShadow } from './cinema.js';
 import { createRaid, input, step, score, dropOk, SPELLS, TROOPS, CRY, TICK, MAX_TICKS, DROP_UNTIL } from './raid.js';
 import { sfx, music } from '../audio.js';
 
@@ -173,7 +174,7 @@ function frame(now) {
     else if (s.type === 'wall') { const k = s.tiles[0]; spr = bsprites.wall((walls.has(k - TW) ? 1 : 0) | (walls.has(k + 1) && kx(k) < TW - 1 ? 2 : 0) | (walls.has(k + TW) ? 4 : 0) | (walls.has(k - 1) && kx(k) > 0 ? 8 : 0)); }
     else if (s.type === 'house') spr = bsprites.house(false);
     else spr = bsprites[s.type]();
-    items.push({ y: by, spr, x: cx, s, sails: s.type === 'mill' ? { x: cx, y: by - 26 } : null });
+    items.push({ y: by, spr, x: cx, s, sails: s.type === 'mill' ? { x: cx, y: by - 26 } : null, shadow: s.type === 'wall' ? 0 : s.x1 - s.x0 });
   });
   for (const tr of S.traps) if (!tr.armed) items.push({ y: ky(tr.k) * T + 4, spr: bsprites.trap(), x: kx(tr.k) * T + 8 });
   for (const u of S.units) if (!u.dead) items.push({ y: u.y, u });
@@ -191,6 +192,7 @@ function frame(now) {
   }
   for (const it of items) {
     if (it.u) { drawUnit(it.u); continue; }
+    if (it.shadow) dropShadow(g, it.x, it.y - 1, it.shadow * 0.8);
     const s = it.spr, jx = it.s?.hit ? (Math.random() - 0.5) * 2 : 0;
     const sway = it.tree ? Math.round(Math.sin(Tm * 1.3 + it.x * 0.1) * 0.6) : 0;
     g.drawImage(s.cv, Math.round(it.x - (s.w >> 1) + jx + sway), it.y - s.h + 1);
@@ -228,6 +230,7 @@ function frame(now) {
     g.fillStyle = '#fff3b0'; g.fillRect(p.x - 2, p.y - 2, 2, 2);
     return true;
   });
+  drawCinema(g, W, H, Tm, dt, { motes: 'dust' });
   texts = texts.filter(t => {
     t.life -= dt; const p = toScreen(t.x, t.y), py = p.y - (1.3 - t.life) * 30;
     g.globalAlpha = Math.min(1, t.life * 2); g.font = `900 ${t.big ? 26 : 16}px Nunito, sans-serif`; g.textAlign = 'center';

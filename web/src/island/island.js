@@ -8,6 +8,7 @@ import { drawSky, groundFor, sprites, sprouts, heart, SOIL, toolSprites } from '
 import { rng } from './pixel.js';
 import { CROPS, coverAt, ripe, growMs, regrowMs, maxPlots, plotCount, PLOT_COST, speedBonus, BUILD, buildingAt, fits, footprint, maxOf, countOf, canAfford, costText, homeOf, wellOf, STASH_MAX, rushGems, builders, busy, gemPrice, UPGRADABLE, MAX_LV, lvOf, upgradeCost } from './rules.js';
 import { bsprites, drawSails, buildIcon } from './buildings.js';
+import { drawCinema, dropShadow } from './cinema.js';
 import { isle, doAct, now, onChange, flush } from './store.js';
 
 const cv = document.getElementById('island-cv');
@@ -380,7 +381,7 @@ function frame(nowT) {
     }
     if (t?.s === 'c' && nowMs - t.t > regrowMs(k, isle.seed) * 0.6) g.drawImage(sprouts.cv, tx * T + 2, ty * T + 9);
     const v = hash(tx, ty, 7) * 4 | 0, jx = Math.round((hash(ty, tx, 9) - 0.5) * 6), jy = Math.round(hash(tx, ty, 11) * 3);
-    if (cov === COVER.WEEDS) items.push({ y: by - 1 - jy, spr: sprites.weeds(v), x: cx + jx });
+    if (cov === COVER.WEEDS) items.push({ y: by - 1 - jy, spr: sprites.weeds(v), x: cx + jx, grass: true });
     else if (cov === COVER.BUSH) items.push({ y: by, spr: sprites.bush(v % 3), x: cx });
     else if (cov === COVER.ROCK) items.push({ y: by - 1, spr: sprites.rock(v % 3), x: cx });
     else if (cov === COVER.TREE) items.push({ y: by, spr: sprites.tree(w.treeKinds[w.kind[k]], v % 3), x: cx, tree: true });
@@ -401,11 +402,11 @@ function frame(nowT) {
       items.push({ y: by, spr: bsprites.wall(mask), x: cx });
     } else if (b.type === 'trap') items.push({ y: y0 + 2, spr: bsprites.trap(), x: cx, flat: true });
     else if (b.type === 'mill') { items.push({ y: by, spr: bsprites.mill(), x: cx, sails: { x: cx, y: by - 26 } }); }
-    else if (b.type === 'home') items.push({ y: by, spr: sprites.house(isle.seed, !!L.night), x: cx });
+    else if (b.type === 'home') items.push({ y: by, spr: sprites.house(isle.seed, !!L.night), x: cx, shadow: 30 });
     else if (b.type === 'well') items.push({ y: by, spr: sprites.well(), x: cx });
     else if (b.type === 'fence') items.push({ y: by, spr: bsprites.fence(maskOf(fenceAt, b.k)), x: cx });
     else if (b.type === 'lantern') items.push({ y: by, spr: bsprites.lantern(), x: cx, float: true });
-    else items.push({ y: by, spr: b.type === 'house' ? bsprites.house(L.night) : bsprites[b.type](), x: cx });
+    else items.push({ y: by, spr: b.type === 'house' ? bsprites.house(L.night) : bsprites[b.type](), x: cx, shadow: d.w * T * 0.8 });
   }
   for (const p of w.portals) items.push({ y: ky(p.k) * T + 14, portal: p });
   for (const m of minds) items.push({ y: m.y, mind: m });
@@ -425,6 +426,8 @@ function frame(nowT) {
     if (it.tree) { g.fillStyle = 'rgba(43,35,64,.22)'; g.beginPath(); g.ellipse(it.x, it.y - 1, 9, 3, 0, 0, Math.PI * 2); g.fill(); }
     let dx = 0, dy = 0;
     if (it.tree) dx = Math.round(Math.sin(Tm * 1.3 + it.x * 0.1) * 0.6);
+    if (it.grass) dx = Math.round(Math.sin(Tm * 2.1 + it.x * 0.05 + it.y * 0.03) * 0.9);   // wind gusts through the grass
+    if (it.shadow) dropShadow(g, it.x, it.y - 1, it.shadow);
     if (it.ripe) { dy = -Math.round(Math.abs(Math.sin(Tm * 3 + it.x))); if (Math.random() < dt * 0.8) fx.push({ type: 'star', x: it.x + (Math.random() - 0.5) * 10, y: it.y - 6 - Math.random() * 8, life: 0.8, max: 0.8 }); }
     const hides = it.tree && minds.some(m => m.y < it.y - 2 && m.y > it.y - s.h + 6 && Math.abs(m.x - it.x) < s.w / 2);
     if (hides) g.globalAlpha = 0.55;
@@ -450,6 +453,7 @@ function frame(nowT) {
   if (L.tint) { g.globalAlpha = L.a; g.fillStyle = L.tint; g.fillRect(0, 0, WW, WH); g.globalAlpha = 1; }
   drawLights(L);
   g.setTransform(DPR, 0, 0, DPR, 0, 0);
+  drawCinema(g, W, H, Tm, dt, { night: L.night, motes: 'pollen' });
   drawTexts();
   // label: the Mind you tapped, or the crop under the cursor
   let label = null;
