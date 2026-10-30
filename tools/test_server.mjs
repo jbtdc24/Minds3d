@@ -361,7 +361,7 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   ok(R.act(st, { type: 'build', item: 'crystal', tiles: [ck] }, ctx).done === 1 && st.gems === 0, 'gem-exclusive decorations cost gems');
   const v2 = { v: 2, dust: 0, inv: {}, tiles: {} };
   R.normalize(v2, seed, now);
-  ok(v2.v === 3 && v2.b.filter(b => b.type === 'home').length === 1, 'older islands get their home as a movable building');
+  ok(v2.v === 4 && v2.b.filter(b => b.type === 'home').length === 1 && v2.inv.troop_brawler === 6, 'older islands get their home as a movable building and a starter army');
   // raid: you bring troops you own; the ones you don't send come back
   const raidRoute = (await import('../lib/routes/raid.js')).default, RD = await import('../web/src/island/raid.js');
   const pl = await db.insert('players', { name: 'Trainer', is_guest: true });

@@ -365,6 +365,8 @@ function pickArmy(cap, hero, lead) {
     train.onclick = () => { $('#modal').classList.remove('on'); $('#modal-body').onclick = null; done(null); openShop('army'); };
     go.onclick = () => { if (!armyUsed(army)) { sfx('denied'); return toast('Bring at least one troop. Train them in the Shop with Dust.', true); } $('#modal').classList.remove('on'); $('#modal-body').onclick = null; settings.army = { ...army }; saveSettings(); done(army); };
     back.onclick = () => { $('#modal').classList.remove('on'); $('#modal-body').onclick = null; done(null); };
+    const none = !Object.keys(TROOPS).some(k => owned(k) > 0);
+    if (none) { train.className = 'btn primary'; go.className = 'btn'; $('#modal-body').insertAdjacentHTML('afterbegin', '<p class="army-none">You have no troops yet. Train some with Dust first!</p>'); }
     box.append(back, train, go);
     $('#modal-body').onclick = e => {
       const b = e.target.closest('[data-a]'); if (!b) return;

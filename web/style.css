@@ -751,3 +751,4 @@ h3.raid-result { text-align: center; }
 #map-info { display: flex; flex-direction: column; font-size: 13px; min-width: 0; max-width: 420px; } #map-info b { font-size: 17px; } #map-info span { color: var(--muted); }
 .map-pot { display: flex; align-items: center; gap: 6px; font-size: 18px; white-space: nowrap; }
 @media (max-width: 760px) { .map-panel { gap: 8px; padding: 6px; } #map-info { font-size: 11px; } #map-info b { font-size: 14px; } }
+.army-none { background: #ffe0d8; padding: 6px 10px; font-weight: 800; box-shadow: 0 0 0 2px var(--ink); }

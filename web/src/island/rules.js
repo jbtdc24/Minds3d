@@ -100,6 +100,7 @@ export function newIsland(seed, now) {
   for (const k of w.starter) tiles[k] = { s: 'p', t: now };
   const st = { v: 2, dust: 100, gems: 0, inv: { seed_bean: 6, seed_carrot: 2, troop_brawler: 6, troop_archer: 4, potion: 2, fuel: 1 }, tiles };
   migrate3(st, seed);
+  st.v = 4;
   return st;
 }
 export const maxPlots = (st, minds) => BASE_PLOTS + Math.min(minds, MIND_PLOTS) + Math.min(st.inv.permit || 0, MAX_PERMITS) + 2 * countOf(st, 'house');
@@ -139,6 +140,10 @@ function migrate3(st, seed) {
 // weeds creep back over ground nobody looks after
 export function normalize(st, seed, now) {
   migrate(st); migrate3(st, seed);
+  if ((st.v || 1) < 4) {   // v4: everyone gets the starter army + supplies once (older islands had none, so Raid seemed broken)
+    for (const [k, n] of Object.entries({ troop_brawler: 6, troop_archer: 4, potion: 2, fuel: 1 })) st.inv[k] = (st.inv[k] || 0) + n;
+    st.v = 4;
+  }
   const w = gen(seed);
   for (const [k, t] of Object.entries(st.tiles)) {
     const back = (t.s === 'c' && now - t.t > regrowMs(+k, seed)) || (t.s === 'p' && !t.c && now - t.t > PLOT_IDLE);
