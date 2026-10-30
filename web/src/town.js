@@ -8,7 +8,7 @@ import { hash } from './island/gen.js';
 import { babble, music, sfx } from './audio.js';
 
 const $ = s => document.querySelector(s);
-const W_ = 2400, H_ = 1600, ST = 240, ROAD = 64, COLS = 10, ROWS = 7, LEG = 15, REST = 0.22, ALL = 3333, LIMIT = 500, LOADS = 4;
+const W_ = 2400, H_ = 1600, ST = 240, ROAD = 64, COLS = 10, ROWS = 7, LEG = 15, REST = 0.22, ALL = 3333, LIMIT = 500, LOADS = 6;
 const cv = document.getElementById('town-cv'), g = cv.getContext('2d');
 let K = null, running = false, raf = 0, last = 0, W = 0, H = 0, DPR = 1, zoom = 2, bg = null, T0 = 0;
 let meP = null, people = new Map(), bubbles = [], chatAfter = 0, beatT = 0, sayQ = '', talkT = 1, follow = null, stayLeft = 0, tap = null, drag = null;

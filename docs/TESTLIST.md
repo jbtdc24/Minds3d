@@ -116,3 +116,15 @@ Tick when it works. Write down anything odd (a screenshot helps).
 - [ ] Lo-fi: lobby + island; lo-fi 2: map + adventures; lo-fi beat: raids; battle music: duels
 - [ ] Sound effects on actions; flying wind, fanfare
 - [ ] Music/SFX sliders work
+
+## 13. Round 8 (run supabase/007_community.sql first)
+- [ ] Lobby title fits; Friends never shows the null error; "Tap where..." message is small
+- [ ] Each mode has its own music, no overlap: lobby, island, town, map, adventure, raid, duel
+- [ ] Minds babble on the island and in town; raids have small squeaks
+- [ ] Friends: type freely, Unfriend, Report. Mail: announcement, take a gift once
+- [ ] Settings: Report a problem, Connect an AI. Admin: Players, Send mail, Reports
+- [ ] Build an Army Camp: more camp space and +1 raid; War Horn in Shop; revenge uses no raid
+- [ ] Sky raiders hit after time away; good defences beat them; revenge works
+- [ ] Tap a Mind or 🧠: give a job, type an order; come back later to "While you were away"
+- [ ] Mind Town: walk, chat, Find my Mind, Town Time after 10 minutes, meet a player
+- [ ] Siege Cup: enter for 5 Gems, 3 tries, leaderboard, payout next day

@@ -37,6 +37,12 @@ RULES FOR NEXT SESSION: (1) test wallet-account paths, guests hide bugs; (2) run
 `npx --yes eslint@8 --no-eslintrc --env browser,es2022,node --parser-options=sourceType:module,ecmaVersion:latest --rule '{"no-undef":"error"}' web/src lib api`
 (3) python patch scripts must assert every replacement (a silent miss cost us all the music); (4) never push with a failing test.
 
+## Round 8 status (2026-10-30): ALL 10 TASKS BELOW BUILT AND SHIPPED. OWNER MUST RUN supabase/007_community.sql (chat text, mail, reports, AI keys, cup, town need it; until then those say "being set up").
+New files: web/src/island/jobs.js (Mind jobs, parseTask), web/src/mindtalk.js (talk panel), web/src/town.js + lib/routes/town.js (Mind Town), lib/raiders.js (sky raiders), lib/routes/agent.js + docs/MIND_API.md (AI players), lib/routes/cup.js (Daily Siege Cup, real players only), lib/routes/mail.js, report.js, lib/feed.js (Town Board).
+Talking to a Mind is a word parser, not a real AI: connecting a real model needs an API key/cost decision from the owner. HelloMinds still has no confirmed public API.
+Not checked yet with real players: town with 2+ people, cup payout day, gibberish and music by ear. Raiders use game-made names and the log does not say they are game-run; Cups must stay real-players-only.
+Later: town owner lookup for tapped Minds, town chat moderation tools, Season Pass.
+
 ## NEXT TASKS — round 8 (owner 2026-10-30) — do top to bottom
 1. [ ] Bugs: lobby title cropped; Friends error "Cannot read properties of null (reading 'player')"; huge "Tap where..." message box; explain/remove unclear messages.
 2. [ ] Music: never overlaps; different music per mode; softer catchy duel song.

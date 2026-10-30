@@ -33,3 +33,8 @@ Level 1: +90 · Level 2: +300 · Level 3: +510. Before this pass raids LOST 140-
 ## Gem packs (ETH on Robinhood Chain)
 50 = 0.002 · 120 = 0.0045 · 300 = 0.01 · 800 = 0.025. The 50 pack is about 1.5 days of farming.
 Prices are in `web/src/gems.js`.
+
+## Round 8 additions
+Mind jobs: 1 round per 30 minutes, 8 hours max away, 10 work slots max. Scout about 160 Dust per shift. Army Camp 800 Dust + 40 wood, +3 space per level, +1 raid.
+War Horn 600 Dust = 1 extra raid. Sky raiders take at most 400 Dust, never Gems. Town Time 40 Dust, 6 a day; meeting a player 20 Dust, 5 a day.
+Siege Cup: 5 Gems entry, 3 tries, 100% to the top 3 (60/30/10). Gems stay in the game: no cash-out without legal advice first.
