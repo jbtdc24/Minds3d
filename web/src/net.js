@@ -60,6 +60,33 @@ export async function watch(topic, onPing) {
   return () => sb.removeChannel(ch);
 }
 
+// tell someone's client to look again. The ping carries nothing: the content always comes from the server.
+export async function ping(topic) {
+  const sb = await realtime();
+  if (!sb) return;
+  const ch = sb.channel(topic);
+  await new Promise(done => { const t = setTimeout(done, 1500); ch.subscribe(s => { if (s === 'SUBSCRIBED') { clearTimeout(t); done(); } }); });
+  try { await ch.send({ type: 'broadcast', event: 'update', payload: {} }); } catch { /* polling catches up */ }
+  sb.removeChannel(ch);
+}
+// a live room: everyone present sees who else is here and where they walk, instantly
+export async function liveRoom(topic, id, me, { onChange, onPing }) {
+  const sb = await realtime();
+  if (!sb || !id) return null;
+  const ch = sb.channel(topic, { config: { presence: { key: id } } });
+  let live = false, mine = me;
+  ch.on('presence', { event: 'sync' }, () => onChange())
+    .on('broadcast', { event: 'update' }, () => onPing());
+  ch.subscribe(s => { live = s === 'SUBSCRIBED'; if (live) ch.track(mine); });
+  return {
+    live: () => live,
+    list: () => Object.values(ch.presenceState()).map(m => m[0]),
+    move: pos => { mine = pos; if (live) ch.track(pos); },
+    ping: () => { if (live) ch.send({ type: 'broadcast', event: 'update', payload: {} }); },
+    leave: () => sb.removeChannel(ch),
+  };
+}
+
 // ---------- local match (practice offline / when the server is unreachable) ----------
 export class LocalMatch {
   constructor({ name, minds, level = 'normal' }) {

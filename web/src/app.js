@@ -5,7 +5,7 @@ import { setStage, setLayout, setQuality, camTo, camSnap, shake, slowmo, flash, 
 import { Fighter, shoot } from './fighter2d.js';
 import { SPELLS, SPELL_INFO, RULES, CARD_VALUES, createMatch, submit, viewFor } from './duel/engine.js';
 import { DATA_VERSION } from './config.js';
-import { api, session, walletLogin, guestLogin, logout, hasWallet, watch, serverOnline, LocalMatch, setTokenIds } from './net.js';
+import { api, session, walletLogin, guestLogin, logout, hasWallet, watch, serverOnline, LocalMatch, setTokenIds, ping } from './net.js';
 import { initAudio, sfx, music, setVolume, babble } from './audio.js';
 import { PHRASES, MATCH_CHAT, FRIEND_CHAT, BOT_REPLIES } from './chat.js';
 import { initMindTalk, openMinds } from './mindtalk.js';
@@ -1042,7 +1042,7 @@ $('#d-phrases').onclick = async e => {
     if (Math.random() < 0.6) { const pool = BOT_REPLIES[phrase <= 3 ? 'greet' : phrase >= 10 && phrase <= 17 ? 'tease' : 'nice']; lines.push({ seat: 1, phrase: pool[(Math.random() * pool.length) | 0], at: new Date(now + 1400).toISOString() }); }
     return showChat(lines, 0, new Date(now).toISOString());
   }
-  try { const r = await api('match/chat', { id: D.id, phrase }); showChat(r.chat, D.v.seat, r.serverTime); }
+  try { const r = await api('match/chat', { id: D.id, phrase }); ping(`match:${D.id}`); showChat(r.chat, D.v.seat, r.serverTime); }
   catch (err) { toast(err.message, true); }
 };
 function showChat(lines, seat, serverTime) {
@@ -1335,10 +1335,10 @@ $('#pf-save').onclick = async () => {
 };
 
 initMindTalk({ minds: () => (guest ? [] : myMinds), esc });
-initTown({ minds: () => (guest ? [] : myMinds), api, esc, toast, online: () => online, go: townGo });
+initTown({ minds: () => (guest ? [] : myMinds), api, esc, toast, online: () => online, go: townGo, me: () => me?.id });
 
 // ---------- friends + friend chat (preset lines) ----------
-let friendsList = [], chatWith = null, frUnwatch = null, frTimer = null;
+let frTick = 0, friendsList = [], chatWith = null, frUnwatch = null, frTimer = null;
 const seenAt = id => settings.seen[id] || 0;
 async function loadFriends() {
   if (!online || guest) { friendsList = []; renderFriends(); return; }
@@ -1394,7 +1394,7 @@ async function sendChat() {
   const box = $('#fr-text'), text = box.value.trim();
   if (!text || !chatWith) return;
   box.value = '';
-  try { await api('messages', { to: chatWith.player.id, text }); sfx('pop'); loadChat(); } catch (err) { box.value = text; toast(err.message, true); }
+  try { const to = chatWith.player.id; await api('messages', { to, text }); ping(`player:${to}`); sfx('pop'); loadChat(); } catch (err) { box.value = text; toast(err.message, true); }
 }
 $('#fr-send').onclick = sendChat;
 $('#fr-text').addEventListener('keydown', e => { if (e.key === 'Enter') sendChat(); });
@@ -1433,13 +1433,13 @@ $('#mail-list').onclick = async e => {
 };
 $('#fr-phrases').onclick = async e => {
   const p = e.target.closest('[data-p]'); if (!p || !chatWith) return;
-  try { await api('messages', { to: chatWith.player.id, phrase: +p.dataset.p }); sfx('pop'); loadChat(); } catch (err) { toast(err.message, true); }
+  try { const to = chatWith.player.id; await api('messages', { to, phrase: +p.dataset.p }); ping(`player:${to}`); sfx('pop'); loadChat(); } catch (err) { toast(err.message, true); }
 };
 async function friendsPoll() {
   if (!online || guest || !me) { renderFriends(); return; }
   loadFriends(); loadMail();
   if (!frUnwatch) frUnwatch = await watch(`player:${me.id}`, () => { loadFriends(); if (chatWith) loadChat(); sfx('notify'); });
-  clearInterval(frTimer); frTimer = setInterval(() => { if (current === 'hub') { loadFriends(); if (chatWith) loadChat(); } }, 25000);
+  clearInterval(frTimer); frTimer = setInterval(() => { if (document.hidden) return; if (chatWith) loadChat(); if (++frTick % 6 === 0 || $('#friends').classList.contains('on')) loadFriends(); }, 4000);
 }
 
 // ---------- rules ----------

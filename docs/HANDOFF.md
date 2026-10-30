@@ -38,7 +38,7 @@ RULES FOR NEXT SESSION: (1) test wallet-account paths, guests hide bugs; (2) run
 (3) python patch scripts must assert every replacement (a silent miss cost us all the music); (4) never push with a failing test.
 
 ## Round 8 status (2026-10-30): ALL 10 TASKS BELOW BUILT AND SHIPPED. OWNER MUST RUN supabase/007_community.sql (chat text, mail, reports, AI keys, cup, town need it; until then those say "being set up").
-Town rebuilt 2026-10-31: top-down harbour map in web/src/town.js (zoom to whole map, 14 resident Minds, real players, tap buildings: Arena, Market, Post Office, Cup Hall, Island Dock). Original map, do not copy a specific game's map.
+Town rebuilt 2026-10-31: web/src/town.js (logic) + townart.js (art). Live via Supabase presence channel town-live; names and chat text always come from the server, pings carry nothing. Friends and duel chat ping + poll every 2.5-4 s. Original map, do not copy a specific game's map.
 New files: web/src/island/jobs.js (Mind jobs, parseTask), web/src/mindtalk.js (talk panel), web/src/town.js + lib/routes/town.js (Mind Town), lib/raiders.js (sky raiders), lib/routes/agent.js + docs/MIND_API.md (AI players), lib/routes/cup.js (Daily Siege Cup, real players only), lib/routes/mail.js, report.js, lib/feed.js (Town Board).
 Talking to a Mind is a word parser, not a real AI: connecting a real model needs an API key/cost decision from the owner. HelloMinds still has no confirmed public API.
 Not checked yet with real players: town with 2+ people, cup payout day, gibberish and music by ear. Raiders use game-made names and the log does not say they are game-run; Cups must stay real-players-only.
