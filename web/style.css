@@ -716,3 +716,9 @@ h3.raid-result { text-align: center; }
 .adv-ab { width: 110px !important; } .adv-ab.used { opacity: .5; } .adv-ab em { font-size: 16px !important; }
 .advbtn { background: #4fae5a; color: #fff; }
 .adv-loot { list-style: none; padding: 0; font-size: 18px; } .adv-loot b { color: #2f9a1a; }
+
+/* raid + adventure live in the tool bar (the top bar ran out of room on phones) */
+.isl-tools .tsep { width: 2px; background: var(--ink); opacity: .2; margin: 4px 2px; }
+.isl-tools button.go { color: #fff; } .isl-tools button.go.adv { background: #4fae5a; } .isl-tools button.go.raid { background: #e0503a; }
+.isl-tools button.go span { color: #fff; }
+@media (max-width: 820px) { .isl-tools button { width: 62px; font-size: 12px; } .isl-tools i { font-size: 20px; height: 24px; line-height: 24px; } }

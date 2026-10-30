@@ -4,7 +4,7 @@
 import { buildRig, GROUND, MID_X } from '../nft2d.js';
 import { rgba, toCanvas, OUTLINE } from './pixel.js';
 
-const F = 5;          // cells per island pixel
+const F = 8;          // cells per island pixel (8 keeps a Mind about door height next to the house)
 const HIPS = 172.5;   // legs start below this cell row (same split as the fighter rig)
 const cache = new Map();
 
