@@ -161,25 +161,6 @@ export function autoAdventure(map, heroKind, potions = 0) {
   }
   return { got, beat, potionsLeft: left };
 }
-// could one hero really have done this in the time? Generous on purpose (a good player always passes), but nobody
-// can claim a boss or a chest they never reached. Returns the reason it fails, or null.
-export function advImpossible(map, got, beat, secs, heroKind, potionsUsed, ko) {
-  const H = HEROES[heroKind] || HEROES.captain, fights = map.monsters.filter(m => beat.includes(m.id));
-  const stops = [...fights, ...map.nodes.filter(n => got.includes(n.id))].map(s => s.k);
-  let at = map.start, walk = 0;
-  const left = new Set(stops);
-  while (left.size) {
-    let best = null, bd = 1e9;
-    for (const k of left) { const d = Math.hypot(kx(k) - kx(at), ky(k) - ky(at)); if (d < bd) { bd = d; best = k; } }
-    walk += bd * T; at = best; left.delete(best);
-  }
-  const fightSecs = fights.reduce((s, m) => s + m.hp / (H.dps * H.ability.mult), 0);
-  if (secs < (walk / H.speed + fightSecs) * 0.7) return 'too fast';
-  const hurt = fights.reduce((s, m) => s + (m.hp / (H.dps * H.ability.mult)) * MONSTERS[m.type].dps * 0.5, 0);
-  const heals = H.hp + potionsUsed * POTION_HEAL + (secs / H.ability.cd + 1) * H.ability.heal;
-  if (!ko && hurt > heals) return 'too strong';
-  return null;
-}
 export function advLoot(map, got = [], beat = []) {
   const out = {}, add = l => { for (const [k, n] of Object.entries(l)) out[k] = (out[k] || 0) + n; };
   const beaten = new Set(beat.filter(id => map.monsters.some(m => m.id === id)));

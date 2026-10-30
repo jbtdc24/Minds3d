@@ -558,7 +558,7 @@ async function launchAdventure(pick) {
     onEnd: async A => {
       let loot = A.bag;
       if (!local) {
-        try { loot = (await api('adventure', { op: 'end', got: A.got, beat: A.beat, ko: A.ko, cover: A.cover, potionsLeft: A.potions })).loot; resetIsland(); }
+        try { const r = await api('adventure', { op: 'end', inputs: A.inputs, end: A.tick }); loot = r.loot; A.ko = r.ko; resetIsland(); }
         catch (e) { toast(e.message, true); loot = {}; }
       } else {
         if (A.ko) loot = Object.fromEntries(Object.entries(loot).map(([k, n]) => [k, Math.floor(n / 2)]));
@@ -1442,6 +1442,11 @@ async function reportBox(kind, who) {
   try { await api('report', { kind, text, target: who?.id, place: current }); toast('Thanks! We got your report.'); } catch (e) { toast(e.message, true); }
 }
 $('#set-report').onclick = () => reportBox('bug');
+$('#set-logout-all').onclick = async () => {
+  if (!online || !session.token) return;
+  if (!(await modal('<h3>Log out everywhere?</h3><p>Every device gets signed out and your AI keys are turned off.</p>', [['Log out everywhere', 1, 'primary'], ['Cancel', 0]]))) return;
+  try { await api('auth/logout-all', {}); logout(); location.reload(); } catch (e) { toast(e.message, true); }
+};
 // ---------- mail: announcements, updates, gifts ----------
 let mailBox = [];
 const mailSeen = () => settings.mailSeen || 0;

@@ -43,6 +43,19 @@ db.insert = async (t, row) => {
 let pass = 0, fail = 0;
 const ok = (cond, msg) => { if (cond) pass++; else { fail++; console.log('FAIL', msg); } };
 
+
+// plays an adventure the way a browser does: taps, then waits; returns what the server should be sent
+const { createAdv, advInput, advStep, advReplay, cleanAdvInputs, MAX_ADV_TICKS, STEP } = await import('../web/src/island/advsim.js');
+function playAdv(map, opts, taps) {
+  const S = createAdv(map, opts), inputs = [];
+  for (const a of taps) {
+    if (S.over) break;
+    inputs.push({ t: S.tick, ...a }); advInput(S, a);
+    for (let i = 0; i < 700 && !S.over && (S.hero.path.length || S.hero.gather || S.hero.target); i++) advStep(S);
+    S.fx.length = 0;
+  }
+  return { S, inputs, end: S.tick };
+}
 // ---- auth ----
 const acct = privateKeyToAccount('0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d');
 const msg = loginMessage(acct.address, 'abc123', 'mindclash.test');
@@ -321,16 +334,19 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   };
   let out = await callAdv({ op: 'start', mind: 49 });
   ok(out.code === 200 && out.body.heroKind === 'captain' && out.body.left === 4, 'trial accounts adventure with a Captain, 5 a day');
-  const m2 = AD.advMap(out.body.seed, out.body.level);
+  T.islands.find(x => x.player_id === hiker.id).state.adv.seed = 4321;
+  const m2 = AD.advMap(4321, out.body.level);
   out = await callAdv({ op: 'end', got: m2.nodes.map(n => n.id), beat: m2.monsters.map(x => x.id) });
-  ok(out.code === 400, 'grabbing everything in 0 seconds is rejected');
-  const isl = T.islands.find(x => x.player_id === hiker.id);
-  isl.state.adv.at = Date.now() - 120e3;
-  const dust0 = isl.state.dust, berry = m2.nodes.filter(n => n.type === 'berry').slice(0, 3).map(n => n.id);
-  out = await callAdv({ op: 'end', got: berry, beat: [], ko: false });
-  const exp = AD.advLoot(m2, berry, []).dust;
-  ok(out.code === 200 && isl.state.dust === dust0 + exp && !isl.state.adv, 'adventure loot is added to the island');
-  out = await callAdv({ op: 'end', got: berry, beat: [] });
+  ok(out.code === 400, 'a list of claimed loot is refused');
+  const isl = T.islands.find(x => x.player_id === hiker.id), o2 = { heroKind: 'captain', potions: 0, gatherLeft: 40, seed: m2.seed };
+  const berries = m2.nodes.filter(n => n.type === 'berry').slice(0, 3), run = playAdv(m2, o2, berries.map(n => ({ node: n.id })));
+  out = await callAdv({ op: 'end', inputs: run.inputs, end: run.end });
+  ok(out.code === 400, 'an adventure cannot finish faster than real time');
+  isl.state.adv.at = Date.now() - 170e3;
+  const dust0 = isl.state.dust, exp = AD.advLoot(m2, run.S.got, run.S.beat).dust || 0;
+  out = await callAdv({ op: 'end', inputs: run.inputs, end: run.end, got: m2.nodes.map(n => n.id), beat: m2.monsters.map(x => x.id) });
+  ok(out.code === 200 && run.S.got.length > 0 && isl.state.dust === dust0 + exp && !isl.state.adv, 'the loot comes from the replay, and extra claims are ignored');
+  out = await callAdv({ op: 'end', inputs: run.inputs, end: run.end });
   ok(out.code === 400, 'an adventure pays out once');
 }
 
@@ -399,9 +415,15 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   isl.state.inv.fuel = 2; isl.state.inv.potion = 3;
   out = await callA({ op: 'start', spot: 4, potions: 9 });
   ok(out.code === 200 && out.body.potions === 3 && !isl.state.inv.potion && isl.state.inv.fuel === 1, 'you bring the potions you have (max 5) and fuel is used');
-  isl.state.adv.at = Date.now() - 100e3;
-  out = await callA({ op: 'end', got: [], beat: [], cover: { tree: 60, weeds: 5 }, potionsLeft: 2 });
-  ok(out.code === 200 && out.body.loot.wood === 3 * 35 && out.body.loot.dust === 5 && isl.state.inv.potion === 2, 'cutting trees on adventures is capped per hour; unused potions come back');
+  const AD2 = await import('../web/src/island/adventure.js'), GN = await import('../web/src/island/gen.js');
+  isl.state.adv.seed = 4322;
+  const adv2 = isl.state.adv, map3 = AD2.advMap(adv2.seed, adv2.level), wg = GN.gen(adv2.seed);
+  adv2.at = Date.now() - 170e3; adv2.gather = 2;
+  const near = [...wg.cover.keys()].filter(k => wg.land[k] && wg.cover[k] === GN.COVER.WEEDS).sort((a, b) => Math.hypot(a % 64 - map3.start % 64, (a / 64 | 0) - (map3.start / 64 | 0)) - Math.hypot(b % 64 - map3.start % 64, (b / 64 | 0) - (map3.start / 64 | 0))).slice(0, 4);
+  const cutRun = playAdv(map3, { heroKind: adv2.heroKind, potions: adv2.potions, gatherLeft: 2, seed: adv2.seed }, near.map(k => ({ cut: k })));
+  const gh0 = isl.state.gh?.n || 0;
+  out = await callA({ op: 'end', inputs: cutRun.inputs, end: cutRun.end });
+  ok(out.code === 200 && isl.state.gh.n === gh0 + 2 && isl.state.inv.potion === 3, 'gathering stops at the hourly limit; unused potions come back');
 }
 
 // ---- admin tools ----
@@ -778,25 +800,36 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   ok(!readSession({ headers: { authorization: 'Bearer ' + good + 'x.y.z' } }), 'a mangled token is refused');
   ok((await hit(admin, X, { op: 'give', pid: X.id, gems: 999 })).code === 403 && (await hit(admin, X, { op: 'ban', pid: V.id })).code === 403, 'players cannot use admin actions');
 
-  // adventures: claims must be physically possible
+  // adventures: the server replays the taps, nothing can be claimed
   const start = async () => { isl(X).state.ad = null; return hit(adventure, X, { op: 'start', spot: 0, potions: 0 }); };
   const boss = m => m.monsters.find(x => AV.MONSTERS[x.type].boss);
   await start();
   let adv = isl(X).state.adv, map = AV.advMap(adv.seed, adv.level), gems0 = isl(X).state.gems;
   adv.at = Date.now() - 8e3;
-  out = await hit(adventure, X, { op: 'end', got: [], beat: [boss(map).id] });
-  ok(out.code === 400 && isl(X).state.gems === gems0, 'nobody beats a boss in 8 seconds for free Gems');
-  ok(T.flags.some(f => f.kind === 'adv_impossible'), 'an impossible adventure reaches the cheat meter');
-  adv = isl(X).state.adv; adv.at = Date.now() - 170e3; adv.level = 4; adv.seed = 777;
-  const hard = AV.advMap(777, 4);
-  out = await hit(adventure, X, { op: 'end', got: hard.nodes.map(n => n.id), beat: hard.monsters.map(m => m.id), potionsLeft: 0 });
-  ok(out.code === 400, 'no hero clears the hardest island without potions');
-  adv = isl(X).state.adv; adv.level = 1; adv.seed = map.seed;
-  adv = isl(X).state.adv; adv.at = Date.now() - 150e3;
-  out = await hit(adventure, X, { op: 'end', got: map.nodes.slice(0, 6).map(n => n.id), beat: [map.monsters.reduce((a, m) => (m.hp < a.hp ? m : a)).id] });
-  ok(out.code === 200, 'a normal adventure still pays');
+  out = await hit(adventure, X, { op: 'end', inputs: [], end: 100, got: [], beat: [boss(map).id], ko: false });
+  ok(out.code === 200 && out.body.beat === 0 && isl(X).state.gems === gems0, 'claiming a boss pays nothing: only the replay counts');
+  await start(); adv = isl(X).state.adv; adv.at = Date.now() - 8e3;
+  out = await hit(adventure, X, { op: 'end', inputs: [], end: 3000 });
+  ok(out.code === 400 && T.flags.some(f => f.kind === 'adv_fast'), 'a run faster than real time is refused and reaches the cheat meter');
+  adv = isl(X).state.adv; adv.at = Date.now() - 175e3; adv.level = 4; adv.seed = 777;
+  const hard = AV.advMap(777, 4), brawl = playAdv(hard, { heroKind: 'captain', potions: 0, gatherLeft: 40, seed: 777 }, hard.monsters.map(m => ({ hit: m.id })));
+  out = await hit(adventure, X, { op: 'end', inputs: brawl.inputs, end: brawl.end });
+  ok(out.code === 200 && out.body.ko === true && out.body.beat < hard.monsters.length, 'fighting everything on the hardest island gets you knocked out');
+  await start(); adv = isl(X).state.adv; adv.at = Date.now() - 170e3; adv.seed = 4323; map = AV.advMap(adv.seed, adv.level);
+  const fair = playAdv(map, { heroKind: 'captain', potions: 0, gatherLeft: 40, seed: adv.seed }, map.nodes.filter(n => n.type !== 'chest' && n.type !== 'bigchest').slice(0, 4).map(n => ({ node: n.id })));
+  out = await hit(adventure, X, { op: 'end', inputs: fair.inputs, end: fair.end });
+  ok(out.code === 200 && out.body.gathered === fair.S.got.length && fair.S.got.length > 0, 'a normal adventure still pays');
+  const opt = { heroKind: 'captain', potions: 1, gatherLeft: 40, seed: 777 }, tapsA = [{ t: 5, go: 900 }, { t: 40, potion: 1 }, { t: 90, hit: hard.monsters[0].id }];
+  const r1 = advReplay(hard, opt, tapsA), r2 = advReplay(hard, opt, tapsA);
+  ok(r1.hero.hp === r2.hero.hp && r1.tick === r2.tick && JSON.stringify(r1.beat) === JSON.stringify(r2.beat) && r1.rng === r2.rng, 'the same taps always give the same result');
+  ok(cleanAdvInputs([null, 'x', { t: -1, go: 1 }, { t: 1.5, go: 1 }, { t: 2, go: 'a' }, { t: 3, hit: 1 }, { t: 1, potion: true }]).length === 2, 'broken taps are thrown away');
+  ok(cleanAdvInputs(new Array(5000).fill({ t: 1, go: 1 })).length === 1500, 'a trip cannot carry endless taps');
+  const noPot = advReplay(hard, { ...opt, potions: 0 }, [{ t: 0, potion: 1 }]);
+  ok(noPot.potions === 0, 'potions you did not bring cannot be drunk');
+  const dup = advReplay(map, { heroKind: 'captain', potions: 0, gatherLeft: 40, seed: adv?.seed ?? 1 }, []);
+  ok(dup.tick === MAX_ADV_TICKS && !dup.got.length, 'a trip stops at the time limit');
   await start(); adv = isl(X).state.adv; adv.at = Date.now() - 90e3;
-  ok((await Promise.all([hit(adventure, X, { op: 'end', got: [], beat: [] }), hit(adventure, X, { op: 'end', got: [], beat: [] })])).filter(r => r.code === 200).length === 1, 'an adventure can only be finished once');
+  ok((await Promise.all([hit(adventure, X, { op: 'end', inputs: [], end: 10 }), hit(adventure, X, { op: 'end', inputs: [], end: 10 })])).filter(r => r.code === 200).length === 1, 'an adventure can only be finished once');
 
   // raids: one attack, one payout
   const mc = chain.client.multicall;
@@ -978,7 +1011,14 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   ok((await hit(chatCert, Ann, { pub: { x: '<script>', y: '1' } })).code === 400, 'a bad chat key is refused');
   const gst = await db.insert('players', { name: 'Gst', is_guest: true });
   const gc = await hit(chatCert, gst, { pub: { x: 'a'.repeat(43), y: 'b'.repeat(43) } });
-  ok(gc.code === 200 && !gc.body.cert && gc.body.ck.x === chatServerKey().x, 'trial accounts can read live chat but get no speaking certificate');
+  ok(gc.code === 200 && JSON.parse(gc.body.cert.body).guest && gc.body.ck.x === chatServerKey().x, 'trial accounts get a marked certificate');
+  const sG = signer(gst); await sG.ready();
+  ok(!(await sB2.open('town-live', await sG.seal('town-live', { text: 'free chat' }))), 'a trial account cannot speak in live chat');
+  const pos = await sG.seal('town-pos', { x: 5, y: 6, mind: 1 });
+  ok((await sB2.open('town-pos', pos, true))?.pid === gst.id && (await sB2.open('town-pos', pos, true))?.pid === gst.id, 'a signed position opens, even when sent again');
+  ok(!(await sB2.open('town-pos', { ...pos, body: { x: 900, y: 900, mind: 1 } }, true)), 'a changed position is refused');
+  ok(!(await sB2.open('town-live', pos, true)), 'a position cannot be moved to another room');
+  ok(!(await sB2.open('town-pos', { ...(await sE.seal('town-pos', { x: 1, y: 1 })), cert: pos.cert }, true)), "nobody can move someone else's character");
 
   // bot names
   const { villageName } = await import('../web/src/island/raid.js');
@@ -1106,6 +1146,52 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   const unsafe = client.flatMap(f => fs.readFileSync(f, 'utf8').split('\n').filter(l => /(innerHTML|insertAdjacentHTML|modal\(|tag\()/.test(l) && /\$\{[^}]*\b(\w+\.name|\.text|\.title|\.body|\.by|\.reason|\.message)\b[^}]*\}/.test(l.replace(/esc\([^)]*\)/g, '').replace(/\bd\.name\b|\bg\.name\b|\bab\.name\b|\bpk\.name\b|\bs\.name\b|\bsh\.name\b|\bCROPS\[[^\]]*\]\.name\b|TROOPS\[[^\]]*\]\.name\b|BUILD\[[^\]]*\]\.name\b/g, ''))));
   if (unsafe.length) console.log(unsafe.slice(0, 6).map(l => l.trim().slice(0, 150)).join('\n'));
   ok(!unsafe.length, 'player text is always escaped before it reaches the page');
+}
+
+// ---- launch audit: cup dice, Dust ceiling, login, sessions ----
+{
+  const R = await import('../web/src/island/rules.js'), RD = await import('../web/src/island/raid.js'), chain = await import('../lib/chain.js');
+  const rt = n => import(`../lib/routes/${n}.js`).then(m => m.default);
+  const [nonce, verify, raid, island, logoutAll, agent] = await Promise.all(['auth_nonce', 'auth_verify', 'raid', 'island', 'logout_all', 'agent'].map(rt));
+  const { agentKeys } = await import('../lib/routes/agent.js'), adm = await import('../lib/admin.js');
+  const raw = async (fn, { body, tok, host = 'mindsclash.test', ip = '3.3.3.3' }) => { let o = null; const res = { setHeader() {}, end(t) { o = { code: this.statusCode, body: JSON.parse(t) }; }, headersSent: false }; await fn({ method: 'POST', url: '/api/x', headers: { host, 'x-forwarded-for': ip, ...(tok ? { authorization: 'Bearer ' + tok } : {}) }, body, query: {} }, res); return o; };
+  // the secret roll
+  const base = RD.botVillage(4242, 3), army = { troops: { brawler: 6, archer: 5, bomber: 2, giant: 1 }, hero: 'captain' }, plan = RD.autoPlan(base, army);
+  const open = RD.replay(base, army, plan), a = RD.replay({ ...base, noise: 11 }, army, plan), b = RD.replay({ ...base, noise: 77 }, army, plan);
+  const hp = r => JSON.stringify(r.S.structs.map(x => Math.round(x.hp)));
+  ok(hp(a) !== hp(open) && hp(a) !== hp(b), 'the secret roll changes the fight, so a rehearsal cannot predict it');
+  ok(!('noise' in RD.publicSnap({ ...base, noise: 5 })), 'the secret roll never reaches the browser');
+  ok(hp(RD.replay({ ...base, noise: 11 }, army, plan)) === hp(a), 'the server gets the same result every time');
+  // login
+  const wallet = privateKeyToAccount('0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6');
+  T.nonces.length = 0;
+  const m1 = (await raw(nonce, { body: { address: wallet.address } })).body.message, m2 = (await raw(nonce, { body: { address: wallet.address }, ip: '6.6.6.6' })).body.message;
+  ok(m1 === m2, 'a stranger asking again cannot knock out your login');
+  const sig = await wallet.signMessage({ message: m1 }), other = privateKeyToAccount('0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a'), badSig = await other.signMessage({ message: m1 });
+  ok((await raw(verify, { body: { address: wallet.address, signature: badSig }, ip: '6.6.6.6' })).code === 401, 'a wrong signature is refused');
+  const good = await raw(verify, { body: { address: wallet.address, signature: sig } });
+  ok(good.code === 200, "a stranger's bad try does not cancel your login");
+  const rpc = db.rpc; db.rpc = async (f, a2) => !String(a2?.k).startsWith('login:');
+  ok((await raw(verify, { body: { address: wallet.address, signature: sig } })).code === 429, 'too many tries on one wallet are stopped from any address');
+  db.rpc = rpc;
+  // log out everywhere
+  const pid = good.body.player.id, tok = good.body.token, p = T.players.find(x => x.id === pid);
+  const st = R.newIsland(60, Date.now()); T.islands.push({ player_id: pid, seed: 60, state: st, minds: 0, minds_at: new Date().toISOString(), rev: 0, updated_at: new Date().toISOString() });
+  const key = (await raw(agentKeys, { body: { op: 'new' }, tok })).body.key;
+  adm.forgetBan(pid);
+  ok((await raw(island, { body: { acts: [] }, tok })).code === 200, 'a session works before logging out');
+  await new Promise(r => setTimeout(r, 5));
+  ok((await raw(logoutAll, { body: {}, tok })).code === 200 && p.sessions_after, 'log out everywhere is recorded');
+  ok((await raw(island, { body: { acts: [] }, tok })).code === 401, 'old sessions stop working at once');
+  ok((await raw(agent, { body: { op: 'state' }, tok: key })).code === 401, 'log out everywhere also turns off AI keys');
+  await new Promise(r => setTimeout(r, 5));
+  ok((await raw(island, { body: { acts: [] }, tok: signSession({ id: pid, address: p.address }) })).code === 200, 'a new login works afterwards');
+  // an older database without the new column keeps enforcing bans
+  const one = db.one; let tried = 0;
+  db.one = async (t, q) => { if (t === 'players' && q.includes('sessions_after')) { tried++; throw Object.assign(new Error('x'), { body: '42703' }); } return one(t, q); };
+  p.banned_until = '2999-01-01T00:00:00Z'; adm.forgetBan(pid);
+  ok((await raw(island, { body: { acts: [] }, tok: signSession({ id: pid, address: p.address }) })).code === 403 && tried === 1, 'bans still work before the new database column exists');
+  db.one = one; p.banned_until = null; adm.forgetBan(pid);
 }
 console.log(`
 ${pass} passed, ${fail} failed`);

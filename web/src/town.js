@@ -12,7 +12,7 @@ const $ = s => document.querySelector(s), PEOPLE_N = 14;
 const TW = 100, TH = 65, WW = TW * T, WH = TH * T, RESIDENTS = PEOPLE_N, WALK = 72, LOADS = 3;
 const cv = document.getElementById('town-cv'), g = cv.getContext('2d');
 let K = null, running = false, raf = 0, last = 0, W = 0, H = 0, DPR = 1, zoom = 1.3, map = null;
-let frames = [], room = null, roster = new Map(), rosterAt = 0, chatPing = 0;
+let frames = [], room = null, chatPing = 0;
 let meP = null, people = new Map(), bubbles = [], chatAfter = 0, sayQ = '', talkT = 1, stayLeft = 0, loads = 0, free = false;
 const ptrs = new Map(), CAM = { x: WW / 2, y: WH / 2 }, looks = new Map();
 let tap = null, pinch = null;
@@ -230,8 +230,7 @@ async function beat() {
   try {
     const r = await K.api('town', { x: meP.x | 0, y: meP.y | 0, mind: meP.mind, say, after: chatAfter });
     if (say) room?.ping();
-    room?.move(myPos());
-    roster = new Map(r.people.map(o => [o.id, o.name])); rosterAt = Date.now();
+    sendPos();
     if (!room?.live()) {   // no live link: fall back to what the server saw
       const ids = new Set(r.people.map(o => o.id));
       for (const k of people.keys()) if (!ids.has(k)) people.delete(k);
@@ -274,24 +273,24 @@ async function onSay(signed) {
 const acted = () => { actedAt = Date.now(); };
 function walkTo(o, x, y) { if (o.goX === x && o.goY === y) return; o.goX = x; o.goY = y; o.path = pathTo(o.x, o.y, x, y); o.tx = x; o.ty = y; }
 // who is in the room right now. Names come from the server list, so nobody can fake one.
-function syncRoom() {
-  const list = room?.list() || [];
-  const ids = new Set(list.map(o => o.id));
-  for (const k of people.keys()) if (!ids.has(k)) people.delete(k);
-  let unknown = false;
-  for (const o of list) {
-    const name = roster.get(o.id);
-    if (o.id === K.me()) continue;
-    if (!name) { unknown = true; continue; }
-    const q = people.get(o.id);
-    if (q) { q.mind = o.mind; walkTo(q, o.gx ?? o.x, o.gy ?? o.y); } else people.set(o.id, { id: o.id, name, mind: o.mind, x: o.x, y: o.y, tx: o.x, ty: o.y });
+async function syncRoom() {
+  const mine = ++syncs, list = room?.list() || [], ok = new Set();
+  for (const [key, signed] of list) {
+    const m = await K.chat.open('town-pos', signed, true);   // positions are signed too: nobody can move someone else
+    if (mine !== syncs) return;                              // a newer update arrived
+    if (!m || m.pid !== key || m.pid === K.me()) continue;
+    ok.add(m.pid);
+    const pos = m.body, q = people.get(m.pid), x = pos.gx ?? pos.x, y = pos.gy ?? pos.y;
+    if (![x, y, pos.x, pos.y].every(Number.isFinite)) continue;
+    if (q) { q.mind = pos.mind; walkTo(q, x, y); } else people.set(m.pid, { id: m.pid, name: m.name, mind: pos.mind, x: pos.x, y: pos.y, tx: pos.x, ty: pos.y });
   }
-  if (unknown && Date.now() - rosterAt > 1500) { rosterAt = Date.now(); beat(); }
+  for (const k of people.keys()) if (!ok.has(k)) people.delete(k);
 }
-const myPos = () => ({ id: K.me(), mind: meP.mind, x: meP.x | 0, y: meP.y | 0, gx: (meP.path?.at(-1)?.x ?? meP.x) | 0, gy: (meP.path?.at(-1)?.y ?? meP.y) | 0 });
-let visit = 0;
+const myPos = () => ({ mind: meP.mind, x: meP.x | 0, y: meP.y | 0, gx: (meP.path?.at(-1)?.x ?? meP.x) | 0, gy: (meP.path?.at(-1)?.y ?? meP.y) | 0 });
+const sendPos = () => K.chat.seal('town-pos', myPos()).then(m => { if (m) room?.move(m); });
+let visit = 0, syncs = 0;
 async function joinRoom() {
-  const mine = ++visit, joined = await liveRoom('town-live', K.me(), myPos(), { onChange: syncRoom, onPing: () => { clearTimeout(chatPing); chatPing = setTimeout(beat, 150 + Math.random() * 400); }, onSay });
+  const mine = ++visit, first = await K.chat.seal('town-pos', myPos()), joined = await liveRoom('town-live', K.me(), first, { onChange: syncRoom, onPing: () => { clearTimeout(chatPing); chatPing = setTimeout(beat, 150 + Math.random() * 400); }, onSay });
   if (mine === visit && running) room = joined; else joined?.leave();   // left town while it was connecting
 }
 function paintStay() { $('#town-stay').textContent = !stayLeft ? '' : Date.now() - actedAt < 120e3 ? `⏳ Town Time in ${Math.ceil(stayLeft / 60e3)} min` : '💤 Walk or chat to earn Town Time'; }
@@ -318,7 +317,7 @@ const release = e => {
   const d = b ? map.doors[b.name] : null;
   meP.path = pathTo(meP.x, meP.y, d ? d.x * T + 8 : w.x, d ? d.y * T + 10 : w.y);
   meP.arrive = b?.go || null;
-  room?.move(myPos()); acted(); paintStay();
+  sendPos(); acted(); paintStay();
   if (b?.go) sfx('select');
   if (b?.go && !meP.path.length) { meP.arrive = null; K.go(b.go); }
 };

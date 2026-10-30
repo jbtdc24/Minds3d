@@ -21,19 +21,22 @@ export function chatSigner(api, now = () => Date.now()) {
     return !!cert;
   }
   async function seal(topic, body) {
-    if (!(await ready().catch(() => false))) return null;
+    if (!(await ready().catch(() => false))) return null;   // no certificate, no live line: the server's copy still arrives
     const ts = now(), n = b64(crypto.getRandomValues(new Uint8Array(9)));
     return { cert, ts, n, body, sig: b64(await crypto.subtle.sign(SIG, pair.privateKey, line(topic, ts, n, body))) };
   }
-  // returns { pid, name, body } for a genuine, fresh, first-seen line; otherwise null
-  async function open(topic, m) {
+  // returns { pid, name, guest, body } for a genuine, fresh, first-seen line; otherwise null.
+  // presence: a position, which is sent again and again, so seeing it twice is fine; trial accounts may walk but not speak
+  async function open(topic, m, presence = false) {
     try {
-      if (now() - windowAt > 1000) { windowAt = now(); windowN = 0; }
-      if (++windowN > MAX_PER_SEC) return null;     // a flood is dropped, the server's copy still arrives
+      if (!presence) {
+        if (now() - windowAt > 1000) { windowAt = now(); windowN = 0; }
+        if (++windowN > MAX_PER_SEC) return null;     // a flood is dropped, the server's copy still arrives
+      }
       if (!serverKey) await ready();
       if (!m?.cert?.body || !m.cert.sig || !m.sig || typeof m.n !== 'string' || Math.abs(now() - m.ts) > MAX_AGE) return null;
       const id = `${topic}|${m.n}`;
-      if (seen.has(id)) return null;
+      if (!presence && seen.has(id)) return null;
       let who = known.get(m.cert.sig);
       if (!who) {
         if (!(await crypto.subtle.verify(SIG, serverKey, unb64(m.cert.sig), enc.encode(m.cert.body)))) return null;
@@ -41,8 +44,9 @@ export function chatSigner(api, now = () => Date.now()) {
         who.key = await crypto.subtle.importKey('jwk', { kty: 'EC', crv: 'P-256', x: who.x, y: who.y }, ALG, false, ['verify']);
         known.set(m.cert.sig, who);
       }
-      if (who.exp < now()) return null;
+      if (who.exp < now() || (who.guest && !presence)) return null;
       if (!(await crypto.subtle.verify(SIG, who.key, unb64(m.sig), line(topic, m.ts, m.n, m.body)))) return null;
+      if (presence) return { pid: who.pid, name: who.name, guest: !!who.guest, body: m.body };
       seen.set(id, now());
       for (const [k, at] of seen) if (now() - at > MAX_AGE * 2) seen.delete(k); else break;
       return { pid: who.pid, name: who.name, body: m.body };

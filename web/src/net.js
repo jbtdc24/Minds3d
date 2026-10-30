@@ -80,10 +80,10 @@ export async function liveRoom(topic, id, me, { onChange, onPing, onSay }) {
   ch.on('presence', { event: 'sync' }, () => onChange())
     .on('broadcast', { event: 'update' }, () => onPing())
     .on('broadcast', { event: 'say' }, m => onSay(m.payload || {}));
-  ch.subscribe(s => { live = s === 'SUBSCRIBED'; if (live) ch.track(mine); });
+  ch.subscribe(s => { live = s === 'SUBSCRIBED'; if (live && mine) ch.track(mine); });
   return {
     live: () => live,
-    list: () => Object.values(ch.presenceState()).map(m => m[0]),
+    list: () => Object.entries(ch.presenceState()).map(([key, m]) => [key, m[0]]),
     move: pos => { mine = pos; if (live) ch.track(pos); },
     ping: () => { if (live) ch.send({ type: 'broadcast', event: 'update', payload: {} }); },
     say: signed => { if (live) ch.send({ type: 'broadcast', event: 'say', payload: signed }); },

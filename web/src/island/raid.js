@@ -60,11 +60,11 @@ export function snapshotOf(seed, st, guards = 2, extra = {}) {
 }
 
 // what the raider's browser gets: hidden traps stay on the server, which replays the real snapshot
-export const publicSnap = s => ({ ...s, b: s.b.filter(x => x.type !== 'trap') });
+export const publicSnap = ({ noise, ...s }) => ({ ...s, b: s.b.filter(x => x.type !== 'trap') });
 // army: { troops: {...}, hero: 'hero' | 'captain' }
 export function createRaid(snap, army = {}) {
   const w = gen(snap.seed), st = { tiles: snap.tiles, b: snap.b };
-  const S = { tick: 0, over: false, w, snap, structs: [], traps: [], units: [], fx: [], spellsUsed: {}, left: { ...DEFAULT_ARMY, ...(army.troops || {}) }, heroKind: army.hero === 'hero' ? 'hero' : 'captain', heroOut: false, cried: false, anyDrop: false };
+  const S = { nz: snap.noise || 0, tick: 0, over: false, w, snap, structs: [], traps: [], units: [], fx: [], spellsUsed: {}, left: { ...DEFAULT_ARMY, ...(army.troops || {}) }, heroKind: army.hero === 'hero' ? 'hero' : 'captain', heroOut: false, cried: false, anyDrop: false };
   // the home always comes first (stars count it); older snapshots have it at the generated spot
   const homeB = snap.b.find(b => b.type === 'home');
   const home = [];
@@ -178,6 +178,7 @@ function damage(S, s, n) {
   }
 }
 function hurt(S, u, n, from) {
+  if (S.nz) { S.nz = (Math.imul(S.nz, 1664525) + 1013904223) >>> 0; n *= 0.85 + (S.nz / 4294967296) * 0.3; }   // cups: a secret roll, so a rehearsal cannot predict the fight
   if (u.dead) return;
   u.hp -= n; u.hit = 3;
   if (from === 'arrow' || from === 'trap') S.fx.push({ e: 'dmg', x: u.x, y: u.y - 20, n: Math.round(n) });
