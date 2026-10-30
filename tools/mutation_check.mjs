@@ -51,7 +51,7 @@ for (const [name, file, from, to] of M) {
   if (!src.includes(from)) { console.log('SKIPPED (text not found)', name); missed++; continue; }
   writeFileSync(p, src.replace(from, to));
   const r = run();
-  const caught = r.fails > 0;   // a crash is not a catch: a named test must fail
+  const caught = r.fails > 0 || r.first.startsWith('FAIL');   // a bare crash is not a catch: a named test must fail
   if (!caught) missed++;
   console.log(caught ? 'CAUGHT' : 'MISSED', name, '→', r.first.slice(0, 80));
   writeFileSync(p, src);
