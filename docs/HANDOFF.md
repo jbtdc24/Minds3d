@@ -28,7 +28,15 @@ Owner: Mindclash game owner. Hates long text: short replies, decide for them, bu
 - Economy: Dust ✨, Gems 💎 (st.gems, server-only; Ogres drop 2), Shop tabs Seeds/Army/Supplies/Gems/Sell/Land (SHOP + RECIPES in rules.js).
 - Audio: web/src/audio.js synth (SFX + songs menu/battle/title/raid/adventure).
 
-## NEXT TASKS (in order)
+## NEXT TASKS (in order) — round 5 (owner 2026-10-30)
+A. [ ] Admin/dev tools only the owner can use: server checks ADMIN_ADDRESSES (Vercel env, comma list of wallets) — not in the repo.
+   Hidden admin screen (open with a secret code in Settings): give Dust/Gems/items, ban / suspend / unsuspend, player lookup,
+   cheat meter (flags table: suspicious adventure/raid submits, rate-limit hits). Needs supabase/005_admin.sql (owner runs).
+B. [ ] Home island: remove the plank bridges; each islet gets a portal, main island has a portal; Minds teleport between them.
+C. [ ] World map in detailed PIXEL ART like the refs (pixel buffer scaled up): different biome/boss islands (volcano with lava +
+   smoke, crystal, ice, giant mushroom, ruins/portal, dragon nest), baked shadows on clouds, particles (smoke, sparkles, birds, wind).
+D. [ ] Same treatment for the island/raid/adventure scenes: cinematic light, baked shadows, wind, particles.
+(older list below)
 1. [DONE 2026-10-30] World map screen (web/src/island/worldmap.js, #s-map): 12 SPOTS + home, airships SHIPS (adventure.js) /
    SHIP_COSTS + act 'ship' (rules.js), server checks ship tier + fuel. Possible polish: richer island art (bigger undersides,
    mushrooms/portals like the refs), zoom buttons, show which islands you've beaten.
