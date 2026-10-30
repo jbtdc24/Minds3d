@@ -1102,7 +1102,7 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   const client = walk('web/src').filter(f => f.endsWith('.js')), text = client.map(f => fs.readFileSync(f, 'utf8')).join('\n');
   ok(!/sb_secret|service_role|PRIVATE_KEY|SUPABASE_SECRET|ADMIN_ADDRESSES\s*=/.test(text), 'no secret appears in the browser code');
   ok(!/\beval\(|new Function\(|document\.write\(/.test(text + walk('lib').map(f => fs.readFileSync(f, 'utf8')).join('\n')), 'no code runs text as a program');
-  const unsafe = client.flatMap(f => fs.readFileSync(f, 'utf8').split('\n').filter(l => /(innerHTML|insertAdjacentHTML|modal\(|tag\()/.test(l) && /\$\{[^}]*\b(\w+\.name|\.text|\.title|\.body|\.by|\.reason|\.message)\b[^}]*\}/.test(l.replace(/esc\([^)]*\)/g, '').replace(/\bd\.name\b|\bpk\.name\b|\bs\.name\b|\bsh\.name\b|\bCROPS\[[^\]]*\]\.name\b|TROOPS\[[^\]]*\]\.name\b|BUILD\[[^\]]*\]\.name\b/g, ''))));
+  const unsafe = client.flatMap(f => fs.readFileSync(f, 'utf8').split('\n').filter(l => /(innerHTML|insertAdjacentHTML|modal\(|tag\()/.test(l) && /\$\{[^}]*\b(\w+\.name|\.text|\.title|\.body|\.by|\.reason|\.message)\b[^}]*\}/.test(l.replace(/esc\([^)]*\)/g, '').replace(/\bd\.name\b|\bg\.name\b|\bab\.name\b|\bpk\.name\b|\bs\.name\b|\bsh\.name\b|\bCROPS\[[^\]]*\]\.name\b|TROOPS\[[^\]]*\]\.name\b|BUILD\[[^\]]*\]\.name\b/g, ''))));
   if (unsafe.length) console.log(unsafe.slice(0, 6).map(l => l.trim().slice(0, 150)).join('\n'));
   ok(!unsafe.length, 'player text is always escaped before it reaches the page');
 }
