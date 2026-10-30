@@ -13,7 +13,7 @@ const TW = 100, TH = 65, WW = TW * T, WH = TH * T, RESIDENTS = 14, WALK = 72, LO
 const cv = document.getElementById('town-cv'), g = cv.getContext('2d');
 let K = null, running = false, raf = 0, last = 0, W = 0, H = 0, DPR = 1, zoom = 1.3, map = null;
 let frames = [], room = null, roster = new Map(), rosterAt = 0, chatPing = 0;
-let meP = null, people = new Map(), bubbles = [], chatAfter = 0, beatT = 0, sayQ = '', talkT = 1, stayLeft = 0, loads = 0, free = false;
+let meP = null, people = new Map(), bubbles = [], chatAfter = 0, sayQ = '', talkT = 1, stayLeft = 0, loads = 0, free = false;
 const ptrs = new Map(), CAM = { x: WW / 2, y: WH / 2 }, looks = new Map();
 let tap = null, pinch = null;
 const key = (x, y) => y * TW + x;
@@ -197,16 +197,18 @@ function frame(tMs) {
     label(b.text, p.x, p.y - 38, '#2b2340', 'rgba(255,248,228,.96)');
   }
   bubbles = bubbles.filter(b => b.life > 0);
-  beatT -= dt;
-  if (beatT <= 0 && !document.hidden) { beatT = 10; beat(); }
 }
 function resize() {
   W = innerWidth; H = innerHeight; DPR = Math.min(2, devicePixelRatio || 1);
   cv.width = W * DPR; cv.height = H * DPR; setZoom(zoom);
 }
+let beating = false, again = false, beatTimer = 0;
+// runs on its own timer, not the drawing loop, so an AFK player in a background tab stays in town and keeps earning
 async function beat() {
+  if (beating) { again = true; return; }
   if (!K.online()) { $('#town-count').textContent = 'Offline: only you here'; return; }
   const say = sayQ; sayQ = '';
+  beating = true;
   try {
     const r = await K.api('town', { x: meP.x | 0, y: meP.y | 0, mind: meP.mind, say, after: chatAfter });
     if (say) room?.ping();
@@ -229,6 +231,8 @@ async function beat() {
     const f = $('#town-feed'); while (f.children.length > 40) f.firstChild.remove(); f.scrollTop = 1e9;
     if (r.got) { sfx('coin'); K.toast(r.got.kind === 'time' ? `Town Time! +${r.got.dust} ✨ (${r.got.n}/6 today)` : `You met ${r.got.who}! +${r.got.dust} ✨`); }
   } catch { $('#town-count').textContent = 'Reconnecting…'; }
+  beating = false;
+  if (again) { again = false; beat(); }
 }
 let counts = { here: 1, online: 0 };
 const paintCount = () => { $('#town-count').textContent = `🟢 ${counts.here} here${counts.online ? ` · ${counts.online} online` : ''}`; };
@@ -247,11 +251,11 @@ function syncRoom() {
     if (q) { q.mind = o.mind; walkTo(q, o.gx ?? o.x, o.gy ?? o.y); } else people.set(o.id, { id: o.id, name, mind: o.mind, x: o.x, y: o.y, tx: o.x, ty: o.y });
   }
   counts.here = people.size + 1; paintCount();
-  if (unknown && Date.now() - rosterAt > 1500) { rosterAt = Date.now(); beatT = 0; }
+  if (unknown && Date.now() - rosterAt > 1500) { rosterAt = Date.now(); beat(); }
 }
 const myPos = () => ({ id: K.me(), mind: meP.mind, x: meP.x | 0, y: meP.y | 0, gx: (meP.path?.at(-1)?.x ?? meP.x) | 0, gy: (meP.path?.at(-1)?.y ?? meP.y) | 0 });
 async function joinRoom() {
-  room = await liveRoom('town-live', K.me(), myPos(), { onChange: syncRoom, onPing: () => { clearTimeout(chatPing); chatPing = setTimeout(() => { beatT = 0; }, 150 + Math.random() * 400); } });
+  room = await liveRoom('town-live', K.me(), myPos(), { onChange: syncRoom, onPing: () => { clearTimeout(chatPing); chatPing = setTimeout(beat, 150 + Math.random() * 400); } });
 }
 function paintStay() { $('#town-stay').textContent = stayLeft ? `⏳ Town Time in ${Math.ceil(stayLeft / 60e3)} min` : ''; }
 const toWorld = (cx, cy) => ({ x: CAM.x + (cx - W / 2) / zoom, y: CAM.y + (cy - H / 2) / zoom });
@@ -301,8 +305,9 @@ export function openTown() {
   if (!map) { map = buildMap(); frames = [paintGround(0), paintGround(1)]; buildLoop(); }
   meP ||= { x: 50 * T, y: 38 * T, mind: 49, dir: 1, path: [] };
   meP.mind = K.minds()[0] || 49; meP.path = []; meP.arrive = null; free = false; chatAfter = 0; $('#town-feed').innerHTML = ''; people.clear();
-  CAM.x = meP.x; CAM.y = meP.y; beatT = 0.3; zoom = 1.3;
-  resize(); music('town'); joinRoom();
+  CAM.x = meP.x; CAM.y = meP.y; zoom = 1.3;
+  resize(); music('town'); joinRoom(); beat();
+  clearInterval(beatTimer); beatTimer = setInterval(beat, 10000);
   if (!running) { running = true; last = performance.now(); raf = requestAnimationFrame(frame); }
 }
-export function closeTown() { running = false; cancelAnimationFrame(raf); room?.leave(); room = null; }
+export function closeTown() { clearInterval(beatTimer); running = false; cancelAnimationFrame(raf); room?.leave(); room = null; }
