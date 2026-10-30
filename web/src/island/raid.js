@@ -335,6 +335,8 @@ export function lootOf(dust, barns, pct, share = LOOT_SHARE) {
 }
 // raids per day: 6 for everyone, +1 per Mind owned (max +3)
 export const raidsPerDay = minds => 6 + Math.min(3, minds | 0);
+export const RAID_FEE_PER_SPACE = 5;                                   // supplies: 5 Dust per camp space you bring
+export const raidFee = troops => RAID_FEE_PER_SPACE * armyUsed(troops || {});
 
 // ---------- villages run by the game, shown like any other player's island ----------
 const NAME_A = ['luna', 'kai', 'mika', 'theo', 'nova', 'riko', 'jules', 'ash', 'noah', 'yuki', 'zane', 'ivy', 'leo', 'sora', 'max', 'mila', 'ren', 'eli', 'aria', 'finn', 'jade', 'omar', 'lia', 'dex', 'nico', 'bea', 'kenji', 'sam', 'tara', 'axel', 'remy', 'cleo', 'hugo', 'pia', 'ezra', 'mara', 'arlo', 'nia', 'otto', 'vera'];

@@ -772,3 +772,4 @@ h3.raid-result { text-align: center; }
 .gem-packs { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin: 8px 0; }
 .gem-pack { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px; background: linear-gradient(180deg, #f3ecff, #dccdff); box-shadow: 0 0 0 2px var(--ink); text-align: center; }
 .gem-pack b { font-size: 26px; } .gem-pack em { font-style: normal; font-weight: 900; font-size: 18px; color: #6a3cff; } .gem-pack small { color: #c43c8a; font-weight: 800; } .gem-pack strong { font-size: 13px; }
+.army-facts { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 14px; margin-bottom: 4px; }

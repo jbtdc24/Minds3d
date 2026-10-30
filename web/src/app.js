@@ -11,7 +11,7 @@ import { PHRASES, MATCH_CHAT, FRIEND_CHAT, BOT_REPLIES } from './chat.js';
 import { capOf, ENERGY_CAP } from './energy.js';
 import { openIsland, closeIsland, refreshHud, cropImg, fmtTime } from './island/island.js';
 import { openRaid, closeRaid } from './island/raidview.js';
-import { botVillage, armyCap, cleanArmy, armyUsed, TROOPS, DEFAULT_ARMY } from './island/raid.js';
+import { botVillage, armyCap, cleanArmy, armyUsed, TROOPS, DEFAULT_ARMY, raidsPerDay, raidFee } from './island/raid.js';
 import { troopIcon } from './island/troops.js';
 import { openAdventure, closeAdventure } from './island/advview.js';
 import { AREAS, POTIONS_MAX, SPOTS, SHIPS, spotLevel } from './island/adventure.js';
@@ -26,6 +26,8 @@ import { hashStr } from './island/gen.js';
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
 const wait = ms => new Promise(r => setTimeout(r, ms / speedSetting));
+addEventListener('unhandledrejection', e => { const m = e.reason?.message || String(e.reason || ''); if (m && !/abort|cancel/i.test(m)) try { toast(`⚠ ${m}`, true); } catch { /* toast not ready */ } });
+addEventListener('error', e => { if (e.message && !/ResizeObserver|Script error/.test(e.message)) try { toast(`⚠ ${e.message}`, true); } catch { /* toast not ready */ } });
 const thumb = id => `data/thumbs/${id || 1}.webp?v=${DATA_VERSION}`;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const RAR_COLOR = { Legendary: '#d68a00', Epic: '#9b6bff', Rare: '#2f8fd0', Uncommon: '#3a9a00', Common: '#6d6987' };
@@ -367,7 +369,9 @@ function pickArmy(cap, hero, lead) {
   return new Promise(done => {
     const draw = () => {
       const used = armyUsed(army);
+      const st = isle.state || { inv: {} }, day = new Date().toISOString().slice(0, 10), done = st.rd?.day === day ? st.rd.n : 0, left = Math.max(0, raidsPerDay(guest ? 0 : myMinds.length) - done);
       $('#modal-body').innerHTML = `<h3>⚔️ Your army</h3>
+        <div class="army-facts"><span>🎟️ Raids left today: <b>${left}</b>${st.inv.raid_ticket ? ` (+${st.inv.raid_ticket} ticket${st.inv.raid_ticket > 1 ? 's' : ''})` : ''}</span><span>✨ Supplies: <b>${raidFee(army)}</b> Dust (you have ${(st.dust || 0).toLocaleString()})</span></div>
         <div class="army-cap"><b>${used}/${cap}</b> camp space${cap > 10 ? ` <span class="muted">(+${cap - 10} from your Minds)</span>` : ' <span class="muted">(owning Minds adds space)</span>'}</div>
         <div class="army-list">${Object.entries(TROOPS).map(([k, d]) => `<div class="army-row"><img src="${troopIcon(k)}" alt=""><div><b>${d.name}</b> <span class="muted">· ${d.cost} space · you have ${owned(k)}</span><small>${d.desc}</small></div><button class="btn small" data-a="${k}" data-d="-1">−</button><em>${army[k]}</em><button class="btn small" data-a="${k}" data-d="1">+</button></div>`).join('')}</div>
         <div class="army-hero">${hero === 'hero' ? `<img src="${chibi(lead).full.cv.toDataURL()}" alt=""><span><b>Hero: Mind #${lead}</b><small>Stronger leader + 📯 Battle Cry</small></span>` : `<img src="${troopIcon('captain')}" alt=""><span><b>Captain</b><small>Own a Mind to lead with it (stronger + Battle Cry)</small></span>`}</div>`;
@@ -400,8 +404,13 @@ async function startRaid(revenge = 0) {
   if (!troops) return;
   let target = null;
   if (online) {
+    toast('Looking for an island to raid…');
     try { target = await api('raid', { op: 'find', minds: [lead], army: troops, ...(revenge ? { revenge } : {}) }); resetIsland(); }
-    catch (e) { if (e.status === 403) return toast(e.message, true); }
+    catch (e) {   // never fail silently: say exactly why (out of raids → tickets in the Gem shop)
+      sfx('denied'); toast(e.message || 'The raid could not start. Try again.', true);
+      if (/raids today/.test(e.message || '') && (await modal(`<h3>🎟️ Out of raids for today</h3><p>${esc(e.message)}</p>`, [['Get a Raid Ticket', 1, 'primary'], ['OK', 0]]))) openShop('gems');
+      return;
+    }
   }
   // no server: an island to raid made on this device (nothing is saved)
   const local = !target?.snap;
