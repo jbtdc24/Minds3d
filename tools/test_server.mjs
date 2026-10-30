@@ -787,11 +787,11 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   out = await hit(adventure, X, { op: 'end', got: [], beat: [boss(map).id] });
   ok(out.code === 400 && isl(X).state.gems === gems0, 'nobody beats a boss in 8 seconds for free Gems');
   ok(T.flags.some(f => f.kind === 'adv_impossible'), 'an impossible adventure reaches the cheat meter');
-  adv = isl(X).state.adv; adv.at = Date.now() - 170e3; adv.level = 4;
-  const hard = AV.advMap(adv.seed, 4);
+  adv = isl(X).state.adv; adv.at = Date.now() - 170e3; adv.level = 4; adv.seed = 777;
+  const hard = AV.advMap(777, 4);
   out = await hit(adventure, X, { op: 'end', got: hard.nodes.map(n => n.id), beat: hard.monsters.map(m => m.id), potionsLeft: 0 });
   ok(out.code === 400, 'no hero clears the hardest island without potions');
-  adv = isl(X).state.adv; adv.level = 1;
+  adv = isl(X).state.adv; adv.level = 1; adv.seed = map.seed;
   adv = isl(X).state.adv; adv.at = Date.now() - 150e3;
   out = await hit(adventure, X, { op: 'end', got: map.nodes.slice(0, 6).map(n => n.id), beat: [map.monsters.reduce((a, m) => (m.hp < a.hp ? m : a)).id] });
   ok(out.code === 200, 'a normal adventure still pays');
@@ -981,7 +981,8 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   ok(gc.code === 200 && !gc.body.cert && gc.body.ck.x === chatServerKey().x, 'trial accounts can read live chat but get no speaking certificate');
 
   // bot names
-  await mk('Luna');
+  const { villageName } = await import('../web/src/island/raid.js');
+  for (const i of [0, 1, 2, 3, 4, 5]) await mk(villageName(i * 31));
   const taken = T.players.filter(p => p.name_key).map(p => p.name_key);
   const names = await Promise.all(Array.from({ length: 200 }, (_, i) => freeBotName(i * 31)));
   ok(names.every(x => !taken.includes(x.toLowerCase())), 'a game-run opponent never uses a real player name');

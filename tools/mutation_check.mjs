@@ -32,7 +32,7 @@ const M = [
   ['reading others\' mail', 'lib/routes/mail.js', 'if (!m || (m.to_id && m.to_id !== p.id))', 'if (!m)'],
   ['anyone sends mail', 'lib/routes/admin.js', "if (!isAdmin(me)) fail(403, 'not allowed');", ''],
   ['strangers can message', 'lib/routes/messages.js', "if (!(await friends(session.pid, body.to))) fail(403, 'you can only chat with friends');", ''],
-  ['outsider plays your match', 'lib/game.js', "    if (seat < 0) throw httpError(403, 'not your match');\n    const", '    const'],
+  ['outsider plays your match', 'lib/game.js', "    if (seat < 0) throw httpError(403, 'not your match');\n    if (r.status !== 'live') throw httpError(400, 'match is over');", "    if (r.status !== 'live') throw httpError(400, 'match is over');"],
   ['bot takes a real name', 'lib/names.js', "if (!(await db.one('players', `name_key=eq.${encodeURIComponent(name.toLowerCase())}&select=id`))) return name;", 'return name;'],
   ['prototype lookups', 'web/src/island/rules.js', 'for (const table of [CROPS, BUILD, SHOP, RECIPES, RAW, UPGRADABLE]) Object.setPrototypeOf(table, null);\n', ''],
 ];
