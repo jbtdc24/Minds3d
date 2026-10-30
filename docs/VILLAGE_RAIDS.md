@@ -30,3 +30,13 @@ Demolish refunds 50%.
 - [x] server: lib/routes/raid.js find/attack, loot, shields, raid log + 'you were raided' notice
 - [x] test (74 server tests) + ship 2026-10-30
 - [ ] next ideas: building upgrades/levels, replay of raids on your island, revenge button, raid leaderboard points, Adventure (hunt in the wild)
+
+## Round 2 (owner 2026-10-30): more strategy, fairness, sound, no visible bots, Adventure
+- [ ] Bot villages look like real players: human-style names, varied layouts/levels, served by the server like real targets
+      (loot capped lower), guests raid bot villages only. Internally `bot: true` stays (stats honest).
+- [ ] Troops: Brawler (melee), Archer (ranged, shoots over walls), Bomber (blows up walls), Giant (tank, goes for towers).
+      Army picker (capacity 10 + 1 per Mind owned, max +3). Everyone can raid with troops (no Mind needed).
+- [ ] Hero: your Mind leads (stronger + Battle Cry ability); no Mind = a Captain (a bit weaker, no ability).
+- [ ] Defence fairness: every base has 2 militia guards; each Mind owned adds +1 (max 4). Guards wear the owner's Minds.
+- [ ] Sound + juice: raid music, SFX for every hit/arrow/explosion/drop/spell, coins flying out of destroyed buildings, damage numbers.
+- [ ] Adventure: walk your hero on a wild island, gather chests/ore/herbs, fight roaming monsters (real time), loot validated by the server.

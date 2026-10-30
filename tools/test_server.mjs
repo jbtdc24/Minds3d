@@ -250,20 +250,25 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   ok(r.done === 1 && st.inv.stone === before + 7, 'removing a building refunds half');
   // raid sim: deterministic, and the server replay = what the client saw
   const snap = RD.botVillage(4242, 1);
-  const S = RD.createRaid(snap, 3), spots = [];
+  const army = { troops: { brawler: 4, archer: 3, bomber: 1, giant: 0 }, hero: 'captain' };
+  const S = RD.createRaid(snap, army), spots = [];
   for (let k = 0; k < TW * TH; k++) if (RD.dropOk(S, k)) spots.push(k);
   ok(spots.length > 50 && !RD.dropOk(S, S.structs[0].tiles[0]), 'drops only on open land away from buildings');
-  const inputs = [{ t: 0, drop: 0, k: spots[0] }, { t: 3, drop: 1, k: spots[5] }, { t: 7, drop: 2, k: spots[9] }, { t: 60, spell: 'rage', k: spots[0] }];
-  const a = RD.replay(snap, 3, inputs), b = RD.replay(JSON.parse(JSON.stringify(snap)), 3, inputs);
+  const inputs = [{ t: 0, drop: 'bomber', k: spots[0] }, ...[1, 2, 3, 4].map(i => ({ t: i * 3, drop: 'brawler', k: spots[0] })), ...[5, 6, 7].map(i => ({ t: i * 3, drop: 'archer', k: spots[5] })), { t: 30, drop: 'hero', k: spots[0] }, { t: 60, spell: 'rage', k: spots[0] }];
+  const a = RD.replay(snap, army, inputs), b = RD.replay(JSON.parse(JSON.stringify(snap)), army, inputs);
   ok(a.stars === b.stars && a.pct === b.pct && a.S.tick === b.S.tick, 'raid replay is deterministic');
-  ok(RD.input(RD.createRaid(snap, 3), { t: 0, drop: 0, k: S.structs[0].tiles[0] }), 'cannot drop on a building');
+  ok(RD.input(RD.createRaid(snap, army), { t: 0, drop: 'brawler', k: S.structs[0].tiles[0] }), 'cannot drop on a building');
+  const S2 = RD.createRaid(snap, { troops: { brawler: 1, archer: 0, bomber: 0, giant: 0 } });
+  ok(!RD.input(S2, { t: 0, drop: 'brawler', k: spots[0] }) && RD.input(S2, { t: 0, drop: 'brawler', k: spots[0] }), 'you can only drop the troops you brought');
+  ok(RD.armyUsed(RD.cleanArmy({ brawler: 9, giant: 9 }, RD.armyCap(0))) <= 10 && RD.armyCap(9) === 13 && RD.guardsFor(0) === 2 && RD.guardsFor(9) === 4, 'army cap 10 (+1 per Mind, max 13); guards 2-4');
+  ok(RD.villageName(1) !== RD.villageName(2) && !/bot/i.test(RD.villageName(5)), 'game villages get player-style names');
   ok(RD.lootOf(5000, 2, 1) === 750 && RD.lootOf(1500, 2, 1) === 0 && RD.lootOf(1e6, 0, 1) === RD.LOOT_MAX, 'barns protect Dust, loot is capped');
   // raid route: loot moves, defender gets a shield and a log entry
   const raidRoute = (await import('../lib/routes/raid.js')).default;
   const atk = await db.insert('players', { name: 'Raider', address: '0x0000000000000000000000000000000000000abc' });
   const def = await db.insert('players', { name: 'Defender', address: '0x0000000000000000000000000000000000000def' });
   T.islands.push({ player_id: def.id, seed: 4242, state: { ...R.newIsland(4242, now), dust: 4000, b: snap.b }, minds: 1, rev: 0, updated_at: new Date().toISOString() });
-  T.islands.push({ player_id: atk.id, seed: 99, state: { ...R.newIsland(99, now), raid: { id: 'r1', target: def.id, name: 'Defender', snap, loot: RD.lootOf(4000, 1, 1), at: now } }, minds: 1, rev: 0, updated_at: new Date().toISOString() });
+  T.islands.push({ player_id: atk.id, seed: 99, state: { ...R.newIsland(99, now), raid: { id: 'r1', target: def.id, name: 'Defender', snap, loot: RD.lootOf(4000, 1, 1), hero: 'captain', cap: 10, at: now } }, minds: 1, rev: 0, updated_at: new Date().toISOString() });
   const callRaid = async body => {
     const token = signSession({ id: atk.id, address: atk.address });
     let out = null;
@@ -271,12 +276,12 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
     await raidRoute({ method: 'POST', url: '/api/raid', headers: { authorization: 'Bearer ' + token }, body, query: {} }, res);
     return out;
   };
-  let out = await callRaid({ op: 'attack', id: 'r1', inputs });
+  let out = await callRaid({ op: 'attack', id: 'r1', inputs, army: army.troops });
   const dI = T.islands.find(x => x.player_id === def.id), aI = T.islands.find(x => x.player_id === atk.id);
   ok(out.code === 200 && out.body.stars === a.stars, 'server raid result = client result');
   ok(dI.state.dust === 4000 - out.body.loot && aI.state.dust === 100 + out.body.loot && !aI.state.raid, 'loot moves from defender to raider');
   ok(dI.state.raidLog?.[0]?.by === 'Raider' && (out.body.stars ? dI.state.shield > now : true), 'defender gets a log entry (and a shield)');
-  out = await callRaid({ op: 'attack', id: 'r1', inputs });
+  out = await callRaid({ op: 'attack', id: 'r1', inputs, army: army.troops });
   ok(out.code === 400, 'a raid can only be cashed in once');
 }
 console.log(`

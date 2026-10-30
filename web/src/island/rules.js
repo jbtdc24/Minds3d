@@ -22,14 +22,14 @@ export const speedBonus = minds => Math.min(minds, 6) * 0.05;          // each M
 export const growMs = (crop, minds) => CROPS[crop].grow * (1 - speedBonus(minds));
 // village buildings + defences (see docs/VILLAGE_RAIDS.md). hp is used by raids.
 export const BUILD = {
-  house: { name: 'Cottage', icon: '🏡', w: 2, h: 2, cost: { dust: 200, wood: 15 }, max: 4, hp: 220, desc: '+2 farm plots each' },
-  mill: { name: 'Mill', icon: '🌾', w: 2, h: 2, cost: { dust: 400, wood: 25, stone: 10 }, max: 1, hp: 260, desc: 'Crops sell for 25% more' },
-  barn: { name: 'Barn', icon: '🛖', w: 2, h: 2, cost: { dust: 300, wood: 20 }, max: 2, hp: 300, desc: 'Keeps 1,000 ✨ safe from raiders' },
-  wall: { name: 'Wall', icon: '🧱', w: 1, h: 1, cost: { stone: 3 }, max: 80, hp: 60, desc: 'Blocks raiders. Drag to build a line.' },
-  tower: { name: 'Watchtower', icon: '🗼', w: 1, h: 1, cost: { dust: 150, wood: 10, stone: 15 }, max: m => Math.min(6, 2 + m), hp: 140, desc: 'Shoots raiders (2 + 1 per Mind you own, max 6)' },
+  house: { name: 'Cottage', icon: '🏡', w: 2, h: 2, cost: { dust: 200, wood: 15 }, max: 4, hp: 520, desc: '+2 farm plots each' },
+  mill: { name: 'Mill', icon: '🌾', w: 2, h: 2, cost: { dust: 400, wood: 25, stone: 10 }, max: 1, hp: 600, desc: 'Crops sell for 25% more' },
+  barn: { name: 'Barn', icon: '🛖', w: 2, h: 2, cost: { dust: 300, wood: 20 }, max: 2, hp: 700, desc: 'Keeps 1,000 ✨ safe from raiders' },
+  wall: { name: 'Wall', icon: '🧱', w: 1, h: 1, cost: { stone: 3 }, max: 80, hp: 160, desc: 'Blocks raiders. Drag to build a line.' },
+  tower: { name: 'Watchtower', icon: '🗼', w: 1, h: 1, cost: { dust: 150, wood: 10, stone: 15 }, max: m => Math.min(6, 2 + m), hp: 480, desc: 'Shoots raiders (2 + 1 per Mind you own, max 6)' },
   trap: { name: 'Spike Trap', icon: '📌', w: 1, h: 1, cost: { dust: 40, wood: 4 }, max: 6, hp: 0, desc: 'Hidden from raiders. 35 damage, once per raid' },
 };
-export const HOME_HP = 400;
+export const HOME_HP = 1100;
 export const maxOf = (type, minds) => { const m = BUILD[type].max; return typeof m === 'function' ? m(minds) : m; };
 export const countOf = (st, type) => (st.b || []).filter(b => b.type === type).length;
 export const MILL_BONUS = 0.25, BARN_SAFE = 1000;
