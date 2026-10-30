@@ -3,6 +3,14 @@
 // chests are guarded (you must beat the guard first). The ruined hut in the middle hides the boss and the big chest.
 import { gen, COVER, T, TW, TH, hash } from './gen.js';
 
+// the world map: each area unlocks when you beat the Ogre of the one before; far areas cost Sky Fuel to fly to
+export const AREAS = [
+  { name: 'Meadow Isles', icon: '🌿', level: 1, fuel: 0, x: 18, y: 62, desc: 'Gentle islands. Slimes and boars.' },
+  { name: 'Crystal Cliffs', icon: '💎', level: 2, fuel: 1, x: 40, y: 30, desc: 'Ore everywhere. Bandits guard the chests.' },
+  { name: 'Ember Reach', icon: '🔥', level: 3, fuel: 2, x: 64, y: 58, desc: 'Hot winds, tough boars, rich loot.' },
+  { name: 'Storm Spire', icon: '⚡', level: 4, fuel: 3, x: 84, y: 24, desc: 'The hardest sky. Royal treasure.' },
+];
+export const GATHER_PER_HOUR = 40, POTION_HEAL = 120, POTIONS_MAX = 5;
 export const ADV_TIME = 180;                                   // seconds on the island
 export const advPerDay = minds => 5 + Math.min(3, minds | 0);  // adventures per day: 5 (+1 per Mind owned, max +3)
 export const HEROES = {
@@ -13,13 +21,13 @@ export const MONSTERS = {
   slime: { name: 'Slime', hp: 45, dps: 5, speed: 16, aggro: 4, reach: 12, loot: { dust: 3 } },
   boar: { name: 'Wild Boar', hp: 110, dps: 10, speed: 36, aggro: 5, reach: 13, loot: { dust: 8 } },
   bandit: { name: 'Bandit', hp: 180, dps: 13, speed: 30, aggro: 5, reach: 13, loot: { dust: 15 } },
-  ogre: { name: 'Ogre', hp: 520, dps: 21, speed: 22, aggro: 6, reach: 16, loot: { dust: 60 }, boss: true },
+  ogre: { name: 'Ogre', hp: 520, dps: 21, speed: 22, aggro: 6, reach: 16, loot: { dust: 60, gems: 2 }, boss: true },
 };
 export const NODES = {
   ore: { name: 'Ore', time: 1.2, loot: { stone: 4 } },
   log: { name: 'Fallen log', time: 1.0, loot: { wood: 4 } },
   berry: { name: 'Berry bush', time: 0.8, loot: { dust: 6 } },
-  herb: { name: 'Glow herb', time: 0.8, loot: { seed_carrot: 1 } },
+  herb: { name: 'Glow herb', time: 0.8, loot: { herb: 1 } },
   chest: { name: 'Chest', time: 1.0, loot: { dust: 50, seed_melon: 1 } },
   bigchest: { name: 'Royal chest', time: 1.4, loot: { dust: 160, seed_star: 1 } },
 };
@@ -89,7 +97,7 @@ export function advMap(seed, level = 1) {
   for (let i = 0; i < 2 + level; i++) addMon('boar', pick(800 + i, 10));
   return { seed, level, start, nodes, monsters };
 }
-function scale(loot, level) { const o = {}; for (const [k, n] of Object.entries(loot)) o[k] = k.startsWith('seed_') ? n : Math.round(n * (1 + (level - 1) * 0.35)); return o; }
+function scale(loot, level) { const o = {}; for (const [k, n] of Object.entries(loot)) o[k] = k.startsWith('seed_') || k === 'gems' || k === 'herb' ? n : Math.round(n * (1 + (level - 1) * 0.35)); return o; }
 
 // what you get for what you did (the server recomputes this from the ids you send)
 export function advLoot(map, got = [], beat = []) {

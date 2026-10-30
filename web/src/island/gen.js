@@ -93,8 +93,7 @@ export function gen(seed) {
   }
   // fixed things
   const fixed = new Set();
-  for (let y = hc.y; y < hc.y + 3; y++) for (let x = hc.x; x < hc.x + 3; x++) fixed.add(k(x, y));
-  for (let y = well.y; y < well.y + 2; y++) for (let x = well.x; x < well.x + 2; x++) fixed.add(k(x, y));
+  // (the home and the well are buildings now: see rules.js, they start at hc / well and can be moved)
   const path = [];
   for (let y = hc.y + 3; y < shore; y++) path.push(k(dockX, y));
   for (let x = dockX + 1; x < well.x; x++) path.push(k(x, well.y + 1));

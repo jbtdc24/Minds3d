@@ -28,9 +28,43 @@ export const BUILD = {
   wall: { name: 'Wall', icon: '🧱', w: 1, h: 1, cost: { stone: 3 }, max: 80, hp: 160, desc: 'Blocks raiders. Drag to build a line.' },
   tower: { name: 'Watchtower', icon: '🗼', w: 1, h: 1, cost: { dust: 150, wood: 10, stone: 15 }, max: m => Math.min(6, 2 + m), hp: 480, desc: 'Shoots raiders (2 + 1 per Mind you own, max 6)' },
   trap: { name: 'Spike Trap', icon: '📌', w: 1, h: 1, cost: { dust: 40, wood: 4 }, max: 6, hp: 0, desc: 'Hidden from raiders. 35 damage, once per raid' },
+  // always on the island, can be moved (not removed or stored)
+  home: { name: 'Home', icon: '🏠', w: 3, h: 3, cost: {}, max: 1, hp: 1100, fixed: true, desc: 'Your house. Raiders want it.' },
+  well: { name: 'Energy Well', icon: '⛲', w: 2, h: 2, cost: {}, max: 1, hp: 0, fixed: true, deco: true, desc: 'A glowing well.' },
+  // decorations (no effect in raids)
+  flowers: { name: 'Flower Bed', icon: '🌷', w: 1, h: 1, cost: { dust: 30 }, max: 40, hp: 0, deco: true, desc: 'Pretty flowers' },
+  lamp: { name: 'Lamp Post', icon: '🏮', w: 1, h: 1, cost: { dust: 60, wood: 2, stone: 2 }, max: 20, hp: 0, deco: true, desc: 'Lights up at night' },
+  fence: { name: 'Fence', icon: '🪵', w: 1, h: 1, cost: { wood: 1 }, max: 80, hp: 0, deco: true, desc: 'Drag to build a line' },
+  bench: { name: 'Bench', icon: '🪑', w: 1, h: 1, cost: { dust: 40, wood: 4 }, max: 10, hp: 0, deco: true, desc: 'A place to rest' },
+  banner: { name: 'Banner', icon: '🚩', w: 1, h: 1, cost: { dust: 80 }, max: 10, hp: 0, deco: true, desc: 'Show your colours' },
+  lantern: { name: 'Sky Lantern', icon: '🏮', w: 1, h: 1, cost: { gems: 6 }, max: 10, hp: 0, deco: true, gem: true, desc: 'Floats and glows. Gem exclusive.' },
+  crystal: { name: 'Crystal Statue', icon: '💠', w: 1, h: 1, cost: { gems: 15 }, max: 4, hp: 0, deco: true, gem: true, desc: 'A glowing sky crystal. Gem exclusive.' },
+  fountain: { name: 'Golden Fountain', icon: '⛲', w: 2, h: 2, cost: { gems: 25 }, max: 1, hp: 0, deco: true, gem: true, desc: 'The richest island in the sky. Gem exclusive.' },
 };
+export const STASH_MAX = 12;                           // buildings you can keep in storage
+export const homeOf = (st, w) => { const b = (st.b || []).find(x => x.type === 'home'); return b ? { x: b.k % TW, y: (b.k / TW) | 0 } : w.house; };
+export const wellOf = (st, w) => { const b = (st.b || []).find(x => x.type === 'well'); return b ? { x: b.k % TW, y: (b.k / TW) | 0 } : w.well; };
+// things to buy (Dust or Gems). gives: what lands in your bag
+export const SHOP = {
+  potion: { name: 'Health Potion', icon: '🧪', price: { dust: 40 }, gives: { potion: 1 }, desc: 'Heals your hero 120 HP on an adventure (bring up to 5)' },
+  fuel: { name: 'Sky Fuel', icon: '⛽', price: { dust: 60 }, gives: { fuel: 1 }, desc: 'Fly to far areas on the world map' },
+  troop_brawler: { name: 'Brawler', icon: '🪓', price: { dust: 20 }, gives: { troop_brawler: 1 }, desc: 'Train a tough fighter for raids' },
+  troop_archer: { name: 'Archer', icon: '🏹', price: { dust: 25 }, gives: { troop_archer: 1 }, desc: 'Train a ranged fighter for raids' },
+  troop_bomber: { name: 'Bomber', icon: '💣', price: { dust: 60 }, gives: { troop_bomber: 1 }, desc: 'Train a wall-breaker for raids' },
+  troop_giant: { name: 'Giant', icon: '🗿', price: { dust: 150 }, gives: { troop_giant: 1 }, desc: 'Train a giant for raids' },
+  gem_potions: { name: 'Potion Crate', icon: '🧪', price: { gems: 5 }, gives: { potion: 6 }, desc: '6 health potions', gem: true },
+  gem_fuel: { name: 'Fuel Tank', icon: '⛽', price: { gems: 5 }, gives: { fuel: 6 }, desc: '6 sky fuel', gem: true },
+  gem_army: { name: 'War Chest', icon: '⚔️', price: { gems: 12 }, gives: { troop_brawler: 6, troop_archer: 4, troop_bomber: 2, troop_giant: 1 }, desc: 'A full army, ready to raid', gem: true },
+  gem_raid: { name: 'Raid Ticket', icon: '🎟️', price: { gems: 4 }, gives: { raid_ticket: 1 }, desc: 'One extra raid today', gem: true },
+  gem_adv: { name: 'Adventure Ticket', icon: '🧭', price: { gems: 4 }, gives: { adv_ticket: 1 }, desc: 'One extra adventure today', gem: true },
+  gem_dust: { name: 'Sack of Dust', icon: '✨', price: { gems: 10 }, gives: { dust: 1200 }, desc: '1,200 Dust', gem: true },
+};
+export const TROOP_MAX = 60;                           // troops you can keep trained
+export const troopCount = st => Object.entries(st.inv).filter(([k]) => k.startsWith('troop_')).reduce((s, [, n]) => s + n, 0);
+export const RECIPES = { potion: { name: 'Health Potion', needs: { herb: 2 }, gives: { potion: 1 } } };
 export const HOME_HP = 1100;
-export const maxOf = (type, minds) => { const m = BUILD[type].max; return typeof m === 'function' ? m(minds) : m; };
+export const maxOf = (type, minds) => {
+  if (!BUILD[type]) return 0; const m = BUILD[type].max; return typeof m === 'function' ? m(minds) : m; };
 export const countOf = (st, type) => (st.b || []).filter(b => b.type === type).length;
 export const MILL_BONUS = 0.25, BARN_SAFE = 1000;
 export const footprint = b => { const d = BUILD[b.type], out = []; for (let y = 0; y < d.h; y++) for (let x = 0; x < d.w; x++) out.push(b.k + y * TW + x); return out; };
@@ -38,9 +72,9 @@ export function buildingAt(st, k) {
   for (const b of st.b || []) if (footprint(b).includes(k)) return b;
   return null;
 }
-const have = (st, item) => item === 'dust' ? st.dust : st.inv[item] || 0;
+const have = (st, item) => item === 'dust' ? st.dust : item === 'gems' ? st.gems || 0 : st.inv[item] || 0;
 export const canAfford = (st, cost) => Object.entries(cost).every(([i, n]) => have(st, i) >= n);
-export const costText = cost => Object.entries(cost).map(([i, n]) => `${n} ${{ dust: '✨', wood: '🪵', stone: '🪨' }[i]}`).join(' ');
+export const costText = cost => Object.entries(cost).map(([i, n]) => `${n} ${{ dust: '✨', wood: '🪵', stone: '🪨', gems: '💎' }[i] || i}`).join(' ') || 'free';
 // every tile of a building must be open ground on the island (and inside the map, not wrapping a row)
 export function fits(st, w, type, k, ignore = null) {
   const d = BUILD[type];
@@ -62,7 +96,9 @@ export const POINTS_PER_DUST = 100, POINTS_DAY_CAP = 20;                 // sell
 export function newIsland(seed, now) {
   const w = gen(seed), tiles = {};
   for (const k of w.starter) tiles[k] = { s: 'p', t: now };
-  return { v: 2, dust: 100, inv: { seed_bean: 6, seed_carrot: 2 }, tiles };
+  const st = { v: 2, dust: 100, gems: 0, inv: { seed_bean: 6, seed_carrot: 2, troop_brawler: 6, troop_archer: 4, potion: 2, fuel: 1 }, tiles };
+  migrate3(st, seed);
+  return st;
 }
 export const maxPlots = (st, minds) => BASE_PLOTS + Math.min(minds, MIND_PLOTS) + Math.min(st.inv.permit || 0, MAX_PERMITS) + 2 * countOf(st, 'house');
 export const plotCount = st => Object.values(st.tiles).filter(t => t.s === 'p').length;
@@ -86,9 +122,21 @@ export function migrate(st) {
   st.v = 2;
   return st;
 }
+function migrate3(st, seed) {
+  if ((st.v || 1) >= 3) return;
+  const w = gen(seed);
+  st.b ||= []; st.nb ||= 1;
+  for (const [type, at] of [['home', w.house], ['well', w.well]]) {
+    if (st.b.some(b => b.type === type)) continue;
+    const b = { id: st.nb++, type, k: at.y * TW + at.x };
+    st.b.push(b);
+    for (const t of footprint(b)) st.tiles[t] = { s: 'b', t: 0 };
+  }
+  st.v = 3;
+}
 // weeds creep back over ground nobody looks after
 export function normalize(st, seed, now) {
-  migrate(st);
+  migrate(st); migrate3(st, seed);
   const w = gen(seed);
   for (const [k, t] of Object.entries(st.tiles)) {
     const back = (t.s === 'c' && now - t.t > regrowMs(+k, seed)) || (t.s === 'p' && !t.c && now - t.t > PLOT_IDLE);
@@ -104,7 +152,7 @@ const add = (o, k, n) => { if (n) o[k] = (o[k] || 0) + n; };
 export function act(st, a, { seed, now, minds = 0 }) {
   const w = gen(seed), gain = {}, tiles = [...new Set((Array.isArray(a.tiles) ? a.tiles : []).map(Number))].slice(0, 200);
   let done = 0;
-  const pay = (k, n) => { add(gain, k, n); if (k === 'dust') st.dust += n; else st.inv[k] = (st.inv[k] || 0) + n; };
+  const pay = (k, n) => { add(gain, k, n); if (k === 'dust') st.dust += n; else if (k === 'gems') st.gems = (st.gems || 0) + n; else st.inv[k] = (st.inv[k] || 0) + n; };
   switch (a.type) {
     case 'clear':
       for (const k of tiles) {
@@ -189,9 +237,64 @@ export function act(st, a, { seed, now, minds = 0 }) {
       done = 1;
       break;
     }
+    case 'store': {
+      const b = (st.b || []).find(x => x.id === Number(a.id));
+      if (!b) return { error: 'that building is gone' };
+      if (BUILD[b.type].fixed) return { error: `Your ${BUILD[b.type].name} stays on the island (you can move it).` };
+      st.stash ||= {};
+      if (Object.values(st.stash).reduce((s, n) => s + n, 0) >= STASH_MAX) return { error: `Storage is full (${STASH_MAX}). Place something first.` };
+      for (const t of footprint(b)) st.tiles[t] = { s: 'c', t: now };
+      st.b = st.b.filter(x => x !== b);
+      st.stash[b.type] = (st.stash[b.type] || 0) + 1;
+      done = 1;
+      break;
+    }
+    case 'place': {
+      const d = BUILD[a.item];
+      if (!d || !(st.stash?.[a.item] > 0)) return { error: 'nothing like that in storage' };
+      const spots = d.w === 1 ? tiles : [Number(a.k)];
+      st.b ||= []; st.nb ||= 1;
+      for (const k of spots) {
+        if (!(st.stash[a.item] > 0)) break;
+        if (!fits(st, w, a.item, k)) { if (d.w > 1) return { error: 'It does not fit there: it needs open, cleared ground.' }; continue; }
+        const b = { id: st.nb++, type: a.item, k };
+        st.b.push(b);
+        for (const t of footprint(b)) st.tiles[t] = { s: 'b', t: now };
+        st.stash[a.item]--; done++;
+      }
+      if (!st.stash[a.item]) delete st.stash[a.item];
+      break;
+    }
+    case 'craft': {
+      const r = RECIPES[a.item];
+      if (!r) return { error: 'unknown recipe' };
+      const n = Math.max(1, Math.min(20, a.n | 0 || 1));
+      for (let i = 0; i < n; i++) {
+        if (!canAfford(st, r.needs)) { if (!done) return { error: `You need ${costText(r.needs)} (herbs come from adventures).` }; break; }
+        for (const [k, m] of Object.entries(r.needs)) pay(k, -m);
+        for (const [k, m] of Object.entries(r.gives)) pay(k, m);
+        done++;
+      }
+      break;
+    }
+    case 'shop': {
+      const it = SHOP[a.item];
+      if (!it) return { error: 'unknown item' };
+      const n = Math.max(1, Math.min(50, a.n | 0 || 1));
+      for (let i = 0; i < n; i++) {
+        if (it.gives.potion && (st.inv.potion || 0) >= 30) { if (!done) return { error: 'Your bag holds 30 potions.' }; break; }
+        if (Object.keys(it.gives).some(k => k.startsWith('troop_')) && troopCount(st) + Object.entries(it.gives).filter(([k]) => k.startsWith('troop_')).reduce((s, [, m]) => s + m, 0) > TROOP_MAX) { if (!done) return { error: `Your army camp holds ${TROOP_MAX} troops.` }; break; }
+        if (!canAfford(st, it.price)) { if (!done) return { error: `That costs ${costText(it.price)}.` }; break; }
+        for (const [k, m] of Object.entries(it.price)) pay(k, -m);
+        for (const [k, m] of Object.entries(it.gives)) pay(k, m);
+        done++;
+      }
+      break;
+    }
     case 'demolish': {
       const b = (st.b || []).find(x => x.id === Number(a.id));
       if (!b) return { error: 'that building is gone' };
+      if (BUILD[b.type].fixed) return { error: `Your ${BUILD[b.type].name} stays on the island (you can move it).` };
       for (const [i, n] of Object.entries(BUILD[b.type].cost)) pay(i, Math.floor(n / 2));
       for (const t of footprint(b)) st.tiles[t] = { s: 'c', t: now };
       st.b = st.b.filter(x => x !== b);

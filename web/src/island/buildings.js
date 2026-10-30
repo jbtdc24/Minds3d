@@ -1,6 +1,7 @@
 // Village buildings and defences, drawn by code in the island's pixel style (same outline + dithering).
 // Each sprite stands on its footprint: bottom-centre of the sprite = bottom-centre of the tiles it covers.
 import { sprite, pick, rng } from './pixel.js';
+import { sprites } from './art.js';
 
 const WOOD = ['#4a2e1c', '#6b4428', '#8b5a34', '#a87444', '#c99a63'];
 const STONE = ['#4a4858', '#5b5a6e', '#7c7b8f', '#a3a2b5', '#cfcfdc'];
@@ -126,4 +127,72 @@ export const bsprites = {
 };
 // a building's picture for menus (data URL)
 const urls = {};
-export const buildIcon = type => (urls[type] ||= (type === 'wall' ? wallPiece(10) : bsprites[type]()).cv.toDataURL());
+export const buildIcon = type => (urls[type] ||= (type === 'wall' ? wallPiece(10) : type === 'fence' ? fencePiece(10) : type === 'home' ? sprites.house(1, false) : type === 'well' ? sprites.well() : bsprites[type]()).cv.toDataURL());
+
+// ---------- decorations ----------
+function flowerBed() {
+  return sprite(16, 10, set => {
+    for (let y = 5; y < 10; y++) for (let x = 0; x < 16; x++) set(x, y, y === 5 ? WOOD[3] : y === 9 ? WOOD[0] : '#6b4428');
+    const C = ['#ff6fae', '#ffd84a', '#c9a6ff', '#ff5a4a', '#ffffff'];
+    for (let i = 0; i < 6; i++) { const x = 2 + i * 2.4, c = C[i % 5]; set(x, 3, '#3f8d38'); set(x, 4, '#3f8d38'); set(x, 1, c); set(x - 1, 2, c); set(x + 1, 2, c); set(x, 2, '#ffe27a'); }
+  });
+}
+function lamp() {
+  return sprite(8, 24, set => {
+    for (let y = 8; y < 24; y++) { set(3, y, '#3b3a4a'); set(4, y, '#5b5a6e'); }
+    for (let x = 1; x < 7; x++) set(x, 23, '#3b3a4a');
+    for (let y = 1; y < 8; y++) for (let x = 1; x < 7; x++) set(x, y, x === 1 || x === 6 || y === 1 || y === 7 ? '#3b3a4a' : '#ffe27a');
+    set(3, 0, '#3b3a4a'); set(4, 0, '#3b3a4a'); set(3, 4, '#fff8d0'); set(4, 4, '#fff8d0');
+  });
+}
+const fenceCache = new Map();
+export function fencePiece(mask) {
+  if (fenceCache.has(mask)) return fenceCache.get(mask);
+  const s = sprite(16, 14, set => {
+    for (let y = 2; y < 14; y++) { set(7, y, WOOD[1]); set(8, y, WOOD[2]); }
+    set(7, 1, WOOD[3]); set(8, 1, WOOD[3]);
+    const x0 = mask & 8 ? 0 : 7, x1 = mask & 2 ? 15 : 8;
+    for (let x = x0; x <= x1; x++) { set(x, 5, WOOD[3]); set(x, 6, WOOD[1]); set(x, 10, WOOD[3]); set(x, 11, WOOD[1]); }
+    if (mask & 1) for (let y = 0; y < 2; y++) { set(7, y, WOOD[1]); set(8, y, WOOD[2]); }
+  });
+  fenceCache.set(mask, s);
+  return s;
+}
+function bench() {
+  return sprite(16, 11, set => {
+    for (let x = 0; x < 16; x++) { set(x, 2, WOOD[3]); set(x, 3, WOOD[1]); set(x, 6, WOOD[3]); set(x, 7, WOOD[1]); }
+    for (const x of [1, 14]) for (let y = 0; y < 11; y++) set(x, y, WOOD[0]);
+  });
+}
+function banner() {
+  return sprite(10, 26, set => {
+    for (let y = 0; y < 26; y++) set(1, y, WOOD[0]);
+    for (let y = 2; y < 14; y++) for (let x = 2; x < 10; x++) { if (y > 11 && ((x - 2) % 4 === 1) === (y === 13)) continue; set(x, y, y === 2 ? '#ff8a7a' : x === 2 ? '#a8142a' : '#e0304a'); }
+    set(5, 6, '#ffd84a'); set(6, 6, '#ffd84a'); set(5, 7, '#ffd84a'); set(6, 7, '#ffd84a'); set(4, 7, '#ffd84a'); set(7, 7, '#ffd84a');
+  });
+}
+function lantern() {
+  return sprite(10, 14, set => {
+    for (let y = 2; y < 12; y++) for (let x = 1; x < 9; x++) { const dx = (x - 4.5) / 3.8, dy = (y - 6.5) / 5; if (dx * dx + dy * dy <= 1) set(x, y, dy < -0.3 ? '#ffd0a0' : dx > 0.3 ? '#e0603a' : '#ff8a4a'); }
+    for (let x = 3; x < 7; x++) { set(x, 1, WOOD[1]); set(x, 12, WOOD[1]); }
+    set(4, 6, '#fff3b0'); set(5, 6, '#fff3b0'); set(4, 7, '#fff3b0'); set(5, 13, '#ffd84a');
+  });
+}
+function crystalStatue() {
+  return sprite(14, 28, set => {
+    for (let y = 22; y < 28; y++) for (let x = 1; x < 13; x++) set(x, y, y === 22 ? STONE[4] : x === 1 ? STONE[1] : STONE[2]);
+    for (let y = 0; y < 22; y++) { const hw = Math.round((y < 8 ? y : 22 - y) * 0.45); for (let x = 7 - hw; x <= 6 + hw; x++) set(x, y, x < 7 ? (y % 5 === 0 ? '#e0fbff' : '#7fe8ff') : '#3fb8e0'); }
+  });
+}
+function fountain() {
+  return sprite(32, 30, set => {
+    for (let y = 16; y < 30; y++) for (let x = 0; x < 32; x++) { const dx = (x - 15.5) / 16, dy = (y - 23) / 7; if (dx * dx + dy * dy > 1) continue; const rim = dx * dx + dy * dy > 0.7; set(x, y, rim ? (y < 22 ? '#ffe27a' : '#c98a00') : (x + y) % 3 ? '#5ec8ff' : '#bff0ff'); }
+    for (let y = 4; y < 22; y++) for (let x = 13; x < 19; x++) set(x, y, x === 13 ? '#c98a00' : y % 6 === 0 ? '#fff3b0' : '#ffd84a');
+    for (let y = 0; y < 5; y++) for (let x = 10; x < 22; x++) { const dx = (x - 15.5) / 6; if (dx * dx + ((y - 3) / 2) ** 2 <= 1) set(x, y, '#ffe27a'); }
+    for (const [x, y] of [[9, 8], [22, 8], [7, 12], [24, 12]]) { set(x, y, '#bff0ff'); set(x, y + 1, '#5ec8ff'); }
+  });
+}
+Object.assign(bsprites, {
+  flowers: () => once('flowers', flowerBed), lamp: () => once('lamp', lamp), bench: () => once('bench', bench), banner: () => once('banner', banner),
+  lantern: () => once('lantern', lantern), crystal: () => once('crystal', crystalStatue), fountain: () => once('fountain', fountain), fence: fencePiece,
+});

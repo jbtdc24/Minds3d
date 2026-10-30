@@ -61,24 +61,32 @@ export function snapshotOf(seed, st, guards = 2, extra = {}) {
 export function createRaid(snap, army = {}) {
   const w = gen(snap.seed), st = { tiles: snap.tiles, b: snap.b };
   const S = { tick: 0, over: false, w, snap, structs: [], traps: [], units: [], fx: [], spellsUsed: {}, left: { ...DEFAULT_ARMY, ...(army.troops || {}) }, heroKind: army.hero === 'hero' ? 'hero' : 'captain', heroOut: false, cried: false, anyDrop: false };
+  // the home always comes first (stars count it); older snapshots have it at the generated spot
+  const homeB = snap.b.find(b => b.type === 'home');
   const home = [];
-  for (let y = 0; y < 3; y++) for (let x = 0; x < 3; x++) home.push((w.house.y + y) * TW + w.house.x + x);
+  if (homeB) home.push(...footprint(homeB));
+  else for (let y = 0; y < 3; y++) for (let x = 0; x < 3; x++) home.push((w.house.y + y) * TW + w.house.x + x);
   S.structs.push(mkStruct('home', home, HOME_HP));
+  S.decos = [];
   for (const b of snap.b) {
+    if (b.type === 'home' || !BUILD[b.type]) continue;
     if (b.type === 'trap') { S.traps.push({ k: b.k, armed: true }); continue; }
+    if (BUILD[b.type].deco) { S.decos.push(b); continue; }   // decorations: just scenery in a raid
     S.structs.push(mkStruct(b.type, footprint(b), BUILD[b.type].hp, b.id));
   }
   S.occ = new Int16Array(TW * TH).fill(-1);
   S.structs.forEach((s, i) => s.tiles.forEach(t => { S.occ[t] = i; }));
   S.cost = new Uint8Array(TW * TH);
+  const decoTiles = new Set(S.decos.flatMap(b => footprint(b)));
   const paths = new Set(w.path);
   for (let k = 0; k < TW * TH; k++) {
     if (!w.land[k]) continue;
-    if (w.cover[k] === COVER.FIXED && S.occ[k] < 0 && !paths.has(k)) continue;   // the well
+    if (w.cover[k] === COVER.FIXED && S.occ[k] < 0 && !paths.has(k)) continue;
+    if (decoTiles.has(k)) continue;                     // the well, statues, benches… are in the way
     const c = coverAt(st, w, k);
-    S.cost[k] = c >= COVER.BUSH && c <= COVER.TREE ? COVER_COST : 1;
+    S.cost[k] = c === COVER.FIXED && S.occ[k] < 0 && !paths.has(k) ? 1 : c >= COVER.BUSH && c <= COVER.TREE ? COVER_COST : 1;
   }
-  const door = { x: (w.house.x + 1.5) * T, y: (w.house.y + 3.6) * T };
+  const hs = S.structs[0], door = { x: hs.cx, y: hs.y1 + 9 };
   for (let i = 0; i < snap.guards; i++) S.units.push(mkUnit('guard', GUARD, door.x + (i - (snap.guards - 1) / 2) * 12, door.y + 6, i));
   return S;
 }

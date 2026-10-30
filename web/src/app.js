@@ -14,8 +14,9 @@ import { openRaid, closeRaid } from './island/raidview.js';
 import { botVillage, armyCap, cleanArmy, armyUsed, TROOPS, DEFAULT_ARMY } from './island/raid.js';
 import { troopIcon } from './island/troops.js';
 import { openAdventure, closeAdventure } from './island/advview.js';
+import { AREAS, POTIONS_MAX } from './island/adventure.js';
 import { isle, loadIsland, doAct, flush as flushIsland, resetIsland, now as islandNow } from './island/store.js';
-import { CROPS, RAW, growMs, permitCost, MAX_PERMITS, ripe } from './island/rules.js';
+import { CROPS, RAW, growMs, permitCost, MAX_PERMITS, ripe, SHOP, RECIPES, TROOP_MAX, troopCount, costText, canAfford } from './island/rules.js';
 import { islandThumb } from './island/art.js';
 import { hashStr } from './island/gen.js';
 
@@ -346,25 +347,29 @@ $('#isl-back').onclick = () => enterHub();
 // ---------- raids: attack another island (or a bot village when there is nobody / you are on a trial account) ----------
 // pick your army (camp size grows a little with the Minds you own; your Mind leads as the hero)
 function pickArmy(cap, hero, lead) {
+  const owned = k => isle.state?.inv?.['troop_' + k] || 0;
   const army = cleanArmy(settings.army || DEFAULT_ARMY, cap);
+  for (const k of Object.keys(TROOPS)) army[k] = Math.min(army[k], owned(k));
   return new Promise(done => {
     const draw = () => {
       const used = armyUsed(army);
       $('#modal-body').innerHTML = `<h3>⚔️ Your army</h3>
         <div class="army-cap"><b>${used}/${cap}</b> camp space${cap > 10 ? ` <span class="muted">(+${cap - 10} from your Minds)</span>` : ' <span class="muted">(owning Minds adds space)</span>'}</div>
-        <div class="army-list">${Object.entries(TROOPS).map(([k, d]) => `<div class="army-row"><img src="${troopIcon(k)}" alt=""><div><b>${d.name}</b> <span class="muted">· ${d.cost} space</span><small>${d.desc}</small></div><button class="btn small" data-a="${k}" data-d="-1">−</button><em>${army[k]}</em><button class="btn small" data-a="${k}" data-d="1">+</button></div>`).join('')}</div>
+        <div class="army-list">${Object.entries(TROOPS).map(([k, d]) => `<div class="army-row"><img src="${troopIcon(k)}" alt=""><div><b>${d.name}</b> <span class="muted">· ${d.cost} space · you have ${owned(k)}</span><small>${d.desc}</small></div><button class="btn small" data-a="${k}" data-d="-1">−</button><em>${army[k]}</em><button class="btn small" data-a="${k}" data-d="1">+</button></div>`).join('')}</div>
         <div class="army-hero">${hero === 'hero' ? `<img src="${chibi(lead).full.cv.toDataURL()}" alt=""><span><b>Hero: Mind #${lead}</b><small>Stronger leader + 📯 Battle Cry</small></span>` : `<img src="${troopIcon('captain')}" alt=""><span><b>Captain</b><small>Own a Mind to lead with it (stronger + Battle Cry)</small></span>`}</div>`;
     };
     draw();
     const box = $('#modal-btns'); box.innerHTML = '';
-    const go = el('button', 'btn primary', '⚔️ Attack!'), back = el('button', 'btn', 'Cancel');
-    go.onclick = () => { $('#modal').classList.remove('on'); $('#modal-body').onclick = null; settings.army = { ...army }; saveSettings(); done(army); };
+    const go = el('button', 'btn primary', '⚔️ Attack!'), back = el('button', 'btn', 'Cancel'), train = el('button', 'btn', '🏹 Train troops');
+    train.onclick = () => { $('#modal').classList.remove('on'); $('#modal-body').onclick = null; done(null); openShop('army'); };
+    go.onclick = () => { if (!armyUsed(army)) { sfx('denied'); return toast('Bring at least one troop. Train them in the Shop with Dust.', true); } $('#modal').classList.remove('on'); $('#modal-body').onclick = null; settings.army = { ...army }; saveSettings(); done(army); };
     back.onclick = () => { $('#modal').classList.remove('on'); $('#modal-body').onclick = null; done(null); };
-    box.append(back, go);
+    box.append(back, train, go);
     $('#modal-body').onclick = e => {
       const b = e.target.closest('[data-a]'); if (!b) return;
       const k = b.dataset.a, d = +b.dataset.d;
       if (d > 0 && armyUsed(army) + TROOPS[k].cost > cap) { sfx('denied'); return; }
+      if (d > 0 && army[k] >= owned(k)) { sfx('denied'); return toast(`You have ${owned(k)} ${TROOPS[k].name}${owned(k) === 1 ? '' : 's'}. Train more in the Shop.`, true); }
       army[k] = Math.max(0, army[k] + d); sfx(d > 0 ? 'select' : 'deselect'); draw();
     };
     $('#modal').classList.add('on');
@@ -374,17 +379,18 @@ async function startRaid() {
   sfx('click');
   const lead = (picked()[0] ?? myMinds[0]) || 49, holder = online && !guest && myMinds.length;
   const cap = armyCap(guest ? 0 : myMinds.length);
+  if (!(await ensureIsland())) return;
   const troops = await pickArmy(cap, holder ? 'hero' : 'captain', lead);
   if (!troops) return;
   let target = null;
   if (online) {
-    try { target = await api('raid', { op: 'find', minds: [lead] }); }
+    try { target = await api('raid', { op: 'find', minds: [lead], army: troops }); resetIsland(); }
     catch (e) { if (e.status === 403) return toast(e.message, true); }
   }
   // no server: an island to raid made on this device (nothing is saved)
   const local = !target?.snap;
   const snap = local ? botVillage((Math.random() * 2 ** 31) | 0, Math.min(3, 1 + Math.floor((settings.raidWins || 0) / 3))) : target.snap;
-  const army = { troops: cleanArmy(troops, target?.cap ?? cap), hero: target?.hero ?? (holder ? 'hero' : 'captain') };
+  const army = { troops: target?.army ?? cleanArmy(troops, cap), hero: target?.hero ?? (holder ? 'hero' : 'captain') };
   closeIsland(); show('raid');
   await banner(`<div class="bt">RAID!</div><small>${esc(local ? snap.name : target.name)}'s island</small>`, 1100);
   openRaid({
@@ -405,30 +411,61 @@ async function startRaid() {
 }
 $('#isl-raid').onclick = () => startRaid();
 // ---------- adventure: explore a wild island ----------
+// the world map: pick an area (locked ones need the Ogre before them beaten; far ones need Sky Fuel) and potions
+function worldMap() {
+  const st = isle.state || { inv: {} }, unlocked = online ? (st.au || 0) : (settings.advUnlocked || 0);
+  let area = Math.min(unlocked, settings.advArea || 0), potions = Math.min(POTIONS_MAX, st.inv.potion || 0);
+  return new Promise(done => {
+    const draw = () => {
+      const fuel = st.inv.fuel || 0;
+      $('#modal-body').innerHTML = `<h3>🗺️ World map</h3>
+        <div class="wmap">${AREAS.map((a, i) => i ? `<i class="route ${i <= unlocked ? 'open' : ''}" style="left:${AREAS[i - 1].x}%;top:${AREAS[i - 1].y}%;width:${Math.hypot((a.x - AREAS[i - 1].x) * 4.4, (a.y - AREAS[i - 1].y) * 2.6)}px;transform:rotate(${Math.atan2((a.y - AREAS[i - 1].y) * 2.6, (a.x - AREAS[i - 1].x) * 4.4)}rad)"></i>` : '').join('')}
+          ${AREAS.map((a, i) => `<button class="pin ${i === area ? 'on' : ''} ${i > unlocked ? 'locked' : ''}" data-area="${i}" style="left:${a.x}%;top:${a.y}%"><b>${i > unlocked ? '🔒' : a.icon}</b><span>${a.name}</span>${a.fuel ? `<em>⛽ ${a.fuel}</em>` : ''}</button>`).join('')}</div>
+        <p class="wmap-desc"><b>${AREAS[area].icon} ${AREAS[area].name}</b> · level ${AREAS[area].level} · ${AREAS[area].desc} ${AREAS[area].fuel ? `Costs ⛽ ${AREAS[area].fuel} (you have ${fuel}).` : 'Free to fly.'}</p>
+        <div class="wmap-pot">🧪 Bring potions: <button class="btn small" data-pot="-1">−</button><b>${potions}</b><button class="btn small" data-pot="1">+</button> <span class="muted">(you have ${st.inv.potion || 0}; your hero does not heal by itself)</span></div>`;
+    };
+    draw();
+    const box = $('#modal-btns'); box.innerHTML = '';
+    const go = el('button', 'btn primary', '🛩️ Fly!'), back = el('button', 'btn', 'Cancel'), shop = el('button', 'btn', '🧪 Supplies');
+    const close = v => { $('#modal').classList.remove('on'); $('#modal-body').onclick = null; done(v); };
+    go.onclick = () => { if (area > unlocked) return toast(`Beat the Ogre in ${AREAS[area - 1].name} to unlock ${AREAS[area].name}.`, true); if ((st.inv.fuel || 0) < AREAS[area].fuel && online) return toast(`You need ⛽ ${AREAS[area].fuel} Sky Fuel (Shop → Supplies).`, true); settings.advArea = area; saveSettings(); close({ area, potions }); };
+    back.onclick = () => close(null); shop.onclick = () => { close(null); openShop('items'); };
+    box.append(back, shop, go);
+    $('#modal-body').onclick = e => {
+      const pin = e.target.closest('[data-area]'), pot = e.target.closest('[data-pot]');
+      if (pin) { area = +pin.dataset.area; sfx(area > unlocked ? 'denied' : 'select'); draw(); }
+      if (pot) { potions = Math.max(0, Math.min(POTIONS_MAX, st.inv.potion || 0, potions + +pot.dataset.pot)); sfx('select'); draw(); }
+    };
+    $('#modal').classList.add('on');
+  });
+}
 async function startAdventure() {
   sfx('click');
   const lead = (picked()[0] ?? myMinds[0]) || 49, holder = online && !guest && myMinds.length;
+  if (!(await ensureIsland())) return;
+  const pick = await worldMap();
+  if (!pick) return;
   let start = null;
   if (online) {
-    try { start = await api('adventure', { op: 'start', mind: lead }); }
+    try { start = await api('adventure', { op: 'start', mind: lead, area: pick.area, potions: pick.potions }); resetIsland(); }
     catch (e) { if (e.status === 403) return toast(e.message, true); }
   }
   const local = !start;
-  const seed = local ? (Math.random() * 2 ** 31) | 0 : start.seed, level = local ? 1 + Math.min(2, Math.floor((settings.advWins || 0) / 3)) : start.level;
+  const seed = local ? (Math.random() * 2 ** 31) | 0 : start.seed, level = local ? AREAS[pick.area].level : start.level;
   closeIsland(); show('adv');
-  await banner(`<div class="bt">ADVENTURE</div><small>A wild island · level ${level}</small>`, 1000);
+  await banner(`<div class="bt">${AREAS[pick.area].icon} ${AREAS[pick.area].name}</div><small>Level ${level}</small>`, 1000);
   openAdventure({
-    seed, level, heroKind: start?.heroKind ?? (holder ? 'hero' : 'captain'), mind: lead,
+    seed, level, area: pick.area, potions: start?.potions ?? pick.potions, gatherLeft: start?.gatherLeft ?? 40, heroKind: start?.heroKind ?? (holder ? 'hero' : 'captain'), mind: lead,
     onEnd: async A => {
       let loot = A.bag;
       if (!local) {
-        try { loot = (await api('adventure', { op: 'end', got: A.got, beat: A.beat, ko: A.ko })).loot; resetIsland(); }
+        try { loot = (await api('adventure', { op: 'end', got: A.got, beat: A.beat, ko: A.ko, cover: A.cover, potionsLeft: A.potions })).loot; resetIsland(); }
         catch (e) { toast(e.message, true); loot = {}; }
       } else {
         if (A.ko) loot = Object.fromEntries(Object.entries(loot).map(([k, n]) => [k, Math.floor(n / 2)]));
-        if (A.map.monsters.some(m => m.type === 'ogre' && A.beat.includes(m.id))) { settings.advWins = (settings.advWins || 0) + 1; saveSettings(); }
+        if (A.map.monsters.some(m => m.type === 'ogre' && A.beat.includes(m.id))) { settings.advUnlocked = Math.max(settings.advUnlocked || 0, Math.min(AREAS.length - 1, pick.area + 1)); saveSettings(); }
       }
-      const NAMES = { dust: '✨ Dust', wood: '🪵 Wood', stone: '🪨 Stone', seed_carrot: '🥕 Carrot seed', seed_melon: '🍈 Melon seed', seed_star: '⭐ Star Fruit seed' };
+      const NAMES = { dust: '✨ Dust', wood: '🪵 Wood', stone: '🪨 Stone', seed_carrot: '🥕 Carrot seed', seed_melon: '🍈 Melon seed', seed_star: '⭐ Star Fruit seed', herb: '🌿 Glow herb', gems: '💎 Gems' };
       const list = Object.entries(loot).filter(([, n]) => n > 0).map(([k, n]) => `<li><b>+${n}</b> ${NAMES[k] || k}</li>`).join('') || '<li class="muted">Nothing this time</li>';
       sfx(A.ko ? 'defeat' : 'victory');
       await modal(`<h3>${A.ko ? '😵 Knocked out!' : '🧭 Back home!'}</h3>${A.ko ? '<p class="muted">You kept half of what you found.</p>' : ''}<ul class="adv-loot">${list}</ul>${local ? '<p class="muted">Offline: loot is not saved.</p>' : start.left != null ? `<p class="muted">${start.left} adventure${start.left === 1 ? '' : 's'} left today</p>` : ''}`, [['Back to my island', true, 'primary']]);
@@ -463,6 +500,7 @@ function paintShop() {
   const st = isle.state, inv = st.inv;
   $$('#shop-tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === shopTab));
   $('#shop-dust').textContent = st.dust.toLocaleString();
+  $('#shop-gems').textContent = (st.gems || 0).toLocaleString();
   $('#shop-note').textContent = guest ? 'Trial island: selling gives no leaderboard points.' : 'Selling crops: +1 leaderboard point per 100 ✨ (max 20 a day)';
   let html = '';
   if (shopTab === 'seeds') html = Object.entries(CROPS).map(([c, d]) => shopCard(`<img src="${cropImg(c)}" alt="">`, `${d.name} seeds`, `Grows in ${fmtTime(growMs(c, isle.minds))} · sells for ${d.sell} ✨`, inv['seed_' + c] || 0,
@@ -475,6 +513,16 @@ function paintShop() {
     const have = inv.permit || 0, cost = permitCost(have), max = have >= MAX_PERMITS;
     html = shopCard('<i>📜</i>', 'Land Permit', `+1 farm plot forever. Plots: 6 free, +1 per Mind you own (up to 6), +1 per permit (up to ${MAX_PERMITS}).`, `${have}/${MAX_PERMITS}`,
       max ? '<button class="btn small" disabled>All bought</button>' : `<button class="btn small primary" data-act="buy" data-item="permit" data-n="1" ${st.dust < cost ? 'disabled' : ''}>Buy · ${cost.toLocaleString()} ✨</button>`);
+  } else if (shopTab === 'army' || shopTab === 'items' || shopTab === 'gems') {
+    const keys = Object.keys(SHOP).filter(k => shopTab === 'army' ? k.startsWith('troop_') : shopTab === 'gems' ? SHOP[k].gem : !k.startsWith('troop_') && !SHOP[k].gem);
+    const have = k => { const g = Object.keys(SHOP[k].gives)[0]; return g === 'dust' ? null : inv[g] || 0; };
+    const head = shopTab === 'army' ? `<div class="shop-info px">⚔️ Troops you train wait in your camp (${troopCount(st)}/${TROOP_MAX}). In a raid you only lose the ones you send in; the rest come home. Earn Dust by farming, adventures and raids.</div>`
+      : shopTab === 'gems' ? `<div class="shop-info px gemsinfo">💎 <b>Gems</b> buy exclusive things and save time. You find a few by beating Ogres on adventures. <button class="btn small primary" id="buy-gems">Get more Gems</button></div>`
+      : `<div class="shop-info px">🧪 Bring potions on adventures (your hero does not heal by itself). Craft them from herbs found on adventures, or buy them.</div>`;
+    const icon = k => k.startsWith('troop_') ? `<img src="${troopIcon(k.slice(6))}" alt="">` : `<i>${SHOP[k].icon}</i>`;
+    html = head + keys.map(k => { const it = SHOP[k], ok = canAfford(st, it.price), h = have(k);
+      return shopCard(icon(k), it.name, it.desc, h, `<button class="btn small ${it.gem ? 'gem' : 'primary'}" data-act="shop" data-item="${k}" data-n="1" ${ok ? '' : 'disabled'}>${costText(it.price)}</button>${it.gem ? '' : `<button class="btn small" data-act="shop" data-item="${k}" data-n="5" ${canAfford(st, Object.fromEntries(Object.entries(it.price).map(([a, n]) => [a, n * 5]))) ? '' : 'disabled'}>×5</button>`}`, it.gem ? 'gemcard' : ''); }).join('')
+      + (shopTab === 'items' ? Object.entries(RECIPES).map(([k, r]) => shopCard('<i>⚗️</i>', `Craft: ${r.name}`, `Uses ${costText(r.needs)}`, inv.herb || 0, `<button class="btn small primary" data-act="craft" data-item="${k}" data-n="1" ${canAfford(st, r.needs) ? '' : 'disabled'}>Craft</button>`)).join('') : '');
   } else {
     html = [['🌳', 'Decorations', 'Trees, statues, paths and lights for your island'], ['🃏', 'Card backs', 'Show off in every duel · 3,000 ✨'], ['🖼️', 'Profile frames', 'A frame around your profile picture · 5,000 ✨'],
       ['⚡', 'Energy shard', '+1 ranked energy for one Mind · 800 ✨ (1 a day)'], ['🛡️', 'Raid defenses', 'Walls, traps and guards for when raids arrive']]
@@ -482,6 +530,12 @@ function paintShop() {
   }
   $('#shop-grid').innerHTML = html;
 }
+// Gems for real money: needs a payment provider (card / crypto) set up by the owner first
+async function buyGems() {
+  sfx('click');
+  await modal(`<h3>💎 Gems</h3><p>Gem packs (card or crypto) are coming very soon.</p><p class="muted">Until then you can find Gems by beating Ogres on adventures.</p>`, [['OK', true, 'primary']]);
+}
+$('#shop-grid').addEventListener('click', e => { if (e.target.closest('#buy-gems')) buyGems(); });
 $('#shop-tabs').onclick = e => { const v = e.target.closest('button')?.dataset.v; if (!v) return; shopTab = v; paintShop(); };
 $('#shop-grid').onclick = e => {
   const b = e.target.closest('button[data-act]'); if (!b || b.disabled) return;
@@ -489,7 +543,7 @@ $('#shop-grid').onclick = e => {
   if (res.error) { sfx('denied'); return toast(res.error, true); }
   sfx('coin');
   const g = res.gain || {};
-  toast(b.dataset.act === 'sell' ? `Sold for ${g.dust} ✨` : `Bought! ${-g.dust} ✨ spent`);
+  toast(b.dataset.act === 'sell' ? `Sold for ${g.dust} ✨` : b.dataset.act === 'craft' ? 'Crafted!' : g.gems < 0 ? `Bought! ${-g.gems} 💎 spent` : `Bought! ${-(g.dust || 0)} ✨ spent`);
   flushIsland(); paintShop(); refreshHud();
 };
 $('#inv-tabs').onclick = e => { const v = e.target.dataset.v; if (!v) return; invTab = v; paintInventory(); };

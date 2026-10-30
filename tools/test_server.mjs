@@ -324,6 +324,74 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   out = await callAdv({ op: 'end', got: berry, beat: [] });
   ok(out.code === 400, 'an adventure pays out once');
 }
+
+// ---- economy: shop, gems, storage, army, adventure areas ----
+{
+  const R = await import('../web/src/island/rules.js');
+  const { gen, TW, TH } = await import('../web/src/island/gen.js');
+  const now = Date.now(), seed = 31337, ctx = { seed, now, minds: 0 };
+  const st = R.newIsland(seed, now);
+  ok(st.b.some(b => b.type === 'home') && st.b.some(b => b.type === 'well') && st.inv.troop_brawler > 0, 'a new island starts with its home, well and a few troops');
+  st.dust = 1000;
+  let r = R.act(st, { type: 'shop', item: 'troop_giant', n: 2 }, ctx);
+  ok(r.done === 2 && st.inv.troop_giant === 2 && st.dust === 700, 'train troops with Dust');
+  ok(R.act(st, { type: 'shop', item: 'gem_army', n: 1 }, ctx).error, 'gem items need gems');
+  st.gems = 20;
+  r = R.act(st, { type: 'shop', item: 'gem_potions', n: 1 }, ctx);
+  ok(r.done === 1 && st.gems === 15 && st.inv.potion >= 6, 'gems buy potion crates');
+  st.inv.herb = 4;
+  r = R.act(st, { type: 'craft', item: 'potion', n: 5 }, ctx);
+  ok(r.done === 2 && !st.inv.herb, 'craft potions from herbs');
+  const home = st.b.find(b => b.type === 'home');
+  ok(R.act(st, { type: 'demolish', id: home.id }, ctx).error && R.act(st, { type: 'store', id: home.id }, ctx).error, 'the home cannot be removed or stored');
+  const w = gen(seed);
+  let spot = -1; for (let k = 0; k < TW * TH && spot < 0; k++) if (R.fits(st, w, 'home', k, home) && Math.abs(k - home.k) > 200) spot = k;
+  r = R.act(st, { type: 'move', id: home.id, k: spot }, ctx);
+  ok(r.done === 1 && st.b.find(b => b.type === 'home').k === spot, 'the home can be moved anywhere it fits');
+  st.inv.wood = 50;
+  let fk = -1; for (let k = 0; k < TW * TH && fk < 0; k++) if (R.fits(st, w, 'bench', k)) fk = k;
+  R.act(st, { type: 'build', item: 'bench', tiles: [fk] }, ctx);
+  const bench = st.b.find(b => b.type === 'bench');
+  r = R.act(st, { type: 'store', id: bench.id }, ctx);
+  ok(r.done === 1 && st.stash.bench === 1 && !st.b.includes(bench), 'buildings go into storage');
+  const wood = st.inv.wood;
+  r = R.act(st, { type: 'place', item: 'bench', tiles: [fk] }, ctx);
+  ok(r.done === 1 && !st.stash.bench && st.inv.wood === wood, 'placing from storage is free');
+  let ck = -1; for (let k = 0; k < TW * TH && ck < 0; k++) if (R.fits(st, w, 'crystal', k)) ck = k;
+  ok(R.act(st, { type: 'build', item: 'crystal', tiles: [ck] }, ctx).done === 1 && st.gems === 0, 'gem-exclusive decorations cost gems');
+  const v2 = { v: 2, dust: 0, inv: {}, tiles: {} };
+  R.normalize(v2, seed, now);
+  ok(v2.v === 3 && v2.b.filter(b => b.type === 'home').length === 1, 'older islands get their home as a movable building');
+  // raid: you bring troops you own; the ones you don't send come back
+  const raidRoute = (await import('../lib/routes/raid.js')).default, RD = await import('../web/src/island/raid.js');
+  const pl = await db.insert('players', { name: 'Trainer', is_guest: true });
+  const isl = { player_id: pl.id, seed: 4242, state: { ...R.newIsland(4242, now), dust: 500 }, minds: 0, rev: 0, updated_at: new Date().toISOString() };
+  isl.state.inv = { troop_brawler: 5, troop_archer: 2 };
+  T.islands.push(isl);
+  const call = async body => { const token = signSession({ id: pl.id, address: null, is_guest: true }); let out = null; const res = { setHeader() {}, end(t) { out = { code: this.statusCode, body: JSON.parse(t) }; }, headersSent: false }; await raidRoute({ method: 'POST', url: '/api/raid', headers: { authorization: 'Bearer ' + token }, body, query: {} }, res); return out; };
+  let out = await call({ op: 'find', minds: [], army: { brawler: 9, archer: 1, giant: 3 } });
+  ok(out.code === 200 && out.body.army.brawler === 5 && out.body.army.giant === 0 && !isl.state.inv.troop_brawler && isl.state.inv.troop_archer === 1, 'a raid takes only troops you own (and they leave the camp)');
+  const S = RD.createRaid(out.body.snap, { troops: out.body.army }), spots = [];
+  for (let k = 0; k < TW * TH; k++) if (RD.dropOk(S, k)) spots.push(k);
+  out = await call({ op: 'attack', id: out.body.id, inputs: [{ t: 0, drop: 'brawler', k: spots[0] }, { t: 2, drop: 'brawler', k: spots[0] }] });
+  ok(out.code === 200 && isl.state.inv.troop_brawler === 3 && isl.state.inv.troop_archer === 2, 'troops you did not send come home');
+  out = await call({ op: 'find', army: {} });
+  ok(out.code === 403 || out.body.army, 'no troops = train first');
+  // adventure areas: locked until the Ogre before is beaten; far areas cost fuel
+  const advRoute = (await import('../lib/routes/adventure.js')).default;
+  const callA = async body => { const token = signSession({ id: pl.id, address: null, is_guest: true }); let o = null; const res = { setHeader() {}, end(t) { o = { code: this.statusCode, body: JSON.parse(t) }; }, headersSent: false }; await advRoute({ method: 'POST', url: '/api/adventure', headers: { authorization: 'Bearer ' + token }, body, query: {} }, res); return o; };
+  out = await callA({ op: 'start', area: 2 });
+  ok(out.code === 403, 'far areas stay locked until you beat the Ogre before them');
+  isl.state.au = 1; isl.state.inv.fuel = 0;
+  out = await callA({ op: 'start', area: 1 });
+  ok(out.code === 403 && /Fuel/.test(out.body.error), 'flying far needs Sky Fuel');
+  isl.state.inv.fuel = 2; isl.state.inv.potion = 3;
+  out = await callA({ op: 'start', area: 1, potions: 9 });
+  ok(out.code === 200 && out.body.potions === 3 && !isl.state.inv.potion && isl.state.inv.fuel === 1, 'you bring the potions you have (max 5) and fuel is used');
+  isl.state.adv.at = Date.now() - 100e3;
+  out = await callA({ op: 'end', got: [], beat: [], cover: { tree: 60, weeds: 5 }, potionsLeft: 2 });
+  ok(out.code === 200 && out.body.loot.wood === 3 * 35 && out.body.loot.dust === 5 && isl.state.inv.potion === 2, 'cutting trees on adventures is capped per hour; unused potions come back');
+}
 console.log(`
 ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -6,7 +6,7 @@ import { sfx } from '../audio.js';
 import { gen, COVER, T, TW, TH, WW, WH, hash } from './gen.js';
 import { drawSky, groundFor, sprites, sprouts, heart, SOIL, toolSprites } from './art.js';
 import { rng } from './pixel.js';
-import { CROPS, coverAt, ripe, growMs, regrowMs, maxPlots, plotCount, PLOT_COST, speedBonus, BUILD, buildingAt, fits, footprint, maxOf, countOf, canAfford, costText } from './rules.js';
+import { CROPS, coverAt, ripe, growMs, regrowMs, maxPlots, plotCount, PLOT_COST, speedBonus, BUILD, buildingAt, fits, footprint, maxOf, countOf, canAfford, costText, homeOf, wellOf, STASH_MAX } from './rules.js';
 import { bsprites, drawSails, buildIcon } from './buildings.js';
 import { isle, doAct, now, onChange, flush } from './store.js';
 
@@ -56,7 +56,7 @@ function clampCam() {
   cam.y = Math.min(WH - hh, Math.max(hh, cam.y));
 }
 function fitCam() {
-  cam.x = (w.house.x + 4) * T; cam.y = (w.house.y + 2) * T;
+  const h = homeOf(isle.state, w); cam.x = (h.x + 4) * T; cam.y = (h.y + 2) * T;
   cam.z = Math.min(zMax, Math.max(zMin, Math.min(W / 440, H / 300)));
   clampCam();
 }
@@ -89,7 +89,7 @@ const WORK_TIME = { [COVER.WEEDS]: 0.7, [COVER.BUSH]: 1, [COVER.ROCK]: 1.4, [COV
 let jobs = [];   // { type, k, crop?, m? } in the order you asked
 function makeMind(id, i) {
   const r = rng(id * 2654435761);
-  const hx = (w.house.x + 1.5) * T, hy = (w.house.y + 3.6) * T;
+  const ho = homeOf(isle.state, w), hx = (ho.x + 1.5) * T, hy = (ho.y + 3.6) * T;
   let x = hx, y = hy;
   for (let k = 0; k < 80; k++) {
     const a = r() * Math.PI * 2, d = 12 + r() * 60, X = hx + Math.cos(a) * d, Y = hy + Math.sin(a) * d * 0.7;
@@ -212,8 +212,9 @@ const bits = (x, y, colors, n = 10, up = 30) => {
 const popText = (x, y, text, color = '#fff8e4') => fx.push({ type: 'txt', x, y, text, color, life: 1.2, max: 1.2 });
 function spawnFx(dt, L) {
   const hs = sprites.house(isle.seed, false);
-  if (Math.random() < dt * 2.2) fx.push({ type: 'smoke', x: (w.house.x + 1.5) * T + 12 + (Math.random() - 0.5) * 2, y: (w.house.y + 3) * T - hs.h + 4, vx: 2 + Math.random() * 2, vy: -6 - Math.random() * 3, life: 3, max: 3 });
-  if (Math.random() < dt * 3) fx.push({ type: 'glow', x: (w.well.x + 1) * T + (Math.random() - 0.5) * 12, y: (w.well.y + 2) * T - 10, vx: 0, vy: -5 - Math.random() * 4, life: 1.4, max: 1.4 });
+  const ho = homeOf(isle.state, w), we = wellOf(isle.state, w);
+  if (Math.random() < dt * 2.2) fx.push({ type: 'smoke', x: (ho.x + 1.5) * T + 12 + (Math.random() - 0.5) * 2, y: (ho.y + 3) * T - hs.h + 4, vx: 2 + Math.random() * 2, vy: -6 - Math.random() * 3, life: 3, max: 3 });
+  if (Math.random() < dt * 3) fx.push({ type: 'glow', x: (we.x + 1) * T + (Math.random() - 0.5) * 12, y: (we.y + 2) * T - 10, vx: 0, vy: -5 - Math.random() * 4, life: 1.4, max: 1.4 });
   if (Math.random() < dt * 20) { const p = gr.waterPts[(Math.random() * gr.waterPts.length) | 0]; fx.push({ type: 'spark', x: p.x, y: p.y, life: 0.9, max: 0.9 }); }
   if (L.night && Math.random() < dt * 5) { const f = gr.flowerSpots[(Math.random() * gr.flowerSpots.length) | 0]; if (f) fx.push({ type: 'firefly', x: f.x, y: f.y - 6, vx: (Math.random() - 0.5) * 6, vy: -2, life: 3, max: 3, ph: Math.random() * 6 }); }
 }
@@ -258,9 +259,10 @@ function drawLights(L) {
   if (!L.night) return;
   g.globalCompositeOperation = 'lighter';
   const glow = (x, y, r, col) => { const gg = g.createRadialGradient(x, y, 0, x, y, r); gg.addColorStop(0, col); gg.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gg; g.fillRect(x - r, y - r, r * 2, r * 2); };
-  const hx = (w.house.x + 1.5) * T, hy = (w.house.y + 3) * T;
+  const ho = homeOf(isle.state, w), we = wellOf(isle.state, w), hx = (ho.x + 1.5) * T, hy = (ho.y + 3) * T;
   glow(hx - 9, hy - 14, 18, 'rgba(255,197,61,.45)'); glow(hx + 12, hy - 14, 18, 'rgba(255,197,61,.45)');
-  glow((w.well.x + 1) * T, (w.well.y + 2) * T - 10, 22, 'rgba(212,255,31,.4)');
+  glow((we.x + 1) * T, (we.y + 2) * T - 10, 22, 'rgba(212,255,31,.4)');
+  for (const b of isle.state.b || []) if (b.type === 'lamp' || b.type === 'lantern') glow(kx(b.k) * T + 8, ky(b.k) * T - (b.type === 'lamp' ? 6 : 10), 18, 'rgba(255,214,120,.45)');
   g.globalCompositeOperation = 'source-over';
 }
 
@@ -324,9 +326,9 @@ function frame(nowT) {
     else if (cov === COVER.ROCK) items.push({ y: by - 1, spr: sprites.rock(v % 3), x: cx });
     else if (cov === COVER.TREE) items.push({ y: by, spr: sprites.tree(w.treeKinds[w.kind[k]], v % 3), x: cx, tree: true });
   }
-  items.push({ y: (w.house.y + 3) * T - 1, spr: sprites.house(isle.seed, !!L.night), x: (w.house.x + 1.5) * T });
   // village buildings (walls join their neighbours; traps are only shown to you)
-  const wallAt = new Set((st.b || []).filter(b => b.type === 'wall').map(b => b.k));
+  const wallAt = new Set((st.b || []).filter(b => b.type === 'wall').map(b => b.k)), fenceAt = new Set((st.b || []).filter(b => b.type === 'fence').map(b => b.k));
+  const maskOf = (set, k) => (set.has(k - TW) ? 1 : 0) | (kx(k) < TW - 1 && set.has(k + 1) ? 2 : 0) | (set.has(k + TW) ? 4 : 0) | (kx(k) > 0 && set.has(k - 1) ? 8 : 0);
   for (const b of st.b || []) {
     if (moving && b.id === moving.id) continue;
     const d = BUILD[b.type], x0 = kx(b.k) * T, y0 = ky(b.k) * T, cx = x0 + d.w * T / 2, by = y0 + d.h * T - 1;
@@ -335,9 +337,12 @@ function frame(nowT) {
       items.push({ y: by, spr: bsprites.wall(mask), x: cx });
     } else if (b.type === 'trap') items.push({ y: y0 + 2, spr: bsprites.trap(), x: cx, flat: true });
     else if (b.type === 'mill') { items.push({ y: by, spr: bsprites.mill(), x: cx, sails: { x: cx, y: by - 26 } }); }
+    else if (b.type === 'home') items.push({ y: by, spr: sprites.house(isle.seed, !!L.night), x: cx });
+    else if (b.type === 'well') items.push({ y: by, spr: sprites.well(), x: cx });
+    else if (b.type === 'fence') items.push({ y: by, spr: bsprites.fence(maskOf(fenceAt, b.k)), x: cx });
+    else if (b.type === 'lantern') items.push({ y: by, spr: bsprites.lantern(), x: cx, float: true });
     else items.push({ y: by, spr: b.type === 'house' ? bsprites.house(L.night) : bsprites[b.type](), x: cx });
   }
-  items.push({ y: (w.well.y + 2) * T - 1, spr: sprites.well(), x: (w.well.x + 1) * T });
   for (const m of minds) items.push({ y: m.y, mind: m });
   items.sort((a, b) => a.y - b.y);
   g.strokeStyle = `rgba(255,255,255,${0.5 + 0.3 * Math.sin(Tm * 6)})`; g.lineWidth = 1;
@@ -356,15 +361,17 @@ function frame(nowT) {
     if (it.ripe) { dy = -Math.round(Math.abs(Math.sin(Tm * 3 + it.x))); if (Math.random() < dt * 0.8) fx.push({ type: 'star', x: it.x + (Math.random() - 0.5) * 10, y: it.y - 6 - Math.random() * 8, life: 0.8, max: 0.8 }); }
     const hides = it.tree && minds.some(m => m.y < it.y - 2 && m.y > it.y - s.h + 6 && Math.abs(m.x - it.x) < s.w / 2);
     if (hides) g.globalAlpha = 0.55;
+    if (it.float) dy -= 6 + Math.round(Math.sin(Tm * 2 + it.x) * 2);   // sky lanterns hover
     g.drawImage(s.cv, it.x - (s.w >> 1) + dx, it.y - s.h + 1 + dy);
     if (it.sails) drawSails(g, it.sails.x, it.sails.y, Tm * 0.8);
+    if (it.float) { g.globalAlpha = 1; }
     g.globalAlpha = 1;
   }
   if (tool === 'build' && hover >= 0) {
     const type = moving ? moving.type : buildType, d = BUILD[type], ok = fits(st, w, type, hover, moving);
     g.fillStyle = ok ? 'rgba(212,255,31,.35)' : 'rgba(255,90,74,.4)';
     g.fillRect(kx(hover) * T, ky(hover) * T, d.w * T, d.h * T);
-    const s = type === 'wall' ? bsprites.wall(0) : type === 'house' ? bsprites.house(false) : bsprites[type]();
+    const s = type === 'wall' ? bsprites.wall(0) : type === 'fence' ? bsprites.fence(0) : type === 'house' ? bsprites.house(false) : type === 'home' ? sprites.house(isle.seed, false) : type === 'well' ? sprites.well() : bsprites[type]();
     g.globalAlpha = 0.65; g.drawImage(s.cv, kx(hover) * T + d.w * T / 2 - (s.w >> 1), ky(hover) * T + d.h * T - s.h); g.globalAlpha = 1;
   }
   if (hover >= 0 && w.land[hover] && tool !== 'hand' && tool !== 'build') {   // outline on top so it shows over tall weeds
@@ -430,8 +437,6 @@ function smart(k, p) {
   const t = isle.state.tiles[k], cov = coverAt(isle.state, w, k);
   const bd = buildingAt(isle.state, k);
   if (bd) return openBMenu(bd);
-  const hx = kx(k) - w.house.x, hy = ky(k) - w.house.y;
-  if (hx >= 0 && hx < 3 && hy >= 0 && hy < 3) return cb.toast('Your home. Upgrades and decorations are coming next.');
   if (isFixed(k)) return cb.toast('Energy Well: it will make energy shards (3 shards = +1 ranked energy). Coming soon.');
   if (t?.s === 'p') {
     if (ripe(t, now(), isle.minds)) return enqueue('harvest', k);
@@ -536,33 +541,36 @@ function placeAt(k) {
     sfx('land'); bits(kx(k) * T + 8, ky(k) * T + 12, ['#c99a63', '#a3a2b5', '#f3dfb6'], 14, 40);
     moving = null; setTool('hand'); return;
   }
-  const d = BUILD[buildType];
-  if (!canAfford(isle.state, d.cost)) { if (!strokeErr) { strokeErr = true; sfx('denied'); cb.toast(`A ${d.name} costs ${costText(d.cost)}.`, true); } return; }
-  const res = doAct(d.w === 1 ? { type: 'build', item: buildType, tiles: [k] } : { type: 'build', item: buildType, k });
+  const d = BUILD[buildType], stored = isle.state.stash?.[buildType] > 0;
+  if (!stored && !canAfford(isle.state, d.cost)) { if (!strokeErr) { strokeErr = true; sfx('denied'); cb.toast(`A ${d.name} costs ${costText(d.cost)}.`, true); } return; }
+  const kind = stored ? 'place' : 'build';
+  const res = doAct(d.w === 1 ? { type: kind, item: buildType, tiles: [k] } : { type: kind, item: buildType, k });
   if (res.error) { if (!strokeErr) { strokeErr = true; sfx('denied'); cb.toast(res.error, true); } return; }
   if (!res.done) return;
   const x = kx(k) * T + d.w * 8, y = ky(k) * T + d.h * 14;
   bits(x, y, ['#c99a63', '#a3a2b5', '#f3dfb6', '#ffffff'], d.w > 1 ? 24 : 8, 50); sfx(d.w > 1 ? 'levelup' : 'block');
-  popText(x, y - d.h * 16, d.w > 1 ? `${d.name} built!` : costText(d.cost).replace(/(\d+)/g, '−$1'), '#fff8e4');
+  popText(x, y - d.h * 16, stored ? 'Placed!' : d.w > 1 ? `${d.name} built!` : costText(d.cost).replace(/(\d+)/g, '−$1'), '#fff8e4');
   // a Mind comes over to admire it
   const m = minds.find(m => !m.job); if (m) { m.tx = x + 12; m.ty = y + 4; m.state = 'go'; emote(m, 'heart'); }
-  if (d.w > 1 && !(countOf(isle.state, buildType) < maxOf(buildType, isle.minds))) setTool('hand');
+  if (d.w > 1 && !(isle.state.stash?.[buildType] > 0) && !(countOf(isle.state, buildType) < maxOf(buildType, isle.minds))) setTool('hand');
 }
 function openBuild(force) {
   const box = $('#isl-build');
   if (!force && box.classList.contains('on')) return closeBuild();
   const st = isle.state;
-  box.innerHTML = Object.entries(BUILD).map(([type, d]) => {
-    const n = countOf(st, type), max = maxOf(type, isle.minds), full = n >= max, poor = !canAfford(st, d.cost);
-    return `<button data-build="${type}" class="${type === buildType ? 'on' : ''} ${full || poor ? 'none' : ''}"><img src="${buildIcon(type)}" alt=""><b>${d.name}</b><span>${d.desc}</span><span>${costText(d.cost)}</span><em>${n}/${max}</em></button>`;
-  }).join('');
+  const stash = Object.entries(st.stash || {}).filter(([, n]) => n > 0), used = stash.reduce((s, [, n]) => s + n, 0);
+  box.innerHTML = (stash.length ? `<div class="bm-head">📦 Storage ${used}/${STASH_MAX} · place for free</div>` + stash.map(([type, n]) => `<button data-build="${type}" class="stored ${type === buildType ? 'on' : ''}"><img src="${buildIcon(type)}" alt=""><b>${BUILD[type].name}</b><span>In storage</span><em>×${n}</em></button>`).join('') + '<div class="bm-head">🔨 Build</div>' : '')
+    + Object.entries(BUILD).filter(([, d]) => !d.fixed).map(([type, d]) => {
+      const n = countOf(st, type), max = maxOf(type, isle.minds), full = n >= max, poor = !canAfford(st, d.cost);
+      return `<button data-build="${type}" class="${type === buildType ? 'on' : ''} ${full || poor ? 'none' : ''} ${d.gem ? 'gem' : ''}"><img src="${buildIcon(type)}" alt=""><b>${d.name}</b><span>${d.desc}</span><span>${costText(d.cost)}</span><em>${n}/${max}</em></button>`;
+    }).join('');
   box.classList.add('on');
 }
 function closeBuild() { $('#isl-build')?.classList.remove('on'); }
 function openBMenu(b) {
   const d = BUILD[b.type], refund = costText(Object.fromEntries(Object.entries(d.cost).map(([i, n]) => [i, Math.floor(n / 2)])));
   const box = $('#isl-bmenu');
-  box.innerHTML = `<img src="${buildIcon(b.type)}" alt=""><div><b>${d.name}</b><span>${d.desc}</span></div><button data-bm="move">↔ Move</button><button data-bm="demolish" title="Get back ${refund}">🗑 Remove</button><button data-bm="x">✕</button>`;
+  box.innerHTML = `<img src="${buildIcon(b.type)}" alt=""><div><b>${d.name}</b><span>${d.desc}</span></div><button data-bm="move">↔ Move</button>${d.fixed ? '' : `<button data-bm="store" title="Keep it in storage and place it later">📦 Store</button><button data-bm="demolish" title="Get back ${refund}">🗑 Remove</button>`}<button data-bm="x">✕</button>`;
   box.dataset.id = b.id; box.classList.add('on'); sfx('click');
 }
 function closeBMenu() { $('#isl-bmenu')?.classList.remove('on'); }
@@ -583,6 +591,7 @@ function paintHud() {
   const st = isle.state, inv = st.inv;
   $('#isl-dust').textContent = st.dust.toLocaleString();
   $('#isl-wood').textContent = inv.wood || 0;
+  $('#isl-gems').textContent = st.gems || 0;
   $('#isl-stone').textContent = inv.stone || 0;
   $('#isl-plots').textContent = `${plotCount(st)}/${maxPlots(st, isle.minds)}`;
   $('#isl-seed-ico').src = cropImg(seed);
@@ -602,7 +611,8 @@ document.getElementById('isl-build').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   buildType = b.dataset.build; moving = null; closeBuild(); setTool('build'); sfx('select');
   const d = BUILD[buildType];
-  if (countOf(isle.state, buildType) >= maxOf(buildType, isle.minds)) cb.toast(`You already have the most ${d.name}s you can build.`, true);
+  if (isle.state.stash?.[buildType] > 0) cb.toast(`Tap where your ${d.name} from storage should go.`);
+  else if (countOf(isle.state, buildType) >= maxOf(buildType, isle.minds)) cb.toast(`You already have the most ${d.name}s you can build.`, true);
   else if (!canAfford(isle.state, d.cost)) cb.toast(`A ${d.name} costs ${costText(d.cost)}. Clear trees and rocks for 🪵 and 🪨, sell crops for ✨.`, true);
 });
 document.getElementById('isl-bmenu').addEventListener('click', e => {
@@ -611,6 +621,7 @@ document.getElementById('isl-bmenu').addEventListener('click', e => {
   closeBMenu();
   if (!b || btn.dataset.bm === 'x') return;
   if (btn.dataset.bm === 'move') { moving = b; setTool('build'); return; }
+  if (btn.dataset.bm === 'store') { const r = doAct({ type: 'store', id: b.id }); if (r.error) return cb.toast(r.error, true); sfx('pop'); return cb.toast(`${BUILD[b.type].name} put in storage. Place it again from 🔨 Build.`); }
   const res = doAct({ type: 'demolish', id: b.id });
   if (res.error) return cb.toast(res.error, true);
   sfx('hit'); bits(kx(b.k) * T + 8, ky(b.k) * T + 10, ['#c99a63', '#a3a2b5', '#8b5a34'], 18, 50);

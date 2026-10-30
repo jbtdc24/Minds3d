@@ -6,7 +6,8 @@ import { drawSky, groundFor, sprites } from './art.js';
 import { bsprites } from './buildings.js';
 import { chibi } from './chibi.js';
 import { troopSprite, weapon, nodeSprite, monsterSprite } from './troops.js';
-import { advMap, advLoot, walkable, HEROES, MONSTERS, NODES, ADV_TIME } from './adventure.js';
+import { advMap, advLoot, walkable, HEROES, MONSTERS, NODES, ADV_TIME, AREAS, POTION_HEAL } from './adventure.js';
+import { DROPS } from './rules.js';
 import { sfx, music } from '../audio.js';
 
 const $ = s => document.querySelector(s);
@@ -15,7 +16,8 @@ let A = null, running = false, raf = 0, last = 0, Tm = 0, W = 1, H = 1, DPR = 1,
 const cam = { x: WW / 2, y: WH / 2, z: 3 };
 let parts = [], texts = [], w = null, gr = null;
 const kx = k => k % TW, ky = k => (k / TW) | 0, cxOf = k => kx(k) * T + 8, cyOf = k => ky(k) * T + 12;
-const ICON = { dust: '✨', wood: '🪵', stone: '🪨', seed_carrot: '🥕', seed_melon: '🍈', seed_star: '⭐' };
+const ICON = { dust: '✨', wood: '🪵', stone: '🪨', seed_carrot: '🥕', seed_melon: '🍈', seed_star: '⭐', herb: '🌿', gems: '💎' };
+const CUT = { [COVER.WEEDS]: 'weeds', [COVER.BUSH]: 'bush', [COVER.ROCK]: 'rock', [COVER.TREE]: 'tree' };
 
 function resize() { DPR = Math.min(2, devicePixelRatio || 1); W = innerWidth; H = innerHeight; cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR); cam.z = Math.max(2.4, Math.min(4, Math.min(W, H * 1.6) / 300)); }
 const toWorld = (sx, sy) => ({ x: (sx - W / 2) / cam.z + cam.x, y: (sy - H / 2) / cam.z + cam.y });
@@ -81,7 +83,16 @@ function update(dt) {
     }
   }
   // gathering
-  if (h.gather && !h.path.length) {
+  if (h.gather?.cover != null && !h.path.length) {
+    const c = h.gather;
+    if (Math.hypot(c.x - h.x, c.y - h.y) > 24) h.gather = null;
+    else if ((c.prog += dt / (c.type === 'tree' ? 1.1 : c.type === 'rock' ? 1 : 0.6)) >= 1) {
+      A.cut.add(c.k); A.cover[c.type] = (A.cover[c.type] || 0) + 1; A.gatherLeft--; h.gather = null;
+      add(DROPS[COVER[c.type.toUpperCase()]] || {}, c.x, c.y - 10);
+      burst(c.x, c.y - 4, c.type === 'tree' ? ['#8b5a34', '#58b046', '#7fcf55'] : c.type === 'rock' ? ['#a3a2b5', '#7c7b8f'] : ['#58b046', '#7fcf55'], 12, 45);
+      snd(c.type === 'tree' ? 'hit' : c.type === 'rock' ? 'block' : 'pop', 0.05);
+    } else if ((h.swing = (h.swing || 0) + dt) > 0.3) { h.swing = 0; snd(c.type === 'rock' ? 'smash' : 'whoosh', 0.1); }
+  } else if (h.gather && !h.path.length) {
     const n = h.gather, guard = A.mons.find(m => m.guards === n.id && !m.dead);
     if (guard) { say(n.x, n.y - 20, 'Beat the guard first!', '#ff8a7a'); h.gather = null; h.target = guard; }
     else if ((n.prog += dt / NODES[n.type].time) >= 1) {
@@ -110,7 +121,6 @@ function update(dt) {
     }
   }
   // rest when nobody is chasing you
-  if (!alive.some(m => m.angry) && h.act !== 'hit') h.hp = Math.min(A.maxHp, h.hp + 8 * dt);
   if (h.hp <= 0 && !A.over) { A.over = true; A.ko = true; snd('defeat'); say(h.x, h.y - 30, 'Knocked out!', '#ff6a5a', true); setTimeout(() => A.onEnd?.(A), 1500); }
   if (A.time <= 0 && !A.over) { A.over = true; snd('round'); setTimeout(() => A.onEnd?.(A), 600); }
 }
@@ -147,12 +157,12 @@ function frame(now) {
   const tx0 = Math.max(0, Math.floor(v0.x / T) - 2), tx1 = Math.min(TW - 1, Math.ceil(v1.x / T) + 2), ty0 = Math.max(0, Math.floor(v0.y / T) - 1), ty1 = Math.min(TH - 1, Math.ceil(v1.y / T) + 3);
   for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
     const k = ty * TW + tx, cov = w.cover[k];
-    if (!w.land[k]) continue;
+    if (!w.land[k] || A.cut.has(k)) continue;
     const cx = tx * T + 8, by = ty * T + 15, v = hash(tx, ty, 7) * 4 | 0;
-    if (cov === COVER.WEEDS) items.push({ y: by - 1, spr: sprites.weeds(v), x: cx });
-    else if (cov === COVER.BUSH) items.push({ y: by, spr: sprites.bush(v % 3), x: cx });
-    else if (cov === COVER.ROCK) items.push({ y: by - 1, spr: sprites.rock(v % 3), x: cx });
-    else if (cov === COVER.TREE) items.push({ y: by, spr: sprites.tree(w.treeKinds[w.kind[k]], v % 3), x: cx, tree: true });
+    if (cov === COVER.WEEDS) items.push({ y: by - 1, spr: sprites.weeds(v), x: cx, cut: k });
+    else if (cov === COVER.BUSH) items.push({ y: by, spr: sprites.bush(v % 3), x: cx, cut: k });
+    else if (cov === COVER.ROCK) items.push({ y: by - 1, spr: sprites.rock(v % 3), x: cx, cut: k });
+    else if (cov === COVER.TREE) items.push({ y: by, spr: sprites.tree(w.treeKinds[w.kind[k]], v % 3), x: cx, tree: true, cut: k });
   }
   items.push({ y: (w.house.y + 3) * T - 4, spr: bsprites.rubble(3), x: (w.house.x + 1.5) * T });   // the ruined hut
   for (const n of A.nodes) if (!n.done) items.push({ y: n.y + 3, spr: nodeSprite(n.type), x: n.x, node: n });
@@ -167,6 +177,7 @@ function frame(now) {
     if (hide) g.globalAlpha = 0.5;
     g.drawImage(s.cv, Math.round(it.x - (s.w >> 1) + sway), Math.round(it.y - s.h + 1 - (it.node && it.node.type.includes('chest') ? Math.abs(Math.sin(Tm * 3)) : 0)));
     g.globalAlpha = 1;
+    if (it.cut && h.gather?.k === it.cut) { g.fillStyle = '#1d1b2f'; g.fillRect(it.x - 9, it.y - s.h - 4, 18, 4); g.fillStyle = '#d4ff1f'; g.fillRect(it.x - 8, it.y - s.h - 3, 16 * Math.min(1, h.gather.prog), 2); }
     if (it.node) {
       if (Math.random() < dt * 2) parts.push({ x: it.x + (Math.random() - 0.5) * 10, y: it.y - 8 - Math.random() * 6, vx: 0, vy: -10, g: 0, life: 0.6, max: 0.6, c: it.node.type === 'herb' ? '#7fff9a' : '#fff3b0', s: 1 });
       if (h.gather === it.node) { g.fillStyle = '#1d1b2f'; g.fillRect(it.x - 9, it.y - s.h - 6, 18, 4); g.fillStyle = '#d4ff1f'; g.fillRect(it.x - 8, it.y - s.h - 5, 16 * Math.min(1, it.node.prog), 2); }
@@ -230,6 +241,8 @@ function paintHud() {
   $('#adv-time').classList.toggle('low', t < 20);
   $('#adv-hp i').style.width = `${Math.max(0, A.hero.hp / A.maxHp) * 100}%`;
   $('#adv-hp b').textContent = Math.max(0, Math.round(A.hero.hp));
+  $('#adv-potion em').textContent = A.potions; $('#adv-potion').classList.toggle('used', !A.potions || A.hero.hp >= A.maxHp);
+  $('#adv-gather').textContent = `🌿 ${Math.max(0, A.gatherLeft)}`;
   const ab = $('#adv-ability'), cd = A.hero.cd;
   ab.classList.toggle('used', cd > 0); ab.querySelector('em').textContent = cd > 0 ? Math.ceil(cd) : '';
 }
@@ -241,6 +254,15 @@ cv.addEventListener('pointerdown', e => {
   const node = A.nodes.find(n => !n.done && Math.abs(p.x - n.x) < 10 && Math.abs(p.y - n.y + 4) < 10);
   if (node) { h.target = null; node.prog = node.prog || 0; h.gather = node; h.path = pathTo(tileOf(h.x, h.y), node.k); if (h.path.length) h.path.pop(); sfx('select'); return; }
   h.target = null; h.gather = null;
+  // grass, bushes, rocks and trees: cut them for your own island (limited per hour)
+  const tk = tileOf(p.x, p.y), cov = w.cover[tk];
+  if (w.land[tk] && CUT[cov] && !A.cut.has(tk)) {
+    if (A.gatherLeft <= 0) { say(p.x, p.y - 10, 'Gathering limit reached this hour', '#ff8a7a'); sfx('denied'); return; }
+    h.gather = { cover: cov, type: CUT[cov], k: tk, x: cxOf(tk), y: cyOf(tk), prog: 0 };
+    h.path = pathTo(tileOf(h.x, h.y), tk);
+    if (h.path.length && h.path[h.path.length - 1] === tk) h.path.pop();
+    sfx('select'); return;
+  }
   h.path = pathTo(tileOf(h.x, h.y), tileOf(p.x, p.y));
   burst(p.x, p.y, ['#d4ff1f', '#ffffff'], 4, 20);
 });
@@ -249,6 +271,11 @@ $('#adv-ability').onclick = () => {
   const ab = HEROES[A.heroKind].ability;
   h.cd = ab.cd; h.buff = ab.secs; h.hp = Math.min(A.maxHp, h.hp + ab.heal);
   burst(h.x, h.y - 10, ['#ffd84a', '#fff3b0', '#7fff7f'], 24, 60); flashA = 0.15; sfx(A.heroKind === 'hero' ? 'horn' : 'heal'); say(h.x, h.y - 30, ab.name.toUpperCase() + '!', '#ffd84a', true);
+};
+$('#adv-potion').onclick = () => {
+  if (!A || A.over || !A.potions || A.hero.hp >= A.maxHp) return;
+  A.potions--; A.hero.hp = Math.min(A.maxHp, A.hero.hp + POTION_HEAL);
+  burst(A.hero.x, A.hero.y - 10, ['#ff8aa8', '#ffffff', '#7fff7f'], 18, 50); sfx('heal'); say(A.hero.x, A.hero.y - 28, `+${POTION_HEAL}`, '#7fff7f', true);
 };
 $('#adv-home').onclick = () => { if (A && !A.over) { A.over = true; sfx('whoosh'); A.onEnd?.(A); } };
 
@@ -259,7 +286,7 @@ export function openAdventure(opts) {
   const HD = HEROES[opts.heroKind];
   const s = map.start;
   A = {
-    ...opts, map, time: ADV_TIME, over: false, ko: false, bag: {}, got: [], beat: [], maxHp: HD.hp,
+    ...opts, map, time: ADV_TIME, over: false, ko: false, bag: {}, got: [], beat: [], maxHp: HD.hp, cut: new Set(), cover: {}, potions: opts.potions || 0, gatherLeft: opts.gatherLeft ?? 40,
     look: opts.heroKind === 'hero' ? chibi(opts.mind) : null,
     hero: { x: cxOf(s), y: cyOf(s), hp: HD.hp, path: [], face: 1, cd: 0, buff: 0, hit: 0, act: 'idle', target: null, gather: null },
     nodes: map.nodes.map(n => ({ ...n, x: cxOf(n.k), y: cyOf(n.k), prog: 0, done: false })),
@@ -268,7 +295,8 @@ export function openAdventure(opts) {
   cam.x = A.hero.x; cam.y = A.hero.y;
   const ab = HD.ability;
   $('#adv-ability').innerHTML = `<b>${ab.icon}</b><span>${ab.name}</span><em></em>`;
-  $('#adv-name').textContent = `🧭 Wild island · level ${opts.level}`;
+  const AR = AREAS[opts.area || 0];
+  $('#adv-name').textContent = `${AR.icon} ${AR.name}`;
   parts = []; texts = []; shake = 0; flashA = 0;
   resize(); paintBag();
   music('adventure');

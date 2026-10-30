@@ -5,7 +5,7 @@ import { gen, COVER, T, TW, TH, WW, WH, hash } from './gen.js';
 import { drawSky, groundFor, sprites, SOIL } from './art.js';
 import { bsprites, drawSails } from './buildings.js';
 import { chibi } from './chibi.js';
-import { coverAt } from './rules.js';
+import { coverAt, BUILD } from './rules.js';
 import { troopSprite, weapon, troopIcon } from './troops.js';
 import { createRaid, input, step, score, dropOk, SPELLS, TROOPS, CRY, TICK, MAX_TICKS, DROP_UNTIL } from './raid.js';
 import { sfx, music } from '../audio.js';
@@ -159,7 +159,11 @@ function frame(now) {
     else if (cov === COVER.ROCK) items.push({ y: by - 1, spr: sprites.rock(v % 3), x: cx });
     else if (cov === COVER.TREE) items.push({ y: by, spr: sprites.tree(w.treeKinds[w.kind[k]], v % 3), x: cx, tree: true });
   }
-  items.push({ y: (w.well.y + 2) * T - 1, spr: sprites.well(), x: (w.well.x + 1) * T });
+  for (const b of S.decos) {   // the well, fences, lamps, statues: scenery
+    const fp = BUILD[b.type], x0 = kx(b.k) * T, y0 = ky(b.k) * T;
+    const spr = b.type === 'well' ? sprites.well() : b.type === 'fence' ? bsprites.fence(0) : bsprites[b.type]?.();
+    if (spr) items.push({ y: y0 + fp.h * T - 1, spr, x: x0 + fp.w * T / 2 });
+  }
   const walls = new Set(S.structs.filter(s => s.type === 'wall' && !s.dead).map(s => s.tiles[0]));
   S.structs.forEach((s, i) => {
     const by = s.y1 - 1, cx = s.cx;

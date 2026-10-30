@@ -259,6 +259,7 @@
     <button class="btn px" id="isl-back" title="Back to the lobby">←<span class="lbl"> Lobby</span></button>
     <div class="isl-res px">
       <span class="dust" title="Dust: the island money">✨ <b id="isl-dust">0</b></span>
+      <span class="gems" title="Gems">💎 <b id="isl-gems">0</b></span>
       <span title="Wood">🪵 <b id="isl-wood">0</b></span>
       <span title="Stone">🪨 <b id="isl-stone">0</b></span>
       <span title="Farm plots used / allowed">🌾 <b id="isl-plots">0/6</b></span>
@@ -317,16 +318,16 @@
     <button class="btn small" id="adv-home">🏠 Go home</button>
   </div>
   <div class="raid-bottom">
-    <div class="raid-tip px">Tap to walk · tap a monster to fight · tap ore, logs, berries, herbs and chests to gather</div>
-    <div class="raid-bar px"><button id="adv-ability" class="adv-ab"></button></div>
+    <div class="raid-tip px">Tap to walk · tap monsters to fight · tap loot, grass, trees and rocks to gather · <b id="adv-gather"></b> left this hour</div>
+    <div class="raid-bar px"><button id="adv-potion" class="adv-ab"><b>🧪</b><span>Potion</span><em>0</em></button><button id="adv-ability" class="adv-ab"></button></div>
   </div>
 </section>
 
 <!-- SHOP -->
 <section id="s-shop" class="screen window">
   <div class="page">
-    <div class="pagehead"><h2>🛒 Shop</h2><div class="seg px" id="shop-tabs"><button data-v="seeds" class="on">Seeds</button><button data-v="sell">Sell</button><button data-v="land">Land</button><button data-v="soon">More</button></div><button class="iconbtn px small closex" data-go="hub" title="Close">✕</button></div>
-    <div class="shop-bar panel px"><span>✨ <b id="shop-dust">0</b> Dust</span><span class="muted" id="shop-note"></span><button class="btn small" id="shop-go-island">🏝️ Go to my island</button></div>
+    <div class="pagehead"><h2>🛒 Shop</h2><div class="seg px" id="shop-tabs"><button data-v="seeds" class="on">Seeds</button><button data-v="army">⚔️ Army</button><button data-v="items">🧪 Supplies</button><button data-v="gems">💎 Gems</button><button data-v="sell">Sell</button><button data-v="land">Land</button></div><button class="iconbtn px small closex" data-go="hub" title="Close">✕</button></div>
+    <div class="shop-bar panel px"><span>✨ <b id="shop-dust">0</b> Dust</span><span>💎 <b id="shop-gems">0</b> Gems</span><span class="muted" id="shop-note"></span><button class="btn small" id="shop-go-island">🏝️ Go to my island</button></div>
     <div class="shop-grid" id="shop-grid"></div>
   </div>
 </section>
