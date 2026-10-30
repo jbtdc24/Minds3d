@@ -799,3 +799,21 @@ h3.raid-result { text-align: center; }
 .coach-n { font-size: 12px; font-weight: 900; color: var(--muted); }
 .coach-mark { animation: coachPulse 1s ease-in-out infinite; position: relative; z-index: 3; }
 @keyframes coachPulse { 50% { box-shadow: 0 0 0 4px #d4ff1f, 0 0 20px 8px rgba(212,255,31,.8); transform: translateY(-3px); } }
+
+/* lobby on small screens: the mode column must never collapse (Ranked + Island were hidden behind the leaderboard) */
+@media (max-width: 1000px) { .col-play { flex: none; max-height: none; overflow: visible; } }
+/* phones held sideways: modes on the left, leaderboard one tap away on the right */
+@media (orientation: landscape) and (max-height: 540px) {
+  .lobby { inset: 56px 10px max(6px, env(safe-area-inset-bottom)); flex-direction: row; align-items: stretch; justify-content: flex-start; padding-top: 0; overflow: hidden; gap: 10px; }
+  .col-play { flex: none; width: min(460px, 62vw); max-height: 100%; overflow: auto; gap: 6px; padding: 2px 6px 8px 2px; }
+  .hub-logo { display: none; }
+  .mode.big { min-height: 84px; } .mode.island-big { min-height: 92px; }
+  .mode.big .mode-txt b, .mode.island-big .mode-txt b { font-size: 24px; }
+  .mode-txt span { font-size: 12px; } .mode-ico { width: 34px; }
+  .mode-row.three .mode { min-height: 54px; } .mode-row.three .mode-txt b { font-size: 16px; }
+  .guest-note { font-size: 12px; padding: 5px 8px; }
+  #s-hub.board-closed .col-board { display: none; }
+  #s-hub:not(.board-closed) .col-board { display: flex; flex: 1; min-width: 0; height: 100%; overflow: auto; }
+  .board-tab { display: flex !important; }
+  #s-hub:not(.board-closed) .board-tab { display: none !important; }
+}

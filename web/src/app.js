@@ -210,7 +210,7 @@ async function enterHub() {
   friendsPoll();
   if (!settings.tutorialDone && !settings.tutorialAsked) {
     settings.tutorialAsked = true; saveSettings();
-    const r = await modal(`<img class="wide" src="assets/stage_meadow.webp" alt=""><h3>New here?</h3><p>Learn Mindclash in 2 minutes with a guided duel.</p>`, [['Start tutorial', 1, 'primary'], ['Skip', 0]]);
+    const r = await modal(`<img class="wide" src="assets/stage_meadow.webp" alt=""><h3>New here?</h3><p>Learn MINDS CLASH in 2 minutes with a guided duel.</p>`, [['Start tutorial', 1, 'primary'], ['Skip', 0]]);
     if (r) startTutorial();
   }
 }

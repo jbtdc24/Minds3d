@@ -1,3 +1,4 @@
+# The game's real name is MINDS CLASH (internal keys still say mindclash so nobody gets signed out)
 # HANDOFF — read this first (next AI session: continue from the top of "NEXT TASKS")
 
 Owner: Mindclash game owner. Hates long text: short replies, decide for them, build/test/ship without asking

@@ -1,5 +1,5 @@
 // Public config only. Secret keys never go in this repo: they live in Vercel environment variables.
-export const GAME_NAME = 'Mindclash';
+export const GAME_NAME = 'MINDS CLASH';
 export const COLLECTION = {
   contract: '0x947c1501fdeb97d2aa0642c14afbd8a99427d227',
   chain: 'Robinhood Chain',
