@@ -1076,6 +1076,9 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   process.env.TREASURY_ADDRESS = tre;
   ok((await raw(island, { body: '{not json', tok: good.body.token })).code === 400, 'broken JSON is a clean refusal');
   ok((await raw(queue_join, { body: { minds: 'abc' }, tok: good.body.token })).code < 500, 'a bad Mind list is a clean refusal');
+  let thrown = null; const res = { setHeader() {}, end(t) { thrown = { code: this.statusCode, t }; }, headersSent: false };
+  await island({ method: 'POST', url: '/api/island', headers: { authorization: 'Bearer ' + good.body.token }, get body() { throw new Error('Invalid JSON'); }, query: {} }, res);
+  ok(thrown.code === 400, 'broken JSON on the live platform is a clean refusal');
   // duel rules
   const Ga = await db.insert('players', { name: 'DuelA', address: '0x' + 'a'.repeat(40) }), Gb = await db.insert('players', { name: 'DuelB', address: '0x' + 'b'.repeat(40) }), Gc = await db.insert('players', { name: 'DuelC', address: '0x' + 'c'.repeat(40) });
   const tk = p => signSession({ id: p.id, address: p.address }), m = await startMatch({ player: Ga, minds: [1] }, { player: Gb, minds: [2] }, { ranked: true });
