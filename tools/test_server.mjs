@@ -345,7 +345,7 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   isl.state.adv.at = Date.now() - 170e3;
   const dust0 = isl.state.dust, exp = AD.advLoot(m2, run.S.got, run.S.beat).dust || 0;
   out = await callAdv({ op: 'end', inputs: run.inputs, end: run.end, got: m2.nodes.map(n => n.id), beat: m2.monsters.map(x => x.id) });
-  ok(out.code === 200 && run.S.got.length > 0 && isl.state.dust === dust0 + exp && !isl.state.adv, 'the loot comes from the replay, and extra claims are ignored');
+  ok(out.code === 200 && out.body.beat === run.S.beat.length && out.body.gathered === run.S.got.length && isl.state.dust === dust0 + (run.S.ko ? Math.floor(exp / 2) : exp) && !isl.state.adv, 'the loot comes from the replay, and extra claims are ignored');
   out = await callAdv({ op: 'end', inputs: run.inputs, end: run.end });
   ok(out.code === 400, 'an adventure pays out once');
 }
