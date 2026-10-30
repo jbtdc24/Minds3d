@@ -19,11 +19,12 @@ import friend from '../lib/routes/friend.js';
 import messages from '../lib/routes/messages.js';
 import island from '../lib/routes/island.js';
 import raid from '../lib/routes/raid.js';
+import adventure from '../lib/routes/adventure.js';
 
 const ROUTES = {
   'auth/nonce': auth_nonce, 'auth/verify': auth_verify, 'auth/guest': auth_guest, me, profile,
   'queue/join': queue_join, 'queue/poll': queue_poll, 'queue/leave': queue_leave,
-  'match/view': match_view, 'match/act': match_act, 'match/forfeit': match_forfeit, 'match/chat': match_chat, leaderboard, player, friends, friend, messages, island, raid,
+  'match/view': match_view, 'match/act': match_act, 'match/forfeit': match_forfeit, 'match/chat': match_chat, leaderboard, player, friends, friend, messages, island, raid, adventure,
 };
 
 export default async function handler(req, res) {

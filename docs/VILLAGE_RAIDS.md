@@ -39,4 +39,6 @@ Demolish refunds 50%.
 - [x] Hero: your Mind leads (stronger + Battle Cry ability); no Mind = a Captain (a bit weaker, no ability).
 - [x] Defence fairness: every base has 2 militia guards; each Mind owned adds +1 (max 4). Guards wear the owner's Minds.
 - [x] Sound + juice: raid music, SFX for every hit/arrow/explosion/drop/spell, coins flying out of destroyed buildings, damage numbers.
-- [ ] Adventure: walk your hero on a wild island, gather chests/ore/herbs, fight roaming monsters (real time), loot validated by the server.
+- [x] Adventure (island/adventure.js content, island/advview.js screen, lib/routes/adventure.js): walk your hero on a wild island, gather chests/ore/herbs, fight roaming monsters (real time), loot validated by the server.
+
+- [ ] Next: hide bot labels in duels too (owner asked; flagged trust risk for ranked), building upgrades, raid replays/revenge, adventure bosses per level

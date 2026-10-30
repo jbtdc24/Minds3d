@@ -284,6 +284,38 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   out = await callRaid({ op: 'attack', id: 'r1', inputs, army: army.troops });
   ok(out.code === 400, 'a raid can only be cashed in once');
 }
+
+// ---- adventure ----
+{
+  const AD = await import('../web/src/island/adventure.js');
+  const R = await import('../web/src/island/rules.js');
+  const map = AD.advMap(4321, 1), chest = map.nodes.find(n => n.type === 'chest'), guard = map.monsters.find(m => m.guards === chest.id);
+  ok(map.nodes.length > 20 && map.monsters.some(m => m.type === 'ogre') && JSON.stringify(AD.advMap(4321, 1)) === JSON.stringify(map), 'wild island content comes from the seed');
+  ok(!AD.advLoot(map, [chest.id], []).dust && AD.advLoot(map, [chest.id], [guard.id]).dust > 0, 'a guarded chest only pays after its guard is beaten');
+  const advRoute = (await import('../lib/routes/adventure.js')).default;
+  const hiker = await db.insert('players', { name: 'Hiker', is_guest: true });
+  T.islands.push({ player_id: hiker.id, seed: 5, state: R.newIsland(5, Date.now()), minds: 0, rev: 0, updated_at: new Date().toISOString() });
+  const callAdv = async body => {
+    const token = signSession({ id: hiker.id, address: null, is_guest: true });
+    let out = null;
+    const res = { setHeader() {}, end(t) { out = { code: this.statusCode, body: JSON.parse(t) }; }, headersSent: false };
+    await advRoute({ method: 'POST', url: '/api/adventure', headers: { authorization: 'Bearer ' + token }, body, query: {} }, res);
+    return out;
+  };
+  let out = await callAdv({ op: 'start', mind: 49 });
+  ok(out.code === 200 && out.body.heroKind === 'captain' && out.body.left === 4, 'trial accounts adventure with a Captain, 5 a day');
+  const m2 = AD.advMap(out.body.seed, out.body.level);
+  out = await callAdv({ op: 'end', got: m2.nodes.map(n => n.id), beat: m2.monsters.map(x => x.id) });
+  ok(out.code === 400, 'grabbing everything in 0 seconds is rejected');
+  const isl = T.islands.find(x => x.player_id === hiker.id);
+  isl.state.adv.at = Date.now() - 120e3;
+  const dust0 = isl.state.dust, berry = m2.nodes.filter(n => n.type === 'berry').slice(0, 3).map(n => n.id);
+  out = await callAdv({ op: 'end', got: berry, beat: [], ko: false });
+  const exp = AD.advLoot(m2, berry, []).dust;
+  ok(out.code === 200 && isl.state.dust === dust0 + exp && !isl.state.adv, 'adventure loot is added to the island');
+  out = await callAdv({ op: 'end', got: berry, beat: [] });
+  ok(out.code === 400, 'an adventure pays out once');
+}
 console.log(`
 ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

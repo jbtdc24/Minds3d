@@ -264,6 +264,7 @@
       <span title="Farm plots used / allowed">🌾 <b id="isl-plots">0/6</b></span>
     </div>
     <div class="isl-right">
+      <button class="btn px advbtn" id="isl-adv" title="Adventure: explore a wild island">🧭<span class="lbl"> Adventure</span></button>
       <button class="btn px raidbtn" id="isl-raid" title="Raid another island">⚔️<span class="lbl"> Raid</span></button>
       <button class="iconbtn px" id="isl-home" title="Back to my house">🏠</button>
       <button class="iconbtn px" id="isl-bag" title="Inventory">🎒</button>
@@ -301,6 +302,22 @@
   <div class="raid-bottom">
     <div class="raid-tip px" id="raid-tip"></div>
     <div class="raid-bar px" id="raid-bar"></div>
+  </div>
+</section>
+
+<!-- ADVENTURE -->
+<section id="s-adv" class="screen">
+  <canvas id="adv-cv"></canvas>
+  <div class="raid-top px adv-top">
+    <b id="adv-name">Wild island</b>
+    <span class="adv-hp" id="adv-hp">❤️ <span class="bar"><i></i></span><b>0</b></span>
+    <span class="adv-bag" id="adv-bag"></span>
+    <span class="raid-time" id="adv-time">3:00</span>
+    <button class="btn small" id="adv-home">🏠 Go home</button>
+  </div>
+  <div class="raid-bottom">
+    <div class="raid-tip px">Tap to walk · tap a monster to fight · tap ore, logs, berries, herbs and chests to gather</div>
+    <div class="raid-bar px"><button id="adv-ability" class="adv-ab"></button></div>
   </div>
 </section>
 

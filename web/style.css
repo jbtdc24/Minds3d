@@ -706,3 +706,13 @@ h3.raid-result { text-align: center; }
 .raid-bar button.ready { animation: cryPulse .8s ease-in-out infinite; }
 @keyframes cryPulse { 50% { box-shadow: 0 0 0 3px #ffc53d, 0 0 14px 4px rgba(255,197,61,.8); } }
 .raid-loot-won b { font-size: 26px; color: #c98a00; }
+
+/* ---- adventure ---- */
+#s-adv { background: #3b86d1; }
+#adv-cv { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; touch-action: none; }
+.adv-hp { display: flex; align-items: center; gap: 4px; } .adv-hp .bar { width: 90px; height: 10px; background: #3a3656; box-shadow: 0 0 0 2px var(--ink); display: block; }
+.adv-hp .bar i { display: block; height: 100%; background: linear-gradient(180deg, #ff8a7a, #e0303a); transition: width .2s; }
+.adv-bag { display: flex; gap: 8px; font-size: 14px; } .adv-bag b { font-size: 15px; }
+.adv-ab { width: 110px !important; } .adv-ab.used { opacity: .5; } .adv-ab em { font-size: 16px !important; }
+.advbtn { background: #4fae5a; color: #fff; }
+.adv-loot { list-style: none; padding: 0; font-size: 18px; } .adv-loot b { color: #2f9a1a; }

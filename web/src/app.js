@@ -13,6 +13,7 @@ import { openIsland, closeIsland, refreshHud, cropImg, fmtTime } from './island/
 import { openRaid, closeRaid } from './island/raidview.js';
 import { botVillage, armyCap, cleanArmy, armyUsed, TROOPS, DEFAULT_ARMY } from './island/raid.js';
 import { troopIcon } from './island/troops.js';
+import { openAdventure, closeAdventure } from './island/advview.js';
 import { isle, loadIsland, doAct, flush as flushIsland, resetIsland, now as islandNow } from './island/store.js';
 import { CROPS, RAW, growMs, permitCost, MAX_PERMITS, ripe } from './island/rules.js';
 import { islandThumb } from './island/art.js';
@@ -403,6 +404,39 @@ async function startRaid() {
   });
 }
 $('#isl-raid').onclick = () => startRaid();
+// ---------- adventure: explore a wild island ----------
+async function startAdventure() {
+  sfx('click');
+  const lead = (picked()[0] ?? myMinds[0]) || 49, holder = online && !guest && myMinds.length;
+  let start = null;
+  if (online) {
+    try { start = await api('adventure', { op: 'start', mind: lead }); }
+    catch (e) { if (e.status === 403) return toast(e.message, true); }
+  }
+  const local = !start;
+  const seed = local ? (Math.random() * 2 ** 31) | 0 : start.seed, level = local ? 1 + Math.min(2, Math.floor((settings.advWins || 0) / 3)) : start.level;
+  closeIsland(); show('adv');
+  await banner(`<div class="bt">ADVENTURE</div><small>A wild island · level ${level}</small>`, 1000);
+  openAdventure({
+    seed, level, heroKind: start?.heroKind ?? (holder ? 'hero' : 'captain'), mind: lead,
+    onEnd: async A => {
+      let loot = A.bag;
+      if (!local) {
+        try { loot = (await api('adventure', { op: 'end', got: A.got, beat: A.beat, ko: A.ko })).loot; resetIsland(); }
+        catch (e) { toast(e.message, true); loot = {}; }
+      } else {
+        if (A.ko) loot = Object.fromEntries(Object.entries(loot).map(([k, n]) => [k, Math.floor(n / 2)]));
+        if (A.map.monsters.some(m => m.type === 'ogre' && A.beat.includes(m.id))) { settings.advWins = (settings.advWins || 0) + 1; saveSettings(); }
+      }
+      const NAMES = { dust: '✨ Dust', wood: '🪵 Wood', stone: '🪨 Stone', seed_carrot: '🥕 Carrot seed', seed_melon: '🍈 Melon seed', seed_star: '⭐ Star Fruit seed' };
+      const list = Object.entries(loot).filter(([, n]) => n > 0).map(([k, n]) => `<li><b>+${n}</b> ${NAMES[k] || k}</li>`).join('') || '<li class="muted">Nothing this time</li>';
+      sfx(A.ko ? 'defeat' : 'victory');
+      await modal(`<h3>${A.ko ? '😵 Knocked out!' : '🧭 Back home!'}</h3>${A.ko ? '<p class="muted">You kept half of what you found.</p>' : ''}<ul class="adv-loot">${list}</ul>${local ? '<p class="muted">Offline: loot is not saved.</p>' : start.left != null ? `<p class="muted">${start.left} adventure${start.left === 1 ? '' : 's'} left today</p>` : ''}`, [['Back to my island', true, 'primary']]);
+      closeAdventure(); goIsland();
+    },
+  });
+}
+$('#isl-adv').onclick = () => startAdventure();
 $('#hub-shop').onclick = () => openShop();
 // the lobby tile shows a picture of your own island (made once, after the lobby has settled)
 let thumbFor = null;
