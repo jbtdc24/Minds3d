@@ -359,7 +359,24 @@
       <div class="row">Animation speed <div class="seg px" id="set-speed"><button data-v="1">1x</button><button data-v="1.5">1.5x</button><button data-v="2">2x</button></div></div>
       <div class="row">Rules <button class="btn small" id="set-rules">How to play</button></div>
       <div class="row">Account <span class="muted ellip" id="set-account"></span></div>
+      <div class="row">Code <span class="codebox"><input id="set-code" placeholder="enter a code" autocomplete="off"><button class="btn small" id="set-code-go">OK</button></span></div>
       <div class="row"><span></span><button class="btn" id="set-logout">Sign out</button></div>
+    </div>
+  </div>
+</section>
+
+<!-- ADMIN (owner only; the server checks the wallet) -->
+<section id="s-admin" class="screen window">
+  <div class="page">
+    <div class="pagehead"><h2>🛠️ Admin</h2><button class="iconbtn px small closex" data-go="hub" title="Close">✕</button></div>
+    <div class="adm px">
+      <div class="adm-left panel px">
+        <div class="adm-search"><input id="adm-q" placeholder="name, 0x wallet or id"><button class="btn small primary" id="adm-go">Find</button></div>
+        <div id="adm-results"></div>
+        <h3>🚩 Cheat meter <button class="btn small" id="adm-refresh">↻</button></h3>
+        <div id="adm-meter"></div>
+      </div>
+      <div class="adm-right panel px" id="adm-detail"></div>
     </div>
   </div>
 </section>

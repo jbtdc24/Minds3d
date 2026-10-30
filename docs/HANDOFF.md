@@ -29,13 +29,13 @@ Owner: Mindclash game owner. Hates long text: short replies, decide for them, bu
 - Audio: web/src/audio.js synth (SFX + songs menu/battle/title/raid/adventure).
 
 ## NEXT TASKS (in order) — round 5 (owner 2026-10-30)
-A. [ ] Admin/dev tools only the owner can use: server checks ADMIN_ADDRESSES (Vercel env, comma list of wallets) — not in the repo.
+A. [x] (code done; OWNER MUST: run supabase/005_admin.sql + set Vercel env ADMIN_ADDRESSES=<wallet>) Admin/dev tools only the owner can use: server checks ADMIN_ADDRESSES (Vercel env, comma list of wallets) — not in the repo.
    Hidden admin screen (open with a secret code in Settings): give Dust/Gems/items, ban / suspend / unsuspend, player lookup,
    cheat meter (flags table: suspicious adventure/raid submits, rate-limit hits). Needs supabase/005_admin.sql (owner runs).
 B. [ ] Home island: remove the plank bridges; each islet gets a portal, main island has a portal; Minds teleport between them.
 C. [ ] World map in detailed PIXEL ART like the refs (pixel buffer scaled up): different biome/boss islands (volcano with lava +
    smoke, crystal, ice, giant mushroom, ruins/portal, dragon nest), baked shadows on clouds, particles (smoke, sparkles, birds, wind).
-E. [ ] Raid button "doesn't work" (reported twice) — check live with an OLD account (no troops? modal? error?).
+E. [x] (fixed: old islands had 0 troops → v4 starter army) Raid button "doesn't work" (reported twice) — check live with an OLD account (no troops? modal? error?).
 F. [ ] Building takes time like CoC: a free Mind walks over and builds (timer by building), builders = Minds you own (min 1),
    Gems finish instantly. Show timers/progress bars on the island.
 G. [ ] Island inventory/storage must be visible: stored buildings in the Inventory window (Items tab) + a 📦 button on the island.

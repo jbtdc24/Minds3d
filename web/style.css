@@ -752,3 +752,15 @@ h3.raid-result { text-align: center; }
 .map-pot { display: flex; align-items: center; gap: 6px; font-size: 18px; white-space: nowrap; }
 @media (max-width: 760px) { .map-panel { gap: 8px; padding: 6px; } #map-info { font-size: 11px; } #map-info b { font-size: 14px; } }
 .army-none { background: #ffe0d8; padding: 6px 10px; font-weight: 800; box-shadow: 0 0 0 2px var(--ink); }
+
+/* ---- admin ---- */
+.codebox { display: flex; gap: 6px; } .codebox input { width: 140px; padding: 4px 8px; font: 700 14px var(--font); }
+.adm { display: grid; grid-template-columns: minmax(240px, 1fr) 2fr; gap: 10px; }
+.adm-search { display: flex; gap: 6px; } .adm-search input { flex: 1; padding: 6px 8px; font: 700 14px var(--font); }
+.adm-row { display: flex; flex-direction: column; align-items: flex-start; width: 100%; text-align: left; border: 0; background: var(--paper-2); margin-top: 4px; padding: 6px 8px; cursor: pointer; font: 600 13px var(--font); }
+.adm-row span { color: var(--muted); font-size: 12px; } .adm-row em, .adm-ban { color: var(--red); font-style: normal; font-weight: 900; }
+.adm-box { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; background: var(--paper-2); padding: 8px; margin: 6px 0; }
+.adm-box input { width: 110px; padding: 4px 6px; font: 700 13px var(--font); } .adm-box small { width: 100%; }
+.adm-flags div { font-size: 12px; border-bottom: 1px solid rgba(0,0,0,.08); padding: 3px 0; }
+.btn.red { background: var(--red); color: #fff; }
+@media (max-width: 760px) { .adm { grid-template-columns: 1fr; } }

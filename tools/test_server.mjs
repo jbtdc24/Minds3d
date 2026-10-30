@@ -394,6 +394,34 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   out = await callA({ op: 'end', got: [], beat: [], cover: { tree: 60, weeds: 5 }, potionsLeft: 2 });
   ok(out.code === 200 && out.body.loot.wood === 3 * 35 && out.body.loot.dust === 5 && isl.state.inv.potion === 2, 'cutting trees on adventures is capped per hour; unused potions come back');
 }
+
+// ---- admin tools ----
+{
+  const R = await import('../web/src/island/rules.js');
+  const adminRoute = (await import('../lib/routes/admin.js')).default, islandRoute = (await import('../lib/routes/island.js')).default;
+  const boss = await db.insert('players', { name: 'Owner' }), joe = await db.insert('players', { name: 'Joe', name_key: 'joe' });
+  T.islands.push({ player_id: joe.id, seed: 9, state: R.newIsland(9, Date.now()), minds: 0, rev: 0, updated_at: new Date().toISOString() });
+  const call = async (fn, pid, body, url) => { const token = signSession({ id: pid, address: null }); let o = null; const res = { setHeader() {}, end(t) { o = { code: this.statusCode, body: JSON.parse(t) }; }, headersSent: false }; await fn({ method: 'POST', url, headers: { authorization: 'Bearer ' + token }, body, query: {} }, res); return o; };
+  let out = await call(adminRoute, boss.id, { op: 'give', pid: joe.id, gems: 50 }, '/api/admin');
+  ok(out.code === 403, 'nobody is an admin unless the env var says so');
+  process.env.ADMIN_PLAYER_IDS = boss.id;
+  out = await call(adminRoute, boss.id, { op: 'me' }, '/api/admin');
+  ok(out.body.admin === true, 'the owner is recognised from the env var');
+  out = await call(adminRoute, joe.id, { op: 'give', pid: joe.id, gems: 999 }, '/api/admin');
+  ok(out.code === 403, 'players cannot give themselves anything');
+  out = await call(adminRoute, boss.id, { op: 'give', pid: joe.id, gems: 50, dust: 300, items: { potion: 3 } }, '/api/admin');
+  const js = T.islands.find(x => x.player_id === joe.id).state;
+  ok(out.code === 200 && js.gems === 50 && js.dust === 400 && js.inv.potion >= 3, 'admin gives Gems, Dust and items');
+  out = await call(adminRoute, boss.id, { op: 'find', q: 'jo' }, '/api/admin');
+  ok(out.body.players.some(p => p.id === joe.id), 'admin finds players by name');
+  out = await call(adminRoute, boss.id, { op: 'ban', pid: joe.id, hours: 2, reason: 'testing' }, '/api/admin');
+  out = await call(islandRoute, joe.id, {}, '/api/island');
+  ok(out.code === 403 && /suspended/.test(out.body.error), 'a suspended player is blocked');
+  await call(adminRoute, boss.id, { op: 'unban', pid: joe.id }, '/api/admin');
+  out = await call(islandRoute, joe.id, {}, '/api/island');
+  ok(out.code === 200, 'unsuspended players can play again');
+  delete process.env.ADMIN_PLAYER_IDS;
+}
 console.log(`
 ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

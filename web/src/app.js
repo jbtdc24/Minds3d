@@ -16,6 +16,7 @@ import { troopIcon } from './island/troops.js';
 import { openAdventure, closeAdventure } from './island/advview.js';
 import { AREAS, POTIONS_MAX, SPOTS, SHIPS, spotLevel } from './island/adventure.js';
 import { openMap, updateMap, closeMap } from './island/worldmap.js';
+import { initAdmin, tryCode } from './admin.js';
 import { isle, loadIsland, doAct, flush as flushIsland, resetIsland, now as islandNow } from './island/store.js';
 import { CROPS, RAW, growMs, permitCost, MAX_PERMITS, ripe, SHOP, RECIPES, TROOP_MAX, troopCount, costText, canAfford } from './island/rules.js';
 import { islandThumb } from './island/art.js';
@@ -402,7 +403,7 @@ async function startRaid() {
     onEnd: async (inputs, res0) => {
       let res = { ...res0, loot: 0 };
       if (!local) {
-        try { res = await api('raid', { op: 'attack', id: target.id, inputs, army: army.troops }); resetIsland(); }
+        try { res = await api('raid', { op: 'attack', id: target.id, inputs, army: army.troops, claim: res0.stars }); resetIsland(); }
         catch (e) { toast(e.message, true); }
       } else if (res0.stars >= 2) { settings.raidWins = (settings.raidWins || 0) + 1; saveSettings(); }
       const stars = '★'.repeat(res.stars) + '☆'.repeat(3 - res.stars);
@@ -469,6 +470,14 @@ async function launchAdventure(pick) {
   });
 }
 $('#isl-adv').onclick = () => startAdventure();
+// codes in Settings (the admin screen opens only for the owner's wallet; checked on the server)
+initAdmin({ api, toast: (m, bad) => toast(m, bad), show, modal, esc });
+$('#set-code-go').onclick = async () => {
+  const code = $('#set-code').value.trim(); $('#set-code').value = '';
+  if (!code) return;
+  if (online && session.token && await tryCode(code)) return sfx('levelup');
+  sfx('denied'); toast('That code does not work.', true);
+};
 $('#hub-shop').onclick = () => openShop();
 // the lobby tile shows a picture of your own island (made once, after the lobby has settled)
 let thumbFor = null;
