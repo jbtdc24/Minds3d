@@ -456,6 +456,26 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   r = R.act(st, { type: 'buy', item: 'permit', gems: true }, ctx);
   ok(r.done === 1 && st.inv.permit === 1, 'land permits with Gems');
 }
+
+// ---- upgrades, revenge, bosses ----
+{
+  const R = await import('../web/src/island/rules.js'), RD = await import('../web/src/island/raid.js'), AD = await import('../web/src/island/adventure.js');
+  const { gen, TW, TH } = await import('../web/src/island/gen.js');
+  const v = RD.botVillage(777, 3);
+  ok(v.b.filter(b => b.type === 'tower').length >= 3, 'game villages are finished (towers ready to shoot)');
+  const seed = 66, now = Date.now(), st = R.newIsland(seed, now), w = gen(seed);
+  st.dust = 9000; st.inv.wood = 500; st.inv.stone = 500;
+  let k = -1; for (let t = 0; t < TW * TH && k < 0; t++) if (R.fits(st, w, 'barn', t)) k = t;
+  R.act(st, { type: 'build', item: 'barn', k }, { seed, now, minds: 0, instant: true });
+  const barn = st.b.find(b => b.type === 'barn');
+  let r = R.act(st, { type: 'upgrade', id: barn.id }, { seed, now, minds: 0 });
+  ok(r.done === 1 && barn.done && barn.uplv === 2 && R.barnSafe(st) === 1, 'upgrading takes time; the barn keeps working at Lv1 meanwhile');
+  R.normalize(st, seed, now + 1e8);
+  ok(barn.lv === 2 && R.barnSafe(st) === 2, 'a Lv2 barn protects twice as much');
+  const snap = RD.snapshotOf(seed, st, 2), S = RD.createRaid(snap, {});
+  ok(S.structs.find(x => x.type === 'barn').max === Math.round(R.BUILD.barn.hp * 1.5), 'higher levels have more HP in raids');
+  ok(AD.advMap(5, 1).monsters.some(m => m.type === 'ogre') && AD.advMap(5, 4).monsters.some(m => m.type === 'titan'), 'each tier has its own boss');
+}
 console.log(`
 ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

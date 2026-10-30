@@ -119,7 +119,7 @@ function update(dt) {
     if (foe.hp <= 0) {
       foe.dead = true; A.beat.push(foe.id); add(foe.loot, foe.x, foe.y - 16);
       burst(foe.x, foe.y - 6, foe.type === 'slime' ? ['#9be05a', '#d4ff9a', '#ffffff'] : ['#ffffff', '#cfcfdc', '#ffd84a'], foe.type === 'ogre' ? 40 : 16, 60);
-      snd(foe.type === 'slime' ? 'slime' : 'ko', 0.05); if (foe.type === 'ogre') { shake = 8; flashA = 0.3; say(foe.x, foe.y - 30, 'OGRE DEFEATED!', '#ffd84a', true); snd('victory'); }
+      snd(foe.type === 'slime' ? 'slime' : 'ko', 0.05); if (MONSTERS[foe.type].boss) { shake = 8; flashA = 0.3; say(foe.x, foe.y - 30, `${MONSTERS[foe.type].name.toUpperCase()} DEFEATED!`, '#ffd84a', true); snd('victory'); }
       h.target = null;
     }
   }
@@ -152,7 +152,7 @@ function update(dt) {
       if (dh > Math.min(D.reach, 13)) step(m, h.x, h.y, D.speed * dt);
       else {
         h.hp -= D.dps * (1 + (A.level - 1) * 0.3) * dt; h.hit = 0.12; m.face = h.x < m.x ? -1 : 1;
-        if ((m.swing = (m.swing || 0) + dt) > 0.6) { m.swing = 0; snd(m.type === 'slime' ? 'slime' : 'hit', 0.12); say(h.x, h.y - 26, `-${Math.round(D.dps * 0.6)}`, '#ff6a5a'); if (m.type === 'ogre') shake = 4; }
+        if ((m.swing = (m.swing || 0) + dt) > 0.6) { m.swing = 0; snd(m.type === 'slime' ? 'slime' : 'hit', 0.12); say(h.x, h.y - 26, `-${Math.round(D.dps * 0.6)}`, '#ff6a5a'); if (MONSTERS[m.type].boss) shake = 4; }
       }
       if (!m.roared && m.type !== 'slime') { m.roared = true; snd(m.type === 'boar' ? 'roar' : 'denied', 0.3); say(m.x, m.y - 24, '!', '#ff5a4a', true); }
     } else {
@@ -238,7 +238,7 @@ function frame(now) {
   g.drawImage(vig.cv, 0, 0, W, H);
   // monster levels
   g.font = '800 11px Nunito, sans-serif'; g.textAlign = 'center';
-  for (const m of A.mons) { if (m.dead) continue; const p = toScreen(m.x, m.y - (m.type === 'ogre' ? 38 : m.type === 'boar' ? 22 : 24)); if (p.x < -20 || p.y < -20 || p.x > W + 20 || p.y > H + 20) continue; const lab = `Lv${A.level}${MONSTERS[m.type].boss ? ' BOSS' : ''}`; g.lineWidth = 3; g.strokeStyle = '#1d1b2f'; g.strokeText(lab, p.x, p.y); g.fillStyle = MONSTERS[m.type].boss ? '#ff6a5a' : '#ffe27a'; g.fillText(lab, p.x, p.y); }
+  for (const m of A.mons) { if (m.dead) continue; const p = toScreen(m.x, m.y - (MONSTERS[m.type].boss ? 38 : m.type === 'boar' ? 22 : 24)); if (p.x < -20 || p.y < -20 || p.x > W + 20 || p.y > H + 20) continue; const lab = `Lv${A.level}${MONSTERS[m.type].boss ? ' BOSS' : ''}`; g.lineWidth = 3; g.strokeStyle = '#1d1b2f'; g.strokeText(lab, p.x, p.y); g.fillStyle = MONSTERS[m.type].boss ? '#ff6a5a' : '#ffe27a'; g.fillText(lab, p.x, p.y); }
   g.textAlign = 'start';
   texts = texts.filter(t => {
     t.life -= dt; const p = toScreen(t.x, t.y), py = p.y - (1.3 - t.life) * 28;

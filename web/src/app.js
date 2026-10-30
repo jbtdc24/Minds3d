@@ -349,7 +349,9 @@ async function goIsland() {
   if (log.length) {
     settings.raidSeen = log[0].at; saveSettings();
     const lost = log.reduce((s, e) => s + e.loot, 0), sh = isle.state.shield > Date.now() ? `<p>🛡 Your island is shielded for ${fmtTime(isle.state.shield - Date.now())}.</p>` : '';
-    modal(`<h3>⚔️ Your island was raided</h3>${log.map(e => `<p><b>${esc(e.by)}</b> · ${'★'.repeat(e.stars)}${'☆'.repeat(3 - e.stars)} · ${e.pct}% · −${e.loot.toLocaleString()} ✨</p>`).join('')}<p>Total lost: <b>${lost.toLocaleString()} ✨</b>. Build walls, towers and traps (🔨 Build), and barns keep Dust safe.</p>${sh}`, [['Got it', true, 'primary']]);
+    const canRev = log.find(e => e.pid && !e.avenged);
+    modal(`<h3>⚔️ Your island was raided</h3>${log.map(e => `<p><b>${esc(e.by)}</b> · ${'★'.repeat(e.stars)}${'☆'.repeat(3 - e.stars)} · ${e.pct}% · −${e.loot.toLocaleString()} ✨</p>`).join('')}<p>Total lost: <b>${lost.toLocaleString()} ✨</b>. Build walls, towers and traps (🔨 Build), and barns keep Dust safe.</p>${sh}`,
+      canRev ? [[`⚔️ Revenge on ${esc(canRev.by)}`, canRev.at, 'primary'], ['Later', 0]] : [['Got it', 0, 'primary']]).then(at => { if (at) startRaid(at); });
   }
 }
 $('#hub-island').onclick = goIsland;
@@ -388,7 +390,7 @@ function pickArmy(cap, hero, lead) {
     $('#modal').classList.add('on');
   });
 }
-async function startRaid() {
+async function startRaid(revenge = 0) {
   sfx('click');
   const lead = (picked()[0] ?? myMinds[0]) || 49, holder = online && !guest && myMinds.length;
   const cap = armyCap(guest ? 0 : myMinds.length);
@@ -397,7 +399,7 @@ async function startRaid() {
   if (!troops) return;
   let target = null;
   if (online) {
-    try { target = await api('raid', { op: 'find', minds: [lead], army: troops }); resetIsland(); }
+    try { target = await api('raid', { op: 'find', minds: [lead], army: troops, ...(revenge ? { revenge } : {}) }); resetIsland(); }
     catch (e) { if (e.status === 403) return toast(e.message, true); }
   }
   // no server: an island to raid made on this device (nothing is saved)
@@ -423,6 +425,7 @@ async function startRaid() {
   });
 }
 $('#isl-raid').onclick = () => startRaid();
+$('#isl-raid').addEventListener('contextmenu', e => e.preventDefault());
 // ---------- adventure: explore a wild island ----------
 // the world map screen: pick an island your airship can reach, bring potions, fly
 async function startAdventure() {

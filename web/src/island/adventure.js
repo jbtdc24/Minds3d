@@ -60,6 +60,9 @@ export const MONSTERS = {
   boar: { name: 'Wild Boar', hp: 110, dps: 10, speed: 36, aggro: 5, reach: 13, loot: { dust: 8 } },
   bandit: { name: 'Bandit', hp: 180, dps: 13, speed: 30, aggro: 5, reach: 13, loot: { dust: 15 } },
   ogre: { name: 'Ogre', hp: 520, dps: 21, speed: 22, aggro: 6, reach: 16, loot: { dust: 60, gems: 2 }, boss: true },
+  golem: { name: 'Crystal Golem', hp: 640, dps: 22, speed: 18, aggro: 6, reach: 16, loot: { dust: 90, gems: 3, stone: 20 }, boss: true },
+  drake: { name: 'Fire Drake', hp: 700, dps: 25, speed: 26, aggro: 7, reach: 17, loot: { dust: 120, gems: 4 }, boss: true },
+  titan: { name: 'Storm Titan', hp: 780, dps: 27, speed: 22, aggro: 7, reach: 17, loot: { dust: 160, gems: 5 }, boss: true },
 };
 export const NODES = {
   ore: { name: 'Ore', time: 1.2, loot: { stone: 4 } },
@@ -130,7 +133,7 @@ export function advMap(seed, level = 1) {
   const bk = walkable(w, hut) ? hut : pick(600, 10);
   const bigId = addNode('bigchest', bk);
   const ok = free.find(f => !used.has(f) && Math.abs(kx(f) - kx(bk)) <= 2 && ky(f) - ky(bk) === 2) ?? pick(601, 8);
-  used.add(ok); addMon('ogre', ok, { guards: bigId });
+  used.add(ok); addMon(['ogre', 'golem', 'drake', 'titan'][Math.min(3, level - 1)], ok, { guards: bigId });
   for (let i = 0; i < 6 + level * 2; i++) addMon('slime', pick(700 + i, 8), { color: (r(i, 9) * 3) | 0 });
   for (let i = 0; i < 2 + level; i++) addMon('boar', pick(800 + i, 10));
   return { seed, level, start, nodes, monsters };

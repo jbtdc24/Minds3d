@@ -79,6 +79,17 @@ export const maxOf = (type, minds) => {
   if (!BUILD[type]) return 0; const m = BUILD[type].max; return typeof m === 'function' ? m(minds) : m; };
 export const countOf = (st, type) => (st.b || []).filter(b => b.type === type).length;
 export const MILL_BONUS = 0.25, BARN_SAFE = 1000;
+// building levels (1-3): upgrading costs more each level, takes a builder and time; effects grow with the level
+export const UPGRADABLE = { home: 1, house: 1, mill: 1, barn: 1, tower: 1, wall: 1 };
+export const MAX_LV = 3;
+export const lvOf = b => b.lv || 1;
+export const upgradeCost = b => { const base = BUILD[b.type].cost, m = lvOf(b) * 1.6; const c = Object.fromEntries(Object.entries(base).map(([k, n]) => [k, Math.ceil(n * m)])); if (b.type === 'home') return { dust: 500 * lvOf(b), wood: 40 * lvOf(b), stone: 40 * lvOf(b) }; return c; };
+export const upgradeSecs = b => b.type === 'wall' ? 0 : Math.round((BUILD_SECS[b.type] || 300) * lvOf(b) * 1.5);
+export const hpMult = lv => 1 + 0.5 * ((lv || 1) - 1);
+const finished = (st, type) => (st.b || []).filter(b => b.type === type && (!b.done || b.uplv));   // being upgraded = still works at its old level
+export const millBonus = st => { const m = finished(st, 'mill')[0]; return m ? MILL_BONUS + 0.1 * (lvOf(m) - 1) : 0; };
+export const barnSafe = st => finished(st, 'barn').reduce((s, b) => s + BARN_SAFE * lvOf(b), 0) / BARN_SAFE;   // in "barns" (1 = 1,000 Dust)
+const housePlots = st => finished(st, 'house').reduce((s, b) => s + 1 + lvOf(b), 0);
 export const footprint = b => { const d = BUILD[b.type], out = []; for (let y = 0; y < d.h; y++) for (let x = 0; x < d.w; x++) out.push(b.k + y * TW + x); return out; };
 export function buildingAt(st, k) {
   for (const b of st.b || []) if (footprint(b).includes(k)) return b;
@@ -113,7 +124,7 @@ export function newIsland(seed, now) {
   st.v = 4;
   return st;
 }
-export const maxPlots = (st, minds) => BASE_PLOTS + Math.min(minds, MIND_PLOTS) + Math.min(st.inv.permit || 0, MAX_PERMITS) + 2 * activeOf(st, 'house');
+export const maxPlots = (st, minds) => BASE_PLOTS + Math.min(minds, MIND_PLOTS) + Math.min(st.inv.permit || 0, MAX_PERMITS) + housePlots(st);
 export const plotCount = st => Object.values(st.tiles).filter(t => t.s === 'p').length;
 // what is on a tile right now
 export function coverAt(st, w, k) {
@@ -150,7 +161,7 @@ function migrate3(st, seed) {
 // weeds creep back over ground nobody looks after
 export function normalize(st, seed, now) {
   migrate(st); migrate3(st, seed);
-  for (const b of st.b || []) if (b.done && b.done <= now) { delete b.done; delete b.start; }   // finished building
+  for (const b of st.b || []) if (b.done && b.done <= now) { if (b.uplv) b.lv = b.uplv; delete b.done; delete b.start; delete b.uplv; }   // finished building / upgrade
   if ((st.v || 1) < 4) {   // v4: everyone gets the starter army + supplies once (older islands had none, so Raid seemed broken)
     for (const [k, n] of Object.entries({ troop_brawler: 6, troop_archer: 4, potion: 2, fuel: 1 })) st.inv[k] = (st.inv[k] || 0) + n;
     st.v = 4;
@@ -316,12 +327,25 @@ export function act(st, a, { seed, now, minds = 0, instant = false }) {   // ins
       }
       break;
     }
+    case 'upgrade': {   // level a building up (takes a builder + time, or Gems)
+      const b = (st.b || []).find(x => x.id === Number(a.id));
+      if (!b || !UPGRADABLE[b.type]) return { error: 'That cannot be upgraded.' };
+      if (b.done) return { error: 'It is already being worked on.' };
+      if (lvOf(b) >= MAX_LV) return { error: 'Already at the top level.' };
+      const price = priceOf(upgradeCost(b), a.gems), secs = instant ? 0 : upgradeSecs(b);
+      if (!canAfford(st, price)) return { error: `Upgrading costs ${costText(price)}.` };
+      if (secs && busy(st) >= builders(minds)) return { error: `All your builders are busy (${builders(minds)}: one per Mind you own). Wait, or finish a build with 💎.` };
+      for (const [k, m] of Object.entries(price)) pay(k, -m);
+      if (secs) { b.uplv = lvOf(b) + 1; b.done = now + secs * 1000; b.start = now; } else b.lv = lvOf(b) + 1;
+      done = 1;
+      break;
+    }
     case 'rush': {   // finish a building right now with Gems
       const b = (st.b || []).find(x => x.id === Number(a.id));
       if (!b?.done) return { error: 'That is already built.' };
       const cost = rushGems(b, now);
       if ((st.gems || 0) < cost) return { error: `Finishing now costs ${cost} 💎.` };
-      pay('gems', -cost); delete b.done; delete b.start; done = 1;
+      pay('gems', -cost); if (b.uplv) b.lv = b.uplv; delete b.done; delete b.start; delete b.uplv; done = 1;
       break;
     }
     case 'ship': {   // upgrade your airship one tier (Dust + wood + stone, or Gems)
@@ -344,7 +368,7 @@ export function act(st, a, { seed, now, minds = 0, instant = false }) {   // ins
       break;
     }
     case 'sell': {
-      const item = String(a.item), mill = activeOf(st, 'mill') ? 1 + MILL_BONUS : 1;
+      const item = String(a.item), mill = 1 + millBonus(st);
       const price = item.startsWith('crop_') ? Math.round((CROPS[item.slice(5)]?.sell || 0) * mill) : RAW[item]?.sell;
       if (!price) return { error: 'that cannot be sold' };
       const n = Math.max(1, Math.min(st.inv[item] || 0, a.n | 0 || 1));

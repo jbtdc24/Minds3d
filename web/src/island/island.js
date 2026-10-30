@@ -6,7 +6,7 @@ import { sfx } from '../audio.js';
 import { gen, COVER, T, TW, TH, WW, WH, hash } from './gen.js';
 import { drawSky, groundFor, sprites, sprouts, heart, SOIL, toolSprites } from './art.js';
 import { rng } from './pixel.js';
-import { CROPS, coverAt, ripe, growMs, regrowMs, maxPlots, plotCount, PLOT_COST, speedBonus, BUILD, buildingAt, fits, footprint, maxOf, countOf, canAfford, costText, homeOf, wellOf, STASH_MAX, rushGems, builders, busy, gemPrice } from './rules.js';
+import { CROPS, coverAt, ripe, growMs, regrowMs, maxPlots, plotCount, PLOT_COST, speedBonus, BUILD, buildingAt, fits, footprint, maxOf, countOf, canAfford, costText, homeOf, wellOf, STASH_MAX, rushGems, builders, busy, gemPrice, UPGRADABLE, MAX_LV, lvOf, upgradeCost } from './rules.js';
 import { bsprites, drawSails, buildIcon } from './buildings.js';
 import { isle, doAct, now, onChange, flush } from './store.js';
 
@@ -657,7 +657,8 @@ function openBMenu(b) {
   const d = BUILD[b.type], refund = costText(Object.fromEntries(Object.entries(d.cost).map(([i, n]) => [i, Math.floor(n / 2)])));
   const box = $('#isl-bmenu');
   const site = b.done && b.done > now();
-  box.innerHTML = `<img src="${buildIcon(b.type)}" alt=""><div><b>${d.name}${site ? ' 🔨' : ''}</b><span>${site ? `Being built · ${fmtTime(b.done - now())} left` : d.desc}</span></div>${site ? `<button data-bm="rush">⚡ Finish · ${rushGems(b, now())} 💎</button>` : ''}<button data-bm="move">↔ Move</button>${d.fixed ? '' : `<button data-bm="store" title="Keep it in storage and place it later">📦 Store</button><button data-bm="demolish" title="Get back ${refund}">🗑 Remove</button>`}<button data-bm="x">✕</button>`;
+  const canUp = !site && UPGRADABLE[b.type] && lvOf(b) < MAX_LV;
+  box.innerHTML = `<img src="${buildIcon(b.type)}" alt=""><div><b>${d.name} · Lv${lvOf(b)}${site ? ' 🔨' : ''}</b><span>${site ? `${b.uplv ? 'Upgrading' : 'Being built'} · ${fmtTime(b.done - now())} left` : d.desc}</span></div>${site ? `<button data-bm="rush">⚡ Finish · ${rushGems(b, now())} 💎</button>` : ''}${canUp ? `<button data-bm="upgrade" title="Stronger, more HP, better effect">⬆ Lv${lvOf(b) + 1} · ${costText(upgradeCost(b))}</button><button data-bm="upgems">⬆ ${gemPrice(upgradeCost(b))} 💎</button>` : ''}<button data-bm="move">↔ Move</button>${d.fixed ? '' : `<button data-bm="store" title="Keep it in storage and place it later">📦 Store</button><button data-bm="demolish" title="Get back ${refund}">🗑 Remove</button>`}<button data-bm="x">✕</button>`;
   box.dataset.id = b.id; box.classList.add('on'); sfx('click');
 }
 function closeBMenu() { $('#isl-bmenu')?.classList.remove('on'); }
@@ -709,6 +710,7 @@ document.getElementById('isl-bmenu').addEventListener('click', e => {
   closeBMenu();
   if (!b || btn.dataset.bm === 'x') return;
   if (btn.dataset.bm === 'move') { moving = b; setTool('build'); return; }
+  if (btn.dataset.bm === 'upgrade' || btn.dataset.bm === 'upgems') { const r = doAct({ type: 'upgrade', id: b.id, gems: btn.dataset.bm === 'upgems' }); if (r.error) { sfx('denied'); return cb.toast(r.error, true); } sfx('levelup'); return cb.toast(`${BUILD[b.type].name} is being upgraded to Lv${(b.uplv || b.lv)}!`); }
   if (btn.dataset.bm === 'rush') { const r = doAct({ type: 'rush', id: b.id }); if (r.error) { sfx('denied'); return cb.toast(r.error, true); } sfx('levelup'); bits(kx(b.k) * T + 16, ky(b.k) * T + 10, ['#ffd84a', '#ffffff', '#c9a6ff'], 24, 60); return cb.toast(`${BUILD[b.type].name} finished!`); }
   if (btn.dataset.bm === 'store') { const r = doAct({ type: 'store', id: b.id }); if (r.error) return cb.toast(r.error, true); sfx('pop'); return cb.toast(`${BUILD[b.type].name} put in storage. Place it again from 🔨 Build.`); }
   const res = doAct({ type: 'demolish', id: b.id });

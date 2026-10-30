@@ -6,7 +6,7 @@
 // Giants soak damage and go for the towers. Your hero is one of your Minds (no Mind = a Captain, a bit weaker).
 // Defence: watchtowers, hidden spike traps, walls and guards (2 for everyone + 1 per Mind the defender owns, max 4).
 import { gen, COVER, T, TW, TH, hash } from './gen.js';
-import { BUILD, HOME_HP, footprint, coverAt, newIsland, act, fits } from './rules.js';
+import { BUILD, HOME_HP, footprint, coverAt, newIsland, act, fits, hpMult } from './rules.js';
 
 export const TICK = 0.1, MAX_TICKS = 1200, DROP_UNTIL = 900;                // 10 ticks a second, 2 min raid
 export const TROOPS = {
@@ -54,7 +54,7 @@ export const armyUsed = a => Object.entries(TROOPS).reduce((s, [k, d]) => s + (a
 export function snapshotOf(seed, st, guards = 2, extra = {}) {
   const tiles = {};
   for (const [k, t] of Object.entries(st.tiles)) tiles[k] = t.c ? { s: t.s, c: t.c } : { s: t.s };
-  return { seed, tiles, b: (st.b || []).filter(b => !b.done).map(b => ({ id: b.id, type: b.type, k: b.k })), guards: Math.max(2, Math.min(4, guards | 0)), ...extra };
+  return { seed, tiles, b: (st.b || []).filter(b => !b.done || b.uplv).map(b => ({ id: b.id, type: b.type, k: b.k, lv: b.lv || 1 })), guards: Math.max(2, Math.min(4, guards | 0)), ...extra };
 }
 
 // army: { troops: {...}, hero: 'hero' | 'captain' }
@@ -66,13 +66,13 @@ export function createRaid(snap, army = {}) {
   const home = [];
   if (homeB) home.push(...footprint(homeB));
   else for (let y = 0; y < 3; y++) for (let x = 0; x < 3; x++) home.push((w.house.y + y) * TW + w.house.x + x);
-  S.structs.push(mkStruct('home', home, HOME_HP));
+  S.structs.push(mkStruct('home', home, Math.round(HOME_HP * hpMult(homeB?.lv))));
   S.decos = [];
   for (const b of snap.b) {
     if (b.type === 'home' || !BUILD[b.type]) continue;
     if (b.type === 'trap') { S.traps.push({ k: b.k, armed: true }); continue; }
     if (BUILD[b.type].deco) { S.decos.push(b); continue; }   // decorations: just scenery in a raid
-    S.structs.push(mkStruct(b.type, footprint(b), BUILD[b.type].hp, b.id));
+    const sb = mkStruct(b.type, footprint(b), Math.round(BUILD[b.type].hp * hpMult(b.lv)), b.id); sb.lv = b.lv || 1; S.structs.push(sb);
   }
   S.occ = new Int16Array(TW * TH).fill(-1);
   S.structs.forEach((s, i) => s.tiles.forEach(t => { S.occ[t] = i; }));
@@ -281,7 +281,7 @@ export function step(S) {
     if (s.cd > 0) { s.cd--; continue; }
     let foe = null, fd = 1e9;
     for (const r of mine) { if (r.dead) continue; const d = Math.hypot(r.x - s.cx, r.y - s.cy); if (d <= TOWER.range && d < fd) { fd = d; foe = r; } }
-    if (foe) { hurt(S, foe, TOWER.dmg, 'arrow'); s.cd = TOWER.every; S.fx.push({ e: 'shot', x: s.cx, y: s.y0 - 14, tx: foe.x, ty: foe.y - 6 }); }
+    if (foe) { hurt(S, foe, TOWER.dmg * (1 + 0.3 * ((s.lv || 1) - 1)), 'arrow'); s.cd = TOWER.every; S.fx.push({ e: 'shot', x: s.cx, y: s.y0 - 14, tx: foe.x, ty: foe.y - 6 }); }
   }
   const alive = S.units.some(u => isMine(u) && !u.dead);
   const waiting = Object.values(S.left).some(n => n > 0) || !S.heroOut;
@@ -356,7 +356,7 @@ export function botVillage(seed, level = 1) {
   const hx = w.house.x + 1, hy = w.house.y + 1;
   const yard = 9 + level + r(1) * 3;
   for (let k = 0; k < TW * TH; k++) if (w.land[k] && w.cover[k] !== COVER.FIXED && Math.hypot(kx(k) - hx, (ky(k) - hy) * 1.15) < yard + hash(k, seed, 5) * 2) st.tiles[k] = { s: 'c', t: 0 };
-  const ctx = { seed, now: 0, minds: 4 };
+  const ctx = { seed, now: 0, minds: 4, instant: true };   // a finished village (no building timers)
   const layout = ['ring', 'keep', 'farm', 'scatter'][(r(2) * 4) | 0];
   const place = (type, ring, n, spin = 0) => {
     for (let a = 0, placed = 0; a < 80 && placed < n; a++) {

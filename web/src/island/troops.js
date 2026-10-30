@@ -90,9 +90,10 @@ export function bandit(frame = 0) {
     set(5, 5, '#ffffff'); set(7, 5, '#ffffff');
   });
 }
-export function ogre(frame = 0) {
+const BOSS_SKIN = { ogre: ['#2f5a2c', '#4a7a3a', '#6b9a4a', '#8fbf6a'], golem: ['#2f6a8a', '#3fa0c8', '#7fe8ff', '#e0fbff'], drake: ['#7a1a0a', '#c43a1a', '#ff6a2a', '#ffb347'], titan: ['#2a2f4a', '#4a5478', '#7a86b0', '#c8d0f0'] };
+export function ogre(frame = 0, kind = 'ogre') {
   return sprite(24, 30, set => {
-    const l = frame ? [0, 2] : [2, 0], S2 = ['#2f5a2c', '#4a7a3a', '#6b9a4a', '#8fbf6a'];
+    const l = frame ? [0, 2] : [2, 0], S2 = BOSS_SKIN[kind] || BOSS_SKIN.ogre;
     for (let y = 22; y < 30; y++) { for (let x = 5; x < 10; x++) set(x, y - l[0], '#3b2a20'); for (let x = 14; x < 19; x++) set(x, y - l[1], '#3b2a20'); }
     for (let y = 10; y < 23; y++) for (let x = 3; x < 21; x++) { const dx = (x - 12) / 9, dy = (y - 16) / 7; if (dx * dx + dy * dy <= 1.1) set(x, y, y > 19 ? '#6b4428' : x < 8 ? S2[1] : S2[2]); }
     for (let y = 11; y < 20; y++) { set(1, y, S2[1]); set(2, y, S2[2]); set(21, y, S2[1]); set(22, y, S2[2]); }
@@ -134,6 +135,6 @@ const nodeCache = new Map(), monCache = new Map();
 export const nodeSprite = t => nodeCache.get(t) || (nodeCache.set(t, node(t)), nodeCache.get(t));
 export function monsterSprite(type, frame = 0, color = 0) {
   const key = `${type}${frame}${color}`;
-  if (!monCache.has(key)) monCache.set(key, type === 'slime' ? slime(color, frame) : type === 'boar' ? boar(frame) : type === 'bandit' ? bandit(frame) : ogre(frame));
+  if (!monCache.has(key)) monCache.set(key, type === 'slime' ? slime(color, frame) : type === 'boar' ? boar(frame) : type === 'bandit' ? bandit(frame) : ogre(frame, type));
   return monCache.get(key);
 }
