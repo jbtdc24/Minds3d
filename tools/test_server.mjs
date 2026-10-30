@@ -7,7 +7,7 @@ const { privateKeyToAccount } = await import('viem/accounts');
 import { randomUUID } from 'node:crypto';
 
 // ---- tiny PostgREST-ish in-memory db ----
-const T = { players: [], matches: [], queue: [], nonces: [], ratelimit: [], mind_energy: [], islands: [] };
+const T = { players: [], matches: [], queue: [], nonces: [], ratelimit: [], mind_energy: [], islands: [], payments: [], flags: [] };
 function parse(q) {
   const f = [];
   for (const part of q.split('&').filter(Boolean)) {
@@ -475,6 +475,37 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   const snap = RD.snapshotOf(seed, st, 2), S = RD.createRaid(snap, {});
   ok(S.structs.find(x => x.type === 'barn').max === Math.round(R.BUILD.barn.hp * 1.5), 'higher levels have more HP in raids');
   ok(AD.advMap(5, 1).monsters.some(m => m.type === 'ogre') && AD.advMap(5, 4).monsters.some(m => m.type === 'titan'), 'each tier has its own boss');
+}
+
+// ---- gem purchases (chain calls faked) ----
+{
+  const R = await import('../web/src/island/rules.js'), gemsRoute = (await import('../lib/routes/gems.js')).default, chain = await import('../lib/chain.js');
+  const buyer = await db.insert('players', { name: 'Buyer', address: '0x00000000000000000000000000000000000000b1' });
+  T.islands.push({ player_id: buyer.id, seed: 3, state: R.newIsland(3, Date.now()), minds: 0, rev: 0, updated_at: new Date().toISOString() });
+  T.payments = [];
+  const call = async body => { const token = signSession({ id: buyer.id, address: buyer.address }); let o = null; const res = { setHeader() {}, end(t) { o = { code: this.statusCode, body: JSON.parse(t) }; }, headersSent: false }; await gemsRoute({ method: 'POST', url: '/api/gems', headers: { authorization: 'Bearer ' + token }, body, query: {} }, res); return o; };
+  let out = await call({ op: 'info' });
+  ok(out.body.enabled === false, 'gem sales are off until the owner sets TREASURY_ADDRESS');
+  process.env.TREASURY_ADDRESS = '0x48C61f0Ca53259938F5B215ECf4f6b5246f3eA37';
+  const fake = { from: buyer.address, to: process.env.TREASURY_ADDRESS, value: 400000000000000n, chainId: 4663 };
+  chain.client.getTransaction = async () => fake;
+  chain.client.getTransactionReceipt = async () => ({ status: 'success', blockNumber: 100n });
+  chain.client.getBlockNumber = async () => 105n;
+  const h1 = '0x' + 'a'.repeat(64);
+  out = await call({ op: 'claim', tx: h1, pack: 'pouch' });
+  const gst = T.islands.find(x => x.player_id === buyer.id).state;
+  ok(out.code === 200 && out.body.added === 50 && gst.gems === 50, 'a verified payment adds the Gems');
+  out = await call({ op: 'claim', tx: h1, pack: 'pouch' });
+  ok(out.code === 409 && gst.gems === 50, 'the same payment can never be used twice');
+  out = await call({ op: 'claim', tx: '0x' + 'b'.repeat(64), pack: 'vault' });
+  ok(out.code === 400 && /less than/.test(out.body.error), 'paying less than the pack price is refused');
+  fake.from = '0x00000000000000000000000000000000000000c2';
+  out = await call({ op: 'claim', tx: '0x' + 'c'.repeat(64), pack: 'pouch' });
+  ok(out.code === 400 && /different wallet/.test(out.body.error), "someone else's payment cannot be claimed");
+  fake.from = buyer.address; fake.to = '0x000000000000000000000000000000000000dEaD';
+  out = await call({ op: 'claim', tx: '0x' + 'd'.repeat(64), pack: 'pouch' });
+  ok(out.code === 400 && /treasury/.test(out.body.error), 'payments to other addresses do not count');
+  delete process.env.TREASURY_ADDRESS;
 }
 console.log(`
 ${pass} passed, ${fail} failed`);

@@ -547,10 +547,36 @@ function paintShop() {
   }
   $('#shop-grid').innerHTML = html;
 }
-// Gems for real money: needs a payment provider (card / crypto) set up by the owner first
+// Gems for ETH on Robinhood Chain: the player's wallet pays the treasury, the server checks the transaction, then adds Gems
+const ethToWei = eth => { const [i, f = ''] = String(eth).split('.'); return BigInt(i || 0) * 10n ** 18n + BigInt((f + '0'.repeat(18)).slice(0, 18)); };
 async function buyGems() {
   sfx('click');
-  await modal(`<h3>💎 Gems</h3><p>Gem packs (card or crypto) are coming very soon.</p><p class="muted">Until then you can find Gems by beating Ogres on adventures.</p>`, [['OK', true, 'primary']]);
+  if (guest || !online) return toast('Connect a wallet to buy Gems.', true);
+  let info;
+  try { info = await api('gems', { op: 'info' }); } catch (e) { return toast(e.message, true); }
+  if (!info.enabled) return modal(`<h3>💎 Gems</h3><p>Gem packs are coming very soon.</p><p class="muted">Until then you find Gems by beating bosses on adventures.</p>`, [['OK', true, 'primary']]);
+  const pick = await modal(`<h3>💎 Get Gems</h3><p class="muted">Paid in ETH on Robinhood Chain, from your connected wallet.</p>
+    <div class="gem-packs">${info.packs.map(pk => `<div class="gem-pack"><b>${pk.icon}</b><span>${pk.name}</span><em>${pk.gems} 💎</em>${pk.tag ? `<small>${pk.tag}</small>` : ''}<strong>${pk.eth} ETH</strong></div>`).join('')}</div>`,
+    [...info.packs.map(pk => [`${pk.gems} 💎 · ${pk.eth} ETH`, pk.id, 'primary']), ['Cancel', 0]]);
+  if (!pick) return;
+  const pack = info.packs.find(x => x.id === pick);
+  if (!window.ethereum) return toast('No wallet found in this browser.', true);
+  try {
+    const [from] = await window.ethereum.request({ method: 'eth_requestAccounts' });
+    const chainHex = '0x' + info.chainId.toString(16);
+    try { await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: chainHex }] }); }
+    catch (e) { if (e.code === 4902) await window.ethereum.request({ method: 'wallet_addEthereumChain', params: [{ chainId: chainHex, chainName: 'Robinhood Chain', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: ['https://rpc.mainnet.chain.robinhood.com'] }] }); else throw e; }
+    toast('Confirm the payment in your wallet…');
+    const tx = await window.ethereum.request({ method: 'eth_sendTransaction', params: [{ from, to: info.treasury, value: '0x' + ethToWei(pack.eth).toString(16) }] });
+    toast('Payment sent! Checking it on the chain…');
+    for (let i = 0; i < 60; i++) {
+      await new Promise(r => setTimeout(r, 3000));
+      const r = await api('gems', { op: 'claim', tx, pack: pack.id }).catch(e => ({ error: e.message, status: e.status }));
+      if (r.ok) { sfx('levelup'); resetIsland(); await ensureIsland(); refreshHud(); if (current === 'shop') paintShop(); return toast(`+${r.added} 💎 added! You have ${r.gems} Gems.`); }
+      if (r.error) return toast(`${r.error} (tx ${tx.slice(0, 10)}…)`, true);
+    }
+    toast(`Still confirming. Your payment is safe: open Get Gems later (tx ${tx.slice(0, 10)}…).`, true);
+  } catch (e) { toast(e.code === 4001 ? 'Payment cancelled.' : e.message || 'Payment failed.', true); }
 }
 $('#shop-grid').addEventListener('click', e => {
   if (e.target.closest('#buy-gems')) return buyGems();

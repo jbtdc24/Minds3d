@@ -21,11 +21,12 @@ import island from '../lib/routes/island.js';
 import raid from '../lib/routes/raid.js';
 import adventure from '../lib/routes/adventure.js';
 import admin from '../lib/routes/admin.js';
+import gems from '../lib/routes/gems.js';
 
 const ROUTES = {
   'auth/nonce': auth_nonce, 'auth/verify': auth_verify, 'auth/guest': auth_guest, me, profile,
   'queue/join': queue_join, 'queue/poll': queue_poll, 'queue/leave': queue_leave,
-  'match/view': match_view, 'match/act': match_act, 'match/forfeit': match_forfeit, 'match/chat': match_chat, leaderboard, player, friends, friend, messages, island, raid, adventure, admin,
+  'match/view': match_view, 'match/act': match_act, 'match/forfeit': match_forfeit, 'match/chat': match_chat, leaderboard, player, friends, friend, messages, island, raid, adventure, admin, gems,
 };
 
 export default async function handler(req, res) {
