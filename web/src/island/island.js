@@ -83,6 +83,7 @@ function valid(tl, k) {
   return cov !== COVER.NONE || t?.s === 'p' || isFixed(k);
 }
 
+const compOf = (x, y) => { const k = tileAt(x, y); return k < 0 ? -1 : w.comp[k]; };
 // ---------- Minds: they wander, and do the jobs you give them ----------
 const GO_SPEED = 38;
 const WORK_TIME = { [COVER.WEEDS]: 0.7, [COVER.BUSH]: 1, [COVER.ROCK]: 1.4, [COVER.TREE]: 1.7, till: 0.9, plant: 0.55, harvest: 0.6 };
@@ -142,6 +143,16 @@ function assignJobs() {
 function updateMind(m, dt, night) {
   m.hop = Math.max(0, m.hop - dt);
   if (m.state === 'go') {
+    const mc = compOf(m.x, m.y), dc = compOf(m.tx, m.ty);
+    if (mc >= 0 && dc >= 0 && mc !== dc) {   // another island: walk into this island's portal, come out of the other one
+      const from = w.portals.find(p => p.comp === mc), to = w.portals.find(p => p.comp === dc);
+      if (from && to) {
+        const px = kx(from.k) * T + 8, py = ky(from.k) * T + 12, d2 = Math.hypot(px - m.x, py - m.y);
+        if (d2 < 2) { bits(m.x, m.y - 8, ['#7fe8ff', '#c9a6ff', '#ffffff'], 14, 40); m.x = kx(to.k) * T + 8; m.y = ky(to.k) * T + 14; bits(m.x, m.y - 8, ['#7fe8ff', '#c9a6ff', '#ffffff'], 14, 40); sfx('magic'); }
+        else { const sp = Math.min(d2, GO_SPEED * dt); m.x += (px - m.x) / d2 * sp; m.y += (py - m.y) / d2 * sp; m.phase += dt * 16; if (Math.abs(px - m.x) > 0.5) m.dir = px > m.x ? 1 : -1; }
+        return;
+      }
+    }
     const dx = m.tx - m.x, dy = m.ty - m.y, d = Math.hypot(dx, dy);
     if (d < 1.5 && m.site && !m.job) { m.state = 'work'; m.t = 0; m.dur = 1e9; m.dir = kx(m.site.k) * T + 8 > m.x ? 1 : -1; return; }
     if (d < 1.5) {
@@ -177,6 +188,22 @@ function updateMind(m, dt, night) {
     }
     if (m.state !== 'walk') m.timer = 1;
   }
+}
+// a portal: carved stone arch with a swirling sky-blue vortex, floating sparks
+function drawPortal(p) {
+  const cx = kx(p.k) * T + 8, by = ky(p.k) * T + 14;
+  g.fillStyle = 'rgba(43,35,64,.3)'; g.beginPath(); g.ellipse(cx, by, 10, 3, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#5b5a6e'; g.fillRect(cx - 9, by - 22, 4, 22); g.fillRect(cx + 5, by - 22, 4, 22);
+  g.fillStyle = '#7c7b8f'; g.fillRect(cx - 8, by - 22, 2, 21); g.fillRect(cx + 6, by - 22, 2, 21);
+  g.fillStyle = '#4a4858'; g.fillRect(cx - 10, by - 25, 20, 4); g.fillStyle = '#a3a2b5'; g.fillRect(cx - 9, by - 25, 18, 1);
+  for (let i = 0; i < 3; i++) {   // the vortex
+    const r = 5 - i * 1.5, a = Tm * (2 + i) + i;
+    g.fillStyle = ['#3fb8e0', '#7fe8ff', '#e0fbff'][i];
+    g.beginPath(); g.ellipse(cx, by - 11, r + 0.5, r * 1.8, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = 'rgba(201,166,255,.7)'; g.fillRect(cx + Math.cos(a) * r - 0.5, by - 11 + Math.sin(a) * r * 1.6, 1.5, 1.5);
+  }
+  g.fillStyle = '#ffd84a'; g.fillRect(cx - 1, by - 24, 2, 2);
+  if (Math.random() < 0.2) fx.push({ type: 'glow', x: cx + (Math.random() - 0.5) * 8, y: by - 8, vx: 0, vy: -8, life: 1.2, max: 1.2 });
 }
 // a building going up: wooden frame that fills in as it gets closer to done, plus a progress bar and time left
 function drawSite(b, nowMs) {
@@ -380,6 +407,7 @@ function frame(nowT) {
     else if (b.type === 'lantern') items.push({ y: by, spr: bsprites.lantern(), x: cx, float: true });
     else items.push({ y: by, spr: b.type === 'house' ? bsprites.house(L.night) : bsprites[b.type](), x: cx });
   }
+  for (const p of w.portals) items.push({ y: ky(p.k) * T + 14, portal: p });
   for (const m of minds) items.push({ y: m.y, mind: m });
   items.sort((a, b) => a.y - b.y);
   g.strokeStyle = `rgba(255,255,255,${0.5 + 0.3 * Math.sin(Tm * 6)})`; g.lineWidth = 1;
@@ -392,6 +420,7 @@ function frame(nowT) {
   for (const it of items) {
     if (it.mind) { drawMind(it.mind); continue; }
     if (it.site) { drawSite(it.site, nowMs); continue; }
+    if (it.portal) { drawPortal(it.portal); continue; }
     const s = it.spr;
     if (it.tree) { g.fillStyle = 'rgba(43,35,64,.22)'; g.beginPath(); g.ellipse(it.x, it.y - 1, 9, 3, 0, 0, Math.PI * 2); g.fill(); }
     let dx = 0, dy = 0;

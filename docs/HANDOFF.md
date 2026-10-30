@@ -32,7 +32,7 @@ Owner: Mindclash game owner. Hates long text: short replies, decide for them, bu
 A. [x] (code done; OWNER MUST: run supabase/005_admin.sql + set Vercel env ADMIN_ADDRESSES=<wallet>) Admin/dev tools only the owner can use: server checks ADMIN_ADDRESSES (Vercel env, comma list of wallets) — not in the repo.
    Hidden admin screen (open with a secret code in Settings): give Dust/Gems/items, ban / suspend / unsuspend, player lookup,
    cheat meter (flags table: suspicious adventure/raid submits, rate-limit hits). Needs supabase/005_admin.sql (owner runs).
-B. [ ] Home island: remove the plank bridges; each islet gets a portal, main island has a portal; Minds teleport between them.
+B. [x] Home island: remove the plank bridges; each islet gets a portal, main island has a portal; Minds teleport between them.
 C. [ ] World map in detailed PIXEL ART like the refs (pixel buffer scaled up): different biome/boss islands (volcano with lava +
    smoke, crystal, ice, giant mushroom, ruins/portal, dragon nest), baked shadows on clouds, particles (smoke, sparkles, birds, wind).
 E. [x] (fixed: old islands had 0 troops → v4 starter army) Raid button "doesn't work" (reported twice) — check live with an OLD account (no troops? modal? error?).

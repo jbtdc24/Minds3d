@@ -1,7 +1,7 @@
 // The island's shape and what grows on it, as pure math (no canvas): the browser draws it, and the
 // server uses the very same numbers to check every clear / till / plant.
 // v2 (2026-10-30): a floating sky island. The main island is the original 48×36 one, now in the middle of a
-// 64×48 map (offset OX, OY tiles), with small floating islets around it joined by plank bridges.
+// 64×48 map (offset OX, OY tiles), with small floating islets around it, joined by portals.
 export const T = 16, TW = 64, TH = 48, WW = TW * T, WH = TH * T;   // 16px tiles, 1024×768 px
 export const OW = 48, OH = 36, OX = 8, OY = 6;                     // the original island's size and where it sits now
 export const oldKey = k => ((k / OW) | 0) * TW + OX + (k % OW) + OY * TW;   // a v1 tile index → v2
@@ -77,27 +77,36 @@ export function gen(seed) {
   }
   const k = (x, y) => y * TW + x;
   const isLand = (x, y) => x >= 0 && y >= 0 && x < TW && y < TH && land[k(x, y)] === 1;
-  // plank bridges from each islet to the main island (straight line, over the open sky)
-  const bridges = [];
+  // islands are joined by portals (no bridges): find each separate piece of land, give every piece a portal
   const mcx = PX + cx, mcy = PY + cy;
-  for (const s of islets) {
-    const sx = Math.floor(s.x / T), sy = Math.floor(s.y / T), ex = Math.floor(mcx / T), ey = Math.floor(mcy / T);
-    const n = Math.max(Math.abs(ex - sx), Math.abs(ey - sy));
-    let started = false, gap = [];
-    for (let i = 0; i <= n; i++) {
-      const tx = Math.round(sx + (ex - sx) * i / n), ty = Math.round(sy + (ey - sy) * i / n), kk = k(tx, ty);
-      if (!started) { if (!land[kk]) started = true; else continue; }
-      if (land[kk]) { if (gap.length) { bridges.push(...gap); } break; }
-      gap.push(kk);
+  const comp = new Int16Array(TW * TH).fill(-1), sizes = [];
+  for (let s0 = 0; s0 < TW * TH; s0++) {
+    if (!land[s0] || comp[s0] >= 0) continue;
+    const id = sizes.length, q = [s0]; comp[s0] = id; let n = 0;
+    while (q.length) { const c = q.pop(); n++; for (const d of [1, -1, TW, -TW]) { const nb = c + d; if (nb < 0 || nb >= TW * TH || (d === 1 && nb % TW === 0) || (d === -1 && c % TW === 0)) continue; if (land[nb] && comp[nb] < 0) { comp[nb] = id; q.push(nb); } } }
+    sizes.push(n);
+  }
+  const mainComp = comp[k(hc.x + 1, hc.y + 1)];
+  const portals = [{ k: k(dockX, shore - 1), comp: mainComp }];   // the main portal: at the end of the path from the house
+  for (let id = 0; id < sizes.length; id++) {
+    if (id === mainComp || sizes[id] < 12) continue;
+    let best = -1, bd = 1e9;   // the islet tile closest to the main island, not right at the edge
+    for (let t = 0; t < TW * TH; t++) {
+      if (comp[t] !== id) continue;
+      const tx = t % TW, ty = (t / TW) | 0;
+      if (![[1, 0], [-1, 0], [0, 1], [0, -1]].every(([dx, dy]) => isLand(tx + dx, ty + dy))) continue;
+      const d = Math.hypot(tx * T - mcx, ty * T - mcy);
+      if (d < bd) { bd = d; best = t; }
     }
+    if (best >= 0) portals.push({ k: best, comp: id });
   }
   // fixed things
   const fixed = new Set();
   // (the home and the well are buildings now: see rules.js, they start at hc / well and can be moved)
   const path = [];
-  for (let y = hc.y + 3; y < shore; y++) path.push(k(dockX, y));
+  for (let y = hc.y + 3; y < shore; y++) path.push(k(dockX, y));   // ends at the main portal
   for (let x = dockX + 1; x < well.x; x++) path.push(k(x, well.y + 1));
-  for (const b of bridges) { land[b] = 1; path.push(b); }
+  for (const pt of portals.slice(1)) path.push(pt.k);   // portal tiles: walkable, nothing can be built on them
   path.forEach(p => fixed.add(p));
   // starter farm: 3×2 plots right of the house
   const starter = [];
@@ -116,7 +125,7 @@ export function gen(seed) {
     else if (h > 0.86) cover[i] = COVER.BUSH;
     else if (yard < 8.5 ? h < 0.45 : h < 0.8) cover[i] = COVER.WEEDS;
   }
-  const out = { seed, height, pond, inPond, land, cover, kind, treeKinds: TREES, house: hc, well, dock: { x: dockX, shore }, path, bridges: new Set(bridges), starter, islets, center: { x: mcx, y: mcy } };
+  const out = { seed, height, pond, inPond, land, cover, kind, treeKinds: TREES, house: hc, well, dock: { x: dockX, shore }, path, bridges: new Set(), portals, comp, starter, islets, center: { x: mcx, y: mcy } };
   cacheGen.set(seed, out);
   if (cacheGen.size > 8) cacheGen.delete(cacheGen.keys().next().value);
   return out;

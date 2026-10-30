@@ -304,14 +304,6 @@ export function groundFor(seed) {
       put(X, Y, d < 1 ? C.pathD : n1(X / 2, Y / 2) + bayer(X, Y) * 0.3 > 0.95 ? C.pathL : C.path);
     }
   }
-  // dock from the south shore out over the water
-  const dx = w.dock.x * T + 8, sy = w.dock.shore * T - 6;
-  for (let y = sy; y < sy + 40; y++) for (let x = dx - 7; x <= dx + 6; x++) {
-    const edge = x === dx - 7 || x === dx + 6;
-    put(x, y, edge ? R.wood[0] : (y - sy) % 4 === 3 ? R.wood[0] : x === dx - 6 ? R.wood[3] : R.wood[2]);
-  }
-  for (const x of [dx - 7, dx + 5]) for (let y = sy + 40; y < sy + 43; y++) { put(x, y, R.wood[0]); put(x + 1, y, R.wood[0]); }
-  for (let x = dx - 8; x <= dx + 7; x++) put(x, sy + 40, '#2f6fb0');
   const waterPts = [];
   for (let i = 0; i < 9000 && waterPts.length < 300; i++) { const x = Math.floor(r() * WW), y = Math.floor(r() * WH); if (px[y * WW + x] === rgba(C.crystal)) waterPts.push({ x, y }); }
   const out = { ground: toCanvas(px, WW, WH), foamA: toCanvas(fa, WW, WH), foamB: toCanvas(fb, WW, WH), waterPts, flowerSpots };
