@@ -487,7 +487,7 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   let out = await call({ op: 'info' });
   ok(out.body.enabled === false, 'gem sales are off until the owner sets TREASURY_ADDRESS');
   process.env.TREASURY_ADDRESS = '0x48C61f0Ca53259938F5B215ECf4f6b5246f3eA37';
-  const fake = { from: buyer.address, to: process.env.TREASURY_ADDRESS, value: 400000000000000n, chainId: 4663 };
+  const fake = { from: buyer.address, to: process.env.TREASURY_ADDRESS, value: 2000000000000000n, chainId: 4663 };
   chain.client.getTransaction = async () => fake;
   chain.client.getTransactionReceipt = async () => ({ status: 'success', blockNumber: 100n });
   chain.client.getBlockNumber = async () => 105n;
