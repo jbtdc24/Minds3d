@@ -8,8 +8,8 @@ import { T, WATER, SAND, GRASS, PAVE, PATH, PLANK, ROCK, MEADOW, paintTile, shop
 import { liveRoom } from './net.js';
 import { babble, music, sfx } from './audio.js';
 
-const $ = s => document.querySelector(s);
-const TW = 100, TH = 65, WW = TW * T, WH = TH * T, RESIDENTS = 14, WALK = 72, LOADS = 3;
+const $ = s => document.querySelector(s), PEOPLE_N = 14;
+const TW = 100, TH = 65, WW = TW * T, WH = TH * T, RESIDENTS = PEOPLE_N, WALK = 72, LOADS = 3;
 const cv = document.getElementById('town-cv'), g = cv.getContext('2d');
 let K = null, running = false, raf = 0, last = 0, W = 0, H = 0, DPR = 1, zoom = 1.3, map = null;
 let frames = [], room = null, roster = new Map(), rosterAt = 0, chatPing = 0;
@@ -111,18 +111,36 @@ function pathTo(sx, sy, tx, ty) {
   for (let k = goal; k !== s; k = from[k]) out.push({ x: (k % TW) * T + 8, y: (k / TW | 0) * T + 10 });
   return out.reverse();
 }
-// a loop around town the residents share; pure math from the clock so everyone sees them in the same place
-let loop = [], loopLen = 0;
+// the residents behave like people: most stand about, chat in pairs or sit, and now and then stroll somewhere and stop.
+// Their day is pure math from the clock, so every player sees the same thing. spots are tiles; x nudges a pair apart.
+const PEOPLE = [
+  { spots: [[47, 37]], x: -9, face: 1 }, { spots: [[47, 37]], x: 9, face: -1 },
+  { spots: [[55, 42]], x: -9, face: 1 }, { spots: [[55, 42]], x: 9, face: -1 },
+  { spots: [[44, 33]], x: 0 }, { spots: [[37, 39]], x: 0 },
+  { spots: [[53, 30], [63, 36]], x: 0 }, { spots: [[40, 33], [47, 41], [36, 36]], x: 0 }, { spots: [[60, 33], [56, 37]], x: 0 },
+  { spots: [[50, 37], [50, 49], [42, 41]], x: 0 }, { spots: [[29, 32], [36, 33]], x: 0 }, { spots: [[72, 32], [64, 33]], x: 0 },
+  { spots: [[50, 22], [44, 24]], x: 0 }, { spots: [[50, 56], [50, 48]], x: 0 },
+];
+const STROLL = 30;
 function buildLoop() {
-  const stops = [[50, 38], [40, 40], [34, 32], [14, 33], [34, 32], [44, 25], [62, 26], [86, 34], [66, 34], [50, 44], [50, 56], [50, 44]].map(([x, y]) => ({ x: x * T + 8, y: y * T + 8 }));
-  loop = [stops[0]];
-  for (let i = 1; i <= stops.length; i++) { const p = stops[i % stops.length], l = loop[loop.length - 1]; loop.push(...pathTo(l.x, l.y, p.x, p.y)); }
-  loopLen = loop.length;
+  PEOPLE.forEach((m, i) => {
+    m.at = m.spots.map(([x, y]) => ({ x: x * T + 8, y: y * T + 8 }));
+    m.legs = m.at.length < 2 ? [] : m.at.map((a, k) => { const b = m.at[(k + 1) % m.at.length]; return [a, ...pathTo(a.x, a.y, b.x, b.y)]; });
+    let time = 0;
+    m.plan = m.at.map((a, k) => {
+      const rest = 28 + hash(i, k, 7) * 55, walk = m.legs.length ? (m.legs[k].length - 1) * T / STROLL : 0, from = time;
+      time += rest + walk;
+      return { from, rest, walk };
+    });
+    m.total = time; m.id = 1 + (hash(i, 3, 6) * 3333 | 0);
+  });
 }
 function resident(i, t) {
-  const a = hash(i, 1, 6), b = hash(i, 2, 6), speed = 1.1 + a * 0.5;
-  const u = (t * speed + a * loopLen) % loopLen, n = u | 0, f = u - n, A = loop[n], B = loop[(n + 1) % loopLen];
-  return { id: 1 + (hash(i, 3, 6) * 3333 | 0), x: A.x + (B.x - A.x) * f + (a - 0.5) * 8, y: A.y + (B.y - A.y) * f + (b - 0.5) * 6, dir: B.x < A.x ? -1 : 1, walking: true };
+  const m = PEOPLE[i], u = (t + hash(i, 4, 6) * 900) % m.total, k = m.plan.findLastIndex(p => p.from <= u), p = m.plan[k], left = u - p.from;
+  const lookAround = hash(i, Math.floor(t / 9), 8) < 0.5 ? -1 : 1;
+  if (left < p.rest || !m.legs.length) return { id: m.id, x: m.at[k].x + m.x, y: m.at[k].y, dir: m.face || lookAround, walking: false };
+  const leg = m.legs[k], f = (left - p.rest) / p.walk * (leg.length - 1), n = Math.min(leg.length - 2, f | 0), A = leg[n], B = leg[n + 1], w = f - n;
+  return { id: m.id, x: A.x + (B.x - A.x) * w, y: A.y + (B.y - A.y) * w, dir: B.x < A.x ? -1 : 1, walking: true };
 }
 const look = id => { if (looks.has(id)) return looks.get(id); if (loads >= LOADS) return null; loads++; try { const c = chibi(id).full; looks.set(id, c); return c; } catch { return null; } };
 function drawMind(m, step) {
@@ -189,11 +207,11 @@ function frame(tMs) {
   if (talkT <= 0) {   // a resident near you says something
     talkT = 2.5 + Math.random() * 3;
     const i = Math.random() * RESIDENTS | 0, r = resident(i, t);
-    if (Math.hypot(r.x - meP.x, r.y - meP.y) < 320) bubbles.push({ res: i, text: babble(r.id, 'chat', 0.85), life: 2.6 });
+    if (!r.walking && Math.hypot(r.x - meP.x, r.y - meP.y) < 320) bubbles.push({ res: i, text: babble(r.id, 'chat', 0.85), life: 2.6 });
   }
   for (const b of bubbles) {
     b.life -= dt;
-    const p = b.res != null ? resident(b.res, t) : b.me ? meP : b;
+    const p = b.res != null ? resident(b.res, t) : b.me ? meP : people.get(b.who) || b;
     label(b.text, p.x, p.y - 38, '#2b2340', 'rgba(255,248,228,.96)');
   }
   bubbles = bubbles.filter(b => b.life > 0);
@@ -206,11 +224,11 @@ let beating = false, again = false, beatTimer = 0;
 // runs on its own timer, not the drawing loop, so an AFK player in a background tab stays in town and keeps earning
 async function beat() {
   if (beating) { again = true; return; }
-  if (!K.online()) { $('#town-count').textContent = 'Offline: only you here'; return; }
+  if (!K.online()) return;
   const say = sayQ; sayQ = '';
   beating = true;
   try {
-    const r = await K.api('town', { x: meP.x | 0, y: meP.y | 0, mind: meP.mind, say, after: chatAfter });
+    const r = await K.api('town', { x: meP.x | 0, y: meP.y | 0, mind: meP.mind, say, after: chatAfter, active: Date.now() - actedAt < 120e3 });
     if (say) room?.ping();
     room?.move(myPos());
     roster = new Map(r.people.map(o => [o.id, o.name])); rosterAt = Date.now();
@@ -219,23 +237,41 @@ async function beat() {
       for (const k of people.keys()) if (!ids.has(k)) people.delete(k);
       for (const o of r.people) { const q = people.get(o.id); if (q) walkTo(q, o.x, o.y); else people.set(o.id, { ...o, tx: o.x, ty: o.y }); }
     } else syncRoom();
-    counts = { here: Math.max(r.count, people.size + 1), online: r.online };
-    paintCount();
     stayLeft = r.stay; paintStay();
     for (const c of r.chat) {
       chatAfter = Math.max(chatAfter, c.id);
-      $('#town-feed').insertAdjacentHTML('beforeend', `<div class="${c.kind === 'news' ? 'news' : ''}">${c.kind === 'news' ? '' : `<b>${K.esc(c.name)}</b> `}${K.esc(c.text)}</div>`);
+      const hit = pendingLines.findIndex(l => l.name === c.name && l.text === c.text);
+      if (hit >= 0) { pendingLines.splice(hit, 1); continue; }   // already on screen: it arrived live
+      addLine(c.name, c.text, c.kind === 'news');
       const who = c.kind === 'chat' && [...people.values()].find(o => o.name === c.name);
-      if (who) bubbles.push({ x: who.x, y: who.y, text: c.text.slice(0, 48), life: 5 });
+      if (who) bubbles.push({ who: who.id, text: c.text.slice(0, 48), life: 5 });
     }
-    const f = $('#town-feed'); while (f.children.length > 40) f.firstChild.remove(); f.scrollTop = 1e9;
+    pendingLines = pendingLines.filter(l => { if (Date.now() - l.at < 15000) return true; l.el.remove(); return false; });   // never saved by the server: not real
     if (r.got) { sfx('coin'); K.toast(r.got.kind === 'time' ? `Town Time! +${r.got.dust} ✨ (${r.got.n}/6 today)` : `You met ${r.got.who}! +${r.got.dust} ✨`); }
-  } catch { $('#town-count').textContent = 'Reconnecting…'; }
+  } catch { /* the next beat tries again */ }
   beating = false;
   if (again) { again = false; beat(); }
 }
-let counts = { here: 1, online: 0 };
-const paintCount = () => { $('#town-count').textContent = `🟢 ${counts.here} here${counts.online ? ` · ${counts.online} online` : ''}`; };
+let pendingLines = [], actedAt = 0;
+function addLine(name, text, news) {
+  const f = $('#town-feed'), el = document.createElement('div');
+  if (news) el.className = 'news';
+  el.innerHTML = `${news ? '' : `<b>${K.esc(name)}</b> `}${K.esc(text)}`;
+  f.append(el);
+  while (f.children.length > 40) f.firstChild.remove();
+  f.scrollTop = 1e9;
+  return el;
+}
+// a message from another player arrives directly; the name comes from the server's list, never from the message
+function liveLine(name, text) { pendingLines.push({ name, text, at: Date.now(), el: addLine(name, text) }); }
+function onSay({ id, text }) {
+  const name = roster.get(id);
+  if (!name || typeof text !== 'string') return;
+  const clean = text.slice(0, 120);
+  liveLine(name, clean); sfx('pop');
+  if (people.has(id)) bubbles.push({ who: id, text: clean.slice(0, 48), life: 5 });
+}
+const acted = () => { actedAt = Date.now(); };
 function walkTo(o, x, y) { if (o.goX === x && o.goY === y) return; o.goX = x; o.goY = y; o.path = pathTo(o.x, o.y, x, y); o.tx = x; o.ty = y; }
 // who is in the room right now. Names come from the server list, so nobody can fake one.
 function syncRoom() {
@@ -250,14 +286,13 @@ function syncRoom() {
     const q = people.get(o.id);
     if (q) { q.mind = o.mind; walkTo(q, o.gx ?? o.x, o.gy ?? o.y); } else people.set(o.id, { id: o.id, name, mind: o.mind, x: o.x, y: o.y, tx: o.x, ty: o.y });
   }
-  counts.here = people.size + 1; paintCount();
   if (unknown && Date.now() - rosterAt > 1500) { rosterAt = Date.now(); beat(); }
 }
 const myPos = () => ({ id: K.me(), mind: meP.mind, x: meP.x | 0, y: meP.y | 0, gx: (meP.path?.at(-1)?.x ?? meP.x) | 0, gy: (meP.path?.at(-1)?.y ?? meP.y) | 0 });
 async function joinRoom() {
-  room = await liveRoom('town-live', K.me(), myPos(), { onChange: syncRoom, onPing: () => { clearTimeout(chatPing); chatPing = setTimeout(beat, 150 + Math.random() * 400); } });
+  room = await liveRoom('town-live', K.me(), myPos(), { onChange: syncRoom, onPing: () => { clearTimeout(chatPing); chatPing = setTimeout(beat, 150 + Math.random() * 400); }, onSay });
 }
-function paintStay() { $('#town-stay').textContent = stayLeft ? `⏳ Town Time in ${Math.ceil(stayLeft / 60e3)} min` : ''; }
+function paintStay() { $('#town-stay').textContent = !stayLeft ? '' : Date.now() - actedAt < 120e3 ? `⏳ Town Time in ${Math.ceil(stayLeft / 60e3)} min` : '💤 Walk or chat to earn Town Time'; }
 const toWorld = (cx, cy) => ({ x: CAM.x + (cx - W / 2) / zoom, y: CAM.y + (cy - H / 2) / zoom });
 cv.addEventListener('pointerdown', e => {
   cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -281,7 +316,7 @@ const release = e => {
   const d = b ? map.doors[b.name] : null;
   meP.path = pathTo(meP.x, meP.y, d ? d.x * T + 8 : w.x, d ? d.y * T + 10 : w.y);
   meP.arrive = b?.go || null;
-  room?.move(myPos());
+  room?.move(myPos()); acted(); paintStay();
   if (b?.go) sfx('select');
   if (b?.go && !meP.path.length) { meP.arrive = null; K.go(b.go); }
 };
@@ -294,8 +329,11 @@ $('#town-me').onclick = () => { free = false; setZoom(1.3); };
 function send() {
   const b = $('#town-in'), text = b.value.trim();
   if (!text) return;
-  b.value = ''; sayQ = text; beat();
+  if (!K.canChat()) return K.toast('Connect a wallet to chat in town.', true);
+  b.value = ''; sayQ = text; acted(); paintStay();
+  liveLine(K.name(), text); room?.say(text);
   bubbles.push({ me: 1, text: text.slice(0, 48), life: 5 });
+  beat();
 }
 $('#town-send').onclick = send;
 $('#town-in').addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') send(); });
@@ -304,7 +342,7 @@ export function initTown(ctx) { K = ctx; }
 export function openTown() {
   if (!map) { map = buildMap(); frames = [paintGround(0), paintGround(1)]; buildLoop(); }
   meP ||= { x: 50 * T, y: 38 * T, mind: 49, dir: 1, path: [] };
-  meP.mind = K.minds()[0] || 49; meP.path = []; meP.arrive = null; free = false; chatAfter = 0; $('#town-feed').innerHTML = ''; people.clear();
+  meP.mind = K.minds()[0] || 49; meP.path = []; meP.arrive = null; free = false; chatAfter = 0; pendingLines = []; $('#town-feed').innerHTML = ''; people.clear();
   CAM.x = meP.x; CAM.y = meP.y; zoom = 1.3;
   resize(); music('town'); joinRoom(); beat();
   clearInterval(beatTimer); beatTimer = setInterval(beat, 10000);

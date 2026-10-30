@@ -855,7 +855,7 @@ function startDuel(local, first = local.view(), opts = {}) {
   paintDuel();
   duelLayout(); camSnap(0, 1.25, 0.6); camTo(0, 1, 0, 2.5);
   if (!local) {
-    watch(`match:${D.id}`, () => refresh()).then(un => { if (D) D.unwatch = un; });
+    watch(`match:${D.id}`, p => { if (p.say && Number.isInteger(p.say.seat) && p.say.seat !== D?.v.seat) sayNow(p.say.seat, p.say.phrase | 0); else if (!p.say) refresh(); }).then(un => { if (D) D.unwatch = un; });
     D.poll = setInterval(() => { if (D && !D.busy) refresh(); }, 2500);
   }
   D.clock = setInterval(paintTimer, 250);
@@ -1042,9 +1042,18 @@ $('#d-phrases').onclick = async e => {
     if (Math.random() < 0.6) { const pool = BOT_REPLIES[phrase <= 3 ? 'greet' : phrase >= 10 && phrase <= 17 ? 'tease' : 'nice']; lines.push({ seat: 1, phrase: pool[(Math.random() * pool.length) | 0], at: new Date(now + 1400).toISOString() }); }
     return showChat(lines, 0, new Date(now).toISOString());
   }
-  try { const r = await api('match/chat', { id: D.id, phrase }); ping(`match:${D.id}`); showChat(r.chat, D.v.seat, r.serverTime); }
+  const seat = D.v.seat;
+  sayNow(seat, phrase);
+  D.unwatch?.send?.({ say: { seat, phrase } });
+  try { const r = await api('match/chat', { id: D.id, phrase }); D.unwatch?.send?.({}); showChat(r.chat, seat, r.serverTime); }
   catch (err) { toast(err.message, true); }
 };
+// a chat line shows on both screens at once; the saved copy arrives later and is skipped
+function sayNow(seat, phrase) {
+  if (!D?.F[seat === D.v.seat ? 0 : 1]) return;
+  (D.saidNow ||= []).push({ seat, phrase, at: Date.now() });
+  tag(D.F[seat === D.v.seat ? 0 : 1], esc(PHRASES[phrase] || ''), 'bubble', 2600); sfx('pop');
+}
 function showChat(lines, seat, serverTime) {
   if (!D || !lines?.length) return;
   const skew = serverTime ? Date.parse(serverTime) - Date.now() : 0;
@@ -1052,6 +1061,8 @@ function showChat(lines, seat, serverTime) {
     const at = Date.parse(c.at);
     if (at <= D.chatAt) continue;
     D.chatAt = Math.max(D.chatAt, at);
+    const twin = (D.saidNow || []).findIndex(n => n.seat === c.seat && n.phrase === c.phrase && Date.now() - n.at < 20000);
+    if (twin >= 0) { D.saidNow.splice(twin, 1); continue; }
     const side = c.seat === seat ? 0 : 1, delay = Math.max(0, at - (Date.now() + skew));
     setTimeout(() => { if (D?.F[side]) { tag(D.F[side], esc(PHRASES[c.phrase] || ''), 'bubble', 2600); sfx('pop'); } }, delay);
   }
@@ -1335,7 +1346,7 @@ $('#pf-save').onclick = async () => {
 };
 
 initMindTalk({ minds: () => (guest ? [] : myMinds), esc });
-initTown({ minds: () => (guest ? [] : myMinds), api, esc, toast, online: () => online, go: townGo, me: () => me?.id });
+initTown({ minds: () => (guest ? [] : myMinds), api, esc, toast, online: () => online, go: townGo, me: () => me?.id, name: () => me?.name || 'You', canChat: () => online && !guest });
 
 // ---------- friends + friend chat (preset lines) ----------
 let frTick = 0, friendsList = [], chatWith = null, frUnwatch = null, frTimer = null;
@@ -1377,14 +1388,22 @@ async function openChat(f) {
   $('#fr-phrases').innerHTML = FRIEND_CHAT.map(i => `<button data-p="${i}">${esc(PHRASES[i])}</button>`).join('');
   await loadChat();
 }
+// saved messages, plus lines that just arrived live and are still on their way to the database
+let chatRows = [], liveMsgs = [];
+function paintMsgs() {
+  const saved = chatRows.map(m => `${m.mine}|${m.text}`);
+  liveMsgs = liveMsgs.filter(m => Date.now() - Date.parse(m.at) < 15000 && !saved.includes(`${m.mine}|${m.text}`));
+  const rows = [...chatRows, ...liveMsgs];
+  $('#fr-msgs').innerHTML = rows.length ? rows.map(m => `<div class="msg ${m.mine ? 'mine' : ''}">${esc(m.text || PHRASES[m.phrase] || '')}<time>${new Date(m.at).toLocaleString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}</time></div>`).join('') : '<div class="board-empty">Say hi! 👋</div>';
+  $('#fr-msgs').scrollTop = 1e9;
+}
 async function loadChat() {
   if (!chatWith) return;
   const pid = chatWith.player.id;
   try {
     const r = await api(`messages?with=${pid}`);
     if (chatWith?.player.id !== pid) return;   // closed or switched while loading
-    $('#fr-msgs').innerHTML = r.messages.length ? r.messages.map(m => `<div class="msg ${m.mine ? 'mine' : ''}">${esc(m.text || PHRASES[m.phrase] || '')}<time>${new Date(m.at).toLocaleString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}</time></div>`).join('') : '<div class="board-empty">Say hi! 👋</div>';
-    $('#fr-msgs').scrollTop = 1e9;
+    chatRows = r.messages; paintMsgs();
     settings.seen[pid] = Date.now(); saveSettings();
     renderFriends();
   } catch (e) { toast(e.message, true); }
@@ -1394,7 +1413,10 @@ async function sendChat() {
   const box = $('#fr-text'), text = box.value.trim();
   if (!text || !chatWith) return;
   box.value = '';
-  try { const to = chatWith.player.id; await api('messages', { to, text }); ping(`player:${to}`); sfx('pop'); loadChat(); } catch (err) { box.value = text; toast(err.message, true); }
+  const to = chatWith.player.id;
+  liveMsgs.push({ mine: true, text, at: new Date().toISOString() }); paintMsgs(); sfx('pop');
+  ping(`player:${to}`, { from: me.id, text });
+  try { await api('messages', { to, text }); ping(`player:${to}`); loadChat(); } catch (err) { liveMsgs = []; paintMsgs(); box.value = text; toast(err.message, true); }
 }
 $('#fr-send').onclick = sendChat;
 $('#fr-text').addEventListener('keydown', e => { if (e.key === 'Enter') sendChat(); });
@@ -1438,7 +1460,11 @@ $('#fr-phrases').onclick = async e => {
 async function friendsPoll() {
   if (!online || guest || !me) { renderFriends(); return; }
   loadFriends(); loadMail();
-  if (!frUnwatch) frUnwatch = await watch(`player:${me.id}`, () => { loadFriends(); if (chatWith) loadChat(); sfx('notify'); });
+  if (!frUnwatch) frUnwatch = await watch(`player:${me.id}`, p => {
+    if (p.text && chatWith?.player.id === p.from) { liveMsgs.push({ mine: false, text: String(p.text).slice(0, 400), at: new Date().toISOString() }); paintMsgs(); sfx('pop'); return; }
+    if (p.text) return;
+    loadFriends(); if (chatWith) loadChat(); else sfx('notify');
+  });
   clearInterval(frTimer); frTimer = setInterval(() => { if (document.hidden) return; if (chatWith) loadChat(); if (++frTick % 6 === 0 || $('#friends').classList.contains('on')) loadFriends(); }, 4000);
 }
 

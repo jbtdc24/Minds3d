@@ -729,6 +729,14 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   T.town_now.find(x => x.player_id === A.id).since = new Date(Date.now() - 11 * 60e3).toISOString();
   out = await hit(town, A, { x: 100, y: 100, mind: 49, say: 'hi all' });
   ok(out.body.got?.kind === 'time' && out.body.chat.some(c => c.text === 'hi all'), 'staying in town pays, and chat works');
+  const rowA = T.town_now.find(x => x.player_id === A.id);
+  rowA.since = new Date(Date.now() - 5 * 60e3).toISOString(); rowA.at = new Date(Date.now() - 10e3).toISOString();
+  const s0 = Date.parse(rowA.since);
+  await hit(town, A, { x: 100, y: 100, mind: 49 });
+  ok(Date.parse(T.town_now.find(x => x.player_id === A.id).since) > s0, 'standing still pauses Town Time');
+  rowA.since = T.town_now.find(x => x.player_id === A.id).since; const s1 = rowA.since;
+  await hit(town, A, { x: 120, y: 100, mind: 49, active: true });
+  ok(T.town_now.find(x => x.player_id === A.id).since === s1, 'taking part keeps the Town Time clock running');
 }
 console.log(`
 ${pass} passed, ${fail} failed`);

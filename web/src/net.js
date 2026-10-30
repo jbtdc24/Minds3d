@@ -55,34 +55,38 @@ async function realtime() {
 }
 export async function watch(topic, onPing) {
   const sb = await realtime();
-  if (!sb) return () => {};
-  const ch = sb.channel(topic).on('broadcast', { event: 'update' }, () => onPing()).subscribe();
-  return () => sb.removeChannel(ch);
+  if (!sb) return Object.assign(() => {}, { send() {} });
+  const ch = sb.channel(topic).on('broadcast', { event: 'update' }, m => onPing(m.payload || {})).subscribe();
+  // one socket may join a topic only once, so anything sent on a topic you watch must go through this same channel
+  return Object.assign(() => sb.removeChannel(ch), { send: payload => ch.send({ type: 'broadcast', event: 'update', payload }) });
 }
-
-// tell someone's client to look again. The ping carries nothing: the content always comes from the server.
-export async function ping(topic) {
+// send something straight to another player's client. Words arrive at once; the server's saved copy stays the truth.
+const senders = new Map();
+export async function ping(topic, payload = {}) {
   const sb = await realtime();
   if (!sb) return;
-  const ch = sb.channel(topic);
-  await new Promise(done => { const t = setTimeout(done, 1500); ch.subscribe(s => { if (s === 'SUBSCRIBED') { clearTimeout(t); done(); } }); });
-  try { await ch.send({ type: 'broadcast', event: 'update', payload: {} }); } catch { /* polling catches up */ }
-  sb.removeChannel(ch);
+  if (!senders.has(topic)) {
+    if (senders.size > 8) { const [k, old] = senders.entries().next().value; senders.delete(k); sb.removeChannel((await old)); }
+    senders.set(topic, new Promise(done => { const ch = sb.channel(topic), t = setTimeout(() => done(ch), 1500); ch.subscribe(s => { if (s === 'SUBSCRIBED') { clearTimeout(t); done(ch); } }); }));
+  }
+  try { (await senders.get(topic)).send({ type: 'broadcast', event: 'update', payload }); } catch { /* polling catches up */ }
 }
-// a live room: everyone present sees who else is here and where they walk, instantly
-export async function liveRoom(topic, id, me, { onChange, onPing }) {
+// a live room: everyone present sees who else is here, where they walk and what they say, instantly
+export async function liveRoom(topic, id, me, { onChange, onPing, onSay }) {
   const sb = await realtime();
   if (!sb || !id) return null;
   const ch = sb.channel(topic, { config: { presence: { key: id } } });
   let live = false, mine = me;
   ch.on('presence', { event: 'sync' }, () => onChange())
-    .on('broadcast', { event: 'update' }, () => onPing());
+    .on('broadcast', { event: 'update' }, () => onPing())
+    .on('broadcast', { event: 'say' }, m => onSay(m.payload || {}));
   ch.subscribe(s => { live = s === 'SUBSCRIBED'; if (live) ch.track(mine); });
   return {
     live: () => live,
     list: () => Object.values(ch.presenceState()).map(m => m[0]),
     move: pos => { mine = pos; if (live) ch.track(pos); },
     ping: () => { if (live) ch.send({ type: 'broadcast', event: 'update', payload: {} }); },
+    say: text => { if (live) ch.send({ type: 'broadcast', event: 'say', payload: { id, text } }); },
     leave: () => sb.removeChannel(ch),
   };
 }

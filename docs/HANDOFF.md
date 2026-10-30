@@ -37,6 +37,9 @@ RULES FOR NEXT SESSION: (1) test wallet-account paths, guests hide bugs; (2) run
 `npx --yes eslint@8 --no-eslintrc --env browser,es2022,node --parser-options=sourceType:module,ecmaVersion:latest --rule '{"no-undef":"error"}' web/src lib api`
 (3) python patch scripts must assert every replacement (a silent miss cost us all the music); (4) never push with a failing test.
 
+## Round 9 notes (2026-10-31): live chat = words sent directly over Supabase broadcast the moment you press Send, server copy confirms (unconfirmed lines vanish after 15 s). One socket may join a topic once: send on a watched topic via the watch() handle, never a second channel. Player counts are hidden from players (admin only).
+OWNER IDEA FOR SOON: an office in town (not designed yet: ask what it is for).
+
 ## Round 8 status (2026-10-30): ALL 10 TASKS BELOW BUILT AND SHIPPED. OWNER MUST RUN supabase/007_community.sql (chat text, mail, reports, AI keys, cup, town need it; until then those say "being set up").
 Town rebuilt 2026-10-31: web/src/town.js (logic) + townart.js (art). Live via Supabase presence channel town-live; names and chat text always come from the server, pings carry nothing. Friends and duel chat ping + poll every 2.5-4 s. Original map, do not copy a specific game's map.
 New files: web/src/island/jobs.js (Mind jobs, parseTask), web/src/mindtalk.js (talk panel), web/src/town.js + lib/routes/town.js (Mind Town), lib/raiders.js (sky raiders), lib/routes/agent.js + docs/MIND_API.md (AI players), lib/routes/cup.js (Daily Siege Cup, real players only), lib/routes/mail.js, report.js, lib/feed.js (Town Board).
