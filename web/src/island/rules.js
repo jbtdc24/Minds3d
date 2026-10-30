@@ -1,6 +1,7 @@
 // Mind Island rules, shared by the browser (instant feedback) and the server (the real save).
 // State: { dust, inv: { seed_bean: 3, crop_bean: 1, wood: 4, stone: 2, permit: 0 }, tiles: { k: tile } }
-// tile: { s: 'c' cleared | 'p' plot | 'w' weeds grew back, t: last touched (ms), c: crop, p: planted at (ms) }
+// tile: { s: 'c' cleared | 'p' plot | 'w' weeds grew back | 'b' under a building, t: last touched (ms), c: crop, p: planted at (ms) }
+// buildings: st.b = [{ id, type, k }] (k = top-left tile), st.nb = next id
 import { gen, COVER, TW, TH, hash } from './gen.js';
 
 const H = 3600e3;
@@ -19,6 +20,43 @@ export const PLOT_IDLE = 48 * H;                    // an empty plot left alone 
 export const regrowMs = (k, seed) => (12 + hash(k, 7, seed) * 24) * H;   // cleared ground: weeds return in 12–36 h
 export const speedBonus = minds => Math.min(minds, 6) * 0.05;          // each Mind you own: crops grow 5% faster (max 30%)
 export const growMs = (crop, minds) => CROPS[crop].grow * (1 - speedBonus(minds));
+// village buildings + defences (see docs/VILLAGE_RAIDS.md). hp is used by raids.
+export const BUILD = {
+  house: { name: 'Cottage', icon: '🏡', w: 2, h: 2, cost: { dust: 200, wood: 15 }, max: 4, hp: 220, desc: '+2 farm plots each' },
+  mill: { name: 'Mill', icon: '🌾', w: 2, h: 2, cost: { dust: 400, wood: 25, stone: 10 }, max: 1, hp: 260, desc: 'Crops sell for 25% more' },
+  barn: { name: 'Barn', icon: '🛖', w: 2, h: 2, cost: { dust: 300, wood: 20 }, max: 2, hp: 300, desc: 'Keeps 1,000 ✨ safe from raiders' },
+  wall: { name: 'Wall', icon: '🧱', w: 1, h: 1, cost: { stone: 3 }, max: 80, hp: 60, desc: 'Blocks raiders. Drag to build a line.' },
+  tower: { name: 'Watchtower', icon: '🗼', w: 1, h: 1, cost: { dust: 150, wood: 10, stone: 15 }, max: m => Math.min(6, 2 + m), hp: 140, desc: 'Shoots raiders (2 + 1 per Mind you own, max 6)' },
+  trap: { name: 'Spike Trap', icon: '📌', w: 1, h: 1, cost: { dust: 40, wood: 4 }, max: 6, hp: 0, desc: 'Hidden from raiders. 35 damage, once per raid' },
+};
+export const HOME_HP = 400;
+export const maxOf = (type, minds) => { const m = BUILD[type].max; return typeof m === 'function' ? m(minds) : m; };
+export const countOf = (st, type) => (st.b || []).filter(b => b.type === type).length;
+export const MILL_BONUS = 0.25, BARN_SAFE = 1000;
+export const footprint = b => { const d = BUILD[b.type], out = []; for (let y = 0; y < d.h; y++) for (let x = 0; x < d.w; x++) out.push(b.k + y * TW + x); return out; };
+export function buildingAt(st, k) {
+  for (const b of st.b || []) if (footprint(b).includes(k)) return b;
+  return null;
+}
+const have = (st, item) => item === 'dust' ? st.dust : st.inv[item] || 0;
+export const canAfford = (st, cost) => Object.entries(cost).every(([i, n]) => have(st, i) >= n);
+export const costText = cost => Object.entries(cost).map(([i, n]) => `${n} ${{ dust: '✨', wood: '🪵', stone: '🪨' }[i]}`).join(' ');
+// every tile of a building must be open ground on the island (and inside the map, not wrapping a row)
+export function fits(st, w, type, k, ignore = null) {
+  const d = BUILD[type];
+  if (!Number.isInteger(k) || k < 0) return false;
+  const x0 = k % TW, y0 = (k / TW) | 0;
+  if (x0 + d.w > TW || y0 + d.h > TH) return false;
+  for (let y = 0; y < d.h; y++) for (let x = 0; x < d.w; x++) {
+    const t = (y0 + y) * TW + x0 + x;
+    if (!w.land[t] || w.cover[t] === COVER.FIXED) return false;
+    const b = buildingAt(st, t);
+    if (b && b !== ignore) return false;
+    if (b === ignore && b) continue;
+    if (coverAt(st, w, t) !== COVER.NONE || st.tiles[t]?.s === 'p') return false;
+  }
+  return true;
+}
 export const POINTS_PER_DUST = 100, POINTS_DAY_CAP = 20;                 // selling: 1 leaderboard point per 100 Dust, max 20 a day
 
 export function newIsland(seed, now) {
@@ -26,13 +64,13 @@ export function newIsland(seed, now) {
   for (const k of w.starter) tiles[k] = { s: 'p', t: now };
   return { v: 1, dust: 100, inv: { seed_bean: 6, seed_carrot: 2 }, tiles };
 }
-export const maxPlots = (st, minds) => BASE_PLOTS + Math.min(minds, MIND_PLOTS) + Math.min(st.inv.permit || 0, MAX_PERMITS);
+export const maxPlots = (st, minds) => BASE_PLOTS + Math.min(minds, MIND_PLOTS) + Math.min(st.inv.permit || 0, MAX_PERMITS) + 2 * countOf(st, 'house');
 export const plotCount = st => Object.values(st.tiles).filter(t => t.s === 'p').length;
 // what is on a tile right now
 export function coverAt(st, w, k) {
   const t = st.tiles[k];
   if (!t) return w.cover[k];
-  return t.s === 'w' ? COVER.WEEDS : COVER.NONE;
+  return t.s === 'w' ? COVER.WEEDS : t.s === 'b' ? COVER.FIXED : COVER.NONE;
 }
 export const isPlot = (st, k) => st.tiles[k]?.s === 'p';
 export const ripe = (t, now, minds) => !!t?.c && now - t.p >= growMs(t.c, minds);
@@ -112,8 +150,45 @@ export function act(st, a, { seed, now, minds = 0 }) {
       pay('dust', -cost); pay('seed_' + crop, n); done = n;
       break;
     }
+    case 'build': {
+      const d = BUILD[a.item];
+      if (!d) return { error: 'unknown building' };
+      const spots = d.w === 1 ? tiles : [Number(a.k)];
+      st.b ||= []; st.nb ||= 1;
+      for (const k of spots) {
+        if (countOf(st, a.item) >= maxOf(a.item, minds)) return done ? { gain, done } : { error: `You can have ${maxOf(a.item, minds)} ${d.name}${maxOf(a.item, minds) > 1 ? 's' : ''}.` };
+        if (!fits(st, w, a.item, k)) { if (d.w > 1) return { error: 'It does not fit there: it needs open, cleared ground.' }; continue; }
+        if (!canAfford(st, d.cost)) return done ? { gain, done } : { error: `A ${d.name} costs ${costText(d.cost)}.` };
+        for (const [i, n] of Object.entries(d.cost)) pay(i, -n);
+        const b = { id: st.nb++, type: a.item, k };
+        st.b.push(b);
+        for (const t of footprint(b)) st.tiles[t] = { s: 'b', t: now };
+        done++;
+      }
+      break;
+    }
+    case 'move': {
+      const b = (st.b || []).find(x => x.id === Number(a.id)), k = Number(a.k);
+      if (!b) return { error: 'that building is gone' };
+      if (!fits(st, w, b.type, k, b)) return { error: 'It does not fit there.' };
+      for (const t of footprint(b)) st.tiles[t] = { s: 'c', t: now };
+      b.k = k;
+      for (const t of footprint(b)) st.tiles[t] = { s: 'b', t: now };
+      done = 1;
+      break;
+    }
+    case 'demolish': {
+      const b = (st.b || []).find(x => x.id === Number(a.id));
+      if (!b) return { error: 'that building is gone' };
+      for (const [i, n] of Object.entries(BUILD[b.type].cost)) pay(i, Math.floor(n / 2));
+      for (const t of footprint(b)) st.tiles[t] = { s: 'c', t: now };
+      st.b = st.b.filter(x => x !== b);
+      done = 1;
+      break;
+    }
     case 'sell': {
-      const item = String(a.item), price = item.startsWith('crop_') ? CROPS[item.slice(5)]?.sell : RAW[item]?.sell;
+      const item = String(a.item), mill = countOf(st, 'mill') ? 1 + MILL_BONUS : 1;
+      const price = item.startsWith('crop_') ? Math.round((CROPS[item.slice(5)]?.sell || 0) * mill) : RAW[item]?.sell;
       if (!price) return { error: 'that cannot be sold' };
       const n = Math.max(1, Math.min(st.inv[item] || 0, a.n | 0 || 1));
       if (!(st.inv[item] > 0)) return { error: 'nothing to sell' };

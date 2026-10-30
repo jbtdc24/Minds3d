@@ -6,7 +6,8 @@ import { sfx } from '../audio.js';
 import { gen, COVER, T, TW, TH, WW, WH, hash } from './gen.js';
 import { groundFor, sprites, sprouts, heart, SOIL, toolSprites } from './art.js';
 import { rng } from './pixel.js';
-import { CROPS, coverAt, ripe, growMs, regrowMs, maxPlots, plotCount, PLOT_COST, speedBonus } from './rules.js';
+import { CROPS, coverAt, ripe, growMs, regrowMs, maxPlots, plotCount, PLOT_COST, speedBonus, BUILD, buildingAt, fits, footprint, maxOf, countOf, canAfford, costText } from './rules.js';
+import { bsprites, drawSails, buildIcon } from './buildings.js';
 import { isle, doAct, now, onChange, flush } from './store.js';
 
 const cv = document.getElementById('island-cv');
@@ -15,6 +16,7 @@ const $ = s => document.querySelector(s);
 const SPEED = 15;                  // Mind walking speed, px / s
 let w = null, gr = null, minds = [], fx = [], running = false, raf = 0, last = 0, Tm = 0;
 let W = 1, H = 1, DPR = 1, zMin = 2, zMax = 8, selected = null, selectedT = 0, hover = -1;
+let buildType = 'house', moving = null;
 let tool = 'hand', seed = 'bean', cb = { toast: () => {}, shop: () => {}, bag: () => {} };
 const cam = { x: WW / 2, y: WH / 2, z: 3 };
 const clouds = [];
@@ -323,6 +325,18 @@ function frame(nowT) {
     else if (cov === COVER.TREE) items.push({ y: by, spr: sprites.tree(w.treeKinds[w.kind[k]], v % 3), x: cx, tree: true });
   }
   items.push({ y: (w.house.y + 3) * T - 1, spr: sprites.house(isle.seed, !!L.night), x: (w.house.x + 1.5) * T });
+  // village buildings (walls join their neighbours; traps are only shown to you)
+  const wallAt = new Set((st.b || []).filter(b => b.type === 'wall').map(b => b.k));
+  for (const b of st.b || []) {
+    if (moving && b.id === moving.id) continue;
+    const d = BUILD[b.type], x0 = kx(b.k) * T, y0 = ky(b.k) * T, cx = x0 + d.w * T / 2, by = y0 + d.h * T - 1;
+    if (b.type === 'wall') {
+      const k = b.k, mask = (wallAt.has(k - TW) ? 1 : 0) | (kx(k) < TW - 1 && wallAt.has(k + 1) ? 2 : 0) | (wallAt.has(k + TW) ? 4 : 0) | (kx(k) > 0 && wallAt.has(k - 1) ? 8 : 0);
+      items.push({ y: by, spr: bsprites.wall(mask), x: cx });
+    } else if (b.type === 'trap') items.push({ y: y0 + 2, spr: bsprites.trap(), x: cx, flat: true });
+    else if (b.type === 'mill') { items.push({ y: by, spr: bsprites.mill(), x: cx, sails: { x: cx, y: by - 26 } }); }
+    else items.push({ y: by, spr: b.type === 'house' ? bsprites.house(L.night) : bsprites[b.type](), x: cx });
+  }
   items.push({ y: (w.well.y + 2) * T - 1, spr: sprites.well(), x: (w.well.x + 1) * T });
   for (const m of minds) items.push({ y: m.y, mind: m });
   items.sort((a, b) => a.y - b.y);
@@ -343,9 +357,17 @@ function frame(nowT) {
     const hides = it.tree && minds.some(m => m.y < it.y - 2 && m.y > it.y - s.h + 6 && Math.abs(m.x - it.x) < s.w / 2);
     if (hides) g.globalAlpha = 0.55;
     g.drawImage(s.cv, it.x - (s.w >> 1) + dx, it.y - s.h + 1 + dy);
+    if (it.sails) drawSails(g, it.sails.x, it.sails.y, Tm * 0.8);
     g.globalAlpha = 1;
   }
-  if (hover >= 0 && w.land[hover] && tool !== 'hand') {   // outline on top so it shows over tall weeds
+  if (tool === 'build' && hover >= 0) {
+    const type = moving ? moving.type : buildType, d = BUILD[type], ok = fits(st, w, type, hover, moving);
+    g.fillStyle = ok ? 'rgba(212,255,31,.35)' : 'rgba(255,90,74,.4)';
+    g.fillRect(kx(hover) * T, ky(hover) * T, d.w * T, d.h * T);
+    const s = type === 'wall' ? bsprites.wall(0) : type === 'house' ? bsprites.house(false) : bsprites[type]();
+    g.globalAlpha = 0.65; g.drawImage(s.cv, kx(hover) * T + d.w * T / 2 - (s.w >> 1), ky(hover) * T + d.h * T - s.h); g.globalAlpha = 1;
+  }
+  if (hover >= 0 && w.land[hover] && tool !== 'hand' && tool !== 'build') {   // outline on top so it shows over tall weeds
     g.strokeStyle = valid(tool, hover) ? '#d4ff1f' : '#ff5a4a'; g.lineWidth = 1;
     g.strokeRect(kx(hover) * T + 0.5, ky(hover) * T + 0.5, T - 1, T - 1);
   }
@@ -406,6 +428,8 @@ function smart(k, p) {
   if (m) { m.hop = 0.5; m.state = 'idle'; m.timer = 2; selected = m; selectedT = 3; emote(m, 'heart'); sfx('pop'); return; }
   if (k < 0 || !w.land[k] || pathSet().has(k)) return;
   const t = isle.state.tiles[k], cov = coverAt(isle.state, w, k);
+  const bd = buildingAt(isle.state, k);
+  if (bd) return openBMenu(bd);
   const hx = kx(k) - w.house.x, hy = ky(k) - w.house.y;
   if (hx >= 0 && hx < 3 && hy >= 0 && hy < 3) return cb.toast('Your home. Upgrades and decorations are coming next.');
   if (isFixed(k)) return cb.toast('Energy Well: it will make energy shards (3 shards = +1 ranked energy). Coming soon.');
@@ -420,6 +444,7 @@ function smart(k, p) {
 }
 function useTool(k) {
   if (k < 0 || !w.land[k] || tool === 'hand') return;
+  if (tool === 'build') return placeAt(k);
   if (tool === 'plant') enqueue('plant', k, { crop: seed });
   else enqueue(tool, k);
 }
@@ -431,7 +456,7 @@ cv.addEventListener('contextmenu', e => e.preventDefault());
 cv.addEventListener('pointerdown', e => {
   cv.setPointerCapture(e.pointerId);
   ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
-  closeSeeds();
+  closeSeeds(); closeBuild(); closeBMenu();
   if (ptrs.size === 1) {
     downAt = { x: e.clientX, y: e.clientY, moved: 0, pan: tool === 'hand' || e.button !== 0 };
     if (!downAt.pan) { painting = true; strokeErr = false; const p = toWorld(e.clientX, e.clientY); lastPaint = tileAt(p.x, p.y); hover = lastPaint; useTool(lastPaint); }
@@ -479,7 +504,8 @@ function zoomAt(sx, sy, z) {
 }
 addEventListener('keydown', e => {
   if (!running || e.target.closest?.('input,textarea')) return;
-  const map = { 1: 'hand', 2: 'clear', 3: 'till', 4: 'plant', 5: 'harvest' };
+  const map = { 1: 'hand', 2: 'clear', 3: 'till', 4: 'plant', 5: 'harvest', 6: 'build' };
+  if (e.key === 'Escape') { moving = null; closeBuild(); closeBMenu(); }
   if (map[e.key]) setTool(map[e.key]);
 });
 
@@ -490,6 +516,7 @@ const TIPS = {
   till: `Drag across open ground to make farm plots (${PLOT_COST} ✨ each)`,
   plant: 'Drag across empty plots to plant. Tap 🌱 again to pick another seed.',
   harvest: 'Drag across ripe crops to harvest them',
+  build: 'Pick a building, then tap open cleared ground. Walls and traps: drag a line. Tap 🔨 again to pick another.',
 };
 export function setTool(t) {
   tool = t;
@@ -497,7 +524,48 @@ export function setTool(t) {
   $('#isl-tip').textContent = TIPS[t];
   cv.style.cursor = t === 'hand' ? 'grab' : 'crosshair';
   if (t === 'plant' && (isle.state?.inv['seed_' + seed] || 0) < 1) openSeeds(true);
+  if (t !== 'build') { moving = null; closeBuild(); }
+  if (t === 'build' && moving) $('#isl-tip').textContent = `Moving your ${BUILD[moving.type].name}: tap where it should go (Esc to cancel).`;
 }
+
+// ---------- building ----------
+function placeAt(k) {
+  if (moving) {
+    const res = doAct({ type: 'move', id: moving.id, k });
+    if (res.error) { sfx('denied'); cb.toast(res.error, true); return; }
+    sfx('land'); bits(kx(k) * T + 8, ky(k) * T + 12, ['#c99a63', '#a3a2b5', '#f3dfb6'], 14, 40);
+    moving = null; setTool('hand'); return;
+  }
+  const d = BUILD[buildType];
+  if (!canAfford(isle.state, d.cost)) { if (!strokeErr) { strokeErr = true; sfx('denied'); cb.toast(`A ${d.name} costs ${costText(d.cost)}.`, true); } return; }
+  const res = doAct(d.w === 1 ? { type: 'build', item: buildType, tiles: [k] } : { type: 'build', item: buildType, k });
+  if (res.error) { if (!strokeErr) { strokeErr = true; sfx('denied'); cb.toast(res.error, true); } return; }
+  if (!res.done) return;
+  const x = kx(k) * T + d.w * 8, y = ky(k) * T + d.h * 14;
+  bits(x, y, ['#c99a63', '#a3a2b5', '#f3dfb6', '#ffffff'], d.w > 1 ? 24 : 8, 50); sfx(d.w > 1 ? 'levelup' : 'block');
+  popText(x, y - d.h * 16, d.w > 1 ? `${d.name} built!` : costText(d.cost).replace(/(\d+)/g, '−$1'), '#fff8e4');
+  // a Mind comes over to admire it
+  const m = minds.find(m => !m.job); if (m) { m.tx = x + 12; m.ty = y + 4; m.state = 'go'; emote(m, 'heart'); }
+  if (d.w > 1 && !(countOf(isle.state, buildType) < maxOf(buildType, isle.minds))) setTool('hand');
+}
+function openBuild(force) {
+  const box = $('#isl-build');
+  if (!force && box.classList.contains('on')) return closeBuild();
+  const st = isle.state;
+  box.innerHTML = Object.entries(BUILD).map(([type, d]) => {
+    const n = countOf(st, type), max = maxOf(type, isle.minds), full = n >= max, poor = !canAfford(st, d.cost);
+    return `<button data-build="${type}" class="${type === buildType ? 'on' : ''} ${full || poor ? 'none' : ''}"><img src="${buildIcon(type)}" alt=""><b>${d.name}</b><span>${d.desc}</span><span>${costText(d.cost)}</span><em>${n}/${max}</em></button>`;
+  }).join('');
+  box.classList.add('on');
+}
+function closeBuild() { $('#isl-build')?.classList.remove('on'); }
+function openBMenu(b) {
+  const d = BUILD[b.type], refund = costText(Object.fromEntries(Object.entries(d.cost).map(([i, n]) => [i, Math.floor(n / 2)])));
+  const box = $('#isl-bmenu');
+  box.innerHTML = `<img src="${buildIcon(b.type)}" alt=""><div><b>${d.name}</b><span>${d.desc}</span></div><button data-bm="move">↔ Move</button><button data-bm="demolish" title="Get back ${refund}">🗑 Remove</button><button data-bm="x">✕</button>`;
+  box.dataset.id = b.id; box.classList.add('on'); sfx('click');
+}
+function closeBMenu() { $('#isl-bmenu')?.classList.remove('on'); }
 const icons = {};
 export const cropImg = c => (icons[c] ||= sprites.crop(c, 3).cv.toDataURL());
 function openSeeds(force) {
@@ -530,8 +598,26 @@ function paintHud() {
 }
 onChange(info => { if (info.failed && running) cb.toast('Island not saved yet: ' + info.failed, true); if (info.points) cb.toast(`+${info.points} leaderboard points from selling!`); paintHud(); });
 setInterval(() => { if (running) paintHud(); }, 1000);
+document.getElementById('isl-build').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  buildType = b.dataset.build; moving = null; closeBuild(); setTool('build'); sfx('select');
+  const d = BUILD[buildType];
+  if (countOf(isle.state, buildType) >= maxOf(buildType, isle.minds)) cb.toast(`You already have the most ${d.name}s you can build.`, true);
+  else if (!canAfford(isle.state, d.cost)) cb.toast(`A ${d.name} costs ${costText(d.cost)}. Clear trees and rocks for 🪵 and 🪨, sell crops for ✨.`, true);
+});
+document.getElementById('isl-bmenu').addEventListener('click', e => {
+  const btn = e.target.closest('button'); if (!btn) return;
+  const box = $('#isl-bmenu'), b = (isle.state.b || []).find(x => x.id === +box.dataset.id);
+  closeBMenu();
+  if (!b || btn.dataset.bm === 'x') return;
+  if (btn.dataset.bm === 'move') { moving = b; setTool('build'); return; }
+  const res = doAct({ type: 'demolish', id: b.id });
+  if (res.error) return cb.toast(res.error, true);
+  sfx('hit'); bits(kx(b.k) * T + 8, ky(b.k) * T + 10, ['#c99a63', '#a3a2b5', '#8b5a34'], 18, 50);
+});
 document.getElementById('isl-tools').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b?.dataset.tool) return;
+  if (b.dataset.tool === 'build') { closeSeeds(); closeBMenu(); return openBuild(); }
   if (b.dataset.tool === 'plant' && tool === 'plant') return openSeeds();
   setTool(b.dataset.tool);
 });

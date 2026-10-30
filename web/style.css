@@ -660,3 +660,12 @@ body.in-island #toast { bottom: 150px; }
 .prep-note .stake .sx { background: var(--ink); color: var(--gold); } .prep-note .stake .sw { background: #9be05a; color: var(--ink); }
 .prep-note .stake .sl { background: #ff6a5a; color: #fff; } .prep-note .stake .se { background: #fff3b0; color: var(--ink); }
 .prep-note small { display: block; color: var(--muted); }
+
+/* ---- island build menu + building popup ---- */
+.isl-build button img { width: 40px; height: 40px; object-fit: contain; image-rendering: pixelated; }
+.isl-build button span + span { color: var(--ink); font-weight: 800; }
+.isl-bmenu { display: none; align-items: center; gap: 8px; background: var(--paper); padding: 6px 8px; margin-bottom: 6px; }
+.isl-bmenu.on { display: flex; }
+.isl-bmenu img { width: 40px; height: 40px; object-fit: contain; image-rendering: pixelated; }
+.isl-bmenu div { display: flex; flex-direction: column; min-width: 0; } .isl-bmenu div span { font-size: 12px; color: var(--muted); }
+.isl-bmenu button { border: 0; padding: 6px 10px; background: var(--paper-2); font: 800 14px var(--font); cursor: pointer; box-shadow: 0 0 0 2px var(--ink); }
