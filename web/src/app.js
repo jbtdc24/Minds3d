@@ -14,7 +14,8 @@ import { openRaid, closeRaid } from './island/raidview.js';
 import { botVillage, armyCap, cleanArmy, armyUsed, TROOPS, DEFAULT_ARMY } from './island/raid.js';
 import { troopIcon } from './island/troops.js';
 import { openAdventure, closeAdventure } from './island/advview.js';
-import { AREAS, POTIONS_MAX } from './island/adventure.js';
+import { AREAS, POTIONS_MAX, SPOTS, SHIPS, spotLevel } from './island/adventure.js';
+import { openMap, updateMap, closeMap } from './island/worldmap.js';
 import { isle, loadIsland, doAct, flush as flushIsland, resetIsland, now as islandNow } from './island/store.js';
 import { CROPS, RAW, growMs, permitCost, MAX_PERMITS, ripe, SHOP, RECIPES, TROOP_MAX, troopCount, costText, canAfford } from './island/rules.js';
 import { islandThumb } from './island/art.js';
@@ -411,49 +412,42 @@ async function startRaid() {
 }
 $('#isl-raid').onclick = () => startRaid();
 // ---------- adventure: explore a wild island ----------
-// the world map: pick an area (locked ones need the Ogre before them beaten; far ones need Sky Fuel) and potions
-function worldMap() {
-  const st = isle.state || { inv: {} }, unlocked = online ? (st.au || 0) : (settings.advUnlocked || 0);
-  let area = Math.min(unlocked, settings.advArea || 0), potions = Math.min(POTIONS_MAX, st.inv.potion || 0);
-  return new Promise(done => {
-    const draw = () => {
-      const fuel = st.inv.fuel || 0;
-      $('#modal-body').innerHTML = `<h3>🗺️ World map</h3>
-        <div class="wmap">${AREAS.map((a, i) => i ? `<i class="route ${i <= unlocked ? 'open' : ''}" style="left:${AREAS[i - 1].x}%;top:${AREAS[i - 1].y}%;width:${Math.hypot((a.x - AREAS[i - 1].x) * 4.4, (a.y - AREAS[i - 1].y) * 2.6)}px;transform:rotate(${Math.atan2((a.y - AREAS[i - 1].y) * 2.6, (a.x - AREAS[i - 1].x) * 4.4)}rad)"></i>` : '').join('')}
-          ${AREAS.map((a, i) => `<button class="pin ${i === area ? 'on' : ''} ${i > unlocked ? 'locked' : ''}" data-area="${i}" style="left:${a.x}%;top:${a.y}%"><b>${i > unlocked ? '🔒' : a.icon}</b><span>${a.name}</span>${a.fuel ? `<em>⛽ ${a.fuel}</em>` : ''}</button>`).join('')}</div>
-        <p class="wmap-desc"><b>${AREAS[area].icon} ${AREAS[area].name}</b> · level ${AREAS[area].level} · ${AREAS[area].desc} ${AREAS[area].fuel ? `Costs ⛽ ${AREAS[area].fuel} (you have ${fuel}).` : 'Free to fly.'}</p>
-        <div class="wmap-pot">🧪 Bring potions: <button class="btn small" data-pot="-1">−</button><b>${potions}</b><button class="btn small" data-pot="1">+</button> <span class="muted">(you have ${st.inv.potion || 0}; your hero does not heal by itself)</span></div>`;
-    };
-    draw();
-    const box = $('#modal-btns'); box.innerHTML = '';
-    const go = el('button', 'btn primary', '🛩️ Fly!'), back = el('button', 'btn', 'Cancel'), shop = el('button', 'btn', '🧪 Supplies');
-    const close = v => { $('#modal').classList.remove('on'); $('#modal-body').onclick = null; done(v); };
-    go.onclick = () => { if (area > unlocked) return toast(`Beat the Ogre in ${AREAS[area - 1].name} to unlock ${AREAS[area].name}.`, true); if ((st.inv.fuel || 0) < AREAS[area].fuel && online) return toast(`You need ⛽ ${AREAS[area].fuel} Sky Fuel (Shop → Supplies).`, true); settings.advArea = area; saveSettings(); close({ area, potions }); };
-    back.onclick = () => close(null); shop.onclick = () => { close(null); openShop('items'); };
-    box.append(back, shop, go);
-    $('#modal-body').onclick = e => {
-      const pin = e.target.closest('[data-area]'), pot = e.target.closest('[data-pot]');
-      if (pin) { area = +pin.dataset.area; sfx(area > unlocked ? 'denied' : 'select'); draw(); }
-      if (pot) { potions = Math.max(0, Math.min(POTIONS_MAX, st.inv.potion || 0, potions + +pot.dataset.pot)); sfx('select'); draw(); }
-    };
-    $('#modal').classList.add('on');
-  });
-}
+// the world map screen: pick an island your airship can reach, bring potions, fly
 async function startAdventure() {
   sfx('click');
-  const lead = (picked()[0] ?? myMinds[0]) || 49, holder = online && !guest && myMinds.length;
   if (!(await ensureIsland())) return;
-  const pick = await worldMap();
-  if (!pick) return;
+  const st = isle.state;
+  closeIsland(); show('map');
+  openMap({
+    ship: online ? st.ship || 0 : settings.ship || 0, fuel: st.inv.fuel || 0, potions: st.inv.potion || 0, sel: settings.advSpot || 0,
+    onBack: () => { closeMap(); goIsland(); },
+    onUpgrade: () => upgradeShip(),
+    onFly: (spot, potions) => { settings.advSpot = spot; saveSettings(); launchAdventure({ area: spot, potions }); },
+  });
+}
+async function upgradeShip() {
+  const st = isle.state, t = (st.ship || 0) + 1, sh = SHIPS[t];
+  if (!sh) return;
+  const r = await modal(`<h3>${sh.icon} ${sh.name}</h3><p>${sh.desc}</p><p class="muted">Pay with Dust and materials, or with Gems.</p>`,
+    [[`Build · ${costText(sh.cost)}`, 1, 'primary'], [`${sh.gems} 💎`, 2, 'gem'], ['Not now', 0]]);
+  if (!r) return;
+  const res = doAct({ type: 'ship', gems: r === 2 });
+  if (res.error) { sfx('denied'); return toast(res.error, true); }
+  sfx('levelup'); toast(`Your ${sh.name} is ready! New islands are in reach.`);
+  if (!online) { settings.ship = t; saveSettings(); }
+  flushIsland(); updateMap({ ship: isle.state.ship || t, fuel: isle.state.inv.fuel || 0 });
+}
+async function launchAdventure(pick) {
+  const lead = (picked()[0] ?? myMinds[0]) || 49, holder = online && !guest && myMinds.length;
   let start = null;
   if (online) {
-    try { start = await api('adventure', { op: 'start', mind: lead, area: pick.area, potions: pick.potions }); resetIsland(); }
-    catch (e) { if (e.status === 403) return toast(e.message, true); }
+    try { await flushIsland(); start = await api('adventure', { op: 'start', mind: lead, spot: pick.area, potions: pick.potions }); resetIsland(); }
+    catch (e) { if (e.status === 403) { toast(e.message, true); closeMap(); return startAdventure(); } }
   }
   const local = !start;
-  const seed = local ? (Math.random() * 2 ** 31) | 0 : start.seed, level = local ? AREAS[pick.area].level : start.level;
-  closeIsland(); show('adv');
-  await banner(`<div class="bt">${AREAS[pick.area].icon} ${AREAS[pick.area].name}</div><small>Level ${level}</small>`, 1000);
+  const seed = local ? (Math.random() * 2 ** 31) | 0 : start.seed, level = local ? spotLevel(pick.area) : start.level;
+  closeMap(); show('adv');
+  await banner(`<div class="bt">${SPOTS[pick.area].icon} ${SPOTS[pick.area].name}</div><small>Level ${level}</small>`, 1000);
   openAdventure({
     seed, level, area: pick.area, potions: start?.potions ?? pick.potions, gatherLeft: start?.gatherLeft ?? 40, heroKind: start?.heroKind ?? (holder ? 'hero' : 'captain'), mind: lead,
     onEnd: async A => {
@@ -463,7 +457,6 @@ async function startAdventure() {
         catch (e) { toast(e.message, true); loot = {}; }
       } else {
         if (A.ko) loot = Object.fromEntries(Object.entries(loot).map(([k, n]) => [k, Math.floor(n / 2)]));
-        if (A.map.monsters.some(m => m.type === 'ogre' && A.beat.includes(m.id))) { settings.advUnlocked = Math.max(settings.advUnlocked || 0, Math.min(AREAS.length - 1, pick.area + 1)); saveSettings(); }
       }
       const NAMES = { dust: '✨ Dust', wood: '🪵 Wood', stone: '🪨 Stone', seed_carrot: '🥕 Carrot seed', seed_melon: '🍈 Melon seed', seed_star: '⭐ Star Fruit seed', herb: '🌿 Glow herb', gems: '💎 Gems' };
       const list = Object.entries(loot).filter(([, n]) => n > 0).map(([k, n]) => `<li><b>+${n}</b> ${NAMES[k] || k}</li>`).join('') || '<li class="muted">Nothing this time</li>';
@@ -522,6 +515,7 @@ function paintShop() {
     const icon = k => k.startsWith('troop_') ? `<img src="${troopIcon(k.slice(6))}" alt="">` : `<i>${SHOP[k].icon}</i>`;
     html = head + keys.map(k => { const it = SHOP[k], ok = canAfford(st, it.price), h = have(k);
       return shopCard(icon(k), it.name, it.desc, h, `<button class="btn small ${it.gem ? 'gem' : 'primary'}" data-act="shop" data-item="${k}" data-n="1" ${ok ? '' : 'disabled'}>${costText(it.price)}</button>${it.gem ? '' : `<button class="btn small" data-act="shop" data-item="${k}" data-n="5" ${canAfford(st, Object.fromEntries(Object.entries(it.price).map(([a, n]) => [a, n * 5]))) ? '' : 'disabled'}>×5</button>`}`, it.gem ? 'gemcard' : ''); }).join('')
+      + (shopTab === 'items' && SHIPS[(st.ship || 0) + 1] ? shopCard(`<i>${SHIPS[(st.ship || 0) + 1].icon}</i>`, `Airship: ${SHIPS[(st.ship || 0) + 1].name}`, `${SHIPS[(st.ship || 0) + 1].desc} You have the ${SHIPS[st.ship || 0].name}.`, null, `<button class="btn small primary" data-ship="1">${costText(SHIPS[(st.ship || 0) + 1].cost)}</button><button class="btn small gem" data-ship="2">${SHIPS[(st.ship || 0) + 1].gems} 💎</button>`) : '')
       + (shopTab === 'items' ? Object.entries(RECIPES).map(([k, r]) => shopCard('<i>⚗️</i>', `Craft: ${r.name}`, `Uses ${costText(r.needs)}`, inv.herb || 0, `<button class="btn small primary" data-act="craft" data-item="${k}" data-n="1" ${canAfford(st, r.needs) ? '' : 'disabled'}>Craft</button>`)).join('') : '');
   } else {
     html = [['🌳', 'Decorations', 'Trees, statues, paths and lights for your island'], ['🃏', 'Card backs', 'Show off in every duel · 3,000 ✨'], ['🖼️', 'Profile frames', 'A frame around your profile picture · 5,000 ✨'],
@@ -535,7 +529,13 @@ async function buyGems() {
   sfx('click');
   await modal(`<h3>💎 Gems</h3><p>Gem packs (card or crypto) are coming very soon.</p><p class="muted">Until then you can find Gems by beating Ogres on adventures.</p>`, [['OK', true, 'primary']]);
 }
-$('#shop-grid').addEventListener('click', e => { if (e.target.closest('#buy-gems')) buyGems(); });
+$('#shop-grid').addEventListener('click', e => {
+  if (e.target.closest('#buy-gems')) return buyGems();
+  const sb = e.target.closest('[data-ship]'); if (!sb) return;
+  const res = doAct({ type: 'ship', gems: sb.dataset.ship === '2' });
+  if (res.error) { sfx('denied'); return toast(res.error, true); }
+  sfx('levelup'); toast('New airship ready! Fly further on the world map.'); flushIsland(); paintShop();
+});
 $('#shop-tabs').onclick = e => { const v = e.target.closest('button')?.dataset.v; if (!v) return; shopTab = v; paintShop(); };
 $('#shop-grid').onclick = e => {
   const b = e.target.closest('button[data-act]'); if (!b || b.disabled) return;

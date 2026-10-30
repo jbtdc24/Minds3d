@@ -29,7 +29,10 @@ Owner: Mindclash game owner. Hates long text: short replies, decide for them, bu
 - Audio: web/src/audio.js synth (SFX + songs menu/battle/title/raid/adventure).
 
 ## NEXT TASKS (in order)
-1. **World map as its own full screen (not a popup), drawn in code like the owner's references**: sky with clouds, many floating
+1. [DONE 2026-10-30] World map screen (web/src/island/worldmap.js, #s-map): 12 SPOTS + home, airships SHIPS (adventure.js) /
+   SHIP_COSTS + act 'ship' (rules.js), server checks ship tier + fuel. Possible polish: richer island art (bigger undersides,
+   mushrooms/portals like the refs), zoom buttons, show which islands you've beaten.
+   (original brief:) **World map as its own full screen (not a popup), drawn in code like the owner's references**: sky with clouds, many floating
    islands with rocky undersides, waterfalls, rope bridges, mushrooms, portals/crystals. Islands = travel points grouped in tiers.
    **Airships gate travel**: st.ship tier 0-3 (0 = Balloon raft: home cluster only; 1 Sky Skiff; 2 Cloud Galleon; 3 Storm Cruiser).
    Buy/upgrade in Shop (Dust+wood/stone, or Gems). A point needs ship tier ≥ its tier; flying costs ⛽ fuel = tier.

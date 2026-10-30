@@ -743,3 +743,11 @@ h3.raid-result { text-align: center; }
 .wmap .pin.on { background: #d4ff1f; box-shadow: 0 0 0 3px var(--ink), 0 0 16px 4px rgba(212,255,31,.8), 0 6px 0 2px #6b4428; }
 .wmap .pin.locked { background: #b9b6c4; filter: grayscale(.6); }
 .wmap-desc { font-size: 14px; } .wmap-pot { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 14px; }
+
+/* ---- world map screen ---- */
+#s-map { background: #5fb8f0; }
+#map-cv { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+.map-panel { position: absolute; left: 50%; bottom: max(10px, env(safe-area-inset-bottom)); transform: translateX(-50%); display: flex; align-items: center; gap: 14px; background: var(--paper); padding: 8px 12px; max-width: 96vw; }
+#map-info { display: flex; flex-direction: column; font-size: 13px; min-width: 0; max-width: 420px; } #map-info b { font-size: 17px; } #map-info span { color: var(--muted); }
+.map-pot { display: flex; align-items: center; gap: 6px; font-size: 18px; white-space: nowrap; }
+@media (max-width: 760px) { .map-panel { gap: 8px; padding: 6px; } #map-info { font-size: 11px; } #map-info b { font-size: 14px; } }

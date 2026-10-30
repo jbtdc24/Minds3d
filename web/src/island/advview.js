@@ -6,7 +6,7 @@ import { drawSky, groundFor, sprites } from './art.js';
 import { bsprites } from './buildings.js';
 import { chibi } from './chibi.js';
 import { troopSprite, weapon, nodeSprite, monsterSprite } from './troops.js';
-import { advMap, advLoot, walkable, HEROES, MONSTERS, NODES, ADV_TIME, AREAS, POTION_HEAL } from './adventure.js';
+import { advMap, advLoot, walkable, HEROES, MONSTERS, NODES, ADV_TIME, SPOTS, POTION_HEAL } from './adventure.js';
 import { DROPS } from './rules.js';
 import { sfx, music } from '../audio.js';
 
@@ -295,7 +295,7 @@ export function openAdventure(opts) {
   cam.x = A.hero.x; cam.y = A.hero.y;
   const ab = HD.ability;
   $('#adv-ability').innerHTML = `<b>${ab.icon}</b><span>${ab.name}</span><em></em>`;
-  const AR = AREAS[opts.area || 0];
+  const AR = SPOTS[opts.area || 0];
   $('#adv-name').textContent = `${AR.icon} ${AR.name}`;
   parts = []; texts = []; shake = 0; flashA = 0;
   resize(); paintBag();
