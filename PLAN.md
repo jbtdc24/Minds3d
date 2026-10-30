@@ -2,7 +2,7 @@
 
 ## Game design: Prize Duel (locked)
 - **1v1, best of 3 rounds.** Bring 1–3 Minds; they take turns, one per round. Every Mind plays the same (traits = looks only).
-- **A round:** 7 crowns worth 1–7 come up in a random order, one per turn. Both players hold cards 1–7.
+- **A round:** 7 prizes drawn at random from 1–15 (values hidden until they come up; the next one shows LOW 1-5 / MID 6-10 / HIGH 11-15), one per turn. Both players hold cards 1–7. (2026-10-30, owner: make it less predictable)
 - **A turn:** both secretly play one card (+ optional spell). Cards are shown first: higher card takes the crown.
   Tie = the crown carries over to the next turn (pot). Every card is used once per round.
 - **Spells** (revealed after the cards, in this order). Same spell on both sides cancels, except Double + Double = crown x3.
@@ -14,6 +14,7 @@
 - **Timer:** 20 s per turn (+ reveal time). No pick in time = you lose that round. Both late = drawn round.
 - **Balance** (`node tools/sim_duel.mjs`, real engine + bot): random vs random 50/50; easy/normal/hard bot vs random 82/89/90%;
   hard vs hard 47.3/47.3 (5% draws); ~16–23 turns per match.
+- **Stake:** every Mind brought is staked: 1 ⚡ each, win +10 per Mind (+ rarity), loss −5 per Mind (floor 0); bot games half.
 - **Leaderboard points:** 10 per Mind brought, per ranked win + rarity bonus (Uncommon +5%, Rare +10%, Epic +15%, Legendary +20%). Rating = Elo.
 - **Bot:** if no human in 20 s, a bot clearly labelled BOT; bot games count half.
 

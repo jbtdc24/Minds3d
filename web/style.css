@@ -633,3 +633,30 @@ p, li, .muted, .fine, .pitch, .coach p, .codex, .modal p, .guest-note { line-hei
 body.in-island #toast { bottom: 150px; }
 .mode-row .mode.wide-mode .mode-txt b { font-size: 21px; }
 @media (max-width: 720px) { body.in-island #toast { bottom: 130px; } }
+
+/* ---- the prize: hidden 1-15 values, made big and obvious ---- */
+.prize { gap: 6px; }
+.prizetag { background: var(--ink); color: var(--gold); padding: 2px 12px; font-size: 14px; letter-spacing: .18em; box-shadow: 0 0 0 2px var(--gold); }
+.crownbox { width: 132px; height: 112px; box-shadow: 0 0 0 3px var(--ink), 0 0 0 6px var(--gold), 0 0 26px 8px rgba(255,197,61,.55); animation: prizeGlow 1.6s ease-in-out infinite; }
+.crownbox img { width: 112px; left: 10px; }
+.crownbox b { top: 12px; font-size: 48px; }
+.crownbox small { position: absolute; bottom: 4px; left: 0; right: 0; text-align: center; font-size: 11px; letter-spacing: .14em; color: var(--ink); font-weight: 900; }
+.crownbox[data-tier="mid"] { box-shadow: 0 0 0 3px var(--ink), 0 0 0 6px #ff9f1c, 0 0 34px 12px rgba(255,159,28,.6); }
+.crownbox[data-tier="high"] { box-shadow: 0 0 0 3px var(--ink), 0 0 0 6px #ff4d6d, 0 0 46px 18px rgba(255,77,109,.6); animation: prizeGlow .8s ease-in-out infinite; }
+.crownbox[data-tier="high"] b { font-size: 56px; color: #fff3b0; }
+@keyframes prizeGlow { 50% { filter: brightness(1.12); transform: scale(1.04); } }
+.crownbox.new { animation: drop .45s cubic-bezier(.3,1.6,.5,1), prizeGlow 1.6s ease-in-out .45s infinite; }
+.crownsleft i.done { opacity: .45; text-decoration: line-through; }
+.crownsleft i.hid { background: #3a3656; color: #8f8ab0; }
+.crownsleft i.upnext { position: relative; background: #3a3656; color: #fff; }
+.crownsleft i.upnext em { position: absolute; top: 100%; margin-top: 3px; left: 50%; transform: translateX(-50%); font-style: normal; font-size: 10px; font-weight: 900; padding: 1px 4px; white-space: nowrap; box-shadow: 0 0 0 2px var(--ink); }
+.crownsleft i.upnext.t-low em { background: #9be05a; color: var(--ink); } .crownsleft i.upnext.t-mid em { background: #ffc53d; color: var(--ink); } .crownsleft i.upnext.t-high em { background: #ff4d6d; color: #fff; }
+.crownsleft i.upnext.t-high { box-shadow: 0 0 0 2px var(--ink), 0 0 10px 3px rgba(255,77,109,.7); }
+@media (max-height: 560px) { .crownbox { width: 100px; height: 86px; } .crownbox img { width: 86px; left: 7px; } .crownbox b { font-size: 36px; } .crownbox[data-tier="high"] b { font-size: 42px; } .prizetag { font-size: 11px; } }
+
+/* ---- ranked stake banner ---- */
+.prep-note .stake { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
+.prep-note .stake b { padding: 3px 10px; font-size: 18px; box-shadow: 0 0 0 2px var(--ink); white-space: nowrap; }
+.prep-note .stake .sx { background: var(--ink); color: var(--gold); } .prep-note .stake .sw { background: #9be05a; color: var(--ink); }
+.prep-note .stake .sl { background: #ff6a5a; color: #fff; } .prep-note .stake .se { background: #fff3b0; color: var(--ink); }
+.prep-note small { display: block; color: var(--muted); }

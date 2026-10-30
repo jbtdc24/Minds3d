@@ -1,5 +1,5 @@
 // Prize Duel bot. Uses only what a player can see (viewFor): its own cards and spells, the rival's
-// remaining cards and spells, the crowns still to come. It bids by crown rank, saves big cards for big
+// remaining cards and spells, the crowns already played (so which values could still come) and the next-crown hint. It bids by crown rank, saves big cards for big
 // crowns, uses spells at the right moments, expects the rival's Reverse / Trap, and adds some
 // variety so it can't be farmed by one pattern.
 export const BOT_LEVELS = {
@@ -24,15 +24,20 @@ export class Bot {
   decide(v) {
     const R = () => this.r(), cfg = this.cfg;
     const mine = [...v.me.cards].sort((a, b) => a - b), theirs = [...v.rival.cards].sort((a, b) => a - b);
-    const left = v.crownsLeft, rank = Math.max(0, left.indexOf(v.crown));
+    // how many of the crowns still to come are probably smaller than this one (values 1-15 not seen yet)
+    const unseen = []; for (let c = 1; c <= 15; c++) if (c !== v.crown && !v.seen.includes(c)) unseen.push(c);
+    const after = mine.length - 1, below = unseen.filter(c => c < v.crown).length / (unseen.length || 1);
+    let rank = Math.round(below * after);
+    if (v.next === 'high' && v.crown <= 10 && rank > 0 && R() < cfg.aware + 0.3) rank--;        // save a big card for the big one
+    rank = Math.max(0, Math.min(after, rank));
     const mySpells = [...v.me.spells, ...(v.me.reverse ? ['reverse'] : [])];
     const theirSpells = [...v.rival.spells, ...(v.rival.reverse ? ['reverse'] : [])];
     const can = k => mySpells.includes(k);
-    const big = v.pot >= 5 || v.pot >= Math.max(...left);
+    const big = v.pot >= 10 || (v.pot >= 8 && v.next !== 'high');
     const rmax = theirs[theirs.length - 1];
     let card = mine[Math.min(mine.length - 1, rank)];
     if (R() < cfg.noise) card = mine[Math.floor(R() * mine.length)];
-    if (v.pot <= 2 && R() < 0.7) card = mine[0];                                   // throw a low card on small crowns
+    if (v.pot <= 3 && R() < 0.7) card = mine[0];                                   // throw a low card on small crowns
     let spell = null;
     if (big && R() < cfg.spellUse) {
       const roll = R();

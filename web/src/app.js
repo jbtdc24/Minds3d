@@ -164,6 +164,7 @@ const totalEnergy = () => myMinds.reduce((s, id) => s + energyOf(id), 0);
 const resetText = () => { const m = Math.max(0, Math.round((energyResetAt - Date.now()) / 60000)); return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`; };
 const BONUS = { Common: 0, Uncommon: 0.05, Rare: 0.10, Epic: 0.15, Legendary: 0.20 };
 const winReward = ids => Math.round(ids.reduce((s, id) => s + 10 * (1 + BONUS[rarityOf(id)]), 0));
+const lossRisk = ids => 5 * ids.length;   // must match lib/rating.js lossPoints
 // refresh energy in the background (never block a tap on the server); repaint whatever is open
 function refreshEnergy() {
   return refreshMe().then(() => {
@@ -465,7 +466,11 @@ function renderPrepGrid() {
 function paintPrep() {
   $$('#prep-minds .mind').forEach(m => { const i = prep.minds.indexOf(+m.dataset.id); m.classList.toggle('on', i >= 0); m.querySelector('.order').textContent = i + 1; });
   $('#prep-mind-count').textContent = `${prep.minds.length}/3`;
-  if (prep.mode === 'ranked') $('#prep-note').innerHTML = `Each Mind you bring uses <b>1 ⚡</b>. Win reward: <b>+${winReward(prep.minds)} points</b> (10 per Mind + rarity bonus). Energy refills in ${resetText()}.`;
+  if (prep.mode === 'ranked') {
+    const n = prep.minds.length;
+    $('#prep-note').innerHTML = n ? `<span class="stake"><b class="sx">STAKE x${n}</b><b class="sw">WIN +${winReward(prep.minds)}</b><b class="sl">LOSE −${lossRisk(prep.minds)}</b><b class="se">⚡ −1 × ${n} Mind${n > 1 ? 's' : ''}</b></span>
+      <small>Every Mind you stake multiplies the win and the loss, and each one spends 1 ⚡ (refills in ${resetText()}). Bot games count half.</small>` : 'Pick 1 to 3 Minds to stake.';
+  }
   $('#prep-go').disabled = !prep.minds.length;
   $('#prep-err').textContent = prep.minds.length ? '' : 'Pick at least 1 Mind.';
 }
@@ -598,8 +603,16 @@ function paintDuel() {
   const carried = v.pot > v.crown;
   $('#d-pot').classList.toggle('on', carried);
   $('#d-pot').textContent = carried ? `${v.crown} + ${v.pot - v.crown} from the tie` : '';
-  let shown = false;
-  $('#d-left').innerHTML = v.crownsLeft.map(c => { const now = c === v.crown && !shown; if (now) shown = true; return `<i class="${now ? 'now' : ''}">${c}</i>`; }).join('');
+  // the prize grows with its value; the round's 7 prizes: played ones show their value, the rest stay hidden
+  cb.dataset.tier = v.pot >= 11 ? 'high' : v.pot >= 6 ? 'mid' : 'low';
+  const TIER = { low: 'LOW', mid: 'MID', high: 'HIGH' };
+  $('#d-left').innerHTML = Array.from({ length: 7 }, (_, i) => {
+    const t = i + 1;
+    if (t < v.turn) return `<i class="done">${v.seen[i]}</i>`;
+    if (t === v.turn) return `<i class="now">${v.crown}</i>`;
+    if (t === v.turn + 1 && v.next) return `<i class="upnext t-${v.next}" title="Next prize: ${TIER[v.next].toLowerCase()} (${v.next === 'low' ? '1-5' : v.next === 'mid' ? '6-10' : '11-15'})">?<em>${TIER[v.next]}</em></i>`;
+    return '<i class="hid">?</i>';
+  }).join('');
   $('#d-rcards').innerHTML = CARD_VALUES.map(n => `<i class="${rv.cards.includes(n) ? '' : 'used'}">${n}</i>`).join('');
   $('#d-rspells').innerHTML = SPELLS.map(k => `<img src="${spellImg(k)}" title="${SPELL_INFO[k].name}" class="${(k === 'reverse' ? rv.reverse : rv.spells.includes(k)) ? '' : 'used'}" alt="">`).join('');
   $('#d-rivalinfo').classList.toggle('locked', !!rv.locked && !D.tutorial);
@@ -634,9 +647,11 @@ function paintHint(timeLow) {
   else if (timeLow && !v.me.locked) { text = '⏰ Hurry! No pick in time = you lose this round.'; cls = 'warn'; }
   else if (D.sel.spell) text = `${SPELL_INFO[D.sel.spell].name}: ${SPELL_INFO[D.sel.spell].desc}`;
   else if (v.me.locked) text = '';
-  else if (v.round === 1 && v.turn === 1) text = 'Play a secret card. Higher card takes the crown 👑';
+  else if (v.round === 1 && v.turn === 1) text = 'Play a secret card. Higher card wins the prize 👑 (prizes are 1 to 15, hidden until they come up)';
+  else if (v.pot >= 11) text = `💰 Big prize: ${v.pot} points!${v.next === 'high' ? ' Another big one is coming next…' : ''}`;
   else if (v.pot > v.crown) text = `Last turn was a tie: this crown is worth ${v.pot}!`;
   else if (v.turn === 7) text = 'Last card of the round. Unused spells are lost!';
+  else if (v.next === 'high') text = 'A HIGH prize (11-15) comes next. Save a big card?';
   h.textContent = text; h.className = `duel-hint px ${text ? 'on' : ''} ${cls}`;
 }
 function paintTimer() {
@@ -866,6 +881,7 @@ async function finish(v) {
   const d = v.delta || 0;
   $('#r-stats').innerHTML = [
     [v.ranked ? `${d > 0 ? '+' : ''}${d}` : '—', 'Rating', d > 0 ? 'up' : d < 0 ? 'down' : ''],
+    ...(v.ranked && v.pts != null ? [[`${v.pts > 0 ? '+' : v.pts < 0 ? '−' : ''}${Math.abs(v.pts)}`, `Points · stake x${v.view.me.minds.length}`, v.pts > 0 ? 'up' : v.pts < 0 ? 'down' : '']] : []),
     [v.vsBot ? 'BOT' : 'Player', v.vsBot ? `Rival · ${v.botLevel}` : 'Rival', ''],
     [v.ranked ? 'Ranked' : !v.vsBot || prep.mode === 'classic' ? 'Classic' : 'Practice', 'Mode', ''],
   ].map(([b, s, c]) => `<div><b class="${c}">${esc(b)}</b><span>${s}</span></div>`).join('');
@@ -879,7 +895,7 @@ function leaveDuel() { if (D) { clearInterval(D.poll); clearInterval(D.clock); D
 // ---------- interactive tutorial: a scripted duel with a coach ----------
 // crowns come in this order: 5 3 6 7 2 4 1; the coach's rival plays the cards below
 const TUT = [
-  { say: "Hi! I'm your coach. Each round, 7 crowns worth 1 to 7 come up one by one. Get more crown points than your rival!", next: true },
+  { say: "Hi! I'm your coach. Each round, 7 prizes come up one by one. Their values (1 to 15) stay hidden until they show up. Win more prize points than your rival!", next: true },
   { say: 'Both players play a secret card from 1 to 7. The higher card takes the crown. This crown is worth 5: play your 5!', card: 5, rival: 3 },
   { say: 'Same card = tie: nobody wins and the crown carries over to the next turn. Play your 4 and see.', card: 4, rival: 4 },
   { say: 'This crown is now worth 9! Spells are revealed AFTER the cards. Boost adds +2 to your card. Play 3 + Boost.', card: 3, spell: 'boost', rival: 2 },
@@ -1068,9 +1084,9 @@ async function friendsPoll() {
 function renderCodex() {
   $('#codex').innerHTML = `
   <h3><img src="assets/crown.png" alt="">The goal</h3>
-  <p>Get more crown points than your rival. Each round has <b>7 crowns</b> worth <b>1 to 7</b> points. They come up one at a time in a random order. Win <b>2 rounds</b> to win the match.</p>
+  <p>Get more crown points than your rival. Each round has <b>7 prizes</b> drawn at random from <b>1 to 15</b> points, so some values never come up. You only see the prize up for grabs now, plus a hint for the next one (<b>LOW</b> 1-5, <b>MID</b> 6-10, <b>HIGH</b> 11-15). Win <b>2 rounds</b> to win the match.</p>
   <h3><img src="assets/icon_swords.png" alt="">A turn</h3>
-  <ol><li>You see the crown up for grabs (and the crowns still to come).</li>
+  <ol><li>You see the prize up for grabs and a hint for the next one.</li>
   <li>Both players secretly play <b>one card</b> from 1 to 7, plus <b>one spell</b> if you want.</li>
   <li>Cards are shown first. <b>The higher card takes the crown.</b></li>
   <li>Then the spells are revealed and can change the result!</li>
@@ -1088,12 +1104,12 @@ function renderCodex() {
   <li>You can always see which cards and spells your rival has left.</li></ul>
   <h3>⚡ Mind Energy</h3>
   <ul><li>Every Mind has daily energy for <b>ranked</b>: ${Object.entries(ENERGY_CAP).map(([r, n]) => `${r} ${n}`).join(', ')}. It refills every day at 00:00 UTC.</li>
-  <li>A ranked match uses <b>1 ⚡ from each Mind you bring</b>. A ranked win pays <b>10 points per Mind</b> you brought, plus each Mind's rarity bonus.</li>
+  <li><b>Stake:</b> every Mind you bring is staked. A ranked match uses <b>1 ⚡ from each</b>. A win pays <b>10 points per Mind</b> (+ rarity bonus), a loss costs <b>5 points per Mind</b>. Bot games count half.</li>
   <li>More Minds = more ranked games every day. Energy belongs to the Mind, so it follows the NFT if it changes wallet.</li>
   <li><b>Classic, Practice and the Tutorial are free</b> and unlimited.</li></ul>
   <h3><img src="assets/icon_trophy.png" alt="">Ranking and fairness</h3>
   <ul><li>Ranked wins and losses change your <b>rating</b>. Games vs bots count half.</li>
-  <li><b>Points</b>: 10 per Mind you brought, per ranked win, + rarity bonus (Uncommon +5%, Rare +10%, Epic +15%, Legendary +20%). Rarity never changes how a Mind plays.</li>
+  <li><b>Points</b>: +10 per Mind staked on a ranked win, −5 per Mind on a loss, + rarity bonus on wins (Uncommon +5%, Rare +10%, Epic +15%, Legendary +20%). Rarity never changes how a Mind plays.</li>
   <li>No player in 20 seconds? You play a <b>bot</b>, always labelled BOT.</li>
   <li>Every turn runs on the game server and your rival's card is never sent to your device, so nobody can cheat.</li></ul>
   <p class="muted">Tip: press 1–7 to pick a card and Enter to lock in.</p>`;

@@ -2,7 +2,8 @@
 // the server (ranked, authoritative). No DOM, no Date, no Math.random: randomness only comes from state.rng.
 //
 // Rules (balance-tested, see tools/sim_duel.mjs):
-// - Each round both players hold cards 1-7. 7 crowns worth 1-7 come up in a random order, one per turn.
+// - Each round both players hold cards 1-7. 7 crowns are drawn at random from 1-15 (so nobody knows which values
+//   are in this round) and come up one per turn. Only the current crown is shown, plus a hint for the next one.
 // - Each turn both secretly play a card (+ optionally one spell). Higher card wins the crown.
 //   A tie rolls the crown into the next turn's pot. Every card is used once per round.
 // - Spells are revealed after the numbers, in this order:
@@ -14,6 +15,8 @@
 // - Running out of time on a turn = you lose that round.
 
 export const CARD_VALUES = [1, 2, 3, 4, 5, 6, 7];
+export const CROWN_POOL = 15;
+export const crownTier = c => c <= 5 ? 'low' : c <= 10 ? 'mid' : 'high';
 export const SPELLS = ['boost', 'double', 'trap', 'reverse'];
 export const ROUND_SPELLS = ['boost', 'double', 'trap'];
 export const RULES = { boost: 2, trapAt: 7, roundsToWin: 2, maxRounds: 5 };
@@ -30,17 +33,18 @@ function rand(s) {
   t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
   return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 }
+// this round's 7 crowns: 7 different values out of 1-15, in a random order
 function shuffled(s) {
-  const a = [...CARD_VALUES];
+  const a = Array.from({ length: CROWN_POOL }, (_, i) => i + 1);
   for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rand(s) * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
-  return a;
+  return a.slice(0, CARD_VALUES.length);
 }
 const freshRound = p => Object.assign(p, { cards: [...CARD_VALUES], spells: [...ROUND_SPELLS], score: 0, crowns: 0, best: 0, pending: null });
 
 // players: [{ name, minds: [tokenId...1-3] }]
 export function createMatch({ seed = 1, players }) {
   for (const pl of players) if (!pl.minds?.length || pl.minds.length > 3) throw new Error('bring 1 to 3 Minds');
-  const s = { v: 3, rng: seed | 0, round: 1, turn: 1, pot: 0, over: false, winner: null, log: [], crowns: null, p: null };
+  const s = { v: 4, rng: seed | 0, round: 1, turn: 1, pot: 0, over: false, winner: null, log: [], crowns: null, p: null };
   s.crowns = shuffled(s);
   s.p = players.map(pl => freshRound({ name: pl.name, minds: pl.minds.slice(0, 3), mind: 0, rounds: 0, reverse: true }));
   s.pot = s.crowns[0];
@@ -166,7 +170,9 @@ export function viewFor(s, i) {
   const side = p => ({ name: p.name, minds: p.minds, mind: p.mind, rounds: p.rounds, score: p.score, crowns: p.crowns, cards: [...p.cards], spells: [...p.spells], reverse: p.reverse });
   return {
     round: s.round, turn: s.turn, over: s.over, winner: s.winner,
-    crown: s.over ? null : currentCrown(s), pot: s.pot, crownsLeft: s.over ? [] : s.crowns.slice(s.turn - 1).sort((a, b) => a - b),
+    crown: s.over ? null : currentCrown(s), pot: s.pot,
+    seen: s.crowns.slice(0, s.over ? s.crowns.length : s.turn - 1),         // crowns already played this round
+    next: s.over || s.turn >= CARD_VALUES.length ? null : crownTier(s.crowns[s.turn]),   // low / mid / high hint only
     me: { ...side(me), locked: !!me.pending, play: me.pending },
     rival: { ...side(op), locked: !!op.pending },
     lastEvent: s.log[s.log.length - 1] || null,
