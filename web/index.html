@@ -85,6 +85,10 @@
         <div class="isl-chips" id="hub-island-chips"></div>
         <em class="tag lime">PLAY</em><b class="badge" id="hub-island-ready"></b>
       </button>
+      <div class="mode-row">
+        <button class="mode px town-tile" id="hub-town"><div class="mode-txt"><b>🏘️ Mind Town</b><span>All 3,333 Minds live here</span></div></button>
+        <button class="mode px cup-tile" id="hub-cup"><div class="mode-txt"><b>🏆 Siege Cup</b><span id="hub-cup-sub">Win everyone's Gems</span></div></button>
+      </div>
       <div class="mode-row three">
         <button class="mode px" id="hub-classic" style="--bg:url(assets/arena_day.webp)">
           <div class="mode-txt"><b>Classic</b><span>Everyone</span></div>
@@ -319,6 +323,13 @@
   </div>
 </section>
 
+<!-- MIND TOWN -->
+<section id="s-town" class="screen">
+  <canvas id="town-cv"></canvas>
+  <div class="town-top px"><button class="btn small" id="town-back">← Lobby</button><b id="town-count">3,333 Minds</b><span id="town-stay"></span><button class="btn small" id="town-find">🔍 Find my Mind</button><button class="btn small" id="town-me">🧍 Me</button></div>
+  <div class="town-side px"><h4>📜 Town Board</h4><div id="town-feed"></div><div class="fr-add"><input id="town-in" maxlength="120" placeholder="Say something…"><button class="btn small primary" id="town-send">Send</button></div></div>
+</section>
+
 <!-- ADVENTURE -->
 <section id="s-adv" class="screen">
   <canvas id="adv-cv"></canvas>
@@ -356,6 +367,7 @@
       <div class="row">Rules <button class="btn small" id="set-rules">How to play</button></div>
       <div class="row">Account <span class="muted ellip" id="set-account"></span></div>
       <div class="row">Code <span class="codebox"><input id="set-code" placeholder="enter a code" autocomplete="off"><button class="btn small" id="set-code-go">OK</button></span></div>
+      <div class="row">Let an AI play for you <button class="btn small" id="set-ai">Connect an AI</button></div>
       <div class="row">Something wrong? <button class="btn small" id="set-report">Report a problem</button></div>
       <div class="row"><span></span><button class="btn" id="set-logout">Sign out</button></div>
     </div>

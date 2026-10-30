@@ -25,11 +25,14 @@ import gems from '../lib/routes/gems.js';
 import energy from '../lib/routes/energy.js';
 import mail from '../lib/routes/mail.js';
 import report from '../lib/routes/report.js';
+import agent, { agentKeys } from '../lib/routes/agent.js';
+import cup from '../lib/routes/cup.js';
+import town from '../lib/routes/town.js';
 
 const ROUTES = {
   'auth/nonce': auth_nonce, 'auth/verify': auth_verify, 'auth/guest': auth_guest, me, profile,
   'queue/join': queue_join, 'queue/poll': queue_poll, 'queue/leave': queue_leave,
-  'match/view': match_view, 'match/act': match_act, 'match/forfeit': match_forfeit, 'match/chat': match_chat, leaderboard, player, friends, friend, messages, island, raid, adventure, admin, gems, energy, mail, report,
+  'match/view': match_view, 'match/act': match_act, 'match/forfeit': match_forfeit, 'match/chat': match_chat, leaderboard, player, friends, friend, messages, island, raid, adventure, admin, gems, energy, mail, report, agent, 'agent/keys': agentKeys, cup, town,
 };
 
 export default async function handler(req, res) {

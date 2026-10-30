@@ -9,6 +9,7 @@ import { api, session, walletLogin, guestLogin, logout, hasWallet, watch, server
 import { initAudio, sfx, music, setVolume } from './audio.js';
 import { PHRASES, MATCH_CHAT, FRIEND_CHAT, BOT_REPLIES } from './chat.js';
 import { initMindTalk, openMinds } from './mindtalk.js';
+import { initTown, openTown, closeTown } from './town.js';
 import { capOf, ENERGY_CAP } from './energy.js';
 import { openIsland, closeIsland, refreshHud, cropImg, fmtTime } from './island/island.js';
 import { chibi } from './island/chibi.js';
@@ -284,6 +285,60 @@ $('#hub-ranked').onclick = async () => {
 };
 $('#hub-practice').onclick = () => openPrep('practice');
 $('#hub-classic').onclick = () => openPrep('classic');
+$('#hub-town').onclick = () => { closeIsland(); stage.paused = true; show('town'); openTown(); };
+$('#town-back').onclick = () => { closeTown(); enterHub(); };
+$('#hub-cup').onclick = () => openCup();
+// ---------- Daily Siege Cup: same village, same army for everyone; all entry Gems go to the winners ----------
+async function openCup() {
+  if (!online) return toast('The cup needs the game server.', true);
+  sfx('click');
+  let c;
+  try { c = await api('cup'); } catch (e) { return toast(e.message, true); }
+  const left = c.me ? c.tries - c.me.tries : c.tries, hours = Math.max(1, Math.ceil((c.endsAt - Date.now()) / 3600e3));
+  const rows = c.top.map((e, i) => `<div class="cup-row"><b>${i + 1}</b><span>${esc(e.name)}</span><em>${'★'.repeat(e.stars)}${'☆'.repeat(3 - e.stars)} ${e.pct}%</em></div>`).join('') || '<p class="muted">No scores yet. Be first!</p>';
+  const go = await modal(`<h3>🏆 Daily Siege Cup</h3><p>Everyone attacks the same village with the same army. Your Minds give no edge, so only skill counts. ${c.tries} tries, best score counts.</p>
+    <div class="army-facts"><span>💎 Prize pool: <b>${c.pool}</b></span><span>👥 Players: <b>${c.players}</b></span><span>🎟️ Entry: <b>${c.entry} 💎</b></span><span>⏳ Ends in: <b>${hours} h</b></span></div>
+    <p class="muted">Top 3 share every Gem: 60 / 30 / 10%. Real players only. If nobody else joins, your entry comes back.</p>${rows}${c.last?.winners.length ? `<p class="muted">Last winner: <b>${esc(c.last.winners[0].name)}</b> · ${c.last.winners[0].gems} 💎</p>` : ''}`,
+    c.me ? (left > 0 ? [[`Play (${left} left)`, 'play', 'primary'], ['Close', 0]] : [['Close', 0, 'primary']]) : [[`Enter for ${c.entry} 💎`, 'join', 'primary'], ['Close', 0]]);
+  if (!go) return;
+  try {
+    if (go === 'join') { await api('cup', { op: 'join' }); sfx('coins'); resetIsland(); toast('You are in! Good luck.'); }
+    const s = await api('cup', { op: 'start' });
+    closeIsland(); show('raid');
+    await banner('<div class="bt">SIEGE CUP</div><small>Same village for everyone</small>', 1100);
+    openRaid({ snap: s.snap, minds: [49], army: s.army, name: '🏆 Daily Siege Cup', loot: 0, toast: (m, bad) => toast(m, bad),
+      onEnd: async (inputs, res0) => {
+        let msg = '';
+        try { const r = await api('cup', { op: 'score', inputs, claim: res0.stars }); msg = `<div class="raid-stars big">${'★'.repeat(r.stars)}${'☆'.repeat(3 - r.stars)}</div><p>${Math.round(r.pct * 100)}% destroyed · score ${r.score.toLocaleString()}</p><p>Your best: <b>${r.best.toLocaleString()}</b></p>`; }
+        catch (e) { msg = `<p>${esc(e.message)}</p>`; }
+        await modal(`<h3>🏆 Try finished</h3>${msg}`, [['OK', 0, 'primary']]);
+        closeRaid(); enterHub(); openCup();
+      } });
+  } catch (e) { toast(e.message, true); enterHub(); }
+}
+// ---------- connect an AI: private keys for the Mind Player API (docs/MIND_API.md) ----------
+async function openAI(fresh = null, list = null) {
+  if (!online || guest) return toast('Connect a wallet to connect an AI.', true);
+  let keys = list;
+  try { keys ||= (await api('agent/keys', { op: 'list' })).keys; } catch (e) { return toast(e.message, true); }
+  $('#modal-body').innerHTML = `<h3>🤖 Connect an AI</h3><p>Give this key to an AI and it can farm, raid, explore and duel for you. It follows the same limits as you. It cannot buy Gems or chat.</p>
+    ${fresh ? `<p class="ai-key"><b>Copy your key now. It is shown only once:</b><code>${esc(fresh)}</code></p>` : ''}
+    ${keys.map(k => `<div class="ai-row"><b>${esc(k.name)}</b><small>${k.log[0] ? `Last: ${esc(k.log[0].op)} · ${new Date(k.log[0].at).toLocaleString()}` : 'Not used yet'}</small><label><input type="checkbox" data-gems="${k.id}" ${k.gems ? 'checked' : ''}> May spend Gems</label><button class="btn small red" data-off="${k.id}">Turn off</button></div>`).join('') || '<p class="muted">No keys yet.</p>'}`;
+  const box = $('#modal-btns'); box.innerHTML = '';
+  const add = el('button', 'btn primary', 'Make a key'), close = el('button', 'btn', 'Close');
+  add.onclick = async () => { try { const r = await api('agent/keys', { op: 'new' }); openAI(r.key, r.keys); } catch (e) { toast(e.message, true); } };
+  close.onclick = () => { $('#modal').classList.remove('on'); $('#modal-body').onclick = null; };
+  box.append(close, add);
+  $('#modal-body').onclick = async e => {
+    const off = e.target.closest('[data-off]'), gem = e.target.closest('[data-gems]');
+    try {
+      if (off) openAI(null, (await api('agent/keys', { op: 'off', id: off.dataset.off })).keys);
+      else if (gem) await api('agent/keys', { op: 'gems', id: gem.dataset.gems, on: gem.checked });
+    } catch (err) { toast(err.message, true); }
+  };
+  $('#modal').classList.add('on');
+}
+$('#set-ai').onclick = () => openAI();
 $('#hub-learn').onclick = () => startTutorial();
 $('#hub-tutorial').onclick = () => startTutorial();
 $('#hub-me').onclick = () => openProfile(me.id);
@@ -1264,6 +1319,7 @@ $('#pf-save').onclick = async () => {
 };
 
 initMindTalk({ minds: () => (guest ? [] : myMinds), esc });
+initTown({ minds: () => (guest ? [] : myMinds), api, esc, toast, online: () => online });
 
 // ---------- friends + friend chat (preset lines) ----------
 let friendsList = [], chatWith = null, frUnwatch = null, frTimer = null;

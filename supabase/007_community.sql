@@ -48,6 +48,8 @@ create table if not exists agent_keys (               -- private keys for AI pla
 );
 create index if not exists agent_keys_player on agent_keys (player_id);
 
+alter table players add column if not exists ai_until timestamptz;   -- this player's duels are being played by their AI
+
 create table if not exists cups (                     -- Daily Siege Cup: everyone attacks the same village
   day        text primary key,                        -- UTC date
   seed       bigint not null,
@@ -64,6 +66,7 @@ create table if not exists cup_entries (
   best       int not null default 0,
   stars      int not null default 0,
   pct        int not null default 0,
+  started    timestamptz,
   primary key (day, player_id)
 );
 

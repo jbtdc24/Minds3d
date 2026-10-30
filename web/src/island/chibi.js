@@ -8,6 +8,7 @@ const F = 8;          // cells per island pixel (8 keeps a Mind about door heigh
 const HIPS = 172.5;   // legs start below this cell row (same split as the fighter rig)
 const cache = new Map();
 
+export const dropChibi = id => cache.delete(id);
 export function chibi(id) {
   if (cache.has(id)) return cache.get(id);
   const rig = buildRig(id), n = 200;
