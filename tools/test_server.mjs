@@ -340,7 +340,7 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   ok(out.code === 400, 'a list of claimed loot is refused');
   const isl = T.islands.find(x => x.player_id === hiker.id), o2 = { heroKind: 'captain', potions: 0, gatherLeft: 40, seed: m2.seed };
   const berries = m2.nodes.filter(n => n.type === 'berry').slice(0, 3), run = playAdv(m2, o2, berries.map(n => ({ node: n.id })));
-  out = await callAdv({ op: 'end', inputs: run.inputs, end: run.end });
+  out = await callAdv({ op: 'end', inputs: run.inputs, end: 1000 });
   ok(out.code === 400, 'an adventure cannot finish faster than real time');
   isl.state.adv.at = Date.now() - 170e3;
   const dust0 = isl.state.dust, exp = AD.advLoot(m2, run.S.got, run.S.beat).dust || 0;
