@@ -15,7 +15,7 @@ const M = [
   ['guessable cup seed', 'lib/routes/cup.js', "hashStr('cup' + day + (process.env.SESSION_SECRET || process.env.SUPABASE_SECRET_KEY || ''))", "hashStr('cup' + day)"],
   ['cup with no scores keeps Gems', 'lib/routes/cup.js', 'if (entries.length < 2 || !ranked.length)', 'if (entries.length < 2)'],
   ['cup timing check', 'lib/routes/cup.js', "fail(400, 'That try did not add up.'); }", '}'],
-  ['payment swallowed when busy', 'lib/routes/gems.js', "  await db.remove('payments', `tx=eq.${hash}`);\n  return { pending: true, message: 'Your island is busy. Trying again…' };", "  fail(409, 'busy');"],
+  ['payment swallowed when busy', 'lib/routes/gems.js', "  await db.remove('payments', `tx=eq.${hash}`);\n  await report({ feature: 'payments'", "  await report({ feature: 'payments'"],
   ['too few confirmations', 'lib/routes/gems.js', 'const CONFIRMATIONS = 6n;', 'const CONFIRMATIONS = 2n;'],
   ['Town Time paid twice', 'lib/routes/town.js', 'if (claimed.length) got = await reward(', 'got = await reward('],
   ['client decides Town activity', 'lib/routes/town.js', 'acted = !!say || (was && Math.hypot(x - was.x, y - was.y) >= MOVED);', 'acted = !!say || !!body.active || (was && Math.hypot(x - was.x, y - was.y) >= MOVED);'],

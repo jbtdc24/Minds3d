@@ -1259,7 +1259,7 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   const rowOf = (c, p, extra = {}) => T.payments.push({ tx: hx(c), player_id: p.id, address: p.address, pack: 'pouch', gems: 50, wei: PACK.toString(), created_at: now(), ...extra });
   T.payments.length = 0; T.recon_findings.length = 0; T.recon_runs.length = 0; T.payment_intents.length = 0;
   const good = payTx('1', P);
-  ok((await hit(gems, P, { op: 'claim', tx: good, pack: 'pouch' })).body.ok && isl(P).state.paid[good].g === 50 && isl(P).state.gems === 50, 'a purchase leaves a ledger mark with the Gems');
+  ok((await hit(gems, P, { op: 'claim', tx: good, pack: 'pouch' })).body.ok && isl(P).state.paid?.[good]?.g === 50 && isl(P).state.gems === 50, 'a purchase leaves a ledger mark with the Gems');
   ok(!T.payment_intents.some(i => i.tx === good), 'a finished claim clears its record');
   let run = await runReconcile();
   ok(run.findings === 0 && run.checked === 1 && !run.partial, 'a clean payment raises nothing');
