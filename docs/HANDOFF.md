@@ -4,6 +4,17 @@
 ## SAVED TASKS (owner parked these, do not forget)
 1. [ ] **Gem payments on Base.** Owner could not buy Gems because payment is ETH on Robinhood Chain. Build: pay on Base (low gas), choice of USDC or ETH. Minds stay on Robinhood Chain. USDC is an ERC-20, so verify the Transfer log in the receipt; extend the ledger and daily check to both. WAITING: owner's USDC prices (suggested 50 Gems $5, 120 $10, 300 $20, 800 $50). Start when the owner says.
 2. [ ] **AI connects to animocaminds.** Do this LAST, after everything else is final.
+3. [ ] **Duel: prize timing.** The prize at the top changes before the action finishes, especially on round 2. Keep it in step with the cards.
+4. [ ] **Duel: round change.** Add a clear ROUND 2 transition or screen so nobody misses it.
+5. [ ] **Duel: clear result.** The crown prize does not match the action, and it is unclear who won. Make each result obvious.
+6. [ ] **Raid: loading screen.** Current one looks bad. Design a proper one, and loading screens elsewhere if needed, including for when many players are online.
+7. [ ] **Buildings: show what upgrades do.** Show stats before and after.
+8. [ ] **Buildings: looks change with level.** Each level should look different.
+9. [ ] **Troop upgrades.** New feature, with stats and costs.
+10. [ ] **Siege Cup: boss look.** Boss levels, lava style, not a regular town. Best one wins.
+11. [ ] **Siege Cup: choose your army.** Strategy should decide it, not the game. Owner's concern: it can become pay-to-win or grind-to-win. Suggestion: everyone gets the same budget and picks any mix. Owner to confirm.
+
+Owner said list only, do not build yet. Start when the owner says.
 
 Owner: Mindclash game owner. Hates long text: short replies, decide for them, build/test/ship without asking
 (stop only for Supabase SQL, Vercel settings, money/payments, OpenArt credits). Everything is drawn in CODE (no OpenArt).
