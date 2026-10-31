@@ -37,6 +37,7 @@ RULES FOR NEXT SESSION: (1) test wallet-account paths, guests hide bugs; (2) run
 `npx --yes eslint@8 --no-eslintrc --env browser,es2022,node --parser-options=sourceType:module,ecmaVersion:latest --rule '{"no-undef":"error"}' web/src lib api`
 (3) python patch scripts must assert every replacement (a silent miss cost us all the music); (4) never push with a failing test.
 
+## Supabase is eu-west-2 (London), so vercel.json regions = lhr1.
 ## Launch audit (2026-10-31): DEPLOYED, live commit a597fc2+. Read docs/LAUNCH_REPORT.md first; also docs/AUDIT.md, DEPLOY.md, REAL_MONEY.md. Adventures run on web/src/island/advsim.js and the server replays taps. OWNER TODO: run supabase/008_sessions.sql, one real Gem purchase, two-wallet chat test, confirm backups, tell us the Supabase region so vercel.json `regions` can match it. Open decisions: Town rewards, bot disclosure.
 
 ## Round 9 notes (2026-10-31): live chat = words sent directly over Supabase broadcast the moment you press Send, server copy confirms (unconfirmed lines vanish after 15 s). One socket may join a topic once: send on a watched topic via the watch() handle, never a second channel. Player counts are hidden from players (admin only).

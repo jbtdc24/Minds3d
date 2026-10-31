@@ -1,4 +1,7 @@
 {
+  "regions": [
+    "lhr1"
+  ],
   "buildCommand": "",
   "outputDirectory": "web",
   "rewrites": [
