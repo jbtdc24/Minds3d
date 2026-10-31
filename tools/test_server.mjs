@@ -1333,7 +1333,9 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   ok(hist.code === 200 && hist2.code === 200, 'profiles still load');
   const mc = chain.client.multicall; chain.client.multicall = async ({ contracts }) => contracts.map(() => ({ status: 'failure' }));
   const Rd = await mk('RaidHuman'); Object.assign(isl(Rd).state.inv, { troop_brawler: 10 });
+  const rnd = Math.random; Math.random = () => 0.99;   // always a game village, not a real target
   const f1 = await hit(raid, Rd, { op: 'find', army: { brawler: 4 } });
+  Math.random = rnd;
   ok(f1.code === 200 && f1.body.bot === true && /^BOT · /.test(f1.body.name) && !T.players.some(p => p.name === f1.body.name), 'a game village is labelled as a bot');
   chain.client.multicall = mc;
   const { npcRaid } = await import('../lib/raiders.js');
@@ -1341,6 +1343,16 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   await hit(island, Nr, { acts: [] });
   ok(/^BOT · /.test(isl(Nr).state.raidLog?.[0]?.by || ''), 'a raider in your log is labelled as a bot');
   void npcRaid; void RD;
+
+  // the cup must stay hard: only a rare plan may clear a whole village
+  const { CUP_ARMY, CUP_LEVEL } = await import('../lib/routes/cup.js');
+  let clears = 0, runs = 0;
+  for (const seedV of [11, 22, 33, 44]) {
+    const army = { troops: { ...CUP_ARMY }, hero: 'captain' }, snap = { ...RD.botVillage(seedV * 2654435761 >>> 0, CUP_LEVEL), noise: seedV + 1 }, S = RD.createRaid(RD.publicSnap(snap), army), sp = [];
+    for (let k = 0; k < 64 * 48; k++) if (RD.dropOk(S, k)) sp.push(k);
+    for (let i = 0; i < 25; i++) { const k = sp[(i * 131 + 7) % sp.length], inp = [{ t: 0, drop: 'hero', k }]; let t = 2; for (const [d, c] of Object.entries(S.left)) for (let j = 0; j < c; j++) inp.push({ t: t += 2, drop: d, k }); runs++; if (RD.replay(snap, army, inp).stars === 3) clears++; }
+  }
+  ok(clears / runs < 0.15, `the Siege Cup stays hard: ${clears} of ${runs} simple plans cleared it`);
 
   // legal pages
   const terms = fs.readFileSync('web/terms.html', 'utf8'), priv = fs.readFileSync('web/privacy.html', 'utf8'), idx = fs.readFileSync('web/index.html', 'utf8');

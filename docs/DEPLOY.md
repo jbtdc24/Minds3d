@@ -22,6 +22,8 @@ All must pass. Then `git checkout main && git merge --ff-only island && git push
 | `TREASURY_ADDRESS` | For Gem sales | Receives ETH |
 | `ADMIN_ADDRESSES`, `ADMIN_PLAYER_IDS` | For admin | Who can use the admin screen |
 | `ROBINHOOD_RPC` | Optional | Own chain RPC, for reliability |
+| `CRON_SECRET` | For the daily payment check | Vercel Cron sends it. Without it the check refuses to run |
+| `ALERT_WEBHOOK_URL` | Optional | Discord or Slack webhook for critical alerts |
 
 Changing the database key or `SESSION_SECRET` signs everyone out and changes the chat signing key.
 
@@ -29,7 +31,8 @@ Changing the database key or `SESSION_SECRET` signs everyone out and changes the
 | File | Status |
 |---|---|
 | `007_community.sql` | Run by the owner, confirmed by live checks |
-| `008_sessions.sql` | **Owner must run.** Until then, "Log out everywhere" says it is being set up. Everything else works, and bans keep working |
+| `008_sessions.sql` | Run by the owner, confirmed live |
+| `009_monitoring.sql` | **Owner must run before deploying this round**, so payments are marked in the ledger from the first day. Safe to run again |
 
 Every migration only adds things, so old code keeps working with the new database.
 

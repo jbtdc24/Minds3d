@@ -31,7 +31,7 @@ db.rpc = async () => true; db.count = async (t, q = '') => T[t].filter(parse(q))
 const chain = await import('../lib/chain.js');
 chain.client.multicall = async ({ contracts }) => contracts.map(() => ({ status: 'failure' }));
 const R = await import('../web/src/island/rules.js');
-const names = ['me', 'profile', 'queue_join', 'queue_poll', 'queue_leave', 'match_view', 'match_act', 'match_forfeit', 'match_chat', 'leaderboard', 'player', 'friends', 'friend', 'messages', 'island', 'raid', 'adventure', 'admin', 'gems', 'energy', 'mail', 'report', 'cup', 'town', 'agent', 'chat_cert', 'auth_nonce', 'auth_guest', 'auth_verify', 'errors_report', 'cron_reconcile', 'logout_all'];
+const names = ['me', 'profile', 'queue_join', 'queue_poll', 'queue_leave', 'match_view', 'match_act', 'match_forfeit', 'match_chat', 'leaderboard', 'player', 'friends', 'friend', 'messages', 'island', 'raid', 'adventure', 'admin', 'gems', 'energy', 'mail', 'report', 'cup', 'town', 'agent', 'chat_cert', 'auth_nonce', 'auth_guest', 'auth_verify', 'errors_report', 'cron_reconcile'];   // logout_all is left out: it would end the fuzzer's own sessions
 const routes = Object.fromEntries(await Promise.all(names.map(async n => [n, (await import(`../lib/routes/${n}.js`)).default])));
 routes.agent_keys = (await import('../lib/routes/agent.js')).agentKeys;
 
@@ -63,6 +63,7 @@ const call = async (fn, tok, b, method) => {
   return o;
 };
 process.env.TREASURY_ADDRESS = '0x48C61f0Ca53259938F5B215ECf4f6b5246f3eA37';
+process.env.CRON_SECRET = 'fuzz-secret';
 const quiet = console.error; const seen = new Map(); console.error = e => { const k = String(e?.stack || e).split('\n').slice(0, 3).join(' | ').slice(0, 240); seen.set(k, (seen.get(k) || 0) + 1); };
 let calls = 0; const codes = {}; let crashes = 0;
 const list = Object.entries(routes), t0 = Date.now();
