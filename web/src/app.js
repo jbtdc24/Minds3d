@@ -32,6 +32,14 @@ const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls)
 const wait = ms => new Promise(r => setTimeout(r, ms / speedSetting));
 // anything unexpected: a plain sentence for the player, the technical detail in the console for us
 const oops = detail => { console.error('[mindclash]', detail); try { toast('Something went wrong. Please try that again.', true); } catch { /* toast not ready */ } };
+// script errors reach the Admin screen, a few per visit, with no account details
+let sentErrors = 0;
+function sendError(message, stack) {
+  if (!/\/\/(minds3d\.vercel\.app)/.test(location.href) || ++sentErrors > 8) return;
+  fetch('/api/errors/report', { method: 'POST', keepalive: true, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ message: String(message).slice(0, 300), stack: String(stack || '').slice(0, 600), place: current || '' }) }).catch(() => {});
+}
+addEventListener('error', e => { if (e.message && !/ResizeObserver|Script error/.test(e.message)) sendError(e.message, e.error?.stack); });
+addEventListener('unhandledrejection', e => sendError(e.reason?.message || e.reason, e.reason?.stack));
 addEventListener('unhandledrejection', e => { const m = e.reason?.message || String(e.reason || ''); if (m && !/abort|cancel/i.test(m)) oops(e.reason); });
 addEventListener('error', e => { if (e.message && !/ResizeObserver|Script error/.test(e.message)) oops(`${e.message} @ ${e.filename}:${e.lineno}`); });
 const thumb = id => `data/thumbs/${id || 1}.webp?v=${DATA_VERSION}`;
@@ -675,9 +683,11 @@ async function buyGems() {
     toast('Confirm the payment in your wallet…');
     const tx = await window.ethereum.request({ method: 'eth_sendTransaction', params: [{ from, to: info.treasury, value: '0x' + ethToWei(pack.eth).toString(16) }] });
     toast('Payment sent! Checking it on the chain…');
+    settings.payTx = { tx, pack: pack.id }; saveSettings();   // finished on the next visit if this tab closes
     for (let i = 0; i < 60; i++) {
       await new Promise(r => setTimeout(r, 3000));
       const r = await api('gems', { op: 'claim', tx, pack: pack.id }).catch(e => ({ error: e.message, status: e.status }));
+      if (r.ok || r.error) { settings.payTx = null; saveSettings(); }
       if (r.ok) { sfx('levelup'); resetIsland(); await ensureIsland(); refreshHud(); if (current === 'shop') paintShop(); return toast(`+${r.added} 💎 added! You have ${r.gems} Gems.`); }
       if (r.error) return toast(`${r.error} (tx ${tx.slice(0, 10)}…)`, true);
     }
@@ -1214,8 +1224,8 @@ async function finish(v) {
     [v.ranked ? `${d > 0 ? '+' : ''}${d}` : '—', 'Rating', d > 0 ? 'up' : d < 0 ? 'down' : ''],
     ...(v.ranked && v.pts != null ? [[`${v.pts > 0 ? '+' : v.pts < 0 ? '−' : ''}${Math.abs(v.pts)}`, `Points · stake x${v.view.me.minds.length}`, v.pts > 0 ? 'up' : v.pts < 0 ? 'down' : '']] : []),
     ...(v.dustWon ? [[`+${v.dustWon} ✨`, 'Sent to your island', 'up']] : []),
-    [v.vsBot ? 'BOT' : esc(v.view.rival.name), v.vsBot ? `Rival · ${v.botLevel}` : 'Rival', ''],
-    [v.ranked ? 'Ranked' : v.vsBot ? 'Practice' : 'Classic', 'Mode', ''],
+    [esc(v.view.rival.name), v.botLevel ? `Rival · ${v.botLevel}` : 'Rival', ''],
+    [v.ranked ? 'Ranked' : v.botLevel ? 'Practice' : 'Classic', 'Mode', ''],
   ].map(([b, s, c]) => `<div><b class="${c}">${esc(b)}</b><span>${s}</span></div>`).join('');
   const again = v.ranked ? 'ranked' : prep.mode === 'classic' && !D?.local ? 'classic' : 'practice';
   $('#r-again').onclick = () => openPrep(again);
@@ -1472,6 +1482,7 @@ $('#fr-phrases').onclick = async e => {
 async function friendsPoll() {
   if (!online || guest || !me) { renderFriends(); return; }
   loadFriends(); loadMail(); chat.ready().catch(() => {});
+  if (settings.payTx) api('gems', { op: 'claim', ...settings.payTx }).then(r => { if (r.ok) { settings.payTx = null; saveSettings(); resetIsland(); toast(`+${r.added} 💎 from your last payment.`); } }).catch(e => { if (e.status !== 503) { settings.payTx = null; saveSettings(); } });
   const myTopic = `player:${me.id}`;
   if (!frUnwatch) frUnwatch = await watch(myTopic, async p => {
     if (p.cert) {   // a signed line: it shows only if it is genuinely from the friend whose chat is open

@@ -31,7 +31,7 @@ db.rpc = async () => true; db.count = async (t, q = '') => T[t].filter(parse(q))
 const chain = await import('../lib/chain.js');
 chain.client.multicall = async ({ contracts }) => contracts.map(() => ({ status: 'failure' }));
 const R = await import('../web/src/island/rules.js');
-const names = ['me', 'profile', 'queue_join', 'queue_poll', 'queue_leave', 'match_view', 'match_act', 'match_forfeit', 'match_chat', 'leaderboard', 'player', 'friends', 'friend', 'messages', 'island', 'raid', 'adventure', 'admin', 'gems', 'energy', 'mail', 'report', 'cup', 'town', 'agent', 'chat_cert', 'auth_nonce', 'auth_guest', 'auth_verify'];
+const names = ['me', 'profile', 'queue_join', 'queue_poll', 'queue_leave', 'match_view', 'match_act', 'match_forfeit', 'match_chat', 'leaderboard', 'player', 'friends', 'friend', 'messages', 'island', 'raid', 'adventure', 'admin', 'gems', 'energy', 'mail', 'report', 'cup', 'town', 'agent', 'chat_cert', 'auth_nonce', 'auth_guest', 'auth_verify', 'errors_report', 'cron_reconcile', 'logout_all'];
 const routes = Object.fromEntries(await Promise.all(names.map(async n => [n, (await import(`../lib/routes/${n}.js`)).default])));
 routes.agent_keys = (await import('../lib/routes/agent.js')).agentKeys;
 
@@ -47,7 +47,7 @@ let seed = 12345;
 const rnd = n => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed % n; };
 const WEIRD = [null, undefined, 0, -1, 1, 1.5, NaN, 1e308, -1e308, 2 ** 53, '', ' ', 'x', 'constructor', '__proto__', 'toString', "' OR 1=1 --", '1&id=neq.0', '<img src=x onerror=1>', '%00', '../../etc/passwd', 'a'.repeat(5000), true, false, [], [[]], [null], {}, { a: 1 }, { __proto__: null }, new Array(300).fill(1), P.id, '0x' + 'a'.repeat(64), '🤖'];
 const pick = () => WEIRD[rnd(WEIRD.length)];
-const OPS = ['find', 'attack', 'start', 'end', 'auto', 'map', 'claim', 'join', 'score', 'info', 'new', 'off', 'gems', 'list', 'give', 'ban', 'unban', 'mail', 'stats', 'reports', 'add', 'accept', 'remove', 'state', 'do', 'job', 'raid', 'adventure', 'duel_join', 'help'];
+const OPS = ['recon', 'recon_run', 'recon_fix', 'recon_mark', 'errors', 'error_done', 'find', 'attack', 'start', 'end', 'auto', 'map', 'claim', 'join', 'score', 'info', 'new', 'off', 'gems', 'list', 'give', 'ban', 'unban', 'mail', 'stats', 'reports', 'add', 'accept', 'remove', 'state', 'do', 'job', 'raid', 'adventure', 'duel_join', 'help'];
 const TYPES = ['clear', 'till', 'untill', 'plant', 'harvest', 'buy', 'sell', 'build', 'move', 'store', 'place', 'demolish', 'craft', 'shop', 'ship', 'rush', 'upgrade', 'well', 'tutorial', 'job'];
 const KEYS = ['op', 'id', 'to', 'text', 'phrase', 'name', 'pfp', 'showcase', 'minds', 'mode', 'bot', 'army', 'inputs', 'claim', 'revenge', 'spot', 'potions', 'mind', 'pay', 'got', 'beat', 'cover', 'ko', 'potionsLeft', 'tx', 'pack', 'pid', 'q', 'dust', 'items', 'hours', 'title', 'body', 'gift', 'kind', 'target', 'place', 'x', 'y', 'say', 'after', 'pub', 'actions', 'job', 'address', 'signature', 'card', 'spell'];
 const body = () => {

@@ -30,7 +30,7 @@ const when = t => new Date(t).toLocaleString([], { month: 'short', day: 'numeric
 async function stats() {
   const r = await K.api('admin', { op: 'stats' });
   const box = [['🟢 Online now', r.online], ['🎮 Playing this minute', r.playing], ['📅 Active 24 hours', r.day], ['🗓 Active 7 days', r.week], ['👥 Registered', r.players], ['👛 Wallets', r.wallets], ['🧪 Trial accounts', r.trials], ['🆕 New 24 hours', r.newDay], ['🆕 New 7 days', r.newWeek], ['⚔️ Live matches', r.live], ['⏳ In queue', r.queue], ['🏝️ Islands', r.islands], ['🏘️ In Mind Town', r.town ?? '–'], ['🤖 AI keys', r.keys ?? '–'], ['💎 Gems sold', r.gems]];
-  $('#adm-open').textContent = r.open || '';
+  $('#adm-open').textContent = r.open || ''; $('#adm-payn').textContent = r.payOpen || ''; $('#adm-errn').textContent = r.errOpen || '';
   $('#adm-detail').innerHTML = `<h3>📊 Players</h3><div class="adm-stats">${box.map(([k, v]) => `<div><b>${(v ?? 0).toLocaleString()}</b><span>${k}</span></div>`).join('')}</div>`;
 }
 async function mailForm() {
@@ -43,6 +43,24 @@ async function mailForm() {
 async function reports() {
   const r = await K.api('admin', { op: 'reports' });
   $('#adm-detail').innerHTML = `<h3>🐞 Reports</h3>${r.reports.map(x => `<div class="adm-report ${x.done ? 'done' : ''}"><b>${x.kind === 'player' ? `🚩 ${K.esc(x.about || 'a player')}` : '🐞 Bug'}</b> <small>by ${K.esc(x.by)} · ${when(x.created_at)}${x.place ? ' · ' + K.esc(x.place) : ''}</small><p>${K.esc(x.text)}</p>${x.player_id ? `<button class="btn small" data-pid="${x.player_id}">Open reporter</button>` : ''}${x.target ? `<button class="btn small" data-pid="${x.target}">Open reported</button>` : ''}<button class="btn small" data-rep="${x.id}" data-v="${x.done ? 0 : 1}">${x.done ? 'Reopen' : 'Done'}</button></div>`).join('') || '<p class="muted">No reports yet.</p>'}`;
+}
+const eth = wei => (wei == null ? '–' : `${(Number(wei) / 1e18).toFixed(5)} ETH`), shortTx = t => `${t.slice(0, 10)}…${t.slice(-6)}`;
+async function payments() {
+  const r = await K.api('admin', { op: 'recon' });
+  if (r.setup) { $('#adm-detail').innerHTML = '<h3>💳 Payments</h3><p class="muted">Run supabase/009_monitoring.sql to switch this on.</p>'; return; }
+  const open = r.findings.filter(f => f.status === 'open'), rest = r.findings.filter(f => f.status !== 'open').slice(0, 15);
+  const row = f => `<div class="adm-report sev-${K.esc(f.severity)} ${f.status === 'open' ? '' : 'done'}"><b>${K.esc(f.kind.replace(/_/g, ' '))}</b> <small>${K.esc(f.severity)} · ${K.esc(f.status)} · ${when(f.last_at)}</small>
+    <p>${K.esc(f.action || '')}${f.detail ? `<br><small>${K.esc(f.detail)}</small>` : ''}</p>
+    <small class="muted">tx <span title="${K.esc(f.tx)}">${K.esc(shortTx(f.tx))}</span> · ${K.esc(f.pack || '–')} · ${f.gems ?? '–'} 💎 · ${eth(f.wei)}</small><br>
+    ${f.status === 'open' && ['missing_credit', 'unclaimed_payment'].includes(f.kind) ? `<button class="btn small primary" data-fix="${K.esc(f.key)}">Credit Gems</button>` : ''}${f.status === 'open' ? `<button class="btn small" data-mark="${K.esc(f.key)}" data-v="reviewed">Mark reviewed</button>` : ''}${f.player_id ? `<button class="btn small" data-pid="${K.esc(f.player_id)}">Open player</button>` : ''}</div>`;
+  $('#adm-detail').innerHTML = `<h3>💳 Payments <button class="btn small" id="adm-pay-run">Check now</button></h3>
+    <p class="muted">${r.last ? `Last check ${when(r.last.at)}: ${r.last.checked} payments, ${r.last.findings} findings${r.last.partial ? '. <b>Incomplete: the chain could not be read.</b>' : ''}` : 'Not run yet.'}</p>
+    ${open.map(row).join('') || '<p class="muted">No open problems.</p>'}${rest.length ? `<h3>History</h3>${rest.map(row).join('')}` : ''}`;
+}
+async function errorsList() {
+  const r = await K.api('admin', { op: 'errors' });
+  if (r.setup) { $('#adm-detail').innerHTML = '<h3>🚨 Errors</h3><p class="muted">Run supabase/009_monitoring.sql to switch this on.</p>'; return; }
+  $('#adm-detail').innerHTML = `<h3>🚨 Errors</h3>${r.errors.map(e => `<div class="adm-report sev-${K.esc(e.severity)} ${e.resolved ? 'done' : ''}"><b>${K.esc(e.feature)}</b> <small>${K.esc(e.severity)} · seen ${e.count}× · last ${when(e.last_at)} · first ${when(e.created_at)}</small><p>${K.esc(e.message)}</p>${e.stack ? `<small class="muted">${K.esc(e.stack)}</small><br>` : ''}<button class="btn small" data-err="${e.id}" data-v="${e.resolved ? 0 : 1}">${e.resolved ? 'Reopen' : 'Done'}</button></div>`).join('') || '<p class="muted">No errors.</p>'}`;
 }
 async function show(pid) {
   const r = await K.api('admin', { op: 'player', pid });
@@ -69,6 +87,18 @@ document.addEventListener('click', async e => {
     if (e.target.closest('#adm-stats')) return await stats();
     if (e.target.closest('#adm-mail')) return await mailForm();
     if (e.target.closest('#adm-reports')) return await reports();
+    if (e.target.closest('#adm-pay')) return await payments();
+    if (e.target.closest('#adm-err')) return await errorsList();
+    if (e.target.closest('#adm-pay-run')) { const r = await K.api('admin', { op: 'recon_run' }); K.toast(`Checked ${r.checked} payments: ${r.findings} findings.`); return await payments(); }
+    const fix = e.target.closest('[data-fix]');
+    if (fix) {
+      if (!(await K.modal('<h3>Credit these Gems?</h3><p>The payment is rechecked, and it can never be credited twice.</p>', [['Credit Gems', 1, 'primary'], ['Cancel', 0]]))) return;
+      const r = await K.api('admin', { op: 'recon_fix', key: fix.dataset.fix }); K.toast(r.already ? 'Already credited, nothing added.' : 'Gems credited.'); return await payments();
+    }
+    const mk = e.target.closest('[data-mark]');
+    if (mk) { await K.api('admin', { op: 'recon_mark', key: mk.dataset.mark, status: mk.dataset.v }); return await payments(); }
+    const er = e.target.closest('[data-err]');
+    if (er) { await K.api('admin', { op: 'error_done', id: +er.dataset.err, done: er.dataset.v === '1' }); return await errorsList(); }
     const rep = e.target.closest('[data-rep]');
     if (rep) { await K.api('admin', { op: 'report_done', id: +rep.dataset.rep, done: rep.dataset.v === '1' }); return await reports(); }
     const del = e.target.closest('[data-del]');

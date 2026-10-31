@@ -7,7 +7,7 @@ const { privateKeyToAccount } = await import('viem/accounts');
 import { randomUUID } from 'node:crypto';
 
 // ---- tiny PostgREST-ish in-memory db ----
-const T = { players: [], matches: [], queue: [], nonces: [], ratelimit: [], mind_energy: [], islands: [], payments: [], flags: [], mail: [], mail_claims: [], reports: [], agent_keys: [], cups: [], cup_entries: [], town_now: [], town_chat: [], messages: [], friends: [], admin_log: [] };
+const T = { players: [], matches: [], queue: [], nonces: [], ratelimit: [], mind_energy: [], islands: [], payments: [], flags: [], mail: [], mail_claims: [], reports: [], agent_keys: [], cups: [], cup_entries: [], town_now: [], town_chat: [], messages: [], friends: [], admin_log: [], errors: [], recon_findings: [], recon_runs: [], payment_intents: [] };
 function parse(q) {
   const f = [];
   for (const part of q.split('&').filter(Boolean)) {
@@ -31,10 +31,10 @@ db.one = async (t, q) => clone(T[t].find(parse(q)) || null);
 db.insert = async (t, row) => { const r = { id: randomUUID(), created_at: new Date().toISOString(), version: 0, rating: 1000, points: 0, wins: 0, losses: 0, draws: 0, bot_wins: 0, bot_losses: 0, streak: 0, best_streak: 0, is_guest: false, idle0: 0, idle1: 0, status: 'live', ...row }; T[t].push(r); return clone(r); };
 db.update = async (t, q, patch) => { const rows = T[t].filter(parse(q)); rows.forEach(r => Object.assign(r, clone(patch))); return clone(rows); };
 db.remove = async (t, q) => { T[t] = T[t].filter(r => !parse(q)(r)); return []; };
-db.upsert = async (t, row) => { const k = t === 'queue' || t === 'town_now' ? 'player_id' : 'address'; const ex = T[t].find(r => r[k] === row[k]); if (ex) Object.assign(ex, row); else T[t].push({ ...row }); return clone(ex || row); };
+db.upsert = async (t, row) => { const k = t === 'queue' || t === 'town_now' ? 'player_id' : t === 'recon_findings' ? 'key' : t === 'payment_intents' ? 'tx' : 'address'; const ex = T[t].find(r => r[k] === row[k]); if (ex) Object.assign(ex, row); else T[t].push({ ...(t === 'recon_findings' ? { status: 'open' } : {}), ...row }); return clone(ex || row); };
 db.rpc = async () => true;
 db.count = async (t, q = '') => T[t].filter(parse(q)).length;
-const PK = { payments: ['tx'], mail_claims: ['mail_id', 'player_id'], cup_entries: ['day', 'player_id'], cups: ['day'] }, rawInsert = db.insert;
+const PK = { payment_intents: ['tx'], payments: ['tx'], mail_claims: ['mail_id', 'player_id'], cup_entries: ['day', 'player_id'], cups: ['day'] }, rawInsert = db.insert;
 db.insert = async (t, row) => {
   if (PK[t] && T[t].some(r => PK[t].every(k => r[k] === row[k]))) throw Object.assign(new Error('dup'), { dbStatus: 409 });
   return rawInsert(t, t === 'cup_entries' ? { tries: 0, best: 0, stars: 0, pct: 0, ...row } : t === 'town_chat' ? { ...row } : t === 'agent_keys' ? { revoked: false, gems: false, log: [], ...row } : t === 'cups' ? { settled: false, ...row } : row);
@@ -73,11 +73,11 @@ ok(checkName('ab') && checkName('bad name!') && checkName('fuck_you') && checkNa
 // ---- bot match, full game ----
 const A = await db.insert('players', { name: 'Alice', name_key: 'alice', address: acct.address });
 let m = await startMatch({ player: A, minds: [1, 2] }, null, { ranked: true, botLevel: 'normal' });
-ok(m.state.botAt > Date.now() && !/bot/i.test(m.state.p[1].name) && !m.state.p[1].pending, 'a filler rival has a player name and takes its time to pick');
+ok(m.state.botAt > Date.now() && /^BOT · /.test(m.state.p[1].name) && !m.state.p[1].pending, 'a filler rival takes its time to pick, and its name carries the BOT label');
 const ready = () => { for (const r of T.matches) if (r.state?.botAt) r.state.botAt = 0; };
 ready();
 let v = await getView(m.id, A.id), turns = 0;
-ok(v.view.rival.locked === true && v.vsBot === false && v.botLevel === null, 'once it has thought, it locks in; the client is not told it is a bot');
+ok(v.view.rival.locked === true && v.vsBot === true && v.botLevel === null, 'once it has thought, it locks in; the view says it is a bot');
 ok(!JSON.stringify(v).includes('"pending"') && !('play' in v.view.rival), 'hidden picks never sent to the client');
 while (v.status === 'live' && turns < 60) {
   ready();
@@ -1200,6 +1200,155 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   p.banned_until = '2999-01-01T00:00:00Z'; adm.forgetBan(pid);
   ok((await raw(island, { body: { acts: [] }, tok: signSession({ id: pid, address: p.address }) })).code === 403 && tried === 1, 'bans still work before the new database column exists');
   db.one = one; p.banned_until = null; adm.forgetBan(pid);
+}
+
+// ---- monitoring, payment ledger and check, bot labels, legal pages ----
+{
+  const fs = await import('node:fs'), R = await import('../web/src/island/rules.js'), RD = await import('../web/src/island/raid.js'), chain = await import('../lib/chain.js');
+  const M = await import('../lib/monitor.js'), { runReconcile } = await import('../lib/reconcile.js'), { creditGems } = await import('../lib/routes/gems.js');
+  const rt = n => import(`../lib/routes/${n}.js`).then(m => m.default);
+  const [admin, gems, cron, errRoute, island, raid, player] = await Promise.all(['admin', 'gems', 'cron_reconcile', 'errors_report', 'island', 'raid', 'player'].map(rt));
+  let n = 900;
+  const mk = async (name, st0 = {}, guest = false) => { n++; const p = await db.insert('players', { name, name_key: name.toLowerCase(), address: guest ? null : '0x' + String(n).padStart(40, '0'), is_guest: guest, showcase: [] }); const st = R.newIsland(n, Date.now()); Object.assign(st, { dust: 5000, gems: 0 }, st0); T.islands.push({ player_id: p.id, seed: n, state: st, minds: 0, minds_at: new Date().toISOString(), rev: 0, updated_at: new Date().toISOString() }); return p; };
+  const isl = p => T.islands.find(x => x.player_id === p.id);
+  const hit = async (fn, p, body, { method = 'POST', tok, auth, query = {} } = {}) => { const token = tok ?? (p ? signSession({ id: p.id, address: p.address }) : ''); let o = null; const res = { setHeader() {}, end(t) { o = { code: this.statusCode, body: JSON.parse(t) }; }, headersSent: false }; await fn({ method, url: '/api/island?x=1', headers: { authorization: auth ?? 'Bearer ' + token }, body, query }, res); return o; };
+  const hx = c => '0x' + c.repeat(64);
+
+  // scrubbing
+  const dirty = `Bearer abc.def key mk_secretkey123 sb_secret_xyz wallet 0x48C61f0Ca53259938F5B215ECf4f6b5246f3eA37 tx ${hx('a')} mail me@x.com id 123e4567-e89b-12d3-a456-426614174000 password=hunter2`;
+  const clean = M.scrub(dirty);
+  ok(!/abc\.def|mk_secret|sb_secret|48C61f|aaaaaaaa|me@x|123e4567|hunter2/.test(clean), 'error text never keeps tokens, keys, wallets, ids or emails');
+  ok(M.scrub('a'.repeat(9000)).length <= 400, 'error text is cut short');
+  // reporting
+  T.errors.length = 0;
+  const real = globalThis.fetch, sent = []; globalThis.fetch = async (u, o) => { sent.push(o.body); return { ok: true }; };
+  await M.report({ feature: 'test', severity: 'error', code: 'X', message: 'plain failure 123' });
+  await M.report({ feature: 'test', severity: 'error', code: 'X', message: 'plain failure 456' });
+  ok(T.errors.length === 1 && T.errors[0].count === 1, 'one repeated error is one row, without a write per failure');
+  T.errors[0].count = 3; await M.report({ feature: 'other', severity: 'warning', message: 'different' });
+  ok(T.errors.length === 2, 'different errors get their own rows');
+  process.env.ALERT_WEBHOOK_URL = 'https://hooks.example.test/x';
+  await M.report({ feature: 'payments', severity: 'critical', code: 'c1', message: `failed for ${hx('b')} 0x48C61f0Ca53259938F5B215ECf4f6b5246f3eA37` });
+  await M.report({ feature: 'payments', severity: 'critical', code: 'c1', message: `failed for ${hx('b')} 0x48C61f0Ca53259938F5B215ECf4f6b5246f3eA37` });
+  ok(sent.length === 1 && !/48C61f|bbbbbbbb/.test(sent[0]), 'a critical failure alerts once, with nothing private in it');
+  await M.report({ feature: 'x', severity: 'error', message: 'not critical' });
+  ok(sent.length === 1, 'ordinary errors do not alert');
+  globalThis.fetch = async () => { throw new Error('webhook down'); };
+  ok(await M.alert('x') === false, 'a broken webhook is harmless');
+  globalThis.fetch = real; delete process.env.ALERT_WEBHOOK_URL;
+  const ins = db.insert, one0 = db.one; db.one = async () => { throw new Error('db down'); };
+  let threw = false; try { await M.report({ feature: 'z', message: 'db is down' }); } catch { threw = true; }
+  db.one = one0; ok(!threw, 'reporting with the database down never throws');
+  // a real server failure lands in the log
+  const Boom = await mk('Boomer'), countBefore = T.errors.length;
+  const sel = db.select, oneBoom = db.one; db.one = async (t, q) => { if (t === 'islands') throw new Error('kaboom in island 1'); return oneBoom(t, q); };
+  const quiet = console.error; console.error = () => {};
+  const crash = await hit(island, Boom, { acts: [] });
+  console.error = quiet; db.one = oneBoom; void sel; void ins;
+  ok(crash.code === 500 && crash.body.error === 'server error, try again' && T.errors.length === countBefore + 1 && /kaboom/.test(T.errors.at(-1).message), 'a server failure is logged, and the player sees no details');
+  ok((await hit(errRoute, null, { message: `boom ${hx('c')}`, stack: 'at x', place: 'hub' }, { auth: '' })).code === 200 && T.errors.some(e => e.feature.startsWith('browser') && !/cccccccc/.test(e.message)), 'browser errors arrive scrubbed');
+
+  // the ledger
+  process.env.TREASURY_ADDRESS = '0x48C61f0Ca53259938F5B215ECf4f6b5246f3eA37';
+  const tre = process.env.TREASURY_ADDRESS, chainTx = {};
+  const P = await mk('PayerOne'), now = () => new Date().toISOString(), PACK = 2000000000000000n;
+  chain.client.getBlockNumber = async () => 1000n;
+  chain.client.getTransaction = async ({ hash }) => { if (!chainTx[hash]) throw Object.assign(new Error('Transaction could not be found'), { name: 'TransactionNotFoundError' }); return chainTx[hash]; };
+  chain.client.getTransactionReceipt = async ({ hash }) => { if (!chainTx[hash]) throw Object.assign(new Error('Transaction receipt could not be found'), { name: 'TransactionReceiptNotFoundError' }); return { status: chainTx[hash].status || 'success', blockNumber: 900n }; };
+  const payTx = (c, p, extra = {}) => { chainTx[hx(c)] = { to: tre, from: p.address, value: PACK, chainId: 4663, ...extra }; return hx(c); };
+  const rowOf = (c, p, extra = {}) => T.payments.push({ tx: hx(c), player_id: p.id, address: p.address, pack: 'pouch', gems: 50, wei: PACK.toString(), created_at: now(), ...extra });
+  T.payments.length = 0; T.recon_findings.length = 0; T.recon_runs.length = 0; T.payment_intents.length = 0;
+  const good = payTx('1', P);
+  ok((await hit(gems, P, { op: 'claim', tx: good, pack: 'pouch' })).body.ok && isl(P).state.paid[good].g === 50 && isl(P).state.gems === 50, 'a purchase leaves a ledger mark with the Gems');
+  ok(!T.payment_intents.some(i => i.tx === good), 'a finished claim clears its record');
+  let run = await runReconcile();
+  ok(run.findings === 0 && run.checked === 1 && !run.partial, 'a clean payment raises nothing');
+  // each kind of problem
+  const kinds = {};
+  const bad = async (kind, build) => { await build(); kinds[kind] = true; };
+  const Q = await mk('PayerTwo'), Other = await mk('PayerThree');
+  await bad('missing_credit', () => { payTx('2', Q); rowOf('2', Q); });
+  await bad('wrong_gems', () => { payTx('3', Q); rowOf('3', Q, { gems: 500 }); isl(Q).state.paid = { [hx('3')]: { g: 500 } }; });
+  await bad('underpaid', () => { payTx('4', Q, { value: 1n }); rowOf('4', Q, { wei: '1' }); isl(Q).state.paid[hx('4')] = { g: 50 }; });
+  await bad('double_credit', () => { payTx('5', Q); rowOf('5', Q); isl(Q).state.paid[hx('5')] = { g: 50, n: 2 }; });
+  await bad('chain_failed', () => { payTx('6', Q, { status: 'reverted' }); rowOf('6', Q); isl(Q).state.paid[hx('6')] = { g: 50 }; });
+  await bad('chain_missing', () => { rowOf('7', Q); isl(Q).state.paid[hx('7')] = { g: 50 }; });
+  await bad('wrong_recipient', () => { payTx('8', Q, { to: Other.address }); rowOf('8', Q); isl(Q).state.paid[hx('8')] = { g: 50 }; });
+  await bad('wrong_sender', () => { payTx('9', Q, { from: Other.address }); rowOf('9', Q); isl(Q).state.paid[hx('9')] = { g: 50 }; });
+  await bad('wrong_chain', () => { payTx('a', Q, { chainId: 1 }); rowOf('a', Q); isl(Q).state.paid[hx('a')] = { g: 50 }; });
+  await bad('overpaid', () => { payTx('b', Q, { value: PACK * 5n }); rowOf('b', Q, { wei: (PACK * 5n).toString() }); isl(Q).state.paid[hx('b')] = { g: 50 }; });
+  await bad('unclaimed_payment', () => { payTx('c', Other); T.payment_intents.push({ tx: hx('c'), player_id: Other.id, pack: 'pouch', at: new Date(Date.now() - 3600e3).toISOString() }); });
+  T.payment_intents.push({ tx: hx('d'), player_id: Other.id, pack: 'pouch', at: new Date(Date.now() - 3600e3).toISOString() });   // a made-up hash
+  payTx('e', Q); rowOf('e', Q, { legacy: true });
+  const gBefore = JSON.stringify(T.islands.map(i => [i.state.gems, i.state.dust]));
+  run = await runReconcile();
+  for (const k of Object.keys(kinds)) ok(T.recon_findings.some(f => f.kind === k && f.status === 'open'), `the check finds: ${k}`);
+  ok(!T.recon_findings.some(f => f.tx === hx('e') && f.kind === 'missing_credit') && T.recon_findings.some(f => f.kind === 'burst'), 'older payments are not accused of a missing credit, and bursts are flagged');
+  ok(!T.payment_intents.some(i => i.tx === hx('d')) && !T.recon_findings.some(f => f.tx === hx('d')), 'a made-up transaction hash is dropped');
+  ok(T.recon_findings.every(f => f.action && f.tx && f.severity), 'every finding has a reference, severity and advice');
+  ok(JSON.stringify(T.islands.map(i => [i.state.gems, i.state.dust])) === gBefore, 'the check never changes anyone\'s Gems');
+  const count = T.recon_findings.length;
+  await runReconcile(); await runReconcile();
+  ok(T.recon_findings.length === count && JSON.stringify(T.islands.map(i => [i.state.gems, i.state.dust])) === gBefore && T.recon_runs.length === 4, 'running the check again adds nothing');
+  // a chain outage must not hide problems
+  const gb = chain.client.getBlockNumber; chain.client.getBlockNumber = async () => { throw new Error('rpc down'); };
+  const open0 = T.recon_findings.filter(f => f.status === 'open').length;
+  run = await runReconcile();
+  ok(run.partial && T.recon_findings.filter(f => f.status === 'open').length >= open0 - 0 && T.errors.some(e => e.code === 'reconcile_partial'), 'a chain outage is reported and clears nothing');
+  chain.client.getBlockNumber = gb;
+  // recovery, by the owner only
+  process.env.ADMIN_ADDRESSES = '0x00000000000000000000000000000000000000ee';
+  const Boss = await mk('BossOwner'); T.players.find(p => p.id === Boss.id).address = process.env.ADMIN_ADDRESSES; Boss.address = process.env.ADMIN_ADDRESSES;
+  const key = `${hx('2')}:missing_credit`;
+  for (const op of ['recon', 'recon_run', 'recon_fix', 'recon_mark', 'errors', 'error_done']) ok((await hit(admin, Q, { op, key })).code === 403, `players cannot use admin ${op}`);
+  ok((await hit(admin, Boss, { op: 'recon' })).body.findings.length > 0 && (await hit(admin, Boss, { op: 'errors' })).body.errors.length > 0, 'the owner sees findings and errors');
+  const gQ = isl(Q).state.gems;
+  const fixes = await Promise.all([hit(admin, Boss, { op: 'recon_fix', key }), hit(admin, Boss, { op: 'recon_fix', key })]);
+  ok(fixes.every(f => f.code === 200) && isl(Q).state.gems === gQ + 50 && isl(Q).state.paid[hx('2')].g === 50, 'two presses of Credit Gems credit once');
+  ok((await hit(admin, Boss, { op: 'recon_fix', key })).body.already === true && isl(Q).state.gems === gQ + 50, 'pressing it again adds nothing');
+  ok((await hit(admin, Boss, { op: 'recon_fix', key: `${hx('6')}:chain_failed` })).code === 400, 'only safe problems have a button');
+  const gO = isl(Other).state.gems;
+  ok((await hit(admin, Boss, { op: 'recon_fix', key: `${hx('c')}:unclaimed_payment` })).body.ok && isl(Other).state.gems === gO + 50, 'a payment the browser lost is credited after a fresh check');
+  ok((await hit(gems, Other, { op: 'claim', tx: hx('c'), pack: 'pouch' })).code === 409 && isl(Other).state.gems === gO + 50, 'the player cannot then claim it again');
+  await runReconcile();
+  ok(T.recon_findings.find(f => f.key === `${hx('2')}:missing_credit`).status !== 'open', 'a fixed problem stays closed');
+  T.errors.length = 0;
+  ok((await hit(cron, null, null, { method: 'GET', auth: 'Bearer x' })).code === 503, 'the daily check refuses to run without its secret set');
+  process.env.CRON_SECRET = 'cron-secret-value';
+  ok((await hit(cron, null, null, { method: 'GET', auth: 'Bearer wrong-secret-value' })).code === 401, 'a wrong secret cannot start the check');
+  ok((await hit(cron, null, null, { method: 'GET', auth: 'Bearer cron-secret-value' })).code === 200, 'the right secret starts the check');
+  delete process.env.CRON_SECRET;
+  const noIsl = await mk('NoIsland'); T.islands.splice(T.islands.findIndex(i => i.player_id === noIsl.id), 1);
+  ok((await creditGems(noIsl.id, hx('f'), 50)).noIsland, 'credit with no island adds nothing and says so');
+
+  // bots
+  const human = await mk('HumanDuel'), m = await startMatch({ player: human, minds: [1] }, null, { ranked: true, botLevel: 'hard' }), v = await getView(m.id, human.id);
+  ok(/^BOT · /.test(v.view.rival.name) && v.vsBot === true, 'a bot rival is labelled by the server');
+  ok(['BOT', 'bot_x', 'B0T_1', 'Bots4Life', 'botty'].every(x => checkName(x)), 'players cannot take a name that looks like a bot label');
+  ok(!checkName('Abbot_9') && !checkName('Robot99'), 'ordinary names with those letters inside are fine');
+  ok(/·/.test('BOT · x') && checkName('BOT · x'), 'the label character cannot be typed into a name');
+  const hist = await hit(player, null, null, { method: 'GET', query: { id: human.id }, auth: '' });
+  await forfeit(m.id, human.id);
+  const hist2 = await hit(player, null, null, { method: 'GET', query: { id: human.id }, auth: '' });
+  ok(hist.code === 200 && hist2.code === 200, 'profiles still load');
+  const mc = chain.client.multicall; chain.client.multicall = async ({ contracts }) => contracts.map(() => ({ status: 'failure' }));
+  const Rd = await mk('RaidHuman'); Object.assign(isl(Rd).state.inv, { troop_brawler: 10 });
+  const f1 = await hit(raid, Rd, { op: 'find', army: { brawler: 4 } });
+  ok(f1.code === 200 && f1.body.bot === true && /^BOT · /.test(f1.body.name) && !T.players.some(p => p.name === f1.body.name), 'a game village is labelled as a bot');
+  chain.client.multicall = mc;
+  const { npcRaid } = await import('../lib/raiders.js');
+  const Nr = await mk('NpcTarget', { dust: 3000 }); isl(Nr).state.npcAt = Date.now() - 30 * 3600e3; for (let i = 0; i < 4; i++) isl(Nr).state.b.push({ id: 90 + i, type: 'lamp', k: 1 });
+  await hit(island, Nr, { acts: [] });
+  ok(/^BOT · /.test(isl(Nr).state.raidLog?.[0]?.by || ''), 'a raider in your log is labelled as a bot');
+  void npcRaid; void RD;
+
+  // legal pages
+  const terms = fs.readFileSync('web/terms.html', 'utf8'), priv = fs.readFileSync('web/privacy.html', 'utf8'), idx = fs.readFileSync('web/index.html', 'utf8');
+  ok(/no cash value/.test(terms) && /Draft/.test(terms) && /Draft/.test(priv), 'the pages state what Gems are, and that they are drafts');
+  ok((idx.match(/href="terms\.html"/g) || []).length >= 2 && (idx.match(/href="privacy\.html"/g) || []).length >= 2, 'terms and privacy are linked from sign-in and Settings');
+  ok(!/complies with|fully compliant|GDPR compliant|guarantee/i.test(terms + priv), 'the pages make no compliance promises');
+  const crons = JSON.parse(fs.readFileSync('vercel.json', 'utf8')).crons;
+  ok(crons?.[0]?.path === '/api/cron/reconcile', 'the daily check is scheduled');
 }
 console.log(`
 ${pass} passed, ${fail} failed`);

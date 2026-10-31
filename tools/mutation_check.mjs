@@ -42,12 +42,26 @@ const M = [
   ['strangers can message', 'lib/routes/messages.js', "if (!(await friends(session.pid, body.to))) fail(403, 'you can only chat with friends');", ''],
   ['outsider plays your match', 'lib/game.js', "    if (seat < 0) throw httpError(403, 'not your match');\n    if (r.status !== 'live') throw httpError(400, 'match is over');", "    if (r.status !== 'live') throw httpError(400, 'match is over');"],
   ['bot takes a real name', 'lib/names.js', "if (!(await db.one('players', `name_key=eq.${encodeURIComponent(name.toLowerCase())}&select=id`))) return name;", 'return name;'],
+  ['no ledger mark', 'lib/routes/gems.js', "    (st.paid ||= {})[hash] = { g: gems, at: Date.now() };\n", ''],
+  ['credit button pays twice', 'lib/routes/gems.js', "    if (st.paid?.[hash]) return { already: true, gems: st.gems || 0 };\n", ''],
+  ['check closes problems during an outage', 'lib/reconcile.js', 'if (!partial) for (const o of open)', 'for (const o of open)'],
+  ['anyone starts the daily check', 'lib/routes/cron_reconcile.js', "if (a.length !== b.length || !timingSafeEqual(a, b)) fail(401, 'not allowed');", ''],
+  ['daily check runs with no secret', 'lib/routes/cron_reconcile.js', "if (!want) fail(503, 'daily check is not set up');", ''],
+  ['wallets reach the error log', 'lib/monitor.js', ".replace(/0x[a-fA-F0-9]{40}/g, '[wallet]')", ''],
+  ['tokens reach the error log', 'lib/monitor.js', ".replace(/Bearer\s+\S+/gi, 'Bearer [hidden]')", ''],
+  ['alerts repeat without limit', 'lib/monitor.js', "if (severity === 'critical' && now - (alerted.get(f) || 0) > ALERT_GAP_MS) {", "if (severity === 'critical') {"],
+  ['failures not logged', 'lib/http.js', 'if (!setup && status === 500) await', 'if (false) await'],
+  ['players can use payment admin', 'lib/routes/admin.js', "case 'recon_fix': {", "case 'recon_fix_off': {"],
+  ['bot rival not labelled', 'lib/game.js', '`BOT · ${botName}`', 'botName'],
+  ['game village not labelled', 'lib/routes/raid.js', 'name: BOT_TAG + (await freeBotName(snap.seed ?? level))', 'name: await freeBotName(snap.seed ?? level)'],
+  ['raider not labelled', 'lib/routes/island.js', 'raided.by = BOT_TAG + (await freeBotName(raided.npc));', 'raided.by = await freeBotName(raided.npc);'],
+  ['players can use a bot name', 'lib/auth.js', " || k.startsWith('bot')", ''],
   ['prototype lookups', 'web/src/island/rules.js', 'for (const table of [CROPS, BUILD, SHOP, RECIPES, RAW, UPGRADABLE]) Object.setPrototypeOf(table, null);\n', ''],
 ];
 const only = process.argv[2];
 rmSync(TMP, { recursive: true, force: true }); mkdirSync(TMP);
 for (const d of ['lib', 'api', 'web/src', 'tools', 'supabase']) cpSync(d, `${TMP}/${d}`, { recursive: true, filter: f => !f.includes('assets') });
-cpSync('package.json', `${TMP}/package.json`); cpSync('vercel.json', `${TMP}/vercel.json`);
+cpSync('package.json', `${TMP}/package.json`); cpSync('vercel.json', `${TMP}/vercel.json`); for (const f of ['terms.html', 'privacy.html', 'index.html']) cpSync(`web/${f}`, `${TMP}/web/${f}`);
 const run = () => { const r = spawnSync('node', ['tools/test_server.mjs'], { cwd: TMP, encoding: 'utf8', timeout: 60000 }); const m = /(\d+) passed, (\d+) failed/.exec(r.stdout || ''); return { fails: m ? +m[2] : -1, crashed: !m, first: (r.stdout || '').split('\n').find(l => l.startsWith('FAIL')) || (r.stderr || '').split('\n').find(l => /Error/.test(l)) || '' }; };
 const base = run();
 console.log('baseline failures:', base.fails);
