@@ -48,7 +48,7 @@ const M = [
   ['anyone starts the daily check', 'lib/routes/cron_reconcile.js', "if (a.length !== b.length || !timingSafeEqual(a, b)) fail(401, 'not allowed');", ''],
   ['daily check runs with no secret', 'lib/routes/cron_reconcile.js', "if (!want) fail(503, 'daily check is not set up');", ''],
   ['wallets reach the error log', 'lib/monitor.js', ".replace(/0x[a-fA-F0-9]{40}/g, '[wallet]')", ''],
-  ['tokens reach the error log', 'lib/monitor.js', ".replace(/Bearer\s+\S+/gi, 'Bearer [hidden]')", ''],
+  ['tokens reach the error log', 'lib/monitor.js', String.raw`.replace(/Bearer\s+\S+/gi, 'Bearer [hidden]')`, ''],
   ['alerts repeat without limit', 'lib/monitor.js', "if (severity === 'critical' && now - (alerted.get(f) || 0) > ALERT_GAP_MS) {", "if (severity === 'critical') {"],
   ['failures not logged', 'lib/http.js', 'if (!setup && status === 500) await', 'if (false) await'],
   ['players can use payment admin', 'lib/routes/admin.js', "case 'recon_fix': {", "case 'recon_fix_off': {"],
