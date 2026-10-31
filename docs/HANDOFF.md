@@ -1,6 +1,10 @@
 # The game's real name is MINDS CLASH (internal keys still say mindclash so nobody gets signed out)
 # HANDOFF — read this first (next AI session: continue from the top of "NEXT TASKS")
 
+## SAVED TASKS (owner parked these, do not forget)
+1. [ ] **Gem payments on Base.** Owner could not buy Gems because payment is ETH on Robinhood Chain. Build: pay on Base (low gas), choice of USDC or ETH. Minds stay on Robinhood Chain. USDC is an ERC-20, so verify the Transfer log in the receipt; extend the ledger and daily check to both. WAITING: owner's USDC prices (suggested 50 Gems $5, 120 $10, 300 $20, 800 $50). Start when the owner says.
+2. [ ] **AI connects to animocaminds.** Do this LAST, after everything else is final.
+
 Owner: Mindclash game owner. Hates long text: short replies, decide for them, build/test/ship without asking
 (stop only for Supabase SQL, Vercel settings, money/payments, OpenArt credits). Everything is drawn in CODE (no OpenArt).
 
@@ -37,7 +41,7 @@ RULES FOR NEXT SESSION: (1) test wallet-account paths, guests hide bugs; (2) run
 `npx --yes eslint@8 --no-eslintrc --env browser,es2022,node --parser-options=sourceType:module,ecmaVersion:latest --rule '{"no-undef":"error"}' web/src lib api`
 (3) python patch scripts must assert every replacement (a silent miss cost us all the music); (4) never push with a failing test.
 
-## Owner notes 2026-10-31: (1) LAST STEP after everything is final: the AI part must connect to animocaminds. (2) Owner could not buy Gems because payment is ETH on Robinhood Chain; wants Base (low gas) and a choice of ETH or USDC. Waiting for owner's USDC prices, then build. (3) Bots stay unlabelled and look human everywhere except Practice and Training (owner confirmed 2026-10-31). They must never use a real player name, and cups stay real players only. Round: terms/privacy drafts need docs/LEGAL_REVIEW.md items. supabase/009_monitoring.sql and CRON_SECRET, ALERT_WEBHOOK_URL pending.
+## Owner notes 2026-10-31: (1) LAST STEP after everything is final: the AI part must connect to animocaminds. (2) Gem payments on Base: see SAVED TASKS. (3) Bots stay unlabelled and look human everywhere except Practice and Training (owner confirmed 2026-10-31). They must never use a real player name, and cups stay real players only. Round: terms/privacy drafts need docs/LEGAL_REVIEW.md items. supabase/009_monitoring.sql and CRON_SECRET, ALERT_WEBHOOK_URL pending.
 ## Supabase is eu-west-2 (London), so vercel.json regions = lhr1.
 ## Launch audit (2026-10-31): DEPLOYED, live commit a597fc2+. Read docs/LAUNCH_REPORT.md first; also docs/AUDIT.md, DEPLOY.md, REAL_MONEY.md. Adventures run on web/src/island/advsim.js and the server replays taps. OWNER TODO: run supabase/008_sessions.sql, one real Gem purchase, two-wallet chat test, confirm backups, tell us the Supabase region so vercel.json `regions` can match it. Open decisions: Town rewards, bot disclosure.
 
