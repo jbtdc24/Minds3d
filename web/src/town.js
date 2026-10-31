@@ -203,7 +203,6 @@ function frame(tMs) {
   for (const b of SPOTS) if (b.name) label(b.name, b.px, b.py - b.spr.h + (b.flat ? 2 : -3), b.go ? '#d4ff1f' : '#fff8e4', undefined, 12);
   for (const o of people.values()) label(o.name, o.x, o.y - 26);
   label('You', meP.x, meP.y - 26, '#d4ff1f');
-  for (let i = 0; i < RESIDENTS; i++) { const r = resident(i, t); label('Bot', r.x, r.y - 25, '#cfd3dc', 'rgba(29,27,47,.6)', 10); }
   talkT -= dt;
   if (talkT <= 0) {   // a resident near you says something
     talkT = 2.5 + Math.random() * 3;

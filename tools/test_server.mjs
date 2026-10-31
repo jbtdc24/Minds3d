@@ -73,11 +73,11 @@ ok(checkName('ab') && checkName('bad name!') && checkName('fuck_you') && checkNa
 // ---- bot match, full game ----
 const A = await db.insert('players', { name: 'Alice', name_key: 'alice', address: acct.address });
 let m = await startMatch({ player: A, minds: [1, 2] }, null, { ranked: true, botLevel: 'normal' });
-ok(m.state.botAt > Date.now() && /^BOT · /.test(m.state.p[1].name) && !m.state.p[1].pending, 'a filler rival takes its time to pick, and its name carries the BOT label');
+ok(m.state.botAt > Date.now() && !/bot/i.test(m.state.p[1].name) && !m.state.p[1].pending, 'a filler rival has a player name and takes its time to pick');
 const ready = () => { for (const r of T.matches) if (r.state?.botAt) r.state.botAt = 0; };
 ready();
 let v = await getView(m.id, A.id), turns = 0;
-ok(v.view.rival.locked === true && v.vsBot === true && v.botLevel === null, 'once it has thought, it locks in; the view says it is a bot');
+ok(v.view.rival.locked === true && v.vsBot === false && v.botLevel === null, 'once it has thought, it locks in; the client is not told it is a bot');
 ok(!JSON.stringify(v).includes('"pending"') && !('play' in v.view.rival), 'hidden picks never sent to the client');
 while (v.status === 'live' && turns < 60) {
   ready();
@@ -1207,7 +1207,7 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   const fs = await import('node:fs'), R = await import('../web/src/island/rules.js'), RD = await import('../web/src/island/raid.js'), chain = await import('../lib/chain.js');
   const M = await import('../lib/monitor.js'), { runReconcile } = await import('../lib/reconcile.js'), { creditGems } = await import('../lib/routes/gems.js');
   const rt = n => import(`../lib/routes/${n}.js`).then(m => m.default);
-  const [admin, gems, cron, errRoute, island, raid, player] = await Promise.all(['admin', 'gems', 'cron_reconcile', 'errors_report', 'island', 'raid', 'player'].map(rt));
+  const [admin, gems, cron, errRoute, island, raid] = await Promise.all(['admin', 'gems', 'cron_reconcile', 'errors_report', 'island', 'raid'].map(rt));
   let n = 900;
   const mk = async (name, st0 = {}, guest = false) => { n++; const p = await db.insert('players', { name, name_key: name.toLowerCase(), address: guest ? null : '0x' + String(n).padStart(40, '0'), is_guest: guest, showcase: [] }); const st = R.newIsland(n, Date.now()); Object.assign(st, { dust: 5000, gems: 0 }, st0); T.islands.push({ player_id: p.id, seed: n, state: st, minds: 0, minds_at: new Date().toISOString(), rev: 0, updated_at: new Date().toISOString() }); return p; };
   const isl = p => T.islands.find(x => x.player_id === p.id);
@@ -1321,28 +1321,23 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   const noIsl = await mk('NoIsland'); T.islands.splice(T.islands.findIndex(i => i.player_id === noIsl.id), 1);
   ok((await creditGems(noIsl.id, hx('f'), 50)).noIsland, 'credit with no island adds nothing and says so');
 
-  // bots
+  // bots look like people outside Practice, and never borrow a real player's name
   const human = await mk('HumanDuel'), m = await startMatch({ player: human, minds: [1] }, null, { ranked: true, botLevel: 'hard' }), v = await getView(m.id, human.id);
-  ok(/^BOT · /.test(v.view.rival.name) && v.vsBot === true, 'a bot rival is labelled by the server');
-  ok(['BOT', 'bot_x', 'B0T_1', 'Bots4Life', 'botty'].every(x => checkName(x)), 'players cannot take a name that looks like a bot label');
-  ok(!checkName('Abbot_9') && !checkName('Robot99'), 'ordinary names with those letters inside are fine');
-  ok(/·/.test('BOT · x') && checkName('BOT · x'), 'the label character cannot be typed into a name');
-  const hist = await hit(player, null, null, { method: 'GET', query: { id: human.id }, auth: '' });
-  await forfeit(m.id, human.id);
-  const hist2 = await hit(player, null, null, { method: 'GET', query: { id: human.id }, auth: '' });
-  ok(hist.code === 200 && hist2.code === 200, 'profiles still load');
+  ok(!/bot/i.test(v.view.rival.name) && v.vsBot === false && !T.players.some(p => p.name === v.view.rival.name), 'a ranked bot looks like a player and uses no real name');
+  const pm = await startMatch({ player: human, minds: [1] }, null, { ranked: false, botLevel: 'easy', practice: true }), pv = await getView(pm.id, human.id);
+  ok(/^BOT · /.test(pv.view.rival.name) && pv.vsBot === true, 'Practice shows the bot openly');
   const mc = chain.client.multicall; chain.client.multicall = async ({ contracts }) => contracts.map(() => ({ status: 'failure' }));
   const Rd = await mk('RaidHuman'); Object.assign(isl(Rd).state.inv, { troop_brawler: 10 });
   const rnd = Math.random; Math.random = () => 0.99;   // always a game village, not a real target
   const f1 = await hit(raid, Rd, { op: 'find', army: { brawler: 4 } });
   Math.random = rnd;
-  ok(f1.code === 200 && f1.body.bot === true && /^BOT · /.test(f1.body.name) && !T.players.some(p => p.name === f1.body.name), 'a game village is labelled as a bot');
+  ok(f1.code === 200 && !('bot' in f1.body) && !/^BOT/.test(f1.body.name) && !T.players.some(p => p.name === f1.body.name), 'a game village looks like a player island, with nothing in the response to tell it apart');
   chain.client.multicall = mc;
-  const { npcRaid } = await import('../lib/raiders.js');
   const Nr = await mk('NpcTarget', { dust: 3000 }); isl(Nr).state.npcAt = Date.now() - 30 * 3600e3; for (let i = 0; i < 4; i++) isl(Nr).state.b.push({ id: 90 + i, type: 'lamp', k: 1 });
   await hit(island, Nr, { acts: [] });
-  ok(/^BOT · /.test(isl(Nr).state.raidLog?.[0]?.by || ''), 'a raider in your log is labelled as a bot');
-  void npcRaid; void RD;
+  const by = isl(Nr).state.raidLog?.[0]?.by || '';
+  ok(by && !/^BOT/.test(by) && !T.players.some(p => p.name === by), 'a raider has a human-style name that no real player uses');
+  void RD;
 
   // the cup must stay hard: only a rare plan may clear a whole village
   const { CUP_ARMY, CUP_LEVEL } = await import('../lib/routes/cup.js');

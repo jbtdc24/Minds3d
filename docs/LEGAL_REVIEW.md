@@ -19,6 +19,7 @@ The pages at `web/terms.html` and `web/privacy.html` are drafts written from wha
 | Sanctions and restricted countries | The game has no country blocking |
 | Tax on crypto sales | Depends on where the operator is based |
 | Consent banner | Google Fonts sends visitors' IP addresses to Google, which has caused complaints in the EU. Self-hosting the fonts would avoid it |
+| Bots that look like players | Ranked opponents, raiders and Town residents are not labelled, by the owner's decision. Ranked wins against them pay points and Dust, and Gems are sold in the game. Consumer-protection rules on misleading practices may apply. The Terms mention it in general wording only |
 | Mind token holder rights | The game's wording should match what the collection promised holders |
 
 ## Not yet in the product

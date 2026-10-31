@@ -52,10 +52,7 @@ const M = [
   ['alerts repeat without limit', 'lib/monitor.js', "if (severity === 'critical' && now - (alerted.get(f) || 0) > ALERT_GAP_MS) {", "if (severity === 'critical') {"],
   ['failures not logged', 'lib/http.js', 'if (!setup && status === 500) await', 'if (false) await'],
   ['players can use payment admin', 'lib/routes/admin.js', "case 'recon_fix': {", "case 'recon_fix_off': {"],
-  ['bot rival not labelled', 'lib/game.js', '`BOT · ${botName}`', 'botName'],
-  ['game village not labelled', 'lib/routes/raid.js', 'name: BOT_TAG + (await freeBotName(snap.seed ?? level))', 'name: await freeBotName(snap.seed ?? level)'],
-  ['raider not labelled', 'lib/routes/island.js', 'raided.by = BOT_TAG + (await freeBotName(raided.npc));', 'raided.by = await freeBotName(raided.npc);'],
-  ['players can use a bot name', 'lib/auth.js', " || k.startsWith('bot')", ''],
+  ['ranked bot revealed to the client', 'lib/game.js', 'vsBot: !row.p1 && !!row.state.practice, botLevel:', 'vsBot: !row.p1, botLevel:'],
   ['prototype lookups', 'web/src/island/rules.js', 'for (const table of [CROPS, BUILD, SHOP, RECIPES, RAW, UPGRADABLE]) Object.setPrototypeOf(table, null);\n', ''],
 ];
 const only = process.argv[2];
