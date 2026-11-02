@@ -1013,7 +1013,7 @@ h3.raid-result { text-align: center; }
 .mp-line { font-size: 13px; padding: 4px 8px; max-width: 90%; } .mp-line.mind { background: #efe6ff; align-self: flex-start; } .mp-line.me { background: #eaffb0; align-self: flex-end; }
 .mp-log { list-style: none; margin: 0; padding: 0; font-size: 12px; display: grid; gap: 3px; max-height: 160px; overflow-y: auto; }
 .mp-log time { color: var(--muted); margin-right: 6px; font-weight: 800; }
-.col-mind.locked .mp-row, .col-mind.locked .mp-presets, .col-mind.locked .fr-add, .col-mind.locked .label { display: none; }
+.col-mind.locked .mp-row, .col-mind.locked .mp-presets, .col-mind.locked .fr-add, .col-mind.locked .label, .col-mind.locked .mp-chat, .col-mind.locked .mp-log { display: none; }
 @media (max-width: 900px) { .col-mind, #s-hub.board-closed .col-mind { width: auto; margin: 0; max-height: none; overflow: visible; } }
 /* 🤝 trade drawer */
 #trade { z-index: 55; overflow-y: auto; } .tr-ico { font-size: 30px; }

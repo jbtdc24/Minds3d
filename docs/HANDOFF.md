@@ -3,8 +3,9 @@
 
 ## >>> START AT "ROUND 12" BELOW <<<
 ## CURRENT STATUS (2026-11-03, night)
-Round 12 + Rank Pass + trading are LIVE on main (19d0ef0). Round 13 (Town Hall 1-10, ranked chests, island points, bigger raid losses) + new chat retention are COMMITTED ON `island`, NOT PUSHED yet (push after the checks pass).
-OWNER TODO: run supabase/010_trades.sql (trading); give the Minds Connect OAuth client ID (real Mind AI chat).
+EVERYTHING BELOW IS LIVE on main (latest pushed 2026-11-03 night): Round 12, Rank Pass, trading + gifts (owner ran 010_trades.sql), Round 13 (Town Hall 1-10, ranked chests, island + Gem points, bigger raid losses), owner's chat retention. 538 tests, fuzz (now incl. trade/autopilot/rankpass), mutation check, economy audit, raid sims, load test all pass. Live demo done as a trial player (start screen, lobby Mind panel, Rank Pass message, Style shop, Town Hall build limits, Mind Town card, decorated cards).
+OWNER TODO: give the Minds Connect OAuth client ID (real Mind AI chat). Test with a wallet: Rank Pass buy, a trade between two wallets in Mind Town, a friend gift, Autopilot Start, ranked chests.
+Known: Style shop takes a few seconds to open (it loads the island first); could show a loading note.
 NEXT (owner asked 2026-11-03): MORE COSMETICS that show off in Mind Town + Ranked: auras (Mind glow in town + duel nameplate), titles under the name (town tag, profile, duel), walking trails in town (hearts/stars/petals); add to rules.js COSMETICS, lib/looks.js clean(), lib/game.js looks(), town.js drawing, shop Style previews.
 Live on main (latest 201902d): everything below through ROUND 11, plus village helpers. 465 tests pass; fuzz, economy audit and full mutation check pass.
 Done 2026-11-02/03: all saved tasks 0-14, round 10 (staked Minds, island edit mode, boss fortress, Giants, helpers), round 11 (cosmetics: 4 card backs, 4 frames, 3 skies, 3 name colours, rival sees looks; victory confetti; 2 new duel arenas; painted loading sky; warmer Mind Town).
