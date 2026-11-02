@@ -3,13 +3,15 @@
 
 ## CURRENT STATUS (2026-11-02)
 Live on main: all security fixes, server-run adventures, error monitoring, payment ledger and daily check, draft Terms and Privacy, harder Siege Cup, London region. SQL 007, 008 and 009 are run. Bots stay unlabelled outside Practice and Training. Owner said GO on the saved tasks (2026-11-02).
-Tasks 3, 4, 5 DONE on branch island (not yet merged to main). Next: task 6, then 7 to 14 in order, task 1 before Gems are sold, task 2 last.
+Tasks 3, 4, 5 SHIPPED to main (2026-11-02). Next: task 0 (island timer bugs, owner reported, DO FIRST), then 6 to 14.
+Open check: tools/mutation_check.mjs reports "1 NOT CAUGHT" (server side, existed before the duel fixes): find and fix it. in order, task 1 before Gems are sold, task 2 last.
 Owner decided 2026-11-02: Siege Cup = same budget, any mix. USDC prices = 50/$5, 120/$10, 300/$20, 800/$50, and ETH stays too (anything on Robinhood Chain). Keep Town rewards.
 Before public launch: confirm Supabase backups, fill in Terms and Privacy and get legal review (docs/LEGAL_REVIEW.md), add CRON_SECRET in Vercel, test capacity on a separate Supabase project, test Safari, Firefox and real phones, one real Gem purchase, two-wallet chat test.
 Ideas on hold: Mind Office, Season Pass, cosmetics, referrals, Town moderation, pitch deck, AI demo, trailer, Train Mind and Auto Battle, play.minds.games domain, Minds Investment Programme application.
 Checks before any deploy: node tools/test_server.mjs, tools/fuzz_server.mjs, tools/mutation_check.mjs, tools/economy_audit.mjs (see docs/DEPLOY.md). The owner wants short plain replies.
 
 ## SAVED TASKS (owner parked these, do not forget)
+0. [ ] **Island timer bugs (owner 2026-11-02, do first).** (a) Exploit: queue clean-up jobs, go to lobby, come back = all done instantly. Jobs must take their real time (server-checked). (b) Building: show how long each build takes before you build. (c) Timers keep running while the player is away; on return, only what had time to finish is done. Check every island timer (build, clean, crops, upgrades) for the same bug.
 1. [ ] **Gem payments on Robinhood Chain, with a choice of USDC or ETH.** The owner corrected this: Robinhood, not Base. ETH already works there. Add USDC: first confirm the official USDC contract on Robinhood Chain (id 4663). It is an ERC-20, so verify the Transfer log in the receipt, and extend the ledger and daily check to it. Prices CONFIRMED: 50 Gems $5, 120 $10, 300 $20, 800 $50; keep ETH as a choice.
 2. [ ] **AI connects to animocaminds.** Do this LAST, after everything else is final.
 3. [x] **Duel: prize timing.** Fixed: app.js handle() keeps newer views in D.pending while a reveal runs, so live pushes no longer repaint the prize mid-animation.
