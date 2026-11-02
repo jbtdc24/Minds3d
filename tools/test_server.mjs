@@ -5,7 +5,7 @@ const { signSession, readSession, loginMessage, checkSignature, checkName } = aw
 const { startMatch, act, getView, forfeit, chatLine } = await import('../lib/game.js');
 const { privateKeyToAccount } = await import('viem/accounts');
 import { randomUUID } from 'node:crypto';
-{ const ch = await import('../lib/chain.js'); ch.client.getLogs = async () => []; ch.client.getCode = async () => '0x'; }   // tests never read real chain logs
+{ const ch = await import('../lib/chain.js'); ch.client.getLogs = async () => []; ch.client.getCode = async () => '0x'; ch.client.getBlockNumber = async () => 100_000_000n; }   // tests never read real chain logs
 
 // ---- tiny PostgREST-ish in-memory db ----
 const T = { players: [], matches: [], queue: [], nonces: [], ratelimit: [], mind_energy: [], islands: [], payments: [], flags: [], mail: [], mail_claims: [], reports: [], agent_keys: [], cups: [], cup_entries: [], town_now: [], town_chat: [], messages: [], friends: [], admin_log: [], errors: [], recon_findings: [], recon_runs: [], payment_intents: [] };
@@ -274,7 +274,8 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   const owner = { 101: VAULT, 102: BUYER, 103: VAULT, 104: ME };   // 101 staked · 102 sold · 103 staked by someone else · 104 in the wallet
   const logs = [{ blockNumber: 5n, logIndex: 0, args: { from: ME, to: VAULT, tokenId: 101n } }, { blockNumber: 6n, logIndex: 0, args: { from: ME, to: BUYER, tokenId: 102n } }, { blockNumber: 7n, logIndex: 0, args: { from: ME, to: BUYER, tokenId: 103n } }];
   const gl = chain.client.getLogs, gc = chain.client.getCode, mc = chain.client.multicall;
-  chain.client.getLogs = async () => logs;
+  const gb = chain.client.getBlockNumber; chain.client.getBlockNumber = async () => 100_000_000n;
+  chain.client.getLogs = async ({ fromBlock }) => fromBlock === 88_000_000n ? logs : [];   // searched in pieces
   chain.client.getCode = async ({ address }) => address === VAULT ? '0x6080' : '0x';
   chain.client.multicall = async ({ contracts }) => contracts.map(c => ({ status: 'success', result: owner[Number(c.args[0])] || '0x0000000000000000000000000000000000000000' }));
   const ids = await stakedBy(ME);
@@ -286,7 +287,7 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   delete process.env.STAKING_CONTRACTS;
   chain.client.getLogs = async () => { throw new Error('rpc down'); };
   ok((await stakedBy(BUYER)).length === 0, 'chain trouble never breaks a login');
-  chain.client.getLogs = gl; chain.client.getCode = gc; chain.client.multicall = mc;
+  chain.client.getLogs = gl; chain.client.getCode = gc; chain.client.multicall = mc; chain.client.getBlockNumber = gb;
 }
 
 // ---- a raided village burns until it is restored ----
