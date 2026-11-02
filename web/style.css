@@ -72,6 +72,11 @@ input[type=range] { width: 180px; accent-color: var(--ink); }
 
 /* boot + login */
 .boot, .queue { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 18px; text-align: center; padding: 16px; }
+/* start screen: logo at the top, bar + button at the bottom, so the 3 Minds in the plaza stay clear */
+.boot { place-content: stretch; grid-template-rows: auto 1fr auto auto; gap: 10px; padding: max(18px, 4vh) 16px max(22px, 6vh); }
+.boot .logo { font-size: clamp(34px, 9vw, 56px); }
+.boot .bar { align-self: end; }
+.boot .tapstart { margin-top: 0; }
 .boot .bar { width: min(320px, 70vw); height: 18px; background: var(--paper); padding: 3px; }
 .boot .bar i { display: block; height: 100%; width: 0; background: repeating-linear-gradient(90deg, var(--lime) 0 12px, var(--lime-d) 12px 14px); transition: width .3s; }
 .login { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(500px, calc(100% - 32px)); max-height: calc(100% - 32px); overflow: auto; display: flex; flex-direction: column; gap: 12px; text-align: center; padding: 26px 22px; }
@@ -580,7 +585,8 @@ p, li, .muted, .fine, .pitch, .coach p, .codex, .modal p, .guest-note { line-hei
 .lb td { vertical-align: middle; } .lb th:first-child, .lb td.rank { width: 48px; text-align: center; } .lb .lbv { white-space: nowrap; }
 
 /* Mind Island */
-.shopbtn { font-size: 24px; }
+.shopbtn, .stylebtn { font-size: 24px; }
+.stylebtn { background: linear-gradient(180deg, #fff3b0, #ffd36a); }
 .mode.island-mode { --bg: linear-gradient(#5ec8ff, #3b86d1); background-size: cover; background-position: center 40%; }
 .mode.island-mode .badge { top: auto; bottom: 8px; right: 8px; background: var(--lime); color: var(--ink); font-size: 13px; padding: 0 6px; }
 #s-island { background: #3b86d1; touch-action: none; user-select: none; }
@@ -612,6 +618,8 @@ p, li, .muted, .fine, .pitch, .coach p, .codex, .modal p, .guest-note { line-hei
 .isl-tools .badge:empty { display: none; }
 .isl-seeds { display: none; flex-direction: column; gap: 4px; background: var(--paper); padding: 6px; width: min(360px, 100%); }
 .isl-seeds.on { display: flex; }
+/* long lists (build menu, seeds) scroll inside the box instead of running off the screen */
+.isl-seeds { max-height: min(46vh, 420px); overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
 .isl-seeds button { display: grid; grid-template-columns: 34px 1fr auto; grid-template-rows: auto auto; column-gap: 8px; align-items: center; text-align: left; padding: 5px 8px; border: 0; background: var(--paper-2); cursor: pointer; font-family: var(--font); color: var(--ink); }
 .isl-seeds button.on { background: #eaffb0; box-shadow: inset 0 0 0 2px var(--ink); }
 .isl-seeds button.none { opacity: .55; }
@@ -966,3 +974,22 @@ h3.raid-result { text-align: center; }
 .nm-rainbow { background: linear-gradient(90deg, #ff5263, #ffc53d, #d4ff1f, #5ec8ff, #9b6bff, #ff5263); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent !important; animation: nmrain 3s linear infinite; }
 @keyframes nmrain { to { background-position: 200% 0; } }
 .cos-name { display: inline-block; font-size: 18px; padding: 14px 6px; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* default card faces: a pixel frame in the card's colour, corner gems, a soft glow and a diamond pattern (no longer plain paper) */
+.card, .rc-face {
+  background:
+    radial-gradient(circle at 50% 46%, color-mix(in srgb, var(--c, #8a7cff) 30%, #fff) 0 30%, transparent 31%),
+    repeating-linear-gradient(45deg, rgba(29,27,47,.05) 0 3px, transparent 3px 9px),
+    repeating-linear-gradient(-45deg, rgba(29,27,47,.05) 0 3px, transparent 3px 9px),
+    linear-gradient(180deg, #fff, var(--paper) 60%, var(--paper-2));
+}
+.card { box-shadow: var(--ps), inset 0 0 0 3px #fff, inset 0 0 0 5px color-mix(in srgb, var(--c, #8a7cff) 75%, #1d1b2f), 0 9px 0 0 rgba(29,27,47,.3); }
+.card.on { box-shadow: var(--ps), inset 0 0 0 3px #fff, inset 0 0 0 5px color-mix(in srgb, var(--c, #8a7cff) 75%, #1d1b2f), 0 0 0 7px var(--lime), 0 16px 0 2px rgba(29,27,47,.25); }
+.card b, .rc-face b { position: relative; z-index: 1; }
+.card i.gem, .rc-face i.gem { position: absolute; width: 6px; height: 6px; background: var(--c, #8a7cff); box-shadow: 0 0 0 2px #1d1b2f; transform: rotate(45deg); pointer-events: none; }
+.card i.gem.a, .rc-face i.gem.a { top: 50%; left: 6px; } .card i.gem.b, .rc-face i.gem.b { top: 50%; right: 6px; }
+.rc-face { box-shadow: 0 -4px 0 0 var(--ink), 0 4px 0 0 var(--ink), -4px 0 0 0 var(--ink), 4px 0 0 0 var(--ink), inset 0 0 0 5px #fff, inset 0 0 0 8px color-mix(in srgb, var(--c, #8a7cff) 75%, #1d1b2f), 0 12px 0 0 rgba(29,27,47,.35); }
+/* a player's card (tap a Mind in Mind Town) */
+.pcard { display: flex; align-items: center; gap: 14px; text-align: left; margin-bottom: 8px; }
+.pcard img { width: 72px; height: 72px; image-rendering: pixelated; background: var(--paper-2); box-shadow: 0 0 0 3px var(--ink); }
+.pcard h3 { margin: 0; } .pcard p { margin: 2px 0 0; }

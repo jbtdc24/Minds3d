@@ -125,7 +125,7 @@ export function sfx(name, delay = 0) {
 }
 // Minds talk in cute gibberish: 2-5 little syllables, each a quick blip. Every Mind has its own pitch.
 // mood: 'chat' | 'work' | 'happy' | 'sad'. id keeps one Mind's voice the same every time. Returns the words to show.
-const SYL = ['mi', 'mo', 'bu', 'pa', 'nya', 'bi', 'doo', 'ta', 'wa', 'ni', 'pu', 'ko'];
+const SYL = ['mii', 'nyu', 'pyu', 'pip', 'nya', 'mew', 'kyu', 'popo', 'chu', 'pii', 'mumu', 'peko', 'nini', 'bwi'];
 // about one line in four is a real word or two, so players catch what their Minds are saying
 const REAL = {
   chat: ['gm!', 'hello!', 'nice day', 'so sleepy', 'where is my Dust?', "let's duel!", 'I love this town', 'hehe', 'wow!', 'hungry...', 'who stole my hat?', 'gg!', 'crown is mine'],
@@ -134,25 +134,27 @@ const REAL = {
   sad: ['oh no...', 'hmm?', 'sorry...', 'I am confused'],
 };
 export function babble(id = 1, mood = 'chat', loud = 1) {
-  const base = 330 + ((id * 37) % 260), real = Math.random() < 0.25 ? REAL[mood][Math.random() * REAL[mood].length | 0] : null;
+  const base = 640 + ((id * 37) % 360), real = Math.random() < 0.25 ? REAL[mood][Math.random() * REAL[mood].length | 0] : null;
   const n = real ? Math.min(6, 2 + real.split(' ').length) : 2 + (Math.random() * 4 | 0), words = [];
   for (let i = 0; i < n; i++) {
     words.push(SYL[Math.random() * SYL.length | 0]);
     if (!ctx) continue;
-    const t = ctx.currentTime + i * 0.105, f = base * (1 + Math.random() * 0.35) * (mood === 'sad' ? 0.8 : mood === 'happy' ? 1.25 : 1);
-    const end = mood === 'sad' ? 0.7 : i === n - 1 ? 1.5 : 0.88 + Math.random() * 0.3;
-    tone(f, t, 0.1, { type: 'triangle', gain: 0.3 * loud, slide: end, attack: 0.012 });
-    tone(f * 2.02, t, 0.08, { type: 'sine', gain: 0.1 * loud, slide: end, attack: 0.012 });
+    // cute = high, soft and bouncy: a sine blip that hops up a little at the start, with a tiny wobble, and a rising squeak at the end
+    const t = ctx.currentTime + i * 0.09 + (i % 2) * 0.012, f = base * (1 + Math.random() * 0.3) * (mood === 'sad' ? 0.82 : mood === 'happy' ? 1.2 : 1);
+    const end = mood === 'sad' ? 0.75 : i === n - 1 ? 1.65 : 0.95 + Math.random() * 0.35;
+    tone(f * 0.86, t, 0.025, { type: 'sine', gain: 0.16 * loud, slide: 1.18, attack: 0.004 });
+    tone(f, t + 0.018, 0.075, { type: 'sine', gain: 0.26 * loud, slide: end, attack: 0.01, vib: 0.03 });
+    tone(f * 2, t + 0.018, 0.06, { type: 'triangle', gain: 0.05 * loud, slide: end, attack: 0.01 });
   }
   return real || words.join(mood === 'work' ? '-' : ' ');
 }
 // a tiny cute battle squeak: scream (attack), ow (hit), bye (fell)
 export function squeak(kind = 'scream', id = 1) {
   if (!ctx) return;
-  const t = ctx.currentTime, f = (520 + (id * 53) % 420) * (1 + Math.random() * 0.2);
-  if (kind === 'scream') { tone(f, t, 0.14, { type: 'triangle', gain: 0.24, slide: 1.7, attack: 0.01 }); tone(f * 1.5, t + 0.07, 0.1, { type: 'sine', gain: 0.12, slide: 1.3 }); }
-  else if (kind === 'ow') tone(f * 1.2, t, 0.12, { type: 'triangle', gain: 0.24, slide: 0.55, attack: 0.008 });
-  else { tone(f, t, 0.3, { type: 'triangle', gain: 0.24, slide: 0.3, attack: 0.01 }); tone(f * 0.5, t + 0.1, 0.22, { type: 'sine', gain: 0.12, slide: 0.5 }); }
+  const t = ctx.currentTime, f = (780 + (id * 53) % 480) * (1 + Math.random() * 0.2);
+  if (kind === 'scream') { tone(f, t, 0.06, { type: 'sine', gain: 0.2, slide: 1.4, attack: 0.006 }); tone(f * 1.35, t + 0.06, 0.1, { type: 'sine', gain: 0.18, slide: 1.5, vib: 0.04 }); }   // "nya-ah!"
+  else if (kind === 'ow') { tone(f * 1.3, t, 0.05, { type: 'sine', gain: 0.2, slide: 1.1, attack: 0.004 }); tone(f * 1.1, t + 0.05, 0.08, { type: 'sine', gain: 0.18, slide: 0.7 }); }   // "eep"
+  else { tone(f, t, 0.22, { type: 'sine', gain: 0.2, slide: 0.45, attack: 0.01, vib: 0.05 }); tone(f * 1.5, t + 0.16, 0.12, { type: 'sine', gain: 0.1, slide: 0.6 }); }   // a sad little "nyuuu"
 }
 
 // ---------- music: a small chiptune sequencer (chords, bass, arp, lead, drums) ----------

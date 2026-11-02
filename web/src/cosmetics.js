@@ -5,6 +5,9 @@ export const SKY_IMG = { sky_aurora: 'assets/sky_aurora.webp', sky_sakura: 'asse
 export const NAME_CLASS = { name_gold: 'nm-gold', name_neon: 'nm-neon', name_rainbow: 'nm-rainbow' };
 export const FRAME_CLASS = { frame_gold: 'fr-gold', frame_frost: 'fr-frost', frame_flame: 'fr-flame', frame_rainbow: 'fr-prism' };
 const ALL_FRAMES = Object.values(FRAME_CLASS);
+// class names for another player's looks inside HTML lists (leaderboard, friends, profile, town)
+export const frameCls = cos => FRAME_CLASS[cos?.frame] || '';
+export const nameCls = cos => NAME_CLASS[cos?.name] || '';
 // put the equipped looks on: your card backs in duels, and the frame on your own pictures
 // a name colour on the given name elements
 export function nameLook(cos, sels) {

@@ -151,12 +151,13 @@ function drawMind(m, step) {
   g.save(); g.translate(Math.round(m.x), Math.round(m.y) - (step && m.walking ? 1 : 0)); if (m.dir < 0) g.scale(-1, 1);
   g.drawImage(s.cv, -Math.floor(s.w / 2), 1 - s.h); g.restore();
 }
-function label(text, wx, wy, color = '#fff8e4', box = 'rgba(29,27,47,.85)', size = 13) {
+function label(text, wx, wy, color = '#fff8e4', box = 'rgba(29,27,47,.85)', size = 13, edge = null) {
   const x = (wx - CAM.x) * zoom + W / 2, y = (wy - CAM.y) * zoom + H / 2;
   if (x < -80 || x > W + 80 || y < -20 || y > H + 20) return;
   g.font = `800 ${size}px Nunito, sans-serif`; g.textAlign = 'center';
   const w = g.measureText(text).width + 12;
   g.fillStyle = box; g.fillRect(Math.round(x - w / 2), Math.round(y - size - 3), w, size + 8);
+  if (edge) { g.strokeStyle = edge; g.lineWidth = 2; g.strokeRect(Math.round(x - w / 2) - 1, Math.round(y - size - 3) - 1, w + 2, size + 10); }
   g.fillStyle = color; g.fillText(text, x, y);
 }
 function clampCam() {
@@ -203,8 +204,12 @@ function frame(tMs) {
   g.setTransform(DPR, 0, 0, DPR, 0, 0);
   drawCinema(g, W, H, t, dt, { motes: 'pollen' });   // warm light, sun rays, drifting pollen, vignette (like the island)
   for (const b of SPOTS) if (b.name) label(b.name, b.px, b.py - b.spr.h + (b.flat ? 2 : -3), b.go ? '#d4ff1f' : '#fff8e4', undefined, 12);
-  for (const o of people.values()) label(o.name, o.x, o.y - 26);
+  for (const o of people.values()) { const c = wears.get(o.id); label(o.name, o.x, o.y - 26, nameInk(c, t), undefined, 13, FRAME_INK[c?.frame]); }
   label('You', meP.x, meP.y - 26, '#d4ff1f');
+  // 📣 Megaphone messages stay over a player's head for an hour
+  const now = Date.now();
+  for (const o of people.values()) { const m = wears.get(o.id)?.mega; if (m && m.until > now) label(`📣 ${m.text}`, o.x, o.y - 52, '#2b2340', '#ffd84a', 13, '#8a5a00'); }
+  if (myMega && myMega.until > now) label(`📣 ${myMega.text}`, meP.x, meP.y - 52, '#2b2340', '#ffd84a', 13, '#8a5a00');
   talkT -= dt;
   if (talkT <= 0) {   // a resident near you says something
     talkT = 2.5 + Math.random() * 3;
@@ -223,6 +228,11 @@ function resize() {
   cv.width = W * DPR; cv.height = H * DPR; setZoom(zoom);
 }
 let beating = false, again = false, beatTimer = 0;
+const wears = new Map();   // each player's bought looks (name colour, frame, megaphone)
+let myMega = null;
+export const setMega = m => { myMega = m; };
+const NAME_INK = { name_gold: '#ffc53d', name_neon: '#5ff2ff' }, FRAME_INK = { frame_gold: '#ffd84a', frame_frost: '#9fe6ff', frame_flame: '#ff7a3a', frame_rainbow: '#d58cff' };
+const nameInk = (cos, t) => cos?.name === 'name_rainbow' ? `hsl(${(t * 120) % 360} 95% 68%)` : NAME_INK[cos?.name] || '#fff8e4';
 // runs on its own timer, not the drawing loop, so an AFK player in a background tab stays in town and keeps earning
 async function beat() {
   if (beating) { again = true; return; }
@@ -238,6 +248,7 @@ async function beat() {
       for (const k of people.keys()) if (!ids.has(k)) people.delete(k);
       for (const o of r.people) { const q = people.get(o.id); if (q) walkTo(q, o.x, o.y); else people.set(o.id, { ...o, tx: o.x, ty: o.y }); }
     } else syncRoom();
+    for (const o of r.people) wears.set(o.id, o.cos || null);   // bought looks: name colour + frame on the name tag
     stayLeft = r.stay; paintStay();
     for (const c of r.chat) {
       chatAfter = Math.max(chatAfter, c.id);
@@ -314,7 +325,13 @@ const release = e => {
   ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null;
   if (e.type !== 'pointerup' || !tap || tap.moved > 8) { if (!ptrs.size) tap = null; return; }
   tap = null;
-  const w = toWorld(e.clientX, e.clientY), b = SPOTS.find(s => s.name && Math.abs(w.x - s.px) < s.spr.w / 2 && w.y < s.py + 2 && w.y > s.py - s.spr.h - 22 / zoom);
+  const w = toWorld(e.clientX, e.clientY);
+  // tapped a Mind? players open their card (rating, friend, chat); town residents show who they are
+  const hit = (x, y) => Math.abs(w.x - x) < 11 && w.y < y + 4 && w.y > y - 30;
+  const who = [...people.values()].find(o => hit(o.x, o.y));
+  if (who) { sfx('select'); K.card({ pid: who.id, name: who.name, mind: who.mind, cos: wears.get(who.id) }); return; }
+  for (let i = 0; i < RESIDENTS; i++) { const r = resident(i, Date.now() / 1000 - 1.79e9); if (hit(r.x, r.y)) { sfx('select'); K.card({ mind: r.id }); return; } }
+  const b = SPOTS.find(s => s.name && Math.abs(w.x - s.px) < s.spr.w / 2 && w.y < s.py + 2 && w.y > s.py - s.spr.h - 22 / zoom);
   free = false;
   const d = b ? map.doors[b.name] : null;
   meP.path = pathTo(meP.x, meP.y, d ? d.x * T + 8 : w.x, d ? d.y * T + 10 : w.y);
@@ -329,6 +346,7 @@ $('#town-in-z').onclick = () => setZoom(zoom * 1.3);
 $('#town-out-z').onclick = () => setZoom(zoom / 1.3);
 $('#town-all').onclick = () => { free = true; setZoom(minZoom()); };
 $('#town-me').onclick = () => { free = false; setZoom(1.3); };
+$('#town-mega').onclick = () => K.mega();
 function send() {
   const b = $('#town-in'), text = b.value.trim();
   if (!text) return;

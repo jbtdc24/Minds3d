@@ -782,7 +782,7 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   const R = await import('../web/src/island/rules.js'), RD = await import('../web/src/island/raid.js'), J = await import('../web/src/island/jobs.js'), chain = await import('../lib/chain.js');
   const { npcRaid } = await import('../lib/raiders.js');
   const rt = n => import(`../lib/routes/${n}.js`).then(m => m.default);
-  const [mail, report, messages, admin, cup, town, agent, island, friend] = await Promise.all(['mail', 'report', 'messages', 'admin', 'cup', 'town', 'agent', 'island', 'friend'].map(rt));
+  const [mail, report, messages, admin, cup, town, agent, island, friend, friends] = await Promise.all(['mail', 'report', 'messages', 'admin', 'cup', 'town', 'agent', 'island', 'friend', 'friends'].map(rt));
   const { agentKeys } = await import('../lib/routes/agent.js');
   const { settle } = await import('../lib/routes/cup.js');
   const addr = '0x48C61f0Ca53259938F5B215ECf4f6b5246f3eA37', addr2 = '0x0000000000000000000000000000000000000abc', addr3 = '0x0000000000000000000000000000000000000abd';
@@ -823,11 +823,24 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   ok(out.code === 200, 'friends can type anything');
   out = await hit(messages, B, null, 'GET', { with: A.id });
   ok(out.body.messages[0].text === 'hello <b>there</b>', 'typed messages arrive');
-  ok((await hit(messages, C, { to: A.id, text: 'hi' })).code === 403, 'strangers cannot message you');
-  T.messages[0].created_at = new Date(Date.now() - 31 * 864e5).toISOString();
-  ok(!(await hit(messages, B, null, 'GET', { with: A.id })).body.messages.length, 'messages over 30 days old are gone');
+  ok((await hit(messages, C, { to: A.id, text: 'hi' })).code === 200, 'players who are not friends can message (Mind Town chat)');
+  ok((await hit(friends, A, null, 'GET')).body.chats?.some(c => c.player.id === C.id), 'a message from a non-friend shows under Messages');
+  ok((await hit(friend, A, { op: 'block', id: C.id })).code === 200, 'you can block a player');
+  ok((await hit(messages, C, { to: A.id, text: 'hi again' })).code === 403, 'a blocked player cannot message you');
+  ok(!(await hit(friends, A, null, 'GET')).body.chats?.some(c => c.player.id === C.id) && !(await hit(friends, A, null, 'GET')).body.friends.some(f => f.player.id === C.id), 'blocked players do not show in your lists');
+  ok((await hit(friend, C, { op: 'add', id: A.id })).body.status === 'pending' && !T.friends.some(f => f.a === C.id && f.b === A.id), 'a blocked player cannot send a friend request');
+  T.friends = T.friends.filter(f => f.status !== 'blocked'); T.messages = T.messages.filter(m => m.from_id !== C.id);
+  T.messages[0].created_at = new Date(Date.now() - 91 * 864e5).toISOString();
+  ok(!(await hit(messages, B, null, 'GET', { with: A.id })).body.messages.length, 'messages over 90 days old are gone');
   ok((await hit(friend, A, { op: 'remove', id: B.id })).code === 200 && !T.friends.length, 'unfriend removes the friendship');
   ok((await hit(report, A, { kind: 'player', text: 'He was rude to me', target: B.id })).code === 200 && T.reports.length === 1, 'reports are saved');
+  {   // chat and history clean-up (lib/retention.js)
+    const { prune, KEEP } = await import('../lib/retention.js'), old = d => new Date(Date.now() - d * 864e5).toISOString();
+    T.messages.push({ id: 9001, from_id: A.id, to_id: B.id, text: 'old', created_at: old(91) }, { id: 9002, from_id: A.id, to_id: B.id, text: 'new', created_at: old(10) });
+    T.town_chat.push({ id: 9003, name: 'x', text: 'old town', kind: 'chat', created_at: old(8) }, { id: 9004, name: 'x', text: 'fresh town', kind: 'chat', created_at: old(1) });
+    await prune();
+    ok(!T.messages.some(m => m.id === 9001) && T.messages.some(m => m.id === 9002) && !T.town_chat.some(c => c.id === 9003) && T.town_chat.some(c => c.id === 9004) && KEEP.messages === 90 && KEEP.town_chat === 7, 'chat over 90 days and town chat over 7 days are deleted, newer chat stays');
+  }
 
   // mail + admin
   process.env.ADMIN_ADDRESSES = addr;
@@ -895,7 +908,8 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   const gNow = isl(A).state.gems, gB = isl(B).state.gems;
   T.cups[0].day = '2000-01-01'; T.cup_entries.forEach(x => { x.day = '2000-01-01'; });
   await settle(); await settle();
-  ok(isl(A).state.gems === gNow + 10 && isl(B).state.gems === gB, 'the winners get all the Gems, once');
+  ok(isl(A).state.gems === gNow + 9 && isl(B).state.gems === gB, 'the winner gets the pool minus the 10% house fee, once');
+  ok(out.body.prize === 9 && out.body.fee === 0.1, 'the cup screen shows the prize after the fee');
   ok(T.mail.some(m => m.to_id === A.id && /won/.test(m.title)), 'winners get a letter');
   T.cups.push({ day: '2000-01-02', seed: 9, entry: 5, settled: false }); T.cup_entries.push({ day: '2000-01-02', player_id: C.id, name: 'Cid', best: 0 });
   const gC = isl(C).state.gems; await settle();
@@ -910,6 +924,18 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   ok(out.body.people[0].name === 'Bob' && out.body.got?.kind === 'meet' && isl(A).state.dust === dA + 20, 'you see other players and meeting one pays');
   out = await hit(town, A, { x: 100, y: 100, mind: 49 });
   ok(!out.body.got, 'meeting the same player again pays nothing');
+  // 📣 Megaphone + bought looks seen by others
+  isl(B).state.gems = 0;
+  ok((await hit(town, B, { op: 'mega', text: 'hello town' })).code === 403, 'the Megaphone needs a Gem');
+  isl(B).state.gems = 3; isl(B).state.cos = { own: ['name_gold'], name: 'name_gold' };
+  out = await hit(town, B, { op: 'mega', text: 'hello town' });
+  ok(out.code === 200 && isl(B).state.gems === 2 && isl(B).state.mega?.text === 'hello town' && isl(B).state.mega.until - Date.now() > 3500e3, 'the Megaphone costs 1 Gem and lasts an hour');
+  out = await hit(town, A, { x: 100, y: 100, mind: 49 });
+  const bob = out.body.people.find(o => o.name === 'Bob');
+  ok(bob?.cos?.mega?.text === 'hello town' && bob.cos.name === 'name_gold', 'others in town see the Megaphone message and bought looks');
+  ok(out.body.chat.some(c => c.text === '📣 hello town'), 'a Megaphone message also goes into town chat');
+  isl(B).state.mega.until = Date.now() - 1;
+  ok((await hit(town, B, { op: 'mega', text: '' })).code === 400, 'an empty Megaphone message is refused');
   T.town_now.find(x => x.player_id === A.id).since = new Date(Date.now() - 11 * 60e3).toISOString();
   out = await hit(town, A, { x: 100, y: 100, mind: 49, say: 'hi all' });
   ok(out.body.got?.kind === 'time' && out.body.chat.some(c => c.text === 'hi all'), 'staying in town pays, and chat works');
@@ -1066,7 +1092,7 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   ok(!RD.publicSnap(fullSnap).b.some(b => b.type === 'trap') && RD.publicSnap(fullSnap).b.length > 3, 'the raider gets the village without hidden traps');
   delete isl(Att).state.raid;
   // targets are random: keep looking until one really has traps, or the check proves nothing
-  for (let i = 0; i < 12; i++) {
+  for (let i = 0; i < 60; i++) {   // real villages come first now, so a game village (with traps) is rarer
     out = await hit(raid, Att, { op: 'find', army: { brawler: 4 } });
     if (out.code !== 200 || isl(Att).state.raid?.snap.b.some(b => b.type === 'trap')) break;
     delete isl(Att).state.raid; delete isl(Att).state.rd; delete isl(Att).state.pl; isl(Att).state.inv.troop_brawler = 10;   // fresh raid count and troops for the next look
@@ -1517,7 +1543,7 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   ok(/^BOT · /.test(pv.view.rival.name) && pv.vsBot === true, 'Practice shows the bot openly');
   const mc = chain.client.multicall; chain.client.multicall = async ({ contracts }) => contracts.map(() => ({ status: 'failure' }));
   const Rd = await mk('RaidHuman'); Object.assign(isl(Rd).state.inv, { troop_brawler: 10 });
-  const rnd = Math.random; Math.random = () => 0.99;   // always a game village, not a real target
+  const rnd = Math.random; Math.random = () => 0.01;   // always a game village, not a real target
   const f1 = await hit(raid, Rd, { op: 'find', army: { brawler: 4 } });
   Math.random = rnd;
   ok(f1.code === 200 && !('bot' in f1.body) && !/^BOT/.test(f1.body.name) && !T.players.some(p => p.name === f1.body.name), 'a game village looks like a player island, with nothing in the response to tell it apart');

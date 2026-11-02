@@ -17,6 +17,8 @@ If a table is added to the prototype-lock line in rules.js, also update tools/mu
 2. [ ] Island build menu must scroll (list of things to build).
 3. [ ] Cosmetics hard to find: owner can't see them. Make the ✨ Style shop obvious (lobby/profile entry, not only Shop tab).
 4. [ ] Skins bug: two phones dueling see different backgrounds. Arena (and sky) must come from match state so both see the same.
+4b. [ ] Paid cosmetics visible to other players EVERYWHERE (duel, town, raid, profile, friends); paid looks win over defaults.
+4c. [ ] Default cards look plain: decorate the default card back/front (OpenArt LOW allowed).
 5. [ ] Siege Cup prize: house keeps 10% of the prize pool, winner gets 90%. Show it on the cup screen.
 6. [ ] Raid targets: real player villages first, bot villages only as fill (still some for fun). Game raiders on players stay.
 7. [ ] Chat/history retention (AI decided): all chat (friend, duel, private) deleted after 90 days; Mind Town public chat 7 days; mail 90 days; raid/attack logs keep newest 50 per player; reports 180 days. Daily cron cleans.
@@ -25,6 +27,7 @@ If a table is added to the prototype-lock line in rules.js, also update tools/mu
 10. [ ] REAL MIND TALK + MIND AUTOPILOT (showcase: "your Mind plays the game for you"):
    - Lobby side panel "🧠 Your Mind": presets (Farmer, Raider, Ranked grinder, Explorer, Balanced daily loop, Decorator) + a chat box to train it manually after a preset.
    - Mind can do everything through the existing /api/agent ops: plant/harvest, decorate, build, raid, adventure, ranked duels, visit Mind Town for rewards, then loop (e.g. farm → adventure → duel → town few hours → farm → raid).
+   - OWNER DECIDED 2026-11-03: every player signs in with Minds Connect (or makes a Minds account in the flow), and the game AWAKENS ONE AI MIND PER MINDS NFT they own (POST /v1/minds/awaken, scope minds:awaken; names checked with /v1/minds/check/name, e.g. Clash-1234). Each AI Mind chats/trains/plays for its NFT (messaging:send). One at a time with progress; stop cleanly if Minds refuses (per-account limit and credit cost unknown). Sold NFT = AI Mind stops playing it in game. BLOCKER for this part: owner registers an OAuth client in https://build.hellominds.ai/console (redirects https://minds3d.vercel.app/ + http://localhost:5173/, scopes minds:awaken, messaging:send, read minds) and gives the client ID (no secret).
    - Real talk via Minds Builder API (api.build.hellominds.ai, X-Api-Key, key in Vercel env MINDS_API_KEY). Plan: server turns chat into a plan of game ops; the Mind runs the plan on the server (cron/steps), with a live log the player can watch and stop.
    - Gems: OFF by default. Turning on needs several confirmations (toggle + daily gem cap + type CONFIRM), every gem spend logged, one-tap stop.
    - Same game limits as a player; ranked games by the Mind are labelled.

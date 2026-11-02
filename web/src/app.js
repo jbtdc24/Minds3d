@@ -10,10 +10,10 @@ import { initAudio, sfx, music, setVolume, babble } from './audio.js';
 import { PHRASES, MATCH_CHAT, FRIEND_CHAT, BOT_REPLIES } from './chat.js';
 import { initMindTalk, openMinds } from './mindtalk.js';
 import { chatSigner } from './chatsign.js';
-import { initTown, openTown, closeTown } from './town.js';
+import { initTown, openTown, closeTown, setMega } from './town.js';
 import { capOf, ENERGY_CAP } from './energy.js';
 import { loading } from './loader.js';
-import { wear, nameLook, BACK_IMG, FRAME_CLASS, SKY_IMG, NAME_CLASS } from './cosmetics.js';
+import { wear, nameLook, frameCls, nameCls, BACK_IMG, FRAME_CLASS, SKY_IMG, NAME_CLASS } from './cosmetics.js';
 import { openIsland, closeIsland, refreshHud, cropImg, fmtTime, restore } from './island/island.js';
 import { chibi } from './island/chibi.js';
 import { openRaid, closeRaid } from './island/raidview.js';
@@ -313,7 +313,7 @@ $('#hub-ranked').onclick = async () => {
 };
 $('#hub-practice').onclick = () => openPrep('practice');
 $('#hub-classic').onclick = () => openPrep('classic');
-$('#hub-town').onclick = () => { closeIsland(); show('town'); stage.paused = true; openTown(); };
+$('#hub-town').onclick = () => { closeIsland(); show('town'); stage.paused = true; setMega(isle.state?.mega || null); openTown(); };
 $('#town-back').onclick = () => { closeTown(); enterHub(); };
 // tapping a building in town: walk over, then use it
 const townGo = where => {
@@ -370,8 +370,8 @@ async function openCup() {
   const left = c.me ? c.tries - c.me.tries : c.tries, hours = Math.max(1, Math.ceil((c.endsAt - Date.now()) / 3600e3));
   const rows = c.top.map((e, i) => `<div class="cup-row"><b>${i + 1}</b><span>${esc(e.name)}</span><em>${'★'.repeat(e.stars)}${'☆'.repeat(3 - e.stars)} ${e.pct}%</em></div>`).join('') || '<p class="muted">No scores yet. Be first!</p>';
   const go = await modal(`<h3>🏆 Daily Siege Cup</h3><p>Everyone attacks the same boss fortress with the same army budget: you pick the mix. Your Minds, troop levels and Gems give no edge, so only your plan counts. ${c.tries} tries, best score counts.</p>
-    <div class="army-facts"><span>💎 Prize pool: <b>${c.pool}</b></span><span>👥 Players: <b>${c.players}</b></span><span>🎟️ Entry: <b>${c.entry} 💎</b></span><span>⏳ Ends in: <b>${hours} h</b></span></div>
-    <p class="muted">Top 3 share every Gem: 60 / 30 / 10%. Real players only. If nobody else joins, your entry comes back.</p>${rows}${c.last?.winners.length ? `<p class="muted">Last winner: <b>${esc(c.last.winners[0].name)}</b> · ${c.last.winners[0].gems} 💎</p>` : ''}`,
+    <div class="army-facts"><span>💎 Prize: <b>${c.prize ?? c.pool}</b></span><span>👥 Players: <b>${c.players}</b></span><span>🎟️ Entry: <b>${c.entry} 💎</b></span><span>⏳ Ends in: <b>${hours} h</b></span></div>
+    <p class="muted">Top 3 share the prize: 60 / 30 / 10% (${Math.round((c.fee || 0) * 100)}% of the pool is the cup fee). Real players only. If nobody else joins, your entry comes back.</p>${rows}${c.last?.winners.length ? `<p class="muted">Last winner: <b>${esc(c.last.winners[0].name)}</b> · ${c.last.winners[0].gems} 💎</p>` : ''}`,
     c.me ? (left > 0 ? [[`Play (${left} left)`, 'play', 'primary'], ['Close', 0]] : [['Close', 0, 'primary']]) : [[`Enter for ${c.entry} 💎`, 'join', 'primary'], ['Close', 0]]);
   if (!go) return;
   try {
@@ -678,6 +678,8 @@ $('#set-code-go').onclick = async () => {
   sfx('denied'); toast('That code does not work.', true);
 };
 $('#hub-shop').onclick = () => openShop();
+$('#hub-style').onclick = () => openShop('style');
+$('#pf-looks').onclick = () => openShop('style');
 // the lobby tile shows a picture of your own island (made once, after the lobby has settled)
 let thumbFor = null;
 let islandPeek = false;
@@ -863,8 +865,8 @@ function podium(players, by) {
     const p = players[i];
     return `<div class="pod p${i + 1} ${p ? '' : 'open'} ${p && p.id === me?.id ? 'mine-row' : ''}" ${p ? `data-pid="${p.id}"` : ''}>
       ${i === 0 ? '<img class="pod-crown" src="assets/crown.png" alt="">' : ''}
-      <div class="pod-pfp">${p ? `<img src="${thumb(p.pfp)}" alt="">` : '?'}</div>
-      <div class="pod-nm">${p ? esc(p.name) : 'Open seat'}</div>
+      <div class="pod-pfp">${p ? `<img class="${frameCls(p.cos)}" src="${thumb(p.pfp)}" alt="">` : '?'}</div>
+      <div class="pod-nm ${nameCls(p?.cos)}">${p ? esc(p.name) : 'Open seat'}</div>
       <div class="pod-vl">${p ? valIcon(by) + (by === 'points' ? p.points : p.rating) : '—'}</div>
       <div class="pod-base">${i + 1}</div></div>`;
   }).join('')}</div>`;
@@ -874,7 +876,7 @@ async function loadBoard() {
   if (!online) { top.innerHTML = podium([], boardBy); list.innerHTML = '<li class="board-empty">Live rankings show here when you play online.</li>'; mine.innerHTML = ''; return; }
   try {
     const r = await api(`leaderboard?by=${boardBy}`);
-    const row = (p, i) => `<li class="brow ${p.id === me?.id ? 'mine-row' : ''}" data-pid="${p.id}"><span class="rk">${i + 1}</span><img src="${thumb(p.pfp)}" alt=""><span class="nm">${esc(p.name)}</span><span class="vl">${valIcon(boardBy)}${boardBy === 'points' ? p.points : p.rating}</span></li>`;
+    const row = (p, i) => `<li class="brow ${p.id === me?.id ? 'mine-row' : ''}" data-pid="${p.id}"><span class="rk">${i + 1}</span><img class="${frameCls(p.cos)}" src="${thumb(p.pfp)}" alt=""><span class="nm ${nameCls(p.cos)}">${esc(p.name)}</span><span class="vl">${valIcon(boardBy)}${boardBy === 'points' ? p.points : p.rating}</span></li>`;
     top.innerHTML = podium(r.players, boardBy);
     $('#board-tab-pfps').innerHTML = r.players.slice(0, 3).map(p => `<img src="${thumb(p.pfp)}" alt="">`).join('');
     list.innerHTML = r.players.length > 3 ? r.players.slice(3, 12).map((p, i) => row(p, i + 3)).join('')
@@ -973,13 +975,15 @@ function duelLayout() {
   $('#s-duel').style.setProperty('--tray', `${Math.round(H - top)}px`);
   setLayout({ groundAt: Math.min(0.76, Math.max(0.5, (top - 4) / H)) });
 }
+// both players see the same arena: it comes from the match id, not a dice roll on each phone
+const arenaFor = id => { let h = 0; for (const c of String(id ?? Math.random())) h = (h * 31 + c.charCodeAt(0)) >>> 0; return BATTLE_STAGES[h % BATTLE_STAGES.length]; };
 function startDuel(local, first = local.view(), opts = {}) {
   D = { local, id: first.id, v: first, seen: keyOf(first.view.lastEvent), busy: false, sel: { card: null, spell: null }, F: [null, null], mind: [-1, -1], lastCrown: null,
     chatAt: (first.chat || []).reduce((m, c) => Math.max(m, Date.parse(c.at)), 0), tutorial: opts.tutorial || null };
   D.v.gotAt = Date.now();
   clearStage(); clearTags();
   const forced = new URLSearchParams(location.search).get('stage');   // ?stage=moon to preview one arena
-  setStage(opts.stage || (BATTLE_STAGES.includes(forced) ? forced : BATTLE_STAGES[(Math.random() * BATTLE_STAGES.length) | 0]));
+  setStage(opts.stage || (BATTLE_STAGES.includes(forced) ? forced : arenaFor(first.id)));
   placeFighters(first.view, true);
   buildTable(); wearMine(); wearRival(first.view.rival.cos);   // card backs and frames on both sides
   $('#d-chat').style.display = D.tutorial ? 'none' : '';
@@ -1039,7 +1043,7 @@ async function handle(v) {
 }
 
 function buildTable() {
-  $('#d-hand').innerHTML = CARD_VALUES.map(n => `<button class="card" data-card="${n}" data-v="${n}" style="--c:${CARD_COLOR[n]}"><b>${n}</b></button>`).join('');
+  $('#d-hand').innerHTML = CARD_VALUES.map(n => `<button class="card" data-card="${n}" data-v="${n}" style="--c:${CARD_COLOR[n]}"><i class="gem a"></i><i class="gem b"></i><b>${n}</b></button>`).join('');
   $('#d-spells').innerHTML = SPELLS.map(k => `<button class="sp px" data-spell="${k}"><img src="${spellImg(k)}" alt=""><div><b>${SPELL_INFO[k].name}</b><em>${SPELL_INFO[k].short}</em></div>${k === 'reverse' ? '<i class="lim">1 / MATCH</i>' : ''}</button>`).join('');
   $$('#d-spells .sp').forEach(n => tipFor(n, n.dataset.spell));
 }
@@ -1473,7 +1477,7 @@ async function loadLeaderboard() {
     const r = await api(`leaderboard?by=${lbBy}`);
     $('#lb-col').textContent = lbBy === 'points' ? 'Points' : 'Rating';
     $('#lb-rows').innerHTML = r.players.length ? r.players.map((p, i) => `<tr class="${p.id === me?.id ? 'mine-row' : ''}"><td class="rank">${i + 1}</td>
-      <td><div class="pl" data-pid="${p.id}"><img src="${thumb(p.pfp)}" alt=""><span>${esc(p.name)}</span></div></td><td class="lbv">${valIcon(lbBy)}${lbBy === 'points' ? p.points : p.rating}</td>
+      <td><div class="pl" data-pid="${p.id}"><img class="${frameCls(p.cos)}" src="${thumb(p.pfp)}" alt=""><span class="${nameCls(p.cos)}">${esc(p.name)}</span></div></td><td class="lbv">${valIcon(lbBy)}${lbBy === 'points' ? p.points : p.rating}</td>
       ${wl(p)}<td class="hide-s">${p.streak ? '🔥' + p.streak : '—'}</td></tr>`).join('')
       : '<tr><td colspan="7" class="muted">No ranked games yet. Be the first!</td></tr>';
   } catch (e) { toast(e.message, true); }
@@ -1488,7 +1492,7 @@ async function openProfile(pid) {
   try {
     const r = await api(`player?id=${pid}`), p = r.player, mine = pid === me?.id;
     $('#pf-pfp').src = thumb(p.pfp); $('#pf-name').textContent = p.name;
-    wear(mine ? myCos() : null, ['#pf-pfp']); nameLook(mine ? myCos() : null, ['#pf-name']);   // only your own profile wears your looks
+    wear(mine ? myCos() : p.cos, ['#pf-pfp']); nameLook(mine ? myCos() : p.cos, ['#pf-name']);   // everyone sees the looks a player bought
     $('#pf-addr').textContent = p.guest ? 'Trial account' : p.address || '';
     const W = p.wins + (p.botWins || 0), L = p.losses + (p.botLosses || 0);
     $('#pf-stats').innerHTML = [[valIcon('rating') + p.rating, 'Rating'], [valIcon('points') + p.points, 'Points'], [W + L ? Math.round(W / (W + L) * 100) + '%' : '—', 'Win rate'], [W, 'Ranked wins'], [L, 'Ranked losses'], [p.bestStreak, 'Best streak']]
@@ -1528,26 +1532,27 @@ $('#pf-save').onclick = async () => {
 
 const chat = chatSigner(api);
 initMindTalk({ minds: () => (guest ? [] : myMinds), esc });
-initTown({ minds: () => (guest ? [] : myMinds), api, esc, toast, online: () => online, go: townGo, me: () => me?.id, name: () => me?.name || 'You', canChat: () => online && !guest, chat });
+initTown({ minds: () => (guest ? [] : myMinds), api, esc, toast, online: () => online, go: townGo, card: playerCard, mega: megaphone, me: () => me?.id, name: () => me?.name || 'You', canChat: () => online && !guest, chat });
 
 // ---------- friends + friend chat (preset lines) ----------
 let frTick = 0, friendsList = [], chatWith = null, frUnwatch = null, frTimer = null;
 const seenAt = id => settings.seen[id] || 0;
 async function loadFriends() {
   if (!online || guest) { friendsList = []; renderFriends(); return; }
-  try { friendsList = (await api('friends')).friends; $('#fr-err').textContent = ''; renderFriends(); }
+  try { const r = await api('friends'); friendsList = [...r.friends, ...(r.chats || [])]; $('#fr-err').textContent = ''; renderFriends(); }
   catch (e) { $('#fr-err').textContent = e.status === 500 ? 'Friends are being set up. Try again soon.' : e.message; }
 }
-const unread = () => friendsList.filter(f => f.incoming || (f.status === 'accepted' && f.lastMsgAt && Date.parse(f.lastMsgAt) > seenAt(f.player.id))).length;
+const unread = () => friendsList.filter(f => f.incoming || ((f.status === 'accepted' || f.status === 'chat') && f.lastMsgAt && Date.parse(f.lastMsgAt) > seenAt(f.player.id))).length;
 function renderFriends() {
   const n = unread(), b = $('#friends-badge'); b.textContent = n; b.classList.toggle('on', n > 0);
   if (guest || !online) { $('#fr-list').innerHTML = `<div class="board-empty">${!online ? 'Friends need the game server.' : 'Connect a wallet to add friends and chat.'}</div>`; return; }
-  const row = (f, acts) => `<div class="frow" data-fid="${f.player.id}" data-st="${f.status}"><img src="${thumb(f.player.pfp)}" alt=""><div><div class="fn">${esc(f.player.name)}</div>
+  const row = (f, acts) => `<div class="frow" data-fid="${f.player.id}" data-st="${f.status}"><img class="${frameCls(f.player.cos)}" src="${thumb(f.player.pfp)}" alt=""><div><div class="fn ${nameCls(f.player.cos)}">${esc(f.player.name)}</div>
     <div class="fs"><i class="dot ${f.player.online ? 'on' : ''}"></i>${f.player.online ? 'online' : 'offline'} · ${f.player.rating}${f.lastMsgAt && Date.parse(f.lastMsgAt) > seenAt(f.player.id) ? ' <span class="new">NEW</span>' : ''}</div></div><div class="acts">${acts}</div></div>`;
-  const inc = friendsList.filter(f => f.incoming), acc = friendsList.filter(f => f.status === 'accepted'), out = friendsList.filter(f => f.status === 'pending' && !f.incoming);
+  const chats = friendsList.filter(f => f.status === 'chat'), inc = friendsList.filter(f => f.incoming), acc = friendsList.filter(f => f.status === 'accepted'), out = friendsList.filter(f => f.status === 'pending' && !f.incoming);
   $('#fr-list').innerHTML = (inc.length ? `<div class="fr-section">Requests</div>${inc.map(f => row(f, '<button class="btn small primary" data-op="accept">✔</button><button class="btn small" data-op="remove">✕</button>')).join('')}` : '')
     + `<div class="fr-section">Friends (${acc.length})</div>${acc.length ? acc.sort((a, b) => b.player.online - a.player.online).map(f => row(f, '<button class="btn small" data-op="chat">Chat</button>')).join('') : '<div class="board-empty">No friends yet. Add someone by name, or from the leaderboard.</div>'}`
-    + (out.length ? `<div class="fr-section">Sent</div>${out.map(f => row(f, '<span class="muted small">pending</span>')).join('')}` : '');
+    + (out.length ? `<div class="fr-section">Sent</div>${out.map(f => row(f, '<span class="muted small">pending</span>')).join('')}` : '')
+    + (chats.length ? `<div class="fr-section">Messages from players</div>${chats.map(f => row(f, '<button class="btn small" data-op="chat">Chat</button>')).join('')}` : '');
 }
 async function addFriend(target) {
   try { const r = await api('friend', { op: 'add', ...target }); toast(r.status === 'accepted' ? 'You are now friends! 🎉' : 'Friend request sent!'); sfx('notify'); loadFriends(); }
@@ -1562,7 +1567,7 @@ $('#fr-list').onclick = async e => {
   const op = e.target.closest('[data-op]')?.dataset.op, id = row.dataset.fid;
   if (op === 'accept' || op === 'remove') { try { await api('friend', { op, id }); sfx(op === 'accept' ? 'coin' : 'deselect'); loadFriends(); } catch (err) { toast(err.message, true); } return; }
   const fr = friendsList.find(f => f.player.id === id);
-  if (fr && row.dataset.st === 'accepted') openChat(fr);
+  if (fr && (row.dataset.st === 'accepted' || row.dataset.st === 'chat')) openChat(fr);
 };
 async function openChat(f) {
   chatWith = f; $('#fr-title').textContent = f.player.name;
@@ -1608,6 +1613,43 @@ $('#fr-unfriend').onclick = async () => {
   try { await api('friend', { op: 'remove', id: f.player.id }); chatWith = null; toast(`${f.player.name} removed.`); openFriends(); } catch (e) { toast(e.message, true); }
 };
 $('#fr-report').onclick = () => { if (chatWith) reportBox('player', chatWith.player); };
+$('#fr-block').onclick = () => { if (chatWith) blockPlayer(chatWith.player); };
+async function blockPlayer(p) {
+  if (!(await modal(`<h3>Block ${esc(p.name)}?</h3><p>They can no longer message you or send friend requests. You can add them again later to undo it.</p>`, [['Block', 1, 'primary'], ['Cancel', 0]]))) return false;
+  try { await api('friend', { op: 'block', id: p.id }); chatWith = null; toast(`${p.name} is blocked.`); if ($('#friends').classList.contains('on')) openFriends(); return true; } catch (e) { toast(e.message, true); return false; }
+}
+// a player's card, opened by tapping their Mind in Mind Town: stats, looks, and what you can do with them
+async function playerCard(o) {
+  if (!o.pid) {   // a town resident: one of the 3,333 Minds living in town
+    return modal(`<div class="pcard"><img src="${thumb(o.mind)}" alt=""><div><h3>Mind #${o.mind}</h3><p class="muted">${rarityOf(o.mind)} · lives in Mind Town</p></div></div><p class="muted">Town Minds wander, chat and keep the town lively. Tap a player's Mind to see their card.</p>`, [['OK', 0, 'primary']]);
+  }
+  if (!online) return;
+  let p, f;
+  try { p = (await api(`player?id=${o.pid}`)).player; } catch (e) { return toast(e.message, true); }
+  if (!guest) { if (!friendsList.length) await loadFriends(); f = friendsList.find(x => x.player.id === p.id); }
+  const W = p.wins + (p.botWins || 0), L = p.losses + (p.botLosses || 0), cos = p.cos || o.cos;
+  const status = f?.status === 'accepted' ? '✔ Friends' : f?.incoming ? 'Wants to be your friend' : f?.status === 'pending' ? 'Friend request sent' : '';
+  const btns = guest ? [['Profile', 'profile'], ['Close', 0, 'primary']]
+    : [...(f?.status === 'accepted' ? [] : [[f?.incoming ? 'Accept friend' : '➕ Add friend', 'add', 'primary']]), ['💬 Message', 'chat', f?.status === 'accepted' ? 'primary' : ''], ['Profile', 'profile'], ['🚩 Report', 'report'], ['⛔ Block', 'block'], ['Close', 0]];
+  const go = await modal(`<div class="pcard"><img class="${frameCls(cos)}" src="${thumb(p.pfp)}" alt=""><div><h3 class="${nameCls(cos)}">${esc(p.name)}</h3><p class="muted">${p.online ? '🟢 online' : 'offline'}${status ? ' · ' + status : ''}</p></div></div>
+    <div class="army-facts"><span>${valIcon('rating')} Rating <b>${p.rating}</b></span><span>${valIcon('points')} Points <b>${p.points}</b></span><span>🏆 Wins <b>${W}</b></span><span>📈 Win rate <b>${W + L ? Math.round(W / (W + L) * 100) + '%' : '—'}</b></span><span>🔥 Best streak <b>${p.bestStreak || 0}</b></span></div>`, btns);
+  if (go === 'add') addFriend({ id: p.id });
+  else if (go === 'chat') { openFriends(); openChat(f || { player: p, status: 'chat' }); }
+  else if (go === 'profile') { closeTown(); show('profile'); openProfile(p.id); }
+  else if (go === 'report') reportBox('player', p);
+  else if (go === 'block') blockPlayer(p);
+}
+// 📣 Megaphone: 1 Gem, a message over your head in Mind Town for an hour
+async function megaphone() {
+  if (guest || !online) return toast('Connect a wallet to use the Megaphone.', true);
+  const go = await modal(`<h3>📣 Megaphone</h3><p>Your message floats over your Mind for <b>1 hour</b>, for everyone in Mind Town. Costs <b>1 💎</b>.</p><input id="mega-in" maxlength="80" placeholder="Say it loud…" style="width:100%">`, [['Shout for 1 💎', 1, 'gem'], ['Cancel', 0]]);
+  const text = go ? ($('#mega-in')?.value || megaDraft).trim() : '';
+  if (!text) return;
+  try { const r = await api('town', { op: 'mega', text }); setMega(r.mega); sfx('levelup'); toast('📣 Your message is up for an hour!'); resetIsland(); }
+  catch (e) { sfx('denied'); toast(e.message, true); }
+}
+let megaDraft = '';
+document.addEventListener('input', e => { if (e.target.id === 'mega-in') megaDraft = e.target.value; });
 // report a bug, or a player; the owner reads these in Admin → Reports
 async function reportBox(kind, who) {
   if (!online || !session.token) return toast('Sign in to send a report.', true);
