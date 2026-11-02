@@ -315,6 +315,33 @@ const townGo = where => {
 };
 $('#hub-cup').onclick = () => openCup();
 // ---------- Daily Siege Cup: same village, same army for everyone; all entry Gems go to the winners ----------
+// Siege Cup army: the same budget for everyone, any mix (your own troops, levels and Minds do not count)
+function pickCupArmy(budget, start) {
+  const army = Object.fromEntries(Object.keys(TROOPS).map(k => [k, (settings.cupArmy || start)[k] || 0]));
+  if (armyUsed(army) > budget) Object.assign(army, start);
+  return new Promise(done => {
+    const draw = () => {
+      $('#modal-body').innerHTML = `<h3>🏆 Choose your army</h3><p class="muted">Everyone gets the same <b>${budget}</b> camp space. Pick any mix: your plan decides, not who trained more.</p>
+        <div class="army-cap"><b>${armyUsed(army)}/${budget}</b> camp space</div>
+        <div class="army-list">${Object.entries(TROOPS).map(([k, d]) => `<div class="army-row"><img src="${troopIcon(k)}" alt=""><div><b>${d.name}</b> <span class="muted">· ${d.cost} space</span><small>${d.desc}</small></div><button class="btn small" data-a="${k}" data-d="-1">−</button><em>${army[k]}</em><button class="btn small" data-a="${k}" data-d="1">+</button></div>`).join('')}</div>
+        <p class="muted">The boss fortress has walls, towers and hidden traps. You lead as the Captain.</p>`;
+    };
+    draw();
+    const box = $('#modal-btns'); box.innerHTML = '';
+    const close = v => { $('#modal').classList.remove('on'); $('#modal-body').onclick = null; done(v); };
+    const go = el('button', 'btn primary', '⚔️ Attack!'), reset = el('button', 'btn', 'Standard army');
+    go.onclick = () => { if (!armyUsed(army)) { sfx('denied'); return toast('Bring at least one troop.', true); } settings.cupArmy = { ...army }; saveSettings(); close({ ...army }); };
+    reset.onclick = () => { Object.assign(army, Object.fromEntries(Object.keys(TROOPS).map(k => [k, start[k] || 0]))); sfx('deselect'); draw(); };
+    $('#modal-body').onclick = e => {
+      const b = e.target.closest('[data-a]'); if (!b) return;
+      const k = b.dataset.a, d = +b.dataset.d;
+      if (d > 0 && armyUsed(army) + TROOPS[k].cost > budget) { sfx('denied'); return toast(`Over the budget: ${budget} camp space for everyone.`, true); }
+      army[k] = Math.max(0, army[k] + d); sfx(d > 0 ? 'select' : 'deselect'); draw();
+    };
+    box.append(reset, go);
+    $('#modal').classList.add('on');
+  });
+}
 async function openCup() {
   if (!online) return toast('The cup needs the game server.', true);
   sfx('click');
@@ -322,7 +349,7 @@ async function openCup() {
   try { c = await api('cup'); } catch (e) { return toast(e.message, true); }
   const left = c.me ? c.tries - c.me.tries : c.tries, hours = Math.max(1, Math.ceil((c.endsAt - Date.now()) / 3600e3));
   const rows = c.top.map((e, i) => `<div class="cup-row"><b>${i + 1}</b><span>${esc(e.name)}</span><em>${'★'.repeat(e.stars)}${'☆'.repeat(3 - e.stars)} ${e.pct}%</em></div>`).join('') || '<p class="muted">No scores yet. Be first!</p>';
-  const go = await modal(`<h3>🏆 Daily Siege Cup</h3><p>Everyone attacks the same village with the same army. Your Minds give no edge, so only skill counts. ${c.tries} tries, best score counts.</p>
+  const go = await modal(`<h3>🏆 Daily Siege Cup</h3><p>Everyone attacks the same boss fortress with the same army budget: you pick the mix. Your Minds, troop levels and Gems give no edge, so only your plan counts. ${c.tries} tries, best score counts.</p>
     <div class="army-facts"><span>💎 Prize pool: <b>${c.pool}</b></span><span>👥 Players: <b>${c.players}</b></span><span>🎟️ Entry: <b>${c.entry} 💎</b></span><span>⏳ Ends in: <b>${hours} h</b></span></div>
     <p class="muted">Top 3 share every Gem: 60 / 30 / 10%. Real players only. If nobody else joins, your entry comes back.</p>${rows}${c.last?.winners.length ? `<p class="muted">Last winner: <b>${esc(c.last.winners[0].name)}</b> · ${c.last.winners[0].gems} 💎</p>` : ''}`,
     c.me ? (left > 0 ? [[`Play (${left} left)`, 'play', 'primary'], ['Close', 0]] : [['Close', 0, 'primary']]) : [[`Enter for ${c.entry} 💎`, 'join', 'primary'], ['Close', 0]]);
@@ -330,12 +357,13 @@ async function openCup() {
   try {
     if (go === 'join') { await api('cup', { op: 'join' }); sfx('coins'); resetIsland(); toast('You are in! Good luck.'); }
     const s = await api('cup', { op: 'start' });
+    const troops = await pickCupArmy(s.budget || 9, s.army.troops) || s.army.troops;   // closing the picker = the standard army (the try has started)
     closeIsland(); show('raid');
-    await banner('<div class="bt">SIEGE CUP</div><small>Same village for everyone</small>', 1100);
-    openRaid({ snap: s.snap, minds: [49], army: s.army, name: '🏆 Daily Siege Cup', loot: 0, toast: (m, bad) => toast(m, bad),
+    await banner('<div class="bt red">BOSS FORTRESS</div><small>Daily Siege Cup · same fortress for everyone</small>', 1300);
+    openRaid({ snap: s.snap, minds: [49], army: { troops, hero: s.army.hero }, name: '🏆 Boss Fortress', loot: 0, toast: (m, bad) => toast(m, bad),
       onEnd: async (inputs, res0) => {
         let msg = '';
-        try { const r = await api('cup', { op: 'score', inputs, claim: res0.stars }); msg = `<div class="raid-stars big">${'★'.repeat(r.stars)}${'☆'.repeat(3 - r.stars)}</div><p>${Math.round(r.pct * 100)}% destroyed · score ${r.score.toLocaleString()}</p><p>Your best: <b>${r.best.toLocaleString()}</b></p>`; }
+        try { const r = await api('cup', { op: 'score', inputs, army: troops, claim: res0.stars }); msg = `<div class="raid-stars big">${'★'.repeat(r.stars)}${'☆'.repeat(3 - r.stars)}</div><p>${Math.round(r.pct * 100)}% destroyed · score ${r.score.toLocaleString()}</p><p>Your best: <b>${r.best.toLocaleString()}</b></p>`; }
         catch (e) { msg = `<p>${esc(e.message)}</p>`; }
         await modal(`<h3>🏆 Try finished</h3>${msg}`, [['OK', 0, 'primary']]);
         closeRaid(); enterHub(); openCup();

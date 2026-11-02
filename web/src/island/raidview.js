@@ -145,15 +145,17 @@ function frame(now) {
   paintHud(sc);
   const sx = (Math.random() - 0.5) * shake, sy = (Math.random() - 0.5) * shake; shake = Math.max(0, shake - dt * 20);
   g.setTransform(DPR, 0, 0, DPR, 0, 0); g.imageSmoothingEnabled = false;
-  drawSky(g, W, H, Tm);
+  const boss = S.snap.theme === 'boss';
+  if (boss) bossSky(g, W, H, Tm); else drawSky(g, W, H, Tm);
   g.setTransform(cam.z * DPR, 0, 0, cam.z * DPR, (W / 2 - cam.x * cam.z + sx) * DPR, (H / 2 - cam.y * cam.z + sy) * DPR);
-  g.drawImage(gr.ground.cv, 0, 0);
+  g.drawImage(boss ? lavaGround(S.snap.seed, gr.ground.cv) : gr.ground.cv, 0, 0);
   const wave = Math.sin(Tm * 1.4);
-  g.globalAlpha = 0.45 + 0.45 * wave; g.drawImage(gr.foamA.cv, 0, 0); g.globalAlpha = 0.45 - 0.45 * wave; g.drawImage(gr.foamB.cv, 0, 0); g.globalAlpha = 1;
+  if (!boss) { g.globalAlpha = 0.45 + 0.45 * wave; g.drawImage(gr.foamA.cv, 0, 0); g.globalAlpha = 0.45 - 0.45 * wave; g.drawImage(gr.foamB.cv, 0, 0); g.globalAlpha = 1; }
   const st = { tiles: S.snap.tiles }, items = [];
   for (let k = 0; k < TW * TH; k++) {
     if (!w.land[k] || w.cover[k] === COVER.FIXED) continue;
     const tx = kx(k), ty = ky(k), cx = tx * T + 8, by = ty * T + 15, t = st.tiles[k];
+    if (t?.s === 'p' && boss) continue;   // the fortress grows nothing
     if (t?.s === 'p') { g.fillStyle = SOIL.base; g.fillRect(tx * T + 1, ty * T + 1, T - 2, T - 2); g.fillStyle = SOIL.dark; g.fillRect(tx * T + 1, ty * T + 12, T - 2, 3); if (t.c) items.push({ y: by, spr: sprites.crop(t.c, 3), x: cx }); continue; }
     if (t?.s === 'b') continue;
     const cov = coverAt(st, w, k), v = hash(tx, ty, 7) * 4 | 0;
@@ -172,10 +174,11 @@ function frame(now) {
     const by = s.y1 - 1, cx = s.cx;
     if (s.dead) { items.push({ y: by - 4, spr: bsprites.rubble(i % 5 + 1), x: cx, smoke: s.type !== 'wall' }); return; }
     let spr;
-    if (s.type === 'home') spr = leveled(sprites.house(S.snap.seed, false), s.lv);
+    if (s.type === 'home') spr = S.snap.theme === 'boss' ? bossKeep(sprites.house(S.snap.seed, false)) : leveled(sprites.house(S.snap.seed, false), s.lv);
     else if (s.type === 'wall') { const k = s.tiles[0]; spr = leveled(bsprites.wall((walls.has(k - TW) ? 1 : 0) | (walls.has(k + 1) && kx(k) < TW - 1 ? 2 : 0) | (walls.has(k + TW) ? 4 : 0) | (walls.has(k - 1) && kx(k) > 0 ? 8 : 0)), s.lv, 'wall'); }
     else if (s.type === 'house') spr = leveled(bsprites.house(false), s.lv);
     else spr = leveled(bsprites[s.type](), s.lv, s.type);
+    if (boss && s.type !== 'home') spr = bossKeep(spr);   // every building in dark fortress stone
     items.push({ y: by, spr, x: cx, s, sails: s.type === 'mill' ? { x: cx, y: by - 26 } : null, shadow: s.type === 'wall' ? 0 : s.x1 - s.x0 });
   });
   for (const tr of S.traps) if (!tr.armed) items.push({ y: ky(tr.k) * T + 4, spr: bsprites.trap(), x: kx(tr.k) * T + 8 });
@@ -232,7 +235,8 @@ function frame(now) {
     g.fillStyle = '#fff3b0'; g.fillRect(p.x - 2, p.y - 2, 2, 2);
     return true;
   });
-  drawCinema(g, W, H, Tm, dt, { motes: 'dust' });
+  drawCinema(g, W, H, Tm, dt, { motes: boss ? 'none' : 'dust', rays: !boss });
+  if (boss) { g.setTransform(DPR, 0, 0, DPR, 0, 0); drawEmbers(g, W, H, dt); }
   texts = texts.filter(t => {
     t.life -= dt; const p = toScreen(t.x, t.y), py = p.y - (1.3 - t.life) * 30;
     g.globalAlpha = Math.min(1, t.life * 2); g.font = `900 ${t.big ? 26 : 16}px Nunito, sans-serif`; g.textAlign = 'center';
@@ -302,6 +306,52 @@ $('#raid-end').onclick = () => { if (S && !S.over) S.over = true; };
 
 // ---------- open / close ----------
 // opts: { snap, minds, army: { troops, hero }, loot, name, onEnd(inputs, result, army), toast }
+// ---------- boss look (Siege Cup): scorched ground with glowing lava cracks, a red sky, rising embers, a dark keep ----------
+const lavaCache = new Map();
+function lavaGround(seed, base) {
+  if (lavaCache.has(seed)) return lavaCache.get(seed);
+  const cv = document.createElement('canvas'); cv.width = base.width; cv.height = base.height;
+  const c = cv.getContext('2d');
+  c.drawImage(base, 0, 0);
+  c.globalCompositeOperation = 'source-atop';
+  c.fillStyle = 'rgba(40,10,14,.62)'; c.fillRect(0, 0, cv.width, cv.height);   // scorched
+  const r = (i => () => (i = (i * 16807) % 2147483647) / 2147483647)(seed % 2147483646 + 1);
+  for (let n = 0; n < 70; n++) {   // lava cracks: short glowing zig-zags on the land
+    let x = r() * cv.width, y = r() * cv.height;
+    for (let s = 0; s < 14; s++) {
+      x += (r() - 0.5) * 6; y += (r() - 0.3) * 4;
+      c.fillStyle = s % 3 ? '#ff6a1a' : '#ffc53d'; c.fillRect(x | 0, y | 0, 2, 1);
+      c.fillStyle = 'rgba(255,90,20,.25)'; c.fillRect((x | 0) - 1, (y | 0) - 1, 4, 3);
+    }
+  }
+  lavaCache.set(seed, cv);
+  return cv;
+}
+const keepCache = new WeakMap();
+function bossKeep(spr) {   // the home, darkened into a fortress with glowing windows
+  if (keepCache.has(spr)) return keepCache.get(spr);
+  const cv = document.createElement('canvas'); cv.width = spr.w; cv.height = spr.h;
+  const c = cv.getContext('2d');
+  c.drawImage(spr.cv, 0, 0); c.globalCompositeOperation = 'source-atop';
+  c.fillStyle = 'rgba(30,8,20,.55)'; c.fillRect(0, 0, spr.w, spr.h);
+  c.fillStyle = 'rgba(255,80,30,.35)'; c.fillRect(0, spr.h - 6, spr.w, 6);
+  const out = { cv, w: spr.w, h: spr.h };
+  keepCache.set(spr, out);
+  return out;
+}
+function bossSky(g, W, H, t) {
+  const sky = g.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#1a0610'); sky.addColorStop(0.55, '#5a1418'); sky.addColorStop(1, '#c4401c');
+  g.fillStyle = sky; g.fillRect(0, 0, W, H);
+  g.fillStyle = 'rgba(255,140,60,.08)';
+  for (let i = 0; i < 5; i++) g.fillRect(0, H * (0.55 + i * 0.09) + Math.sin(t * 0.7 + i) * 6, W, 3);   // heat shimmer
+}
+let embers = [];
+function drawEmbers(g, W, H, dt) {
+  if (embers.length < 70) embers.push({ x: Math.random() * W, y: H + 5, v: 20 + Math.random() * 40, s: Math.random() < 0.3 ? 3 : 2, ph: Math.random() * 6 });
+  embers = embers.filter(e => (e.y -= e.v * dt) > -5);
+  for (const e of embers) { e.ph += dt * 3; g.fillStyle = e.s === 3 ? '#ffc53d' : '#ff6a1a'; g.fillRect((e.x + Math.sin(e.ph) * 6) | 0, e.y | 0, e.s, e.s); }
+}
 export function openRaid(opts) {
   R = { ...opts, inputs: [], ended: false };
   S = createRaid(opts.snap, opts.army);
@@ -311,7 +361,7 @@ export function openRaid(opts) {
   sel = first ? { kind: 'troop', id: first } : { kind: 'hero' };
   $('#raid-name').textContent = opts.name || 'Raid';
   paintBar(); resize();
-  music('lofibeat'); setTimeout(() => sfx('horn'), 300);
+  music(opts.snap.theme === 'boss' ? 'battle' : 'lofibeat'); setTimeout(() => sfx('horn'), 300); embers = [];
   if (!running) { running = true; last = performance.now(); raf = requestAnimationFrame(frame); }
 }
 export function closeRaid() { running = false; cancelAnimationFrame(raf); S = null; }

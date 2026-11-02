@@ -1401,6 +1401,20 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
     for (let i = 0; i < 25; i++) { const k = sp[(i * 131 + 7) % sp.length], inp = [{ t: 0, drop: 'hero', k }]; let t = 2; for (const [d, c] of Object.entries(S.left)) for (let j = 0; j < c; j++) inp.push({ t: t += 2, drop: d, k }); runs++; if (RD.replay(snap, army, inp).stars === 3) clears++; }
   }
   ok(clears / runs < 0.15, `the Siege Cup stays hard: ${clears} of ${runs} simple plans cleared it`);
+  // players pick their own mix within one budget: no mix may make it easy, and nobody can go over the budget
+  const { CUP_BUDGET, cupArmy } = await import('../lib/routes/cup.js');
+  ok(CUP_BUDGET === 9 && JSON.stringify(cupArmy(null)) === JSON.stringify(CUP_ARMY) && Object.entries(CUP_ARMY).reduce((s, [k, n]) => s + RD.TROOPS[k].cost * n, 0) === CUP_BUDGET, 'the cup budget is 9 camp space; no pick = the standard army, which fits it');
+  let over = null; try { cupArmy({ giant: 3 }); } catch (e) { over = e; }
+  ok(over && /budget/.test(over.message) && cupArmy({ giant: 2, brawler: 1 }).giant === 2 && cupArmy({ brawler: -3, giant: 1 }).brawler === 0 && cupArmy({ giant: 1 }).archer === 0, 'armies over the budget are refused, odd values are dropped');
+  for (const mix of [{ brawler: 9 }, { archer: 9 }, { brawler: 5, archer: 4 }, { giant: 2, brawler: 1 }, { bomber: 2, brawler: 5 }]) {
+    let c2 = 0, n2 = 0;
+    for (const seedV of [11, 22, 33, 44]) {
+      const army = { troops: cupArmy(mix), hero: 'captain' }, snap = { ...RD.botVillage(seedV * 2654435761 >>> 0, CUP_LEVEL), noise: seedV + 1 }, S = RD.createRaid(RD.publicSnap(snap), army), sp = [];
+      for (let k = 0; k < 64 * 48; k++) if (RD.dropOk(S, k)) sp.push(k);
+      for (let i = 0; i < 12; i++) { const k = sp[(i * 131 + 7) % sp.length], inp = [{ t: 0, drop: 'hero', k }]; let t = 2; for (const [d, c] of Object.entries(S.left)) for (let j = 0; j < c; j++) inp.push({ t: t += 2, drop: d, k }); n2++; if (RD.replay(snap, army, inp).stars === 3) c2++; }
+    }
+    ok(c2 / n2 < 0.25, `the cup stays hard with ${JSON.stringify(mix)}: ${c2} of ${n2} simple plans cleared it`);
+  }
 
   // legal pages
   const terms = fs.readFileSync('web/terms.html', 'utf8'), priv = fs.readFileSync('web/privacy.html', 'utf8'), idx = fs.readFileSync('web/index.html', 'utf8');
