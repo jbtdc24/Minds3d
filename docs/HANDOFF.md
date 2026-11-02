@@ -3,8 +3,10 @@
 
 ## CURRENT STATUS (2026-11-02)
 Live on main: all security fixes, server-run adventures, error monitoring, payment ledger and daily check, draft Terms and Privacy, harder Siege Cup, London region. SQL 007, 008 and 009 are run. Bots stay unlabelled outside Practice and Training. Owner said GO on the saved tasks (2026-11-02).
-Tasks 3, 4, 5 SHIPPED to main (2026-11-02). Task 0 (island timers) SHIPPED too. Mutation check miss FIXED (trap test now retries until the raid target really has traps). ALL saved tasks done (2 is waiting on Animoca's API). OWNER TODO for stablecoin: set STABLE_TOKEN in Vercel, then one small real purchase. Was next: 10, 11, 13, 14, 12, then 1, 2 (owner: do all, don't stop, don't ask). Owner wants to keep going in the same chat: update this file after every task.
-Order: tasks 6 to 14 in order, task 1 before Gems are sold, task 2 last.
+ALL SAVED TASKS 0-14 SHIPPED to main on 2026-11-02 (447 tests). Only task 2 waits: Animoca Minds has no public API yet; our tool list is ready.
+OWNER TODO: (1) set STABLE_TOKEN in Vercel to turn on USDG payments, then one small real purchase; (2) ask Animoca for Minds API access.
+Not checked with real players yet: burning village + restore, cup army picker, troop upgrades online, two-player duel timing.
+Owner wants to keep going in the same chat, with no questions: update this file after every task.
 Owner decided 2026-11-02: Siege Cup = same budget, any mix. USDC prices = 50/$5, 120/$10, 300/$20, 800/$50, and ETH stays too (anything on Robinhood Chain). Keep Town rewards.
 Before public launch: confirm Supabase backups, fill in Terms and Privacy and get legal review (docs/LEGAL_REVIEW.md), add CRON_SECRET in Vercel, test capacity on a separate Supabase project, test Safari, Firefox and real phones, one real Gem purchase, two-wallet chat test.
 Ideas on hold: Mind Office, Season Pass, cosmetics, referrals, Town moderation, pitch deck, AI demo, trailer, Train Mind and Auto Battle, play.minds.games domain, Minds Investment Programme application.
