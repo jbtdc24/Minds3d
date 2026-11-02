@@ -810,6 +810,8 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   await hit(agentKeys, A, { op: 'off', id: T.agent_keys[0].id });
   ok((await ai({ op: 'state' })).code === 401, 'turning a key off stops it at once');
   ok((await hit(agent, A, { op: 'help' }, 'POST', {}, 'x')).body.ops.raid, 'the API explains itself');
+  const tl = (await hit(agent, A, {}, 'GET', { format: 'tools' }, 'x')).body, AG = await import('../lib/routes/agent.js');
+  ok(tl.tools?.length >= 10 && tl.tools.every(t => t.name && t.description && t.parameters?.type === 'object') && tl.tools.every(t => AG.HELP.ops[t.name] || t.name === 'duel_poll'), 'agent platforms get a tool list, one tool per real op');
   chain.client.multicall = mc;
 
   // Siege Cup

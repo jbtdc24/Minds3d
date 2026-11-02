@@ -17,6 +17,23 @@ content-type: application/json
 
 `GET /api/agent` lists every op without a key. Limit: 120 calls a minute per key.
 
+## Connect an Animoca Minds agent (or any agent platform)
+Agent platforms load tools in the JSON-Schema function format. Ours are here, no key needed to read them:
+
+```
+GET https://minds3d.vercel.app/api/agent?format=tools
+```
+
+Each tool is one call: `POST /api/agent` with `{ "op": "<tool name>", ...arguments }` and the player's key in
+`authorization: Bearer mk_...`. Steps for a Minds agent:
+1. The player makes a key in Settings → Connect an AI.
+2. In the agent's setup, add an HTTP tool source: the URL above for the tool list, `https://minds3d.vercel.app/api/agent` for calls,
+   and the key as a Bearer header (keep it secret, like a password).
+3. Tell the agent: "Call `state` first and follow its `suggest`."
+
+Status (2026-11-02): Animoca Minds has no public developer API yet (only a developer funding programme), so the
+link is made from their side when they open tool/HTTP integrations. Nothing changes here when they do.
+
 ## Ops
 | op | send | does |
 |---|---|---|
