@@ -565,6 +565,41 @@ async function startRaid(revenge = 0) {
   });
 }
 $('#isl-raid').onclick = () => startRaid();
+// 📜 raid history: raids on you and raids you made; tap a raider to see their own history; revenge from here
+const ago = at => { const m = Math.max(1, Math.round((Date.now() - at) / 60000)); return m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`; };
+const starTxt = n => '★'.repeat(n) + '☆'.repeat(3 - n);
+async function openRaidLog(pid = null, tab = 'on') {
+  sfx('click');
+  let h;
+  if (online && !guest) {
+    try { h = await api('raid', { op: 'history', ...(pid ? { pid } : {}) }); } catch (e) { return toast(e.message, true); }
+  } else h = { name: 'You', me: true, wins: isle.state?.rw || 0, on: isle.state?.raidLog || [], made: isle.state?.atkLog || [] };
+  const draw = () => {
+    const list = tab === 'on' ? h.on : h.made;
+    const rows = list.map(e => {
+      const who = tab === 'on' ? e.by : e.on, link = e.pid && !(h.me && tab === 'made' && !e.pid) ? `<button class="linkbtn" data-who="${esc(e.pid)}">${esc(who)}</button>` : `<b>${esc(who)}</b>`;
+      const res = e.beaten ? `defences won · +${e.beaten} ✨` : `${starTxt(e.stars)} · ${e.pct}% · ${tab === 'on' ? '−' : '+'}${(e.loot || 0).toLocaleString()} ✨`;
+      const rev = h.me && tab === 'on' && (e.pid || e.npc) && !e.avenged && !e.beaten ? `<button class="btn small primary" data-rev="${e.at}">⚔️ Revenge</button>` : e.avenged ? '<em class="muted">avenged</em>' : '';
+      return `<div class="rlog-row"><div>${link}<small>${res} · ${ago(e.at)}</small></div>${rev}</div>`;
+    }).join('') || `<p class="muted">${tab === 'on' ? 'Nobody has raided this island yet.' : 'No raids made yet.'}</p>`;
+    $('#modal-body').innerHTML = `<h3>📜 ${h.me ? 'Your raid history' : `${esc(h.name)}'s raid history`}</h3>
+      <div class="army-facts"><span>🏆 Raids won: <b>${h.wins}</b></span><span>🛡 Raided: <b>${h.on.length}</b></span><span>⚔️ Raids made: <b>${h.made.length}</b></span></div>
+      <div class="seg rlog-tabs"><button data-tab="on" class="${tab === 'on' ? 'on' : ''}">${h.me ? 'Raids on you' : 'Raided by'}</button><button data-tab="made" class="${tab === 'made' ? 'on' : ''}">${h.me ? 'Your raids' : 'Their raids'}</button></div>
+      <div class="rlog">${rows}</div>`;
+  };
+  draw();
+  const box = $('#modal-btns'); box.innerHTML = '';
+  const close = () => { $('#modal').classList.remove('on'); $('#modal-body').onclick = null; };
+  if (!h.me) { const back = el('button', 'btn', '← Your history'); back.onclick = () => { close(); openRaidLog(); }; box.append(back); }
+  const ok = el('button', 'btn primary', 'Close'); ok.onclick = close; box.append(ok);
+  $('#modal-body').onclick = e => {
+    const t = e.target.closest('[data-tab]'); if (t) { tab = t.dataset.tab; sfx('click'); return draw(); }
+    const w = e.target.closest('[data-who]'); if (w) { close(); return openRaidLog(w.dataset.who); }
+    const r = e.target.closest('[data-rev]'); if (r) { close(); startRaid(+r.dataset.rev); }
+  };
+  $('#modal').classList.add('on');
+}
+const rlBtn = $('#isl-raidlog'); if (rlBtn) rlBtn.onclick = () => openRaidLog();   // missing on an old cached page: no crash
 $('#isl-minds').onclick = () => openMinds();
 $('#isl-raid').addEventListener('contextmenu', e => e.preventDefault());
 // ---------- adventure: explore a wild island ----------

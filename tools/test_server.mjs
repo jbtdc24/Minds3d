@@ -979,9 +979,13 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   for (let i = 0; i < 12; i++) {
     out = await hit(raid, Att, { op: 'find', army: { brawler: 4 } });
     if (out.code !== 200 || isl(Att).state.raid?.snap.b.some(b => b.type === 'trap')) break;
-    delete isl(Att).state.raid;
+    delete isl(Att).state.raid; delete isl(Att).state.rd; delete isl(Att).state.pl; isl(Att).state.inv.troop_brawler = 10;   // fresh raid count and troops for the next look
   }
   ok(isl(Att).state.raid?.snap.b.some(b => b.type === 'trap'), 'found a raid target that really has traps');
+  isl(Def).state.raidLog = [{ at: 5, by: 'TrapAtt', pid: Att.id, stars: 2, pct: 60, loot: 120 }];
+  const hMine = await hit(raid, Def, { op: 'history' }), hTheirs = await hit(raid, Att, { op: 'history', pid: Def.id }), hNone = await hit(raid, Att, { op: 'history', pid: 'nobody' });
+  ok(hMine.code === 200 && hMine.body.me && hMine.body.on[0].pid === Att.id && hTheirs.body.name === 'TrapDef' && !hTheirs.body.me, 'raid history: your own, and a raider’s');
+  ok(!/"dust"|"gems"|address/.test(JSON.stringify(hTheirs.body)) && hNone.code === 404, 'someone else’s history shows no Dust, Gems or wallet; unknown players get 404');
   ok(out.code === 200 && !JSON.stringify(out.body).includes('"trap"'), 'a raid target arrives with no traps in it');
   const drops = RD.autoPlan(fullSnap, { troops: { brawler: 6 }, hero: 'captain' }), real = RD.replay(fullSnap, { troops: { brawler: 6 }, hero: 'captain' }, drops), seen = RD.replay(RD.publicSnap(fullSnap), { troops: { brawler: 6 }, hero: 'captain' }, drops);
   ok(real.S.traps.length > 0 && seen.S.traps.length === 0, 'the server still fights with the real traps');

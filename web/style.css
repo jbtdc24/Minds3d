@@ -928,3 +928,9 @@ h3.raid-result { text-align: center; }
 .isl-burn { display: none; border: 0; cursor: pointer; background: #e8481c; color: #fff; font-weight: 900; animation: burnpulse 1.2s ease-in-out infinite; }
 .isl-burn.on { display: inline-block; }
 @keyframes burnpulse { 50% { background: #ff7a2e; } }
+/* 📜 raid history */
+.rlog { display: flex; flex-direction: column; gap: 6px; max-height: 46vh; overflow-y: auto; margin-top: 8px; }
+.rlog-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: var(--paper-2); padding: 6px 10px; }
+.rlog-row small { display: block; color: var(--muted); font-size: 12px; }
+.rlog-tabs { margin-top: 8px; }
+.linkbtn { border: 0; background: none; padding: 0; font: 900 15px var(--font); color: var(--sky-d); text-decoration: underline; cursor: pointer; }
