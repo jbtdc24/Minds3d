@@ -16,7 +16,7 @@ PAUSED by owner 2026-11-02 ("save for later"). All checks pass, including the fu
 
 ## REMAINING (saved for later)
 Owner to do:
-1. [ ] Vercel: add env STABLE_TOKEN = 0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168 (USDG), redeploy, then one small real USDG purchase (and one ETH).
+1. [~] Vercel: STABLE_TOKEN ADDED by owner 2026-11-02 (redeployed by a push). Still to do: add env STABLE_TOKEN = 0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168 (USDG), redeploy, then one small real USDG purchase (and one ETH).
 2. [ ] Ask Animoca for Minds API access; give them https://minds3d.vercel.app/api/agent?format=tools (task 2).
 Before public launch (owner): confirm Supabase backups, legal review of Terms/Privacy (docs/LEGAL_REVIEW.md), CRON_SECRET in Vercel, capacity test on a separate Supabase project, Safari/Firefox/real phones, two-wallet chat test.
 Next for the AI when the owner says go:
