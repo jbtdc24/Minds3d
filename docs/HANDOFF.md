@@ -1,6 +1,7 @@
 # The game's real name is MINDS CLASH (internal keys still say mindclash so nobody gets signed out)
 # HANDOFF — read this first (next AI session: continue from the top of "NEXT TASKS")
 
+## >>> START AT "ROUND 12" BELOW <<<
 ## CURRENT STATUS (2026-11-03)
 Live on main (latest 201902d): everything below through ROUND 11, plus village helpers. 465 tests pass; fuzz, economy audit and full mutation check pass.
 Done 2026-11-02/03: all saved tasks 0-14, round 10 (staked Minds, island edit mode, boss fortress, Giants, helpers), round 11 (cosmetics: 4 card backs, 4 frames, 3 skies, 3 name colours, rival sees looks; victory confetti; 2 new duel arenas; painted loading sky; warmer Mind Town).
@@ -10,6 +11,23 @@ Not checked with real players yet: burning village + restore, edit-mode group mo
 Owner rules: keep going in the same chat, no questions, short plain replies, update this file after every task. OpenArt allowed for art, QUALITY ALWAYS LOW.
 Minds Builder API (2026-11-03): owner got a Builder API key (JWT, role builder, expires 2027-11). Checked: works. Base https://api.build.hellominds.ai, header `X-Api-Key: <key>` (OAuth tokens use Bearer). Docs https://build.hellominds.ai/docs/api, npm @animocabrands/minds-client-lib. GET /v1/humans/{humanId}/minds lists the owner's 7 Minds; messaging = POST /v1/messaging/conversation + /message, replies via /histories/{alias} or /events. NEVER commit the key: it goes in Vercel env MINDS_API_KEY (owner adds). Next: decide what to build (real Mind talk in mindtalk.js, or Minds Connect sign-in).
 If a table is added to the prototype-lock line in rules.js, also update tools/mutation_check.mjs line 56.
+
+## ROUND 12 (owner 2026-11-03) — NEXT TASKS, do top to bottom (quick fixes first, big Mind Autopilot last)
+1. [ ] Opening screen: title text covers the characters; Start/Enter button covers the 3 legendary Minds. Move them.
+2. [ ] Island build menu must scroll (list of things to build).
+3. [ ] Cosmetics hard to find: owner can't see them. Make the ✨ Style shop obvious (lobby/profile entry, not only Shop tab).
+4. [ ] Skins bug: two phones dueling see different backgrounds. Arena (and sky) must come from match state so both see the same.
+5. [ ] Siege Cup prize: house keeps 10% of the prize pool, winner gets 90%. Show it on the cup screen.
+6. [ ] Raid targets: real player villages first, bot villages only as fill (still some for fun). Game raiders on players stay.
+7. [ ] Chat/history retention (AI decided): all chat (friend, duel, private) deleted after 90 days; Mind Town public chat 7 days; mail 90 days; raid/attack logs keep newest 50 per player; reports 180 days. Daily cron cleans.
+8. [ ] Mind Town: tap ANY Mind → card with owner name, rating, wins, island level, looks; Add friend, Private chat (allowed before friends, blockable/reportable), Duel invite. 📣 Megaphone: 1 💎 puts a message over your head for 1 hour (server-checked, filtered, reportable).
+9. [ ] Cuter Mind voices: higher, softer gibberish (audio.js), little chirps; same for raid screams.
+10. [ ] REAL MIND TALK + MIND AUTOPILOT (showcase: "your Mind plays the game for you"):
+   - Lobby side panel "🧠 Your Mind": presets (Farmer, Raider, Ranked grinder, Explorer, Balanced daily loop, Decorator) + a chat box to train it manually after a preset.
+   - Mind can do everything through the existing /api/agent ops: plant/harvest, decorate, build, raid, adventure, ranked duels, visit Mind Town for rewards, then loop (e.g. farm → adventure → duel → town few hours → farm → raid).
+   - Real talk via Minds Builder API (api.build.hellominds.ai, X-Api-Key, key in Vercel env MINDS_API_KEY). Plan: server turns chat into a plan of game ops; the Mind runs the plan on the server (cron/steps), with a live log the player can watch and stop.
+   - Gems: OFF by default. Turning on needs several confirmations (toggle + daily gem cap + type CONFIRM), every gem spend logged, one-tap stop.
+   - Same game limits as a player; ranked games by the Mind are labelled.
 
 ## ROUND 10 (owner 2026-11-02): staked Minds, island edit mode, harder boss
 - [x] Siege Cup boss fortress: raid.js bossFortress(): closed inner wall Lv3, outer wall Lv2 with one trapped gate, 4-5 Lv3 towers, 5-6 Mind guards, no farms, dark keep sprite (buildings.js bossKeepSprite), scorched land. Budget 9: simple plans average ~1 star, rare clears.
