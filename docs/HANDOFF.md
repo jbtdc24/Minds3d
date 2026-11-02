@@ -1,13 +1,14 @@
 # The game's real name is MINDS CLASH (internal keys still say mindclash so nobody gets signed out)
 # HANDOFF — read this first (next AI session: continue from the top of "NEXT TASKS")
 
-## CURRENT STATUS (2026-11-02)
-Live on main: all security fixes, server-run adventures, error monitoring, payment ledger and daily check, draft Terms and Privacy, harder Siege Cup, London region. SQL 007, 008 and 009 are run. Bots stay unlabelled outside Practice and Training. Owner said GO on the saved tasks (2026-11-02).
-ALL SAVED TASKS 0-14 SHIPPED to main on 2026-11-02 (447 tests). Only task 2 waits: Animoca Minds has no public API yet; our tool list is ready.
-OWNER TODO: (1) set STABLE_TOKEN in Vercel to turn on USDG payments, then one small real purchase; (2) ask Animoca for Minds API access.
-Not checked with real players yet: burning village + restore, cup army picker, troop upgrades online, two-player duel timing.
-Owner wants to keep going in the same chat, with no questions: update this file after every task.
-PAUSED by owner 2026-11-02 ("save for later"). All checks pass, including the full mutation run.
+## CURRENT STATUS (2026-11-03)
+Live on main (latest 201902d): everything below through ROUND 11, plus village helpers. 465 tests pass; fuzz, economy audit and full mutation check pass.
+Done 2026-11-02/03: all saved tasks 0-14, round 10 (staked Minds, island edit mode, boss fortress, Giants, helpers), round 11 (cosmetics: 4 card backs, 4 frames, 3 skies, 3 name colours, rival sees looks; victory confetti; 2 new duel arenas; painted loading sky; warmer Mind Town).
+STABLE_TOKEN is set in Vercel (owner, 2026-11-02) and redeployed.
+OWNER TODO: (1) one small real USDG purchase and one ETH purchase; (2) ask Animoca for Minds API access (send https://minds3d.vercel.app/api/agent?format=tools); (3) launch list below.
+Not checked with real players yet: burning village + restore, edit-mode group moves, cup army picker, staked Minds at login, rivals seeing cosmetics, two-player duel timing.
+Owner rules: keep going in the same chat, no questions, short plain replies, update this file after every task. OpenArt allowed for art, QUALITY ALWAYS LOW.
+If a table is added to the prototype-lock line in rules.js, also update tools/mutation_check.mjs line 56.
 
 ## ROUND 10 (owner 2026-11-02): staked Minds, island edit mode, harder boss
 - [x] Siege Cup boss fortress: raid.js bossFortress(): closed inner wall Lv3, outer wall Lv2 with one trapped gate, 4-5 Lv3 towers, 5-6 Mind guards, no farms, dark keep sprite (buildings.js bossKeepSprite), scorched land. Budget 9: simple plans average ~1 star, rare clears.
