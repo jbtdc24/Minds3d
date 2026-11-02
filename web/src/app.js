@@ -12,6 +12,7 @@ import { initMindTalk, openMinds } from './mindtalk.js';
 import { chatSigner } from './chatsign.js';
 import { initTown, openTown, closeTown } from './town.js';
 import { capOf, ENERGY_CAP } from './energy.js';
+import { loading } from './loader.js';
 import { openIsland, closeIsland, refreshHud, cropImg, fmtTime } from './island/island.js';
 import { chibi } from './island/chibi.js';
 import { openRaid, closeRaid } from './island/raidview.js';
@@ -482,6 +483,8 @@ function pickArmy(cap, hero, lead) {
     $('#modal').classList.add('on');
   });
 }
+const RAID_TIPS = ['Drop troops away from towers, then push in.', 'Archers hit from behind walls. Brawlers soak the damage.', 'Spells: Rage speeds up, Heal saves a push, Bolt breaks a tower.',
+  'Hidden traps hide near the loot. Spread your troops out.', 'A Barn keeps 1,000 ✨ safe when others raid you.', 'Revenge raids are free and do not use up a raid.'];
 async function startRaid(revenge = 0) {
   sfx('click');
   const lead = (picked()[0] ?? myMinds[0]) || 49, holder = online && !guest && myMinds.length;
@@ -491,16 +494,17 @@ async function startRaid(revenge = 0) {
   if (!troops) return;
   let target = null;
   if (online) {
-    toast('Looking for an island to raid…');
-    try { target = await api('raid', { op: 'find', minds: [lead], army: troops, ...(revenge ? { revenge } : {}) }); resetIsland(); }
+    const done = loading({ title: revenge ? 'Flying to your revenge' : 'Finding an island to raid', sub: 'Your airship is out looking', tips: RAID_TIPS, tier: isle.state?.ship || 1 });
+    try { target = await api('raid', { op: 'find', minds: [lead], army: troops, ...(revenge ? { revenge } : {}) }); resetIsland(); await done(); }
     catch (e) {   // never fail silently: say exactly why (out of raids → tickets in the Gem shop)
-      sfx('denied'); toast(e.message || 'The raid could not start. Try again.', true);
+      await done(); sfx('denied'); toast(e.message || 'The raid could not start. Try again.', true);
       if (/raids today/.test(e.message || '') && (await modal(`<h3>🎟️ Out of raids for today</h3><p>${esc(e.message)}</p>`, [['Get a Raid Ticket', 1, 'primary'], ['OK', 0]]))) openShop('gems');
       return;
     }
   }
   // no server: an island to raid made on this device (nothing is saved)
   const local = !target?.snap;
+  if (local) await loading({ title: 'Finding an island to raid', sub: 'Your airship is out looking', tips: RAID_TIPS, tier: isle.state?.ship || 1 })();
   const snap = local ? botVillage((Math.random() * 2 ** 31) | 0, Math.min(3, 1 + Math.floor((settings.raidWins || 0) / 3))) : target.snap;
   const army = { troops: target?.army ?? cleanArmy(troops, cap), hero: target?.hero ?? (holder ? 'hero' : 'captain') };
   closeIsland(); show('raid');
@@ -511,8 +515,10 @@ async function startRaid(revenge = 0) {
     onEnd: async (inputs, res0) => {
       let res = { ...res0, loot: 0 };
       if (!local) {
+        const done = loading({ title: 'Counting the loot', sub: 'The server checks every move of your raid', tips: RAID_TIPS, tier: isle.state?.ship || 1, minMs: 600 });
         try { res = await api('raid', { op: 'attack', id: target.id, inputs, army: army.troops, claim: res0.stars }); resetIsland(); }
         catch (e) { toast(e.message, true); }
+        await done();
       } else if (res0.stars >= 2) { settings.raidWins = (settings.raidWins || 0) + 1; saveSettings(); }
       const stars = '★'.repeat(res.stars) + '☆'.repeat(3 - res.stars);
       if (res.stars) sfx('victory');

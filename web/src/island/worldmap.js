@@ -123,7 +123,7 @@ function buildArt() {
 
 // ---------- airships (pixel sprites) ----------
 const shipCache = {};
-function shipSprite(tier) {
+export function shipSprite(tier) {
   if (shipCache[tier]) return shipCache[tier];
   const WOOD = ['#4a2e1c', '#6b4428', '#8b5a34', '#a87444', '#c99a63'];
   let spr;

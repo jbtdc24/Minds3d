@@ -924,8 +924,14 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   ok(!JSON.stringify(out.body).includes('"trap"') && !out.body.island.state.raid, 'island data never carries the raid snapshot');
   ok(!RD.publicSnap(fullSnap).b.some(b => b.type === 'trap') && RD.publicSnap(fullSnap).b.length > 3, 'the raider gets the village without hidden traps');
   delete isl(Att).state.raid;
-  out = await hit(raid, Att, { op: 'find', army: { brawler: 4 } });
-  ok(out.code === 200 && !JSON.stringify(out.body).includes('"trap"') && isl(Att).state.raid.snap.b, 'a raid target arrives with no traps in it');
+  // targets are random: keep looking until one really has traps, or the check proves nothing
+  for (let i = 0; i < 12; i++) {
+    out = await hit(raid, Att, { op: 'find', army: { brawler: 4 } });
+    if (out.code !== 200 || isl(Att).state.raid?.snap.b.some(b => b.type === 'trap')) break;
+    delete isl(Att).state.raid;
+  }
+  ok(isl(Att).state.raid?.snap.b.some(b => b.type === 'trap'), 'found a raid target that really has traps');
+  ok(out.code === 200 && !JSON.stringify(out.body).includes('"trap"'), 'a raid target arrives with no traps in it');
   const drops = RD.autoPlan(fullSnap, { troops: { brawler: 6 }, hero: 'captain' }), real = RD.replay(fullSnap, { troops: { brawler: 6 }, hero: 'captain' }, drops), seen = RD.replay(RD.publicSnap(fullSnap), { troops: { brawler: 6 }, hero: 'captain' }, drops);
   ok(real.S.traps.length > 0 && seen.S.traps.length === 0, 'the server still fights with the real traps');
 
