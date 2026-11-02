@@ -2,17 +2,17 @@
 # HANDOFF — read this first (next AI session: continue from the top of "NEXT TASKS")
 
 ## CURRENT STATUS (2026-11-02)
-Live on main: all security fixes, server-run adventures, error monitoring, payment ledger and daily check, draft Terms and Privacy, harder Siege Cup, London region. SQL 007, 008 and 009 are run. Bots stay unlabelled outside Practice and Training. Nothing is in progress: the owner said list only, so wait for a go-ahead.
-Recommended next: task 3 (duel fixes), then 4 to 11 in order, task 1 before Gems are sold, task 2 last.
-Owner must answer: Siege Cup armies (suggested same budget, any mix), USDC prices, keep or remove Town rewards.
+Live on main: all security fixes, server-run adventures, error monitoring, payment ledger and daily check, draft Terms and Privacy, harder Siege Cup, London region. SQL 007, 008 and 009 are run. Bots stay unlabelled outside Practice and Training. Owner said GO on the saved tasks (2026-11-02).
+Task 3 DONE on branch island (not yet merged to main). Next: task 4, then 5 to 11 in order, task 1 before Gems are sold, task 2 last.
+Owner decided 2026-11-02: Siege Cup = same budget, any mix. USDC prices = 50/$5, 120/$10, 300/$20, 800/$50, and ETH stays too (anything on Robinhood Chain). Keep Town rewards.
 Before public launch: confirm Supabase backups, fill in Terms and Privacy and get legal review (docs/LEGAL_REVIEW.md), add CRON_SECRET in Vercel, test capacity on a separate Supabase project, test Safari, Firefox and real phones, one real Gem purchase, two-wallet chat test.
 Ideas on hold: Mind Office, Season Pass, cosmetics, referrals, Town moderation, pitch deck, AI demo, trailer, Train Mind and Auto Battle, play.minds.games domain, Minds Investment Programme application.
 Checks before any deploy: node tools/test_server.mjs, tools/fuzz_server.mjs, tools/mutation_check.mjs, tools/economy_audit.mjs (see docs/DEPLOY.md). The owner wants short plain replies.
 
 ## SAVED TASKS (owner parked these, do not forget)
-1. [ ] **Gem payments on Robinhood Chain, with a choice of USDC or ETH.** The owner corrected this: Robinhood, not Base. ETH already works there. Add USDC: first confirm the official USDC contract on Robinhood Chain (id 4663). It is an ERC-20, so verify the Transfer log in the receipt, and extend the ledger and daily check to it. WAITING: owner's USDC prices (suggested 50 Gems $5, 120 $10, 300 $20, 800 $50). Start when the owner says.
+1. [ ] **Gem payments on Robinhood Chain, with a choice of USDC or ETH.** The owner corrected this: Robinhood, not Base. ETH already works there. Add USDC: first confirm the official USDC contract on Robinhood Chain (id 4663). It is an ERC-20, so verify the Transfer log in the receipt, and extend the ledger and daily check to it. Prices CONFIRMED: 50 Gems $5, 120 $10, 300 $20, 800 $50; keep ETH as a choice.
 2. [ ] **AI connects to animocaminds.** Do this LAST, after everything else is final.
-3. [ ] **Duel: prize timing.** The prize at the top changes before the action finishes, especially on round 2. Keep it in step with the cards.
+3. [x] **Duel: prize timing.** Fixed: app.js handle() keeps newer views in D.pending while a reveal runs, so live pushes no longer repaint the prize mid-animation.
 4. [ ] **Duel: round change.** Add a clear ROUND 2 transition or screen so nobody misses it.
 5. [ ] **Duel: clear result.** The crown prize does not match the action, and it is unclear who won. Make each result obvious.
 6. [ ] **Raid: loading screen.** Current one looks bad. Design a proper one, and loading screens elsewhere if needed, including for when many players are online.

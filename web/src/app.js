@@ -897,12 +897,19 @@ async function refresh() {
 async function handle(v) {
   if (!D) return;
   showChat(v.chat, v.seat, v.serverTime);
-  const ev = v.view.lastEvent;
-  if (ev && keyOf(ev) !== D.seen && !D.busy) {
-    D.busy = true; D.seen = keyOf(ev);
-    try { await reveal(ev, v); } finally { if (D) D.busy = false; }
+  // while cards are being revealed the table keeps showing that turn's prize: newer views wait until it ends
+  if (D.busy) { D.pending = v; return; }
+  for (;;) {
+    const ev = v.view.lastEvent;
+    if (ev && keyOf(ev) !== D.seen) {
+      D.busy = true; D.seen = keyOf(ev);
+      try { await reveal(ev, v); } finally { if (D) D.busy = false; }
+    }
+    if (!D) return;
+    const next = D.pending; D.pending = null;
+    if (!next || next === v || Date.parse(next.serverTime) < Date.parse(v.serverTime)) break;
+    v = next;
   }
-  if (!D) return;
   D.v = v; D.v.gotAt = Date.now();
   if (v.status !== 'live') return finish(v);
   paintDuel();
