@@ -1204,9 +1204,21 @@ async function roundEnd(ev, v, seat) {
     D.F.forEach(f => { if (f) { f.ko = false; f.act = null; } });
     placeFighters(v.view, true);
     D.F.forEach(f => { f.ko = false; f.act = null; });
-    sfx('round');
-    await banner(`<div class="bt white">ROUND ${v.view.round}</div><small>Fresh hand: cards 1–7 and your spells are back</small>`, 1300);
+    await roundScreen(v.view);
   }
+}
+// its own screen between rounds so nobody misses it: the new round, the round score and both Minds up next
+async function roundScreen(view) {
+  const final = view.me.rounds === RULES.roundsToWin - 1 && view.rival.rounds === RULES.roundsToWin - 1;
+  const side = (p, i) => `<div class="rs-side ${i ? 'rival' : ''}"><img src="${thumb(p.minds[p.mind])}" alt=""><b>${esc(p.name)}</b><span class="rs-crowns">${starsHtml(p.rounds)}</span></div>`;
+  const S = $('#s-duel'), B = $('#banner');
+  S.classList.add('roundchange'); B.classList.add('dim');
+  sfx('round');
+  await banner(`<div class="rs"><div class="bt ${final ? 'gold' : 'white'}">${final ? 'FINAL ROUND' : `ROUND ${view.round}`}</div>
+    <div class="rs-vs">${side(view.me, 0)}<i>${view.me.rounds} – ${view.rival.rounds}</i>${side(view.rival, 1)}</div>
+    <small>${final ? 'Winner takes the match! ' : ''}Fresh hand: cards 1–7 and your spells are back</small></div>`, 2600);
+  B.classList.remove('dim'); S.classList.remove('roundchange');
+  const lbl = $('#d-round'); lbl.classList.remove('new'); void lbl.offsetWidth; lbl.classList.add('new');
 }
 
 async function finish(v) {

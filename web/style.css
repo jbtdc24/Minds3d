@@ -483,6 +483,21 @@ p, li, .muted, .fine, .pitch, .coach p, .codex, .modal p, .guest-note { line-hei
 /* duel intro: only the banner + Minds while "DUEL!" shows */
 #s-duel.intro .prize, #s-duel.intro .duel-bottom, #s-duel.intro .rivalinfo, #s-duel.intro .chatbtn { opacity: 0; pointer-events: none; }
 #s-duel .prize, #s-duel .duel-bottom, #s-duel .rivalinfo { transition: opacity .3s; }
+/* round change: a dimmed screen with the new round, the round score and both Minds */
+#s-duel.roundchange .prize, #s-duel.roundchange .duel-bottom, #s-duel.roundchange .rivalinfo, #s-duel.roundchange .chatbtn { opacity: 0; pointer-events: none; }
+#banner.dim { background: radial-gradient(circle, rgba(18,14,44,.6), rgba(10,8,28,.9)); }
+.rs-vs { display: flex; align-items: center; justify-content: center; gap: clamp(12px, 4vw, 40px); margin-top: 22px; }
+.rs-vs > i { font-style: normal; font-size: clamp(30px, 7vw, 54px); color: #fff; text-shadow: 3px 3px 0 var(--ink), -2px -2px 0 var(--ink), 2px -2px 0 var(--ink), -2px 2px 0 var(--ink); }
+.rs-side { display: flex; flex-direction: column; align-items: center; gap: 6px; animation: rs-in .4s cubic-bezier(.3,1.5,.5,1) both; }
+.rs-side.rival { animation-name: rs-in-r; }
+.rs-side img { width: clamp(64px, 14vw, 104px); aspect-ratio: 1; image-rendering: pixelated; background: var(--paper); box-shadow: var(--ps); }
+.rs-side.rival img { transform: scaleX(-1); }
+.rs-side b { font-size: clamp(13px, 2.4vw, 18px); color: #fff; max-width: 30vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-shadow: 2px 2px 0 var(--ink); }
+.rs-crowns img { width: clamp(20px, 3.4vw, 28px); margin: 0 2px; } .rs-crowns img.off { filter: grayscale(1) brightness(.5); opacity: .7; }
+@keyframes rs-in { from { opacity: 0; transform: translateX(-60px); } }
+@keyframes rs-in-r { from { opacity: 0; transform: translateX(60px); } }
+#d-round.new { animation: round-pop .6s cubic-bezier(.3,1.5,.5,1); }
+@keyframes round-pop { 0% { transform: scale(1.8); color: var(--lime); } 100% { transform: scale(1); } }
 
 @media (max-width: 900px) {
   .board-tab { display: none !important; } #s-hub.board-closed .col-board { display: flex; }
