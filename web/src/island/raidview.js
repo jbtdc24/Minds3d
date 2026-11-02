@@ -3,7 +3,7 @@
 // Every input is recorded with its tick so the server can replay the exact same raid.
 import { gen, COVER, T, TW, TH, WW, WH, hash } from './gen.js';
 import { drawSky, groundFor, sprites, SOIL } from './art.js';
-import { bsprites, drawSails } from './buildings.js';
+import { bsprites, drawSails, leveled } from './buildings.js';
 import { chibi } from './chibi.js';
 import { coverAt, BUILD } from './rules.js';
 import { troopSprite, weapon, troopIcon } from './troops.js';
@@ -172,10 +172,10 @@ function frame(now) {
     const by = s.y1 - 1, cx = s.cx;
     if (s.dead) { items.push({ y: by - 4, spr: bsprites.rubble(i % 5 + 1), x: cx, smoke: s.type !== 'wall' }); return; }
     let spr;
-    if (s.type === 'home') spr = sprites.house(S.snap.seed, false);
-    else if (s.type === 'wall') { const k = s.tiles[0]; spr = bsprites.wall((walls.has(k - TW) ? 1 : 0) | (walls.has(k + 1) && kx(k) < TW - 1 ? 2 : 0) | (walls.has(k + TW) ? 4 : 0) | (walls.has(k - 1) && kx(k) > 0 ? 8 : 0)); }
-    else if (s.type === 'house') spr = bsprites.house(false);
-    else spr = bsprites[s.type]();
+    if (s.type === 'home') spr = leveled(sprites.house(S.snap.seed, false), s.lv);
+    else if (s.type === 'wall') { const k = s.tiles[0]; spr = leveled(bsprites.wall((walls.has(k - TW) ? 1 : 0) | (walls.has(k + 1) && kx(k) < TW - 1 ? 2 : 0) | (walls.has(k + TW) ? 4 : 0) | (walls.has(k - 1) && kx(k) > 0 ? 8 : 0)), s.lv, 'wall'); }
+    else if (s.type === 'house') spr = leveled(bsprites.house(false), s.lv);
+    else spr = leveled(bsprites[s.type](), s.lv, s.type);
     items.push({ y: by, spr, x: cx, s, sails: s.type === 'mill' ? { x: cx, y: by - 26 } : null, shadow: s.type === 'wall' ? 0 : s.x1 - s.x0 });
   });
   for (const tr of S.traps) if (!tr.armed) items.push({ y: ky(tr.k) * T + 4, spr: bsprites.trap(), x: kx(tr.k) * T + 8 });

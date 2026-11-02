@@ -71,6 +71,7 @@ export function createRaid(snap, army = {}) {
   if (homeB) home.push(...footprint(homeB));
   else for (let y = 0; y < 3; y++) for (let x = 0; x < 3; x++) home.push((w.house.y + y) * TW + w.house.x + x);
   S.structs.push(mkStruct('home', home, Math.round(HOME_HP * hpMult(homeB?.lv))));
+  S.structs[S.structs.length - 1].lv = homeB?.lv || 1;   // for the picture only
   S.decos = [];
   for (const b of snap.b) {
     if (b.type === 'home' || !BUILD[b.type]) continue;

@@ -208,3 +208,38 @@ Object.assign(bsprites, {
   flowers: () => once('flowers', flowerBed), lamp: () => once('lamp', lamp), bench: () => once('bench', bench), banner: () => once('banner', banner),
   lantern: () => once('lantern', lantern), crystal: () => once('crystal', crystalStatue), fountain: () => once('fountain', fountain), fence: fencePiece,
 });
+
+// ---------- building levels: the same building, visibly better at Lv2 and Lv3 ----------
+// Lv2: stone foundation + a blue pennant. Lv3: gold trim above the stone, a gold pennant and sparkles.
+// Walls show it on their cap instead (blue-grey at Lv2, gold at Lv3). Works on any sprite, including the home.
+const lvCache = new WeakMap();
+export function leveled(spr, lv, type) {
+  if (!spr || !(lv >= 2)) return spr;
+  let byLv = lvCache.get(spr);
+  if (!byLv) lvCache.set(spr, byLv = {});
+  if (byLv[lv]) return byLv[lv];
+  const { w, h } = spr, cv = document.createElement('canvas');
+  cv.width = w; cv.height = h;
+  const g = cv.getContext('2d');
+  g.drawImage(spr.cv, 0, 0);
+  const id = g.getImageData(0, 0, w, h), px = id.data;
+  const at = (x, y) => (y * w + x) * 4;
+  const solid = (x, y) => { const i = at(x, y); return px[i + 3] > 0 && px[i] + px[i + 1] + px[i + 2] > 150; };   // not empty, not the dark outline
+  const put = (x, y, hex) => { const i = at(x, y), n = parseInt(hex.slice(1), 16); px[i] = n >> 16; px[i + 1] = (n >> 8) & 255; px[i + 2] = n & 255; px[i + 3] = 255; };
+  if (type === 'wall') {
+    const cap = lv >= 3 ? ['#ffd84a', '#e0a82a'] : ['#a9bce0', '#7d93c0'];
+    for (let x = 0; x < w; x++) { let n = 0; for (let y = 0; y < h && n < 2; y++) if (solid(x, y)) put(x, y, cap[n++]); }
+  } else {
+    for (let y = h - 4; y <= h - 2; y++) for (let x = 0; x < w; x++) if (solid(x, y)) put(x, y, (x + (y % 2) * 2) % 4 === 0 ? STONE[1] : y === h - 4 ? STONE[4] : STONE[3]);
+    if (lv >= 3) for (let x = 0; x < w; x++) if (solid(x, h - 5)) put(x, h - 5, x % 3 ? '#ffd84a' : '#e0a82a');
+  }
+  g.putImageData(id, 0, 0);
+  if (type !== 'wall') {   // a pennant on a little pole in the top-left corner
+    g.fillStyle = DARK; g.fillRect(1, 0, 1, 14);
+    g.fillStyle = lv >= 3 ? '#ffd84a' : '#3b82f6';
+    for (let y = 0; y < 7; y++) g.fillRect(2, y, 9 - Math.abs(3 - y) * 2, 1);
+    g.fillStyle = lv >= 3 ? '#c43c3c' : '#ffffff'; g.fillRect(2, 3, 5, 1);
+    if (lv >= 3) { g.fillStyle = '#fff6b0'; for (const [x, y] of [[w - 4, 2], [w - 8, 6], [w - 3, 9]]) g.fillRect(x, y, 1, 1); }
+  }
+  return (byLv[lv] = { cv, w, h });
+}

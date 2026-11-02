@@ -8,7 +8,7 @@ import { gen, COVER, T, TW, TH, WW, WH, hash } from './gen.js';
 import { drawSky, groundFor, sprites, sprouts, heart, SOIL, toolSprites } from './art.js';
 import { rng } from './pixel.js';
 import { CROPS, coverAt, ripe, growMs, regrowMs, maxPlots, plotCount, PLOT_COST, speedBonus, BUILD, buildingAt, fits, footprint, maxOf, countOf, canAfford, costText, homeOf, wellOf, STASH_MAX, rushGems, builders, busy, gemPrice, UPGRADABLE, MAX_LV, lvOf, upgradeCost, wellShards, SHARD_CAP, SHARD_MS, SHARDS_PER_ENERGY, BUILD_SECS, upgradeSecs, levelStats } from './rules.js';
-import { bsprites, drawSails, buildIcon } from './buildings.js';
+import { bsprites, drawSails, buildIcon, leveled } from './buildings.js';
 import { drawCinema, dropShadow } from './cinema.js';
 import { isle, doAct, now, onChange, flush, tickWork } from './store.js';
 
@@ -403,14 +403,14 @@ function frame(nowT) {
     const d = BUILD[b.type], x0 = kx(b.k) * T, y0 = ky(b.k) * T, cx = x0 + d.w * T / 2, by = y0 + d.h * T - 1;
     if (b.type === 'wall') {
       const k = b.k, mask = (wallAt.has(k - TW) ? 1 : 0) | (kx(k) < TW - 1 && wallAt.has(k + 1) ? 2 : 0) | (wallAt.has(k + TW) ? 4 : 0) | (kx(k) > 0 && wallAt.has(k - 1) ? 8 : 0);
-      items.push({ y: by, spr: bsprites.wall(mask), x: cx });
+      items.push({ y: by, spr: leveled(bsprites.wall(mask), b.lv, 'wall'), x: cx });
     } else if (b.type === 'trap') items.push({ y: y0 + 2, spr: bsprites.trap(), x: cx, flat: true });
-    else if (b.type === 'mill') { items.push({ y: by, spr: bsprites.mill(), x: cx, sails: { x: cx, y: by - 26 } }); }
-    else if (b.type === 'home') items.push({ y: by, spr: sprites.house(isle.seed, !!L.night), x: cx, shadow: 30 });
+    else if (b.type === 'mill') { items.push({ y: by, spr: leveled(bsprites.mill(), b.lv), x: cx, sails: { x: cx, y: by - 26 } }); }
+    else if (b.type === 'home') items.push({ y: by, spr: leveled(sprites.house(isle.seed, !!L.night), b.lv), x: cx, shadow: 30 });
     else if (b.type === 'well') items.push({ y: by, spr: sprites.well(), x: cx });
     else if (b.type === 'fence') items.push({ y: by, spr: bsprites.fence(maskOf(fenceAt, b.k)), x: cx });
     else if (b.type === 'lantern') items.push({ y: by, spr: bsprites.lantern(), x: cx, float: true });
-    else items.push({ y: by, spr: b.type === 'house' ? bsprites.house(L.night) : bsprites[b.type](), x: cx, shadow: d.w * T * 0.8 });
+    else items.push({ y: by, spr: leveled(b.type === 'house' ? bsprites.house(L.night) : bsprites[b.type](), b.lv, b.type), x: cx, shadow: d.w * T * 0.8 });
   }
   for (const p of w.portals) items.push({ y: ky(p.k) * T + 14, portal: p });
   for (const m of minds) items.push({ y: m.y, mind: m });
