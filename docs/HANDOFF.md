@@ -13,6 +13,14 @@ Owner rules: keep going in the same chat, no questions, short plain replies, upd
 Minds Builder API (2026-11-03): owner got a Builder API key (JWT, role builder, expires 2027-11). Checked: works. Base https://api.build.hellominds.ai, header `X-Api-Key: <key>` (OAuth tokens use Bearer). Docs https://build.hellominds.ai/docs/api, npm @animocabrands/minds-client-lib. GET /v1/humans/{humanId}/minds lists the owner's 7 Minds; messaging = POST /v1/messaging/conversation + /message, replies via /histories/{alias} or /events. NEVER commit the key: it goes in Vercel env MINDS_API_KEY (owner adds). Next: decide what to build (real Mind talk in mindtalk.js, or Minds Connect sign-in).
 If a table is added to the prototype-lock line in rules.js, also update tools/mutation_check.mjs line 56.
 
+## ROUND 13 (owner 2026-11-03) — PROPOSED, waiting for owner's go on the numbers
+Our own take on the base-builder progression the owner asked for (genre mechanics, own numbers and art, not a copy of one game):
+1. [ ] Town Hall = the Home, levels 1-10. Every other building's max level = Town Hall level (all 1-10). Next Town Hall level needs your key buildings at the current level ("all aligned"). Each TH level unlocks more of each building (walls, towers, traps, camps, houses).
+2. [ ] Army camp space and troop levels grow with Town Hall + camp level (TH1 10 → TH10 ~60). Troop levels 1-10 (lab-style upgrades, gated by TH).
+3. [ ] Building looks change every level (code-drawn: wood → stone → iron → gold → crystal tiers, extra parts, glow at 8-10).
+4. [ ] Costs/times grow per level (minutes at Lv2 → about a day at Lv10), Gems can rush; economy audit + raid sims redone for 10 levels; old saves migrate (Lv1-3 stay, cap rises).
+5. [ ] Raid losses: today 25% of unprotected Dust (max 2,000), barns protect 1,000 each, burning village. Proposal: also 20% of unprotected wood/stone and crops in storage, cap scales with TH; Storage/Barn protects more per level.
+6. [ ] Ranked → island rewards. Today only 60 ✨ win / 15 ✨ loss per Mind. Proposal: win streak chests (wood, stone, potions, fuel, troop tickets), a daily "3 ranked wins" chest with a builder-speed boost, rank tiers (Bronze→Legend) that give weekly island rewards + a raid shield, and ranked rating gives a small loot bonus in raids.
 ## ROUND 12 (owner 2026-11-03) — NEXT TASKS, do top to bottom (quick fixes first, big Mind Autopilot last)
 1. [x] Opening screen (logo top, Tap to Play bottom; style.css .boot): title text covers the characters; Start/Enter button covers the 3 legendary Minds. Move them.
 2. [x] Island build menu scrolls (.isl-seeds max-height + overflow) (list of things to build).
