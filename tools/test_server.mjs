@@ -249,9 +249,30 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   ok(out.code === 200 && out.body.island.state.dust === 100, 'route creates a new island');
   const gw = gen(out.body.island.seed), gweed = [...gw.cover.keys()].find(k => gw.cover[k] === COVER.WEEDS);
   out = await call(g.id, { acts: [{ type: 'clear', tiles: [gweed] }, { type: 'buy', item: 'seed_bean', n: 2 }] });
-  ok(out.body.island.state.dust === 91 && out.body.island.state.inv.seed_bean === 8 && out.body.island.rev === 1, 'route applies and saves actions');
+  ok(out.body.island.state.dust === 90 && out.body.island.state.inv.seed_bean === 8 && out.body.island.rev === 1, 'route applies and saves actions');
+  ok(out.body.island.state.q?.length === 1 && out.body.results[0].queued === 1, 'clearing by hand goes into the timed work queue, not done at once');
+  out = await call(g.id, {});
+  ok(out.body.island.state.dust === 90 && out.body.island.state.q?.length === 1, 'reopening the island right away does not finish the work (no rush exploit)');
   out = await call(g.id, { acts: [{ type: 'sell', item: 'seed_bean', n: 1 }] });
   ok(out.body.results[0].error && out.body.points === 0, 'seeds cannot be sold; guests earn no points');
+}
+
+// ---- hand work takes real time, also while you are away ----
+{
+  const { gen, COVER } = await import('../web/src/island/gen.js');
+  const R = await import('../web/src/island/rules.js');
+  const seed = 4242, now = 1e12, st = R.newIsland(seed, now), w = gen(seed), ctx = { seed, now, minds: 2, queue: true };
+  const weeds = [...w.cover.keys()].filter(k => w.cover[k] === COVER.WEEDS).slice(0, 6), dust0 = st.dust;
+  let r = R.act(st, { type: 'clear', tiles: weeds }, ctx);
+  ok(r.queued === 6 && st.dust === dust0, 'six weeds queued, nothing paid yet');
+  ok(R.act(st, { type: 'clear', tiles: weeds }, ctx).error, 'the same tile cannot be queued twice');
+  R.settleWork(st, { seed, now: now + 1000, minds: 2 });
+  ok(st.dust === dust0 && st.q.length === 6, 'nothing is done before its time');
+  R.settleWork(st, { seed, now: now + R.WORK_MS[COVER.WEEDS] * 2, minds: 2 });
+  ok(st.dust === dust0 + 4 && st.q.length === 2, 'two Minds clear two weeds at a time');
+  R.settleWork(st, { seed, now: now + 3600e3, minds: 2 });
+  ok(st.dust === dust0 + 6 && !st.q && !st.ql, 'the rest finishes while you are away');
+  ok(R.act(st, { type: 'plant', crop: 'constructor', tiles: [1] }, ctx).error, 'queue refuses unknown seeds');
 }
 
 // ---- village buildings + raids ----

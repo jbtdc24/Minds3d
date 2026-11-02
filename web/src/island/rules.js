@@ -199,9 +199,55 @@ export function normalize(st, seed, now) {
 for (const table of [CROPS, BUILD, SHOP, RECIPES, RAW, UPGRADABLE]) Object.setPrototypeOf(table, null);
 const okTile = (w, k) => Number.isInteger(k) && k >= 0 && k < TW * TH && w.land[k] === 1;
 const add = (o, k, n) => { if (n) o[k] = (o[k] || 0) + n; };
+// ---------- hand work (clear, plot, plant, harvest) takes real time ----------
+// A player's work goes into st.q with the time it will be done; your Minds work side by side (1 lane each, max 12).
+// It keeps going while you are away, and nothing is done before its time, so leaving the island never rushes it.
+export const WORK_MS = { [COVER.WEEDS]: 2200, [COVER.BUSH]: 2500, [COVER.ROCK]: 2900, [COVER.TREE]: 3200, till: 2400, plant: 2000, harvest: 2100 };
+const WORK = { clear: 1, till: 1, plant: 1, harvest: 1 }, QUEUE_MAX = 300;
+Object.setPrototypeOf(WORK, null);
+export const workLanes = minds => Math.max(1, Math.min(12, minds | 0));
+export const workMs = (st, w, type, k) => (type === 'clear' ? WORK_MS[coverAt(st, w, k)] : WORK_MS[type]) || 2000;
+function queueWork(st, a, w, tiles, { now, minds }) {
+  if (a.type === 'plant' && !CROPS[a.crop]) return { error: 'unknown seed' };
+  st.q ||= [];
+  const free = Array.from({ length: workLanes(minds) }, (_, i) => Math.max(now, st.ql?.[i] || 0)), have = new Set(st.q.map(j => j.k));
+  let done = 0;
+  for (const k of tiles) {
+    if (!okTile(w, k) || have.has(k) || st.q.length >= QUEUE_MAX) continue;
+    const t = st.tiles[k], cov = coverAt(st, w, k);
+    const ok = a.type === 'clear' ? !!DROPS[cov] : a.type === 'till' ? cov === COVER.NONE && !isPlot(st, k)
+      : a.type === 'plant' ? t?.s === 'p' && !t.c : t?.s === 'p' && !!t.c;
+    if (!ok) continue;
+    let i = 0;
+    for (let n = 1; n < free.length; n++) if (free[n] < free[i]) i = n;
+    free[i] += workMs(st, w, a.type, k);
+    const job = { y: a.type, k, d: free[i] };
+    if (a.type === 'plant') job.c = a.crop;
+    if (a.type === 'clear') job.v = cov;   // what stood there, for the effects when it is done
+    st.q.push(job); have.add(k); done++;
+  }
+  st.ql = free;
+  return done ? { gain: {}, done, queued: done } : { error: 'Nothing to do there.' };
+}
+// finish every queued job whose time has come, each at its own time; returns what was done
+export function settleWork(st, { seed, now, minds = 0 }) {
+  if (!Array.isArray(st.q) || !st.q.length) return [];
+  st.q.sort((x, y) => x.d - y.d);
+  const out = [];
+  while (st.q.length && st.q[0].d <= now) {
+    const j = st.q.shift();
+    if (!WORK[j.y]) continue;
+    out.push({ ...j, res: act(st, { type: j.y, tiles: [j.k], crop: j.c }, { seed, now: j.d, minds }) });
+  }
+  if (!st.q.length) { delete st.q; delete st.ql; }
+  return out;
+}
+
 // apply one action; returns what changed ({ gain, done }) or { error }
-export function act(st, a, { seed, now, minds = 0, instant = false }) {   // instant: tests only
+// queue: a player's own clear/till/plant/harvest goes into the timed work queue (the server always passes it)
+export function act(st, a, { seed, now, minds = 0, instant = false, queue = false }) {   // instant: tests only
   const w = gen(seed), gain = {}, tiles = [...new Set((Array.isArray(a.tiles) ? a.tiles : []).slice(0, 400).map(Number))].slice(0, 200);
+  if (queue && WORK[a.type]) return queueWork(st, a, w, tiles, { now, minds });
   let done = 0;
   const pay = (k, n) => { add(gain, k, n); if (k === 'dust') st.dust += n; else if (k === 'gems') st.gems = (st.gems || 0) + n; else st.inv[k] = (st.inv[k] || 0) + n; };
   switch (a.type) {

@@ -1,7 +1,7 @@
 // Your island's state in the browser: every action shows at once (same rules as the server),
 // then goes to the server in small batches; the server's answer is the truth.
 import { api } from '../net.js';
-import { act, normalize, newIsland } from './rules.js';
+import { act, normalize, newIsland, settleWork } from './rules.js';
 import { hashStr } from './gen.js';
 
 export const isle = { seed: 0, state: null, minds: 0, offline: false, loaded: false, skew: 0, error: '' };
@@ -26,12 +26,13 @@ function take(r) {
   isle.state = r.island.state;
   for (const a of queue) act(isle.state, a, ctx());   // actions made while the batch was on its way
 }
-const ctx = () => ({ seed: isle.seed, now: now(), minds: isle.minds });
+const ctx = () => ({ seed: isle.seed, now: now(), minds: isle.minds, queue: true });
 
 // do something: returns the local result ({ gain, done } or { error })
 export function doAct(a) {
   if (!isle.state) return { error: 'island not loaded' };
   normalize(isle.state, isle.seed, now());
+  tickWork();
   const res = act(isle.state, a, ctx());
   if (res.error || !res.done) return res;
   if (!isle.offline) {
@@ -42,6 +43,14 @@ export function doAct(a) {
   }
   emit({ act: a, res });
   return res;
+}
+// queued hand work whose time has come: done here at once (the server does the same on its own clock)
+export function tickWork() {
+  const q = isle.state?.q, t = now();
+  if (!q?.length || !q.some(j => j.d <= t)) return [];
+  const done = settleWork(isle.state, { seed: isle.seed, now: t, minds: isle.minds });
+  if (done.length) emit({ work: done });
+  return done;
 }
 export async function flush() {
   if (inflight || !queue.length || isle.offline) return inflight;

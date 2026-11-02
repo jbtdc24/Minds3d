@@ -7,10 +7,10 @@ import { sfx } from '../audio.js';
 import { gen, COVER, T, TW, TH, WW, WH, hash } from './gen.js';
 import { drawSky, groundFor, sprites, sprouts, heart, SOIL, toolSprites } from './art.js';
 import { rng } from './pixel.js';
-import { CROPS, coverAt, ripe, growMs, regrowMs, maxPlots, plotCount, PLOT_COST, speedBonus, BUILD, buildingAt, fits, footprint, maxOf, countOf, canAfford, costText, homeOf, wellOf, STASH_MAX, rushGems, builders, busy, gemPrice, UPGRADABLE, MAX_LV, lvOf, upgradeCost, wellShards, SHARD_CAP, SHARD_MS, SHARDS_PER_ENERGY } from './rules.js';
+import { CROPS, coverAt, ripe, growMs, regrowMs, maxPlots, plotCount, PLOT_COST, speedBonus, BUILD, buildingAt, fits, footprint, maxOf, countOf, canAfford, costText, homeOf, wellOf, STASH_MAX, rushGems, builders, busy, gemPrice, UPGRADABLE, MAX_LV, lvOf, upgradeCost, wellShards, SHARD_CAP, SHARD_MS, SHARDS_PER_ENERGY, BUILD_SECS, upgradeSecs } from './rules.js';
 import { bsprites, drawSails, buildIcon } from './buildings.js';
 import { drawCinema, dropShadow } from './cinema.js';
-import { isle, doAct, now, onChange, flush } from './store.js';
+import { isle, doAct, now, onChange, flush, tickWork } from './store.js';
 
 const cv = document.getElementById('island-cv');
 const g = cv.getContext('2d');
@@ -88,8 +88,10 @@ function valid(tl, k) {
 const compOf = (x, y) => { const k = tileAt(x, y); return k < 0 ? -1 : w.comp[k]; };
 // ---------- Minds: they wander, and do the jobs you give them ----------
 const GO_SPEED = 38;
-const WORK_TIME = { [COVER.WEEDS]: 0.7, [COVER.BUSH]: 1, [COVER.ROCK]: 1.4, [COVER.TREE]: 1.7, till: 0.9, plant: 0.55, harvest: 0.6 };
-let jobs = [];   // { type, k, crop?, m? } in the order you asked
+// the jobs are the island's saved work queue (st.q: { y: type, k, c?: crop, d: done at }): they take real time and keep
+// going while you are away; a Mind walks over and works on a tile until the queue says it is done
+const queued = () => isle.state?.q || [];
+const inQueue = k => queued().some(j => j.k === k);
 function makeMind(id, i) {
   const r = rng(id * 2654435761);
   const ho = homeOf(isle.state, w), hx = (ho.x + 1.5) * T, hy = (ho.y + 3.6) * T;
@@ -109,35 +111,31 @@ const toolFor = j => j.type === 'till' ? 'hoe' : j.type === 'plant' ? 'pouch' : 
   : j.cov === COVER.TREE || j.cov === COVER.BUSH ? 'axe' : j.cov === COVER.ROCK ? 'pick' : 'scythe';
 // queue a job; a free Mind walks over and does it
 function enqueue(type, k, extra = {}) {
-  if (k < 0 || !w.land[k] || jobs.some(j => j.k === k)) return;
+  if (k < 0 || !w.land[k] || inQueue(k)) return;
   if (!valid(type, k)) return;
-  const st = isle.state, same = jobs.filter(j => j.type === type);
+  const st = isle.state, same = queued().filter(j => j.y === type).map(j => ({ type: j.y, crop: j.c }));
   let err = '';
   if (type === 'till' && plotCount(st) + same.length >= maxPlots(st, isle.minds)) err = 'No free plots left. Buy a Land Permit in the Shop, or own more Minds.';
   else if (type === 'till' && st.dust < PLOT_COST * (same.length + 1)) err = `You need ${PLOT_COST} ✨ Dust for each plot.`;
   else if (type === 'plant' && (st.inv['seed_' + extra.crop] || 0) <= same.filter(j => j.crop === extra.crop).length) err = `No ${CROPS[extra.crop].name} seeds left. Buy more in the Shop.`;
   if (err) { if (!strokeErr) { strokeErr = true; sfx('denied'); cb.toast(err, true); if (type === 'plant') openSeeds(true); } return; }
-  const job = { type, k, cov: coverAt(st, w, k), ...extra };
-  if (!minds.length) return apply(type, k, extra);
-  jobs.push(job);
+  const res = doAct({ type, tiles: [k], ...extra });
+  if (res.error) { if (!strokeErr) { strokeErr = true; sfx('denied'); cb.toast(res.error, true); } return; }
   sfx('hover');
 }
-function finishJob(j) {
-  jobs = jobs.filter(x => x !== j);
-  const res = apply(j.type, j.k, j.crop ? { crop: j.crop } : {});
-  if (res?.error) jobs = jobs.filter(x => x.type !== j.type || x.m);   // can't do more of these (no seeds / Dust / plots)
-}
 function assignJobs() {
+  const taken = new Set(minds.map(m => m.job?.k));
   for (const m of minds) {
     if (m.job || m.hop > 0) continue;
     let best = null, bd = 1e9;
-    for (const j of jobs) {
-      if (j.m) continue;
+    for (const q of queued()) {
+      if (taken.has(q.k)) continue;
+      const j = { k: q.k, type: q.y, cov: q.v ?? coverAt(isle.state, w, q.k) };
       const d = Math.hypot(kx(j.k) * T + 8 - m.x, ky(j.k) * T + 12 - m.y);
       if (d < bd) { bd = d; best = j; }
     }
     if (!best) continue;
-    best.m = m; m.job = best; m.state = 'go';
+    taken.add(best.k); m.job = best; m.state = 'go';
     const cx = kx(best.k) * T + 8, side = m.x < cx ? -1 : 1;
     m.tx = cx + side * 10; m.ty = ky(best.k) * T + 13;
   }
@@ -164,9 +162,8 @@ function updateMind(m, dt, night) {
     if (d < 1.5 && m.site && !m.job) { m.state = 'work'; m.t = 0; m.dur = 1e9; m.dir = kx(m.site.k) * T + 8 > m.x ? 1 : -1; return; }
     if (d < 1.5) {
       const j = m.job;
-      if (!j || !jobs.includes(j) || !valid(j.type, j.k)) { if (j) jobs = jobs.filter(x => x !== j); m.job = null; m.state = 'idle'; m.timer = 0.1; return; }
+      if (!j || !inQueue(j.k)) { m.job = null; m.state = 'idle'; m.timer = 0.1; return; }
       m.state = 'work'; m.t = 0; m.dir = kx(j.k) * T + 8 > m.x ? 1 : -1;
-      m.dur = WORK_TIME[j.type === 'clear' ? coverAt(isle.state, w, j.k) : j.type] || 0.8;
     } else { const s = Math.min(d, GO_SPEED * dt); m.x += dx / d * s; m.y += dy / d * s; m.phase += dt * 16; if (Math.abs(dx) > 0.5) m.dir = dx > 0 ? 1 : -1; }
   } else if (m.state === 'work') {
     const before = m.t; m.t += dt;
@@ -183,12 +180,12 @@ function updateMind(m, dt, night) {
       bits(x, y, col, 3, 18);
       if (j.cov === COVER.TREE || j.cov === COVER.ROCK) sfx('flip');
     }
-    if (m.t >= m.dur) { const job = m.job; m.job = null; m.state = 'idle'; m.timer = 0.15; if (job && jobs.includes(job)) finishJob(job); }
+    if (!j || !inQueue(j.k)) { m.job = null; m.state = 'idle'; m.timer = 0.15; }   // the queue finished it: next job
   } else if (m.state === 'walk') {
     const dx = m.tx - m.x, dy = m.ty - m.y, d = Math.hypot(dx, dy);
     if (d < 1 || !walk(m.x + dx / d * 2, m.y + dy / d * 2)) { m.state = 'idle'; m.timer = 1.5 + m.r() * 4; if (m.r() < (night ? 0.5 : 0.15)) emote(m, night ? 'zzz' : 'heart'); }
     else { const s = Math.min(d, SPEED * dt); m.x += dx / d * s; m.y += dy / d * s; m.phase += dt * 11; if (Math.abs(dx) > 0.5) m.dir = dx > 0 ? 1 : -1; }
-  } else if ((m.timer -= dt) <= 0 && !jobs.some(j => !j.m)) {
+  } else if ((m.timer -= dt) <= 0 && !queued().some(q => !minds.some(o => o.job?.k === q.k))) {
     for (let k = 0; k < 24; k++) {
       const a = m.r() * Math.PI * 2, d = 16 + m.r() * 70, X = m.x + Math.cos(a) * d, Y = m.y + Math.sin(a) * d * 0.7;
       if (walk(X, Y) && clearLine(m.x, m.y, X, Y)) { m.tx = X; m.ty = Y; m.state = 'walk'; break; }
@@ -357,6 +354,7 @@ function frame(nowT) {
   if (innerWidth !== W || innerHeight !== H) { const first = W < 2; resize(); if (first) fitCam(); }
   if (!isle.state) return;
   const L = light(), nowMs = now(), st = isle.state;
+  for (const j of tickWork()) showDone(j.y, j.k, j.res, j.v);
   assignJobs(); assignBuilders(nowMs);
   for (const m of minds) updateMind(m, dt, L.night);
   spawnFx(dt, L);
@@ -418,7 +416,7 @@ function frame(nowT) {
   for (const m of minds) items.push({ y: m.y, mind: m });
   items.sort((a, b) => a.y - b.y);
   g.strokeStyle = `rgba(255,255,255,${0.5 + 0.3 * Math.sin(Tm * 6)})`; g.lineWidth = 1;
-  for (const j of jobs) g.strokeRect(kx(j.k) * T + 1.5, ky(j.k) * T + 1.5, T - 3, T - 3);
+  for (const j of queued()) g.strokeRect(kx(j.k) * T + 1.5, ky(j.k) * T + 1.5, T - 3, T - 3);
   if (hover >= 0 && w.land[hover]) {   // tile cursor on the ground
     const ok = valid(tool, hover);
     g.fillStyle = tool === 'hand' ? 'rgba(255,255,255,.18)' : ok ? 'rgba(212,255,31,.35)' : 'rgba(255,90,74,.3)';
@@ -489,12 +487,12 @@ function frame(nowT) {
 // ---------- doing things ----------
 const ICON = { dust: '✨', wood: '🪵', stone: '🪨' };
 let strokeErr = false;
-function apply(type, k, extra = {}) {
-  const before = coverAt(isle.state, w, k);
-  const res = doAct({ type, tiles: [k], ...extra });
+// a queued job just finished: show what it gave
+const shownAt = new Map();
+function showDone(type, k, res, before) {
+  if (!res?.done || Date.now() - (shownAt.get(k) || 0) < 5000) return;   // the server copy can finish the same tile again
+  shownAt.set(k, Date.now());
   const x = kx(k) * T + 8, y = ky(k) * T + 10;
-  if (res.error) { if (!strokeErr) { strokeErr = true; sfx('denied'); cb.toast(res.error, true); } return res; }
-  if (!res.done) return res;
   let row = 0;
   for (const [item, n] of Object.entries(res.gain || {})) {
     if (item === 'dust' && n < 0) popText(x, y - 4, `−${-n} ✨`, '#ffc53d');
@@ -508,7 +506,6 @@ function apply(type, k, extra = {}) {
   } else if (type === 'till') { bits(x, y, [SOIL.base, SOIL.light, SOIL.dark], 10, 30); sfx('land'); }
   else if (type === 'plant') { bits(x, y, ['#f3dc9e', '#7fcf55'], 6, 20); sfx('flip'); }
   else if (type === 'harvest') { bits(x, y - 4, ['#fff3b0', '#d4ff1f', '#ffffff'], 12, 45); sfx('coin'); }
-  return res;
 }
 // tap with the hand: do the obvious thing for that tile
 function smart(k, p) {
@@ -647,7 +644,7 @@ function openBuild(force) {
     + Object.entries(BUILD).filter(([, d]) => !d.fixed).map(([type, d]) => {
       const price = payGems ? { gems: gemPrice(d.cost) } : d.cost;
       const n = countOf(st, type), max = maxOf(type, isle.minds), full = n >= max, poor = !canAfford(st, price);
-      return `<button data-build="${type}" class="${type === buildType ? 'on' : ''} ${full || poor ? 'none' : ''} ${d.gem ? 'gem' : ''}"><img src="${buildIcon(type)}" alt=""><b>${d.name}</b><span>${d.desc}</span><span>${costText(price)}</span><em>${n}/${max}</em></button>`;
+      return `<button data-build="${type}" class="${type === buildType ? 'on' : ''} ${full || poor ? 'none' : ''} ${d.gem ? 'gem' : ''}"><img src="${buildIcon(type)}" alt=""><b>${d.name}</b><span>${d.desc}</span><span>${costText(price)} · ⏱ ${BUILD_SECS[type] ? fmtTime(BUILD_SECS[type] * 1000) : 'instant'}</span><em>${n}/${max}</em></button>`;
     }).join('');
   box.classList.add('on');
 }
@@ -676,7 +673,7 @@ function openBMenu(b) {
     box.dataset.id = b.id; box.classList.add('on'); sfx('click');
     return;
   }
-  box.innerHTML = `<img src="${buildIcon(b.type)}" alt=""><div><b>${d.name} · Lv${lvOf(b)}${site ? ' 🔨' : ''}</b><span>${site ? `${b.uplv ? 'Upgrading' : 'Being built'} · ${fmtTime(b.done - now())} left` : d.desc}</span></div>${site ? `<button data-bm="rush">⚡ Finish · ${rushGems(b, now())} 💎</button>` : ''}${canUp ? `<button data-bm="upgrade" title="Stronger, more HP, better effect">⬆ Lv${lvOf(b) + 1} · ${costText(upgradeCost(b))}</button><button data-bm="upgems">⬆ ${gemPrice(upgradeCost(b))} 💎</button>` : ''}<button data-bm="move">↔ Move</button>${d.fixed ? '' : `<button data-bm="store" title="Keep it in storage and place it later">📦 Store</button><button data-bm="demolish" title="Get back ${refund}">🗑 Remove</button>`}<button data-bm="x">✕</button>`;
+  box.innerHTML = `<img src="${buildIcon(b.type)}" alt=""><div><b>${d.name} · Lv${lvOf(b)}${site ? ' 🔨' : ''}</b><span>${site ? `${b.uplv ? 'Upgrading' : 'Being built'} · ${fmtTime(b.done - now())} left` : d.desc}</span></div>${site ? `<button data-bm="rush">⚡ Finish · ${rushGems(b, now())} 💎</button>` : ''}${canUp ? `<button data-bm="upgrade" title="Stronger, more HP, better effect">⬆ Lv${lvOf(b) + 1} · ${costText(upgradeCost(b))} · ⏱ ${upgradeSecs(b) ? fmtTime(upgradeSecs(b) * 1000) : 'instant'}</button><button data-bm="upgems">⬆ ${gemPrice(upgradeCost(b))} 💎</button>` : ''}<button data-bm="move">↔ Move</button>${d.fixed ? '' : `<button data-bm="store" title="Keep it in storage and place it later">📦 Store</button><button data-bm="demolish" title="Get back ${refund}">🗑 Remove</button>`}<button data-bm="x">✕</button>`;
   box.dataset.id = b.id; box.classList.add('on'); sfx('click');
 }
 function closeBMenu() { $('#isl-bmenu')?.classList.remove('on'); }
@@ -707,7 +704,7 @@ function paintHud() {
   $('#isl-ready').classList.toggle('on', ready > 0);
   $('#isl-sync').textContent = isle.offline ? '⚠ Offline · not saved' : isle.error ? '⚠ Not saved yet, retrying…' : '☁ Saved';
   $('#isl-sync').classList.toggle('bad', isle.offline || !!isle.error);
-  $('#isl-bonus').textContent = (minds.length ? `🧠 ${minds.length} Mind${minds.length > 1 ? 's' : ''} working${jobs.length ? ` · ${jobs.length} job${jobs.length > 1 ? 's' : ''} left` : ''}` : '')
+  $('#isl-bonus').textContent = (minds.length ? `🧠 ${minds.length} Mind${minds.length > 1 ? 's' : ''} working${queued().length ? ` · ${queued().length} job${queued().length > 1 ? 's' : ''} left` : ''}` : '')
     + (isle.minds ? ` · +${Math.min(isle.minds, 6)} plots · crops ${Math.round(speedBonus(isle.minds) * 100)}% faster` : ' · own Minds for more plots and faster crops');
   if ($('#isl-seeds').classList.contains('on')) openSeeds(true);
 }
@@ -797,16 +794,16 @@ export function openIsland({ minds: ids = [], toast, shop, bag } = {}) {
   clouds.length = 0;
   for (let i = 0; i < 6; i++) clouds.push({ x: r() * WW, y: 40 + r() * (WH - 80), v: 3 + r() * 3, puffs: Array.from({ length: 4 }, () => [(r() - 0.5) * 50, (r() - 0.5) * 16, 14 + r() * 14]) });
   minds = ids.slice(0, 12).map(makeMind);
-  fx = []; jobs = []; selected = null; hover = -1;
+  fx = []; selected = null; hover = -1;
   resize(); fitCam(); setTool(tool); paintHud();
   if (!isle.state.tut && tour < 0) setTimeout(() => { if (running && !isle.state.tut) startTour(); }, 700);
   if (!running) { running = true; last = performance.now(); raf = requestAnimationFrame(frame); }
 }
 export function closeIsland() {
-  if (running) { for (const j of [...jobs]) finishJob(j); for (const m of minds) { m.job = null; m.state = 'idle'; } flush(); }
-  jobs = []; running = false; cancelAnimationFrame(raf);
+  if (running) { for (const m of minds) { m.job = null; m.state = 'idle'; } flush(); }   // queued work keeps its own time
+  running = false; cancelAnimationFrame(raf);
 }
 export const refreshHud = paintHud;
 addEventListener('resize', () => { if (running) resize(); });
 // ?debug: lets a test script queue jobs and step the Minds without waiting for frames
-if (new URLSearchParams(location.search).has('debug')) window.__island = { enqueue, jobs: () => jobs, minds: () => minds, w: () => w, focus: (x, y, z) => { cam.x = x; cam.y = y; if (z) cam.z = z; clampCam(); }, tick: n => { for (let i = 0; i < n; i++) { Tm += 0.05; assignJobs(); minds.forEach(m => updateMind(m, 0.05, 0)); } } };
+if (new URLSearchParams(location.search).has('debug')) window.__island = { enqueue, jobs: queued, minds: () => minds, w: () => w, focus: (x, y, z) => { cam.x = x; cam.y = y; if (z) cam.z = z; clampCam(); }, tick: n => { for (let i = 0; i < n; i++) { Tm += 0.05; assignJobs(); minds.forEach(m => updateMind(m, 0.05, 0)); } } };
