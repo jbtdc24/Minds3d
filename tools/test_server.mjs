@@ -609,6 +609,34 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   fake.from = buyer.address; fake.to = '0x000000000000000000000000000000000000dEaD';
   out = await call({ op: 'claim', tx: '0x' + 'd'.repeat(64), pack: 'pouch' });
   ok(out.code === 400 && /treasury/.test(out.body.error), 'payments to other addresses do not count');
+  // stablecoin packs: the Transfer log in the receipt is the proof
+  const { encodeEventTopics, parseAbi, pad, toHex } = await import('viem');
+  const TOKEN = '0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168', ev = parseAbi(['event Transfer(address indexed from, address indexed to, uint256 value)']);
+  const transfer = (from, to, value, token = TOKEN) => ({ address: token, topics: encodeEventTopics({ abi: ev, eventName: 'Transfer', args: { from, to } }), data: pad(toHex(value)), blockNumber: 100n, logIndex: 0, transactionHash: '0x' + '1'.repeat(64), transactionIndex: 0, blockHash: '0x' + '2'.repeat(64), removed: false });
+  out = await call({ op: 'claim', tx: '0x' + 'e'.repeat(64), pack: 'pouch:usd' });
+  ok(out.code === 503 && /Stablecoin/.test(out.body.error), 'stablecoin packs are off until the owner sets STABLE_TOKEN');
+  process.env.STABLE_TOKEN = TOKEN;
+  chain.client.readContract = async () => 6;   // 6 decimals
+  out = await call({ op: 'info' });
+  ok(out.body.stable?.symbol === 'USDG' && out.body.stable.decimals === 6 && out.body.packs.find(x => x.id === 'pouch').usd === 5, 'info offers USDG with the owner prices');
+  Object.assign(fake, { from: buyer.address, to: TOKEN, value: 0n });
+  let logs = [transfer(buyer.address, process.env.TREASURY_ADDRESS, 5_000_000n)];
+  chain.client.getTransactionReceipt = async () => ({ status: 'success', blockNumber: 100n, logs });
+  const g1 = T.islands.find(x => x.player_id === buyer.id).state.gems;
+  out = await call({ op: 'claim', tx: '0x' + 'e'.repeat(64), pack: 'pouch:usd' });
+  ok(out.code === 200 && T.islands.find(x => x.player_id === buyer.id).state.gems === g1 + 50 && T.payments.at(-1).pack === 'pouch:usd' && T.payments.at(-1).wei === '5000000', '5 USDG to the treasury buys the 50 Gem pack');
+  logs = [transfer(buyer.address, process.env.TREASURY_ADDRESS, 4_990_000n)];
+  out = await call({ op: 'claim', tx: '0x' + 'f'.repeat(64), pack: 'pouch:usd' });
+  ok(out.code === 400 && /less than 5 USDG/.test(out.body.error), 'paying a little under the price is refused');
+  logs = [transfer(buyer.address, process.env.TREASURY_ADDRESS, 50_000_000n, '0x000000000000000000000000000000000000fa4e')];
+  out = await call({ op: 'claim', tx: '0x' + '3'.repeat(64), pack: 'vault:usd' });
+  ok(out.code === 400 && /No USDG/.test(out.body.error), 'a fake token with the same name does not count');
+  logs = [transfer('0x00000000000000000000000000000000000000c2', process.env.TREASURY_ADDRESS, 50_000_000n)];
+  out = await call({ op: 'claim', tx: '0x' + '4'.repeat(64), pack: 'vault:usd' });
+  ok(out.code === 400, 'tokens sent by another wallet do not count');
+  out = await call({ op: 'claim', tx: '0x' + '5'.repeat(64), pack: 'vault:btc' });
+  ok(out.code === 400 && /unknown pack/.test(out.body.error), 'unknown currencies are refused');
+  delete process.env.STABLE_TOKEN;
   delete process.env.TREASURY_ADDRESS;
 }
 
@@ -1336,7 +1364,7 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   const P = await mk('PayerOne'), now = () => new Date().toISOString(), PACK = 2000000000000000n;
   chain.client.getBlockNumber = async () => 1000n;
   chain.client.getTransaction = async ({ hash }) => { if (!chainTx[hash]) throw Object.assign(new Error('Transaction could not be found'), { name: 'TransactionNotFoundError' }); return chainTx[hash]; };
-  chain.client.getTransactionReceipt = async ({ hash }) => { if (!chainTx[hash]) throw Object.assign(new Error('Transaction receipt could not be found'), { name: 'TransactionReceiptNotFoundError' }); return { status: chainTx[hash].status || 'success', blockNumber: 900n }; };
+  chain.client.getTransactionReceipt = async ({ hash }) => { if (!chainTx[hash]) throw Object.assign(new Error('Transaction receipt could not be found'), { name: 'TransactionReceiptNotFoundError' }); return { status: chainTx[hash].status || 'success', blockNumber: 900n, logs: chainTx[hash].logs || [] }; };
   const payTx = (c, p, extra = {}) => { chainTx[hx(c)] = { to: tre, from: p.address, value: PACK, chainId: 4663, ...extra }; return hx(c); };
   const rowOf = (c, p, extra = {}) => T.payments.push({ tx: hx(c), player_id: p.id, address: p.address, pack: 'pouch', gems: 50, wei: PACK.toString(), created_at: now(), ...extra });
   T.payments.length = 0; T.recon_findings.length = 0; T.recon_runs.length = 0; T.payment_intents.length = 0;
@@ -1372,6 +1400,23 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   const count = T.recon_findings.length;
   await runReconcile(); await runReconcile();
   ok(T.recon_findings.length === count && JSON.stringify(T.islands.map(i => [i.state.gems, i.state.dust])) === gBefore && T.recon_runs.length === 4, 'running the check again adds nothing');
+  // stablecoin rows: checked through the token's Transfer log
+  {
+    const { encodeEventTopics, parseAbi, pad, toHex } = await import('viem');
+    const TOKEN = '0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168', ev = parseAbi(['event Transfer(address indexed from, address indexed to, uint256 value)']);
+    const tlog = (from, to, v) => ({ address: TOKEN, topics: encodeEventTopics({ abi: ev, eventName: 'Transfer', args: { from, to } }), data: pad(toHex(v)), blockNumber: 900n, logIndex: 0, transactionHash: hx('f'), transactionIndex: 0, blockHash: hx('1'), removed: false });
+    process.env.STABLE_TOKEN = TOKEN; chain.client.readContract = async () => 6;
+    const U = await mk('PayerUsd');
+    chainTx[hx('f')] = { to: TOKEN, from: U.address, value: 0n, chainId: 4663, logs: [tlog(U.address, tre, 20_000_000n)] };
+    T.payments.push({ tx: hx('f'), player_id: U.id, address: U.address, pack: 'chest:usd', gems: 300, wei: '20000000', created_at: now() }); isl(U).state.paid = { [hx('f')]: { g: 300 } };
+    const pf = '0x' + '7c'.repeat(32);   // its own hash, not one used above
+    chainTx[pf] = { to: TOKEN, from: U.address, value: 0n, chainId: 4663, logs: [tlog(U.address, tre, 1_000_000n)] };
+    T.payments.push({ tx: pf, player_id: U.id, address: U.address, pack: 'chest:usd', gems: 300, wei: '1000000', created_at: now() }); isl(U).state.paid[pf] = { g: 300 };
+    await runReconcile();
+    ok(!T.recon_findings.some(f => f.tx === hx('f') && f.status === 'open'), 'a correct USDG payment raises nothing');
+    ok(T.recon_findings.some(f => f.tx === pf && f.kind === 'underpaid'), 'an underpaid USDG payment is flagged');
+    delete process.env.STABLE_TOKEN;
+  }
   // a chain outage must not hide problems
   const gb = chain.client.getBlockNumber; chain.client.getBlockNumber = async () => { throw new Error('rpc down'); };
   const open0 = T.recon_findings.filter(f => f.status === 'open').length;
