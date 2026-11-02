@@ -109,6 +109,9 @@ export const COSMETICS = {
   sky_aurora: { kind: 'sky', name: 'Aurora Night', price: { dust: 6000 } },
   sky_sakura: { kind: 'sky', name: 'Blossom Dawn', price: { dust: 6000 } },
   sky_storm: { kind: 'sky', name: 'Golden Storm', price: { gems: 25 } },
+  name_gold: { kind: 'name', name: 'Gold Name', price: { dust: 4000 } },
+  name_neon: { kind: 'name', name: 'Neon Name', price: { dust: 4000 } },
+  name_rainbow: { kind: 'name', name: 'Rainbow Name', price: { gems: 15 } },
 };
 export const TROOP_UP = { brawler: 1, archer: 1, bomber: 2, giant: 3 }, MAX_TL = 3;
 export const troopLv = (st, k) => Math.min(MAX_TL, Math.max(1, st.tl?.[k] | 0 || 1));
@@ -483,9 +486,9 @@ export function act(st, a, { seed, now, minds = 0, instant = false, queue = fals
       break;
     }
     case 'cosmetic': {   // buy a look once, or equip one you own (item 'none' + kind takes it off)
-      const c = COSMETICS[a.item], cos = (st.cos ||= { own: [] });
+      const c = COSMETICS[a.item]?.kind ? COSMETICS[a.item] : null, cos = (st.cos ||= { own: [] });   // ?.kind: odd names never match a look
       if (a.equip) {
-        if (a.item === 'none' && ['back', 'frame', 'sky'].includes(a.kind)) { cos[a.kind] = null; done = 1; break; }
+        if (a.item === 'none' && ['back', 'frame', 'sky', 'name'].includes(a.kind)) { cos[a.kind] = null; done = 1; break; }
         if (!c || !cos.own.includes(a.item)) return { error: 'Get it first.' };
         cos[c.kind] = a.item; done = 1; break;
       }

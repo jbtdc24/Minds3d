@@ -13,7 +13,7 @@ import { chatSigner } from './chatsign.js';
 import { initTown, openTown, closeTown } from './town.js';
 import { capOf, ENERGY_CAP } from './energy.js';
 import { loading } from './loader.js';
-import { wear, BACK_IMG, FRAME_CLASS, SKY_IMG } from './cosmetics.js';
+import { wear, nameLook, BACK_IMG, FRAME_CLASS, SKY_IMG, NAME_CLASS } from './cosmetics.js';
 import { openIsland, closeIsland, refreshHud, cropImg, fmtTime, restore } from './island/island.js';
 import { chibi } from './island/chibi.js';
 import { openRaid, closeRaid } from './island/raidview.js';
@@ -217,6 +217,7 @@ function wearMine() { const c = myCos(); if (isle.state?.cos && JSON.stringify(s
 function wearRival(cos) {
   document.documentElement.style.setProperty('--rival-back', BACK_IMG[cos?.back] ? `url(${BACK_IMG[cos.back]})` : 'url(assets/card_back.webp)');
   const el = $('#d-pfp1'); el.classList.remove(...Object.values(FRAME_CLASS)); if (FRAME_CLASS[cos?.frame]) el.classList.add(FRAME_CLASS[cos.frame]);
+  nameLook(cos, ['#d-name1']);
 }
 function paintHub() {
   $('#hub-pfp').src = thumb(me.pfp); $('#hub-name').textContent = me.name;
@@ -755,8 +756,8 @@ function paintShop() {
     const btn = (k, c) => owns(k) ? (cos[c.kind] === k ? `<button class="btn small" data-cos="none" data-kind="${c.kind}">✓ Wearing · take off</button>` : `<button class="btn small primary" data-cos="${k}" data-equip="1">Wear</button>`)
       : `<button class="btn small ${c.price.gems ? 'gem' : 'primary'}" data-cos="${k}" ${canAfford(st, c.price) ? '' : 'disabled'}>${costText(c.price)}</button>`;
     const pfp = thumb(me?.pfp || 49);
-    const look = (k, c) => c.kind === 'back' ? `<img class="cos-back" src="${BACK_IMG[k]}" alt="">` : c.kind === 'sky' ? `<img class="cos-sky" src="${SKY_IMG[k]}" alt="">` : `<img class="cos-pfp ${FRAME_CLASS[k]}" src="${pfp}" alt="">`;
-    const what = { back: 'Card back for your duels', frame: 'Frame for your profile picture', sky: 'The sky around your island, for you and your raiders' };
+    const look = (k, c) => c.kind === 'name' ? `<b class="cos-name ${NAME_CLASS[k]}">${esc(me?.name || 'You')}</b>` : c.kind === 'back' ? `<img class="cos-back" src="${BACK_IMG[k]}" alt="">` : c.kind === 'sky' ? `<img class="cos-sky" src="${SKY_IMG[k]}" alt="">` : `<img class="cos-pfp ${FRAME_CLASS[k]}" src="${pfp}" alt="">`;
+    const what = { back: 'Card back for your duels', frame: 'Frame for your profile picture', sky: 'The sky around your island, for you and your raiders', name: 'Your name colour in duels and the lobby' };
     html = '<div class="shop-info px">✨ Looks only: they never make you stronger. Card backs show in every duel, frames around your profile picture, skies around your island.</div>'
       + Object.entries(COSMETICS).map(([k, c]) => shopCard(look(k, c), c.name, what[c.kind], null, btn(k, c), owns(k) ? 'owned' : '')).join('');
   } else {
@@ -1487,7 +1488,7 @@ async function openProfile(pid) {
   try {
     const r = await api(`player?id=${pid}`), p = r.player, mine = pid === me?.id;
     $('#pf-pfp').src = thumb(p.pfp); $('#pf-name').textContent = p.name;
-    wear(mine ? myCos() : null, ['#pf-pfp']);   // only your own profile wears your frame
+    wear(mine ? myCos() : null, ['#pf-pfp']); nameLook(mine ? myCos() : null, ['#pf-name']);   // only your own profile wears your looks
     $('#pf-addr').textContent = p.guest ? 'Trial account' : p.address || '';
     const W = p.wins + (p.botWins || 0), L = p.losses + (p.botLosses || 0);
     $('#pf-stats').innerHTML = [[valIcon('rating') + p.rating, 'Rating'], [valIcon('points') + p.points, 'Points'], [W + L ? Math.round(W / (W + L) * 100) + '%' : '—', 'Win rate'], [W, 'Ranked wins'], [L, 'Ranked losses'], [p.bestStreak, 'Best streak']]

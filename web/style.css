@@ -960,3 +960,9 @@ h3.raid-result { text-align: center; }
 .confetti i { position: absolute; top: -20px; width: 8px; height: 8px; animation: confall linear forwards; }
 .confetti i.crown { width: 22px; height: 18px; background: url(assets/crown.png) center / contain no-repeat; image-rendering: pixelated; }
 @keyframes confall { to { transform: translate(var(--dx), 110vh) rotate(var(--r)); } }
+/* name colours (cosmetic) */
+.nm-gold { color: #ffc53d !important; text-shadow: 0 0 6px rgba(255, 200, 60, .6); }
+.nm-neon { color: #d4ff1f !important; text-shadow: 0 0 6px rgba(212, 255, 31, .8), 0 0 12px rgba(94, 200, 255, .6); }
+.nm-rainbow { background: linear-gradient(90deg, #ff5263, #ffc53d, #d4ff1f, #5ec8ff, #9b6bff, #ff5263); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent !important; animation: nmrain 3s linear infinite; }
+@keyframes nmrain { to { background-position: 200% 0; } }
+.cos-name { display: inline-block; font-size: 18px; padding: 14px 6px; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

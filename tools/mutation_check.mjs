@@ -53,7 +53,7 @@ const M = [
   ['failures not logged', 'lib/http.js', 'if (!setup && status === 500) await', 'if (false) await'],
   ['players can use payment admin', 'lib/routes/admin.js', "case 'recon_fix': {", "case 'recon_fix_off': {"],
   ['ranked bot revealed to the client', 'lib/game.js', 'vsBot: !row.p1 && !!row.state.practice, botLevel:', 'vsBot: !row.p1, botLevel:'],
-  ['prototype lookups', 'web/src/island/rules.js', 'for (const table of [CROPS, BUILD, SHOP, RECIPES, RAW, UPGRADABLE, TROOP_UP]) Object.setPrototypeOf(table, null);\n', ''],
+  ['prototype lookups', 'web/src/island/rules.js', 'for (const table of [CROPS, BUILD, SHOP, RECIPES, RAW, UPGRADABLE, TROOP_UP, COSMETICS]) Object.setPrototypeOf(table, null);\n', ''],
 ];
 const only = process.argv[2];
 rmSync(TMP, { recursive: true, force: true }); mkdirSync(TMP);
