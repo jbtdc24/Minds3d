@@ -1,6 +1,14 @@
 # The game's real name is MINDS CLASH (internal keys still say mindclash so nobody gets signed out)
 # HANDOFF — read this first (next AI session: continue from the top of "NEXT TASKS")
 
+## CURRENT STATUS (2026-11-02)
+Live on main: all security fixes, server-run adventures, error monitoring, payment ledger and daily check, draft Terms and Privacy, harder Siege Cup, London region. SQL 007, 008 and 009 are run. Bots stay unlabelled outside Practice and Training. Nothing is in progress: the owner said list only, so wait for a go-ahead.
+Recommended next: task 3 (duel fixes), then 4 to 11 in order, task 1 before Gems are sold, task 2 last.
+Owner must answer: Siege Cup armies (suggested same budget, any mix), USDC prices, keep or remove Town rewards.
+Before public launch: confirm Supabase backups, fill in Terms and Privacy and get legal review (docs/LEGAL_REVIEW.md), add CRON_SECRET in Vercel, test capacity on a separate Supabase project, test Safari, Firefox and real phones, one real Gem purchase, two-wallet chat test.
+Ideas on hold: Mind Office, Season Pass, cosmetics, referrals, Town moderation, pitch deck, AI demo, trailer, Train Mind and Auto Battle, play.minds.games domain, Minds Investment Programme application.
+Checks before any deploy: node tools/test_server.mjs, tools/fuzz_server.mjs, tools/mutation_check.mjs, tools/economy_audit.mjs (see docs/DEPLOY.md). The owner wants short plain replies.
+
 ## SAVED TASKS (owner parked these, do not forget)
 1. [ ] **Gem payments on Robinhood Chain, with a choice of USDC or ETH.** The owner corrected this: Robinhood, not Base. ETH already works there. Add USDC: first confirm the official USDC contract on Robinhood Chain (id 4663). It is an ERC-20, so verify the Transfer log in the receipt, and extend the ledger and daily check to it. WAITING: owner's USDC prices (suggested 50 Gems $5, 120 $10, 300 $20, 800 $50). Start when the owner says.
 2. [ ] **AI connects to animocaminds.** Do this LAST, after everything else is final.
