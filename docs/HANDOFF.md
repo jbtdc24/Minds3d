@@ -32,7 +32,7 @@ Owner to do:
 Before public launch (owner): confirm Supabase backups, legal review of Terms/Privacy (docs/LEGAL_REVIEW.md), CRON_SECRET in Vercel, capacity test on a separate Supabase project, Safari/Firefox/real phones, two-wallet chat test.
 Next for the AI when the owner says go:
 3. [ ] Test with real players/wallets: burning village + restore, cup army picker, troop upgrades, raid history, two-player duel prize timing.
-4. [x] Done: boss keep sprite; island work now has at least 3 workers (matches the 3 Minds everyone sees).
+4. [x] Done: boss keep sprite; island work has at least 3 workers. Players with fewer than 3 Minds see village helpers in straw hats filling the gap (island.js openIsland, m.helper; tap = 'village helper' note, never opens Mind talk).
 5. [x] Giants rebalanced: cost 3 (was 4), 1000 HP (was 760), 26 damage (was 14). Sims: as good as other mixes vs the boss; still Brawlers best for lazy one-spot plans.
 6. [ ] Ideas on hold (below) when the owner picks one.
 Owner decided 2026-11-02: Siege Cup = same budget, any mix. USDC prices = 50/$5, 120/$10, 300/$20, 800/$50, and ETH stays too (anything on Robinhood Chain). Keep Town rewards.

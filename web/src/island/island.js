@@ -7,7 +7,7 @@ import { sfx } from '../audio.js';
 import { gen, COVER, T, TW, TH, WW, WH, hash } from './gen.js';
 import { drawSky, groundFor, sprites, sprouts, heart, SOIL, toolSprites } from './art.js';
 import { rng } from './pixel.js';
-import { CROPS, coverAt, ripe, growMs, regrowMs, maxPlots, plotCount, PLOT_COST, speedBonus, BUILD, buildingAt, fits, footprint, maxOf, countOf, canAfford, costText, homeOf, wellOf, STASH_MAX, rushGems, builders, busy, gemPrice, UPGRADABLE, MAX_LV, lvOf, upgradeCost, wellShards, SHARD_CAP, SHARD_MS, SHARDS_PER_ENERGY, BUILD_SECS, upgradeSecs, levelStats, burning, restoreCost, repairMs, BURN_CROPS_MS } from './rules.js';
+import { CROPS, coverAt, ripe, growMs, regrowMs, maxPlots, plotCount, PLOT_COST, speedBonus, BUILD, buildingAt, fits, footprint, maxOf, countOf, canAfford, costText, homeOf, wellOf, STASH_MAX, rushGems, builders, busy, gemPrice, UPGRADABLE, MAX_LV, lvOf, upgradeCost, wellShards, SHARD_CAP, SHARD_MS, SHARDS_PER_ENERGY, BUILD_SECS, upgradeSecs, levelStats, burning, restoreCost, repairMs, BURN_CROPS_MS, workLanes } from './rules.js';
 import { bsprites, drawSails, buildIcon, leveled } from './buildings.js';
 import { drawCinema, dropShadow } from './cinema.js';
 import { isle, doAct, now, onChange, flush, tickWork } from './store.js';
@@ -255,6 +255,12 @@ function drawMind(m) {
   g.drawImage(c.legL.cv, ox, oy + c.hip + legL);
   g.drawImage(c.legR.cv, ox + c.mid, oy + c.hip + legR);
   g.drawImage(c.body.cv, ox, oy + body);
+  if (m.helper) {   // village helpers wear a straw hat, so you can tell them from your own Minds
+    const hy = oy + body - 1, hw = Math.round(c.w * 0.62), hx = -Math.floor(hw / 2);
+    g.fillStyle = '#5a3a1c'; g.fillRect(hx - 2, hy + 3, hw + 4, 2);
+    g.fillStyle = '#e8c070'; g.fillRect(hx - 1, hy + 2, hw + 2, 2); g.fillRect(hx + 2, hy - 1, hw - 4, 3);
+    g.fillStyle = '#c43c3c'; g.fillRect(hx + 2, hy + 1, hw - 4, 1);
+  }
   const job = m.job;
   if ((job || m.site) && (m.state === 'work' || m.state === 'go')) {
     const tl = toolSprites[job ? toolFor(job) : 'pick'];
@@ -528,7 +534,7 @@ function showDone(type, k, res, before) {
 // tap with the hand: do the obvious thing for that tile
 function smart(k, p) {
   const m = [...minds].sort((a, b) => b.y - a.y).find(m => Math.abs(p.x - m.x) < m.c.w / 2 && p.y < m.y + 2 && p.y > m.y - m.c.h);
-  if (m) { m.hop = 0.5; m.state = 'idle'; m.timer = 2; selected = m; selectedT = 3; emote(m, 'heart'); sfx('pop'); cb.mind?.(m.id); return; }
+  if (m) { m.hop = 0.5; m.state = 'idle'; m.timer = 2; selected = m; selectedT = 3; emote(m, 'heart'); sfx('pop'); if (m.helper) cb.toast('A village helper. Own more Minds to have your own Minds work here.'); else cb.mind?.(m.id); return; }
   if (k < 0 || !w.land[k] || pathSet().has(k)) return;
   const t = isle.state.tiles[k], cov = coverAt(isle.state, w, k);
   const bd = buildingAt(isle.state, k);
@@ -920,6 +926,10 @@ export function openIsland({ minds: ids = [], toast, shop, bag, restore: onResto
   clouds.length = 0;
   for (let i = 0; i < 6; i++) clouds.push({ x: r() * WW, y: 40 + r() * (WH - 80), v: 3 + r() * 3, puffs: Array.from({ length: 4 }, () => [(r() - 0.5) * 50, (r() - 0.5) * 16, 14 + r() * 14]) });
   minds = ids.slice(0, 12).map(makeMind);
+  // every island has at least 3 workers (rules.js workLanes); if you own fewer Minds, village helpers in straw hats
+  // fill in, so what you see matches how many jobs are done at once. Helpers are not Minds you own.
+  const need = workLanes(isle.minds) - minds.length;
+  for (const id of [49, 14, 8, 2, 3].filter(h => !ids.includes(h)).slice(0, Math.max(0, need))) minds.push(Object.assign(makeMind(id, minds.length), { helper: true }));
   fx = []; selected = null; hover = -1;
   resize(); fitCam(); setTool(tool); paintHud();
   if (!isle.state.tut && tour < 0) setTimeout(() => { if (running && !isle.state.tut) startTour(); }, 700);
