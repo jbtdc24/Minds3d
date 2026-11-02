@@ -421,6 +421,16 @@
 </section>
 
 <!-- FRIENDS DRAWER -->
+<aside class="drawer px" id="trade">
+  <div class="drawer-head"><span class="tr-ico">🤝</span><h3 id="tr-title">Trade</h3><button class="iconbtn px small" id="tr-close" title="Close (the trade stays open)">✕</button></div>
+  <p class="muted small">Both of you must agree. If anything changes, both agree again. Nothing moves until then.</p>
+  <div class="label">They give you</div><ul class="tr-list" id="tr-them"></ul>
+  <div class="label">You give them</div><div id="tr-mine"></div>
+  <select id="tr-add"></select>
+  <button class="btn" id="tr-save" disabled>Update my offer</button>
+  <div class="tr-state" id="tr-state"></div>
+  <div class="mp-row"><button class="btn primary" id="tr-agree">🤝 Agree</button><button class="btn small red" id="tr-cancel">Cancel trade</button></div>
+</aside>
 <aside class="drawer px" id="friends">
   <div class="drawer-head"><img src="assets/icon_friends.png" alt=""><h3 id="fr-title">Friends</h3><button class="iconbtn px small" id="fr-close">✕</button></div>
   <div id="fr-list-view">
@@ -433,7 +443,7 @@
     <div class="fr-msgs" id="fr-msgs"></div>
     <div class="fr-add"><input id="fr-text" maxlength="400" placeholder="Type a message…"><button class="btn small primary" id="fr-send">Send</button></div>
     <div class="phrases small" id="fr-phrases"></div>
-    <div class="fr-tools"><small class="muted">Messages delete after 90 days.</small><button class="btn small" id="fr-report">Report</button><button class="btn small" id="fr-block">Block</button><button class="btn small red" id="fr-unfriend">Unfriend</button></div>
+    <div class="fr-tools"><small class="muted">Messages delete after 90 days.</small><button class="btn small" id="fr-report">Report</button><button class="btn small" id="fr-gift" title="Send a gift">🎁 Gift</button><button class="btn small" id="fr-block">Block</button><button class="btn small red" id="fr-unfriend">Unfriend</button></div>
   </div>
 </aside>
 

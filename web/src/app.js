@@ -12,6 +12,7 @@ import { initMindTalk, openMinds } from './mindtalk.js';
 import { chatSigner } from './chatsign.js';
 import { initTown, openTown, closeTown, setMega } from './town.js';
 import { initAutopilot, openAutopilot } from './autopilot.js';
+import { initTrade, openTrade, giftTo } from './trade.js';
 import { capOf, ENERGY_CAP } from './energy.js';
 import { loading } from './loader.js';
 import { wear, nameLook, frameCls, nameCls, BACK_IMG, FRAME_CLASS, SKY_IMG, NAME_CLASS } from './cosmetics.js';
@@ -1565,6 +1566,7 @@ initAutopilot({ api, esc, toast, modal, sfx, babble, online: () => online, guest
   mindId: () => me?.pfp || myMinds[0] || 1, mindName: () => me ? `${me.name}'s Mind #${me.pfp}` : 'Your Mind', pfp: () => thumb(me?.pfp || 49),
   myMinds: () => myMinds, energyOf: id => energyOf(id), rankPass: () => rankPass,
   refresh: () => { resetIsland(); if (Date.now() - apRefresh > 20e3) { apRefresh = Date.now(); refreshMe().then(() => { if (current === 'hub') paintHub(); }).catch(() => {}); } } });
+initTrade({ api, esc, toast, modal, sfx, island: () => isle.state, inTown: () => current === 'town' && online && !guest, refresh: () => { resetIsland(); ensureIsland(); } });
 initTown({ minds: () => (guest ? [] : myMinds), api, esc, toast, online: () => online, go: townGo, card: playerCard, mega: megaphone, me: () => me?.id, name: () => me?.name || 'You', canChat: () => online && !guest, chat });
 
 // ---------- friends + friend chat (preset lines) ----------
@@ -1647,6 +1649,7 @@ $('#fr-unfriend').onclick = async () => {
 };
 $('#fr-report').onclick = () => { if (chatWith) reportBox('player', chatWith.player); };
 $('#fr-block').onclick = () => { if (chatWith) blockPlayer(chatWith.player); };
+$('#fr-gift').onclick = async () => { if (!chatWith) return; if (chatWith.status !== 'accepted') return toast('Gifts go to friends. Add them first.', true); if (await ensureIsland()) giftTo(chatWith.player); };
 async function blockPlayer(p) {
   if (!(await modal(`<h3>Block ${esc(p.name)}?</h3><p>They can no longer message you or send friend requests. You can add them again later to undo it.</p>`, [['Block', 1, 'primary'], ['Cancel', 0]]))) return false;
   try { await api('friend', { op: 'block', id: p.id }); chatWith = null; toast(`${p.name} is blocked.`); if ($('#friends').classList.contains('on')) openFriends(); return true; } catch (e) { toast(e.message, true); return false; }
@@ -1663,10 +1666,13 @@ async function playerCard(o) {
   const W = p.wins + (p.botWins || 0), L = p.losses + (p.botLosses || 0), cos = p.cos || o.cos;
   const status = f?.status === 'accepted' ? '✔ Friends' : f?.incoming ? 'Wants to be your friend' : f?.status === 'pending' ? 'Friend request sent' : '';
   const btns = guest ? [['Profile', 'profile'], ['Close', 0, 'primary']]
-    : [...(f?.status === 'accepted' ? [] : [[f?.incoming ? 'Accept friend' : '➕ Add friend', 'add', 'primary']]), ['💬 Message', 'chat', f?.status === 'accepted' ? 'primary' : ''], ['Profile', 'profile'], ['🚩 Report', 'report'], ['⛔ Block', 'block'], ['Close', 0]];
+    : [...(current === 'town' ? [['🤝 Trade', 'trade', 'primary']] : []), ...(f?.status === 'accepted' ? [] : [[f?.incoming ? 'Accept friend' : '➕ Add friend', 'add', current === 'town' ? '' : 'primary']]), ['💬 Message', 'chat', f?.status === 'accepted' && current !== 'town' ? 'primary' : ''],
+      ...(f?.status === 'accepted' ? [['🎁 Gift', 'gift']] : []), ['Profile', 'profile'], ['🚩 Report', 'report'], ['⛔ Block', 'block'], ['Close', 0]];
   const go = await modal(`<div class="pcard"><img class="${frameCls(cos)}" src="${thumb(p.pfp)}" alt=""><div><h3 class="${nameCls(cos)}">${esc(p.name)}</h3><p class="muted">${p.online ? '🟢 online' : 'offline'}${status ? ' · ' + status : ''}</p></div></div>
     <div class="army-facts"><span>${valIcon('rating')} Rating <b>${p.rating}</b></span><span>${valIcon('points')} Points <b>${p.points}</b></span><span>🏆 Wins <b>${W}</b></span><span>📈 Win rate <b>${W + L ? Math.round(W / (W + L) * 100) + '%' : '—'}</b></span><span>🔥 Best streak <b>${p.bestStreak || 0}</b></span></div>`, btns);
-  if (go === 'add') addFriend({ id: p.id });
+  if (go === 'trade') { if (await ensureIsland()) openTrade(p.id); }
+  else if (go === 'gift') { if (await ensureIsland()) giftTo(p); }
+  else if (go === 'add') addFriend({ id: p.id });
   else if (go === 'chat') { openFriends(); openChat(f || { player: p, status: 'chat' }); }
   else if (go === 'profile') { closeTown(); show('profile'); openProfile(p.id); }
   else if (go === 'report') reportBox('player', p);

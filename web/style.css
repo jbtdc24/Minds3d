@@ -1015,3 +1015,10 @@ h3.raid-result { text-align: center; }
 .mp-log time { color: var(--muted); margin-right: 6px; font-weight: 800; }
 .col-mind.locked .mp-row, .col-mind.locked .mp-presets, .col-mind.locked .fr-add, .col-mind.locked .label { display: none; }
 @media (max-width: 900px) { .col-mind, #s-hub.board-closed .col-mind { width: auto; margin: 0; max-height: none; overflow: visible; } }
+/* 🤝 trade drawer */
+#trade { z-index: 55; overflow-y: auto; } .tr-ico { font-size: 30px; }
+.tr-list { list-style: none; margin: 0; padding: 8px; background: #fff; box-shadow: 0 0 0 2px var(--ink); display: grid; gap: 4px; min-height: 34px; }
+.tr-row { display: grid; grid-template-columns: 1fr 96px auto; gap: 8px; align-items: center; padding: 4px 0; } .tr-row input { width: 100%; } .tr-row small { color: var(--muted); }
+#tr-add { width: 100%; padding: 6px; font: 700 14px var(--font); }
+.tr-state { display: grid; gap: 4px; font-weight: 800; font-size: 14px; } .tr-state .ok { color: #2f9e44; }
+.tr-sum { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: left; } .tr-sum ul { list-style: none; padding: 0; margin: 4px 0; } .warn { color: #c0392b; font-weight: 800; }

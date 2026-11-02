@@ -8,7 +8,7 @@ import { randomUUID } from 'node:crypto';
 { const ch = await import('../lib/chain.js'); ch.client.getLogs = async () => []; ch.client.getCode = async () => '0x'; ch.client.getBlockNumber = async () => 100_000_000n; }   // tests never read real chain logs
 
 // ---- tiny PostgREST-ish in-memory db ----
-const T = { players: [], matches: [], queue: [], nonces: [], ratelimit: [], mind_energy: [], islands: [], payments: [], flags: [], mail: [], mail_claims: [], reports: [], agent_keys: [], cups: [], cup_entries: [], town_now: [], town_chat: [], messages: [], friends: [], admin_log: [], errors: [], recon_findings: [], recon_runs: [], payment_intents: [] };
+const T = { players: [], matches: [], queue: [], nonces: [], ratelimit: [], mind_energy: [], islands: [], payments: [], flags: [], mail: [], mail_claims: [], reports: [], agent_keys: [], cups: [], cup_entries: [], town_now: [], town_chat: [], messages: [], friends: [], admin_log: [], errors: [], recon_findings: [], recon_runs: [], payment_intents: [], trades: [] };
 function parse(q) {
   const f = [];
   for (const part of q.split('&').filter(Boolean)) {
@@ -936,6 +936,57 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   ok(out.body.chat.some(c => c.text === '📣 hello town'), 'a Megaphone message also goes into town chat');
   isl(B).state.mega.until = Date.now() - 1;
   ok((await hit(town, B, { op: 'mega', text: '' })).code === 400, 'an empty Megaphone message is refused');
+  {   // 🤝 trades in Mind Town + 🎁 gifts to friends
+    const trade = await rt('trade'), { finish } = await import('../lib/routes/trade.js');
+    T.town_now = T.town_now.filter(r => r.player_id !== C.id);
+    Object.assign(isl(A).state, { gems: 20, dust: 1000 }); Object.assign(isl(B).state, { gems: 100, dust: 1000 }); isl(B).state.inv.troop_brawler = 5;
+    ok((await hit(trade, A, { op: 'open', with: C.id })).code === 403, 'trading needs both players in Mind Town');
+    let out = await hit(trade, A, { op: 'open', with: B.id });
+    const id = out.body.trade?.id;
+    ok(out.code === 200 && out.body.trade.status === 'open', 'a trade opens between two players in town');
+    ok((await hit(trade, B, { op: 'offer', id, give: { gems: 500 } })).code === 400, 'you cannot offer what you do not have');
+    out = await hit(trade, B, { op: 'offer', id, give: { gems: 50, troop_brawler: 5, minds: 3 } });
+    ok(out.body.trade.mine.gems === 50 && !('troop_brawler' in out.body.trade.mine) && !('minds' in out.body.trade.mine), 'only resources can be traded: troops and Minds are dropped');
+    let v = out.body.trade.ver;
+    out = await hit(trade, A, { op: 'agree', id, ver: v });
+    ok(out.body.trade.meOk && !out.body.trade.themOk && out.body.trade.status === 'open', 'one agreement is not enough');
+    out = await hit(trade, B, { op: 'offer', id, give: { gems: 40 } });
+    ok(!out.body.trade.meOk && !out.body.trade.themOk, 'changing an offer clears both agreements');
+    ok((await hit(trade, B, { op: 'agree', id, ver: v })).code === 409, 'agreeing to an old version is refused');
+    v = out.body.trade.ver;
+    await hit(trade, A, { op: 'agree', id, ver: v });
+    out = await hit(trade, B, { op: 'agree', id, ver: v });
+    ok(out.body.trade.status === 'done' && isl(A).state.gems === 60 && isl(B).state.gems === 60, 'both agree: 40 Gems for nothing moves once');
+    await finish(T.trades.find(t => t.id === id)); await finish({ ...T.trades.find(t => t.id === id), status: 'paying' });
+    ok(isl(A).state.gems === 60 && isl(B).state.gems === 60, 'running the finish again moves nothing twice');
+    ok(isl(A).state.tradeLog[0].got.includes('40') && isl(B).state.tradeLog[0].gave.includes('40'), 'both players have the trade in their history');
+    // a side that cannot pay any more: everything goes back
+    out = await hit(trade, A, { op: 'open', with: B.id }); const id2 = out.body.trade.id;
+    out = await hit(trade, A, { op: 'offer', id: id2, give: { dust: 300 } }); await hit(trade, B, { op: 'offer', id: id2, give: { gems: 30 } });
+    v = (await hit(trade, A, { op: 'get' })).body.trade.ver;
+    await hit(trade, A, { op: 'agree', id: id2, ver: v });
+    isl(B).state.gems = 5;   // spent elsewhere after offering
+    out = await hit(trade, B, { op: 'agree', id: id2, ver: v });
+    ok(out.body.trade.status === 'cancelled' && isl(A).state.dust === 1000 && isl(B).state.gems === 5, `a trade that cannot be paid is cancelled and nothing is lost: ${out.body.trade.note}`);
+    // two finishers at once
+    Object.assign(isl(A).state, { dust: 1000 }); Object.assign(isl(B).state, { gems: 60 });
+    const t3 = await db.insert('trades', { kind: 'trade', a: A.id, b: B.id, give_a: { dust: 200 }, give_b: { gems: 10 }, ok_a: true, ok_b: true, ver: 1, status: 'locked', updated_at: new Date().toISOString() });
+    await Promise.all([finish(t3), finish(t3), finish(t3)]);
+    ok(isl(A).state.dust === 800 && isl(A).state.gems === 70 && isl(B).state.gems === 50 && isl(B).state.dust === 1200, 'three finishers at once still move everything exactly once');
+    // daily send limit
+    isl(B).state.gems = 500; isl(B).state.sent = { day: new Date().toISOString().slice(0, 10), gems: 190, dust: 0 };
+    out = await hit(trade, A, { op: 'open', with: B.id }); const id4 = out.body.trade.id;
+    out = await hit(trade, B, { op: 'offer', id: id4, give: { gems: 20 } }); v = out.body.trade.ver;
+    await hit(trade, A, { op: 'agree', id: id4, ver: v }); out = await hit(trade, B, { op: 'agree', id: id4, ver: v });
+    ok(out.body.trade.status === 'cancelled' && /a day/.test(out.body.trade.note) && isl(B).state.gems === 500, 'the daily Gem send limit holds');
+    ok((await hit(trade, A, { op: 'gift', to: B.id, give: { dust: 100 } })).code === 403, 'gifts go to friends only');
+    T.friends.push({ a: A.id, b: B.id, status: 'accepted' });
+    const dB = isl(B).state.dust, dA = isl(A).state.dust;
+    out = await hit(trade, A, { op: 'gift', to: B.id, give: { dust: 100, potion: 0 } });
+    ok(out.code === 200 && isl(B).state.dust === dB + 100 && isl(A).state.dust === dA - 100 && T.mail.some(m => m.to_id === B.id && /gift/.test(m.title)), 'a friend gift arrives, with a letter');
+    ok((await hit(trade, A, { op: 'gift', to: B.id, give: { gems: 99999 } })).code === 400, 'you cannot gift what you do not have');
+    T.friends = T.friends.filter(f => !(f.a === A.id && f.b === B.id));
+  }
   T.town_now.find(x => x.player_id === A.id).since = new Date(Date.now() - 11 * 60e3).toISOString();
   out = await hit(town, A, { x: 100, y: 100, mind: 49, say: 'hi all' });
   ok(out.body.got?.kind === 'time' && out.body.chat.some(c => c.text === 'hi all'), 'staying in town pays, and chat works');

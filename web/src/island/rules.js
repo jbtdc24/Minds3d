@@ -113,6 +113,11 @@ export const COSMETICS = {
   name_neon: { kind: 'name', name: 'Neon Name', price: { dust: 4000 } },
   name_rainbow: { kind: 'name', name: 'Rainbow Name', price: { gems: 15 } },
 };
+// Trades and gifts between players: resources only (never Minds, buildings, troops or looks); daily send limits
+const TRADE_RAW = new Set(['dust', 'gems', 'wood', 'stone', 'herb', 'potion', 'fuel', 'raid_ticket', 'adv_ticket']);
+export const canTrade = k => TRADE_RAW.has(k) || (/^(seed|crop)_[a-z]+$/.test(k) && Object.hasOwn(CROPS, k.slice(5)));
+export const TRADE_DAY = { gems: 200, dust: 100000 }, TRADE_KINDS_MAX = 12;
+export const tradeHave = (st, k) => k === 'dust' ? st.dust : k === 'gems' ? st.gems || 0 : st.inv?.[k] || 0;
 // Rank Pass: wallet players without a Mind play ranked with loaner Minds for 7 days (5 ranked games a day, no rarity bonus)
 export const RANK_PASS = { days: 7, games: 5, price: { dust: 5000 }, gems: 30 };
 export const passActive = (st, now) => (st.rp?.until || 0) > now;
