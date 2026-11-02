@@ -19,7 +19,7 @@ const M = [
   ['too few confirmations', 'lib/routes/gems.js', 'const CONFIRMATIONS = 6n;', 'const CONFIRMATIONS = 2n;'],
   ['Town Time paid twice', 'lib/routes/town.js', 'if (claimed.length) got = await reward(', 'got = await reward('],
   ['client decides Town activity', 'lib/routes/town.js', 'acted = !!say || (was && Math.hypot(x - was.x, y - was.y) >= MOVED);', 'acted = !!say || !!body.active || (was && Math.hypot(x - was.x, y - was.y) >= MOVED);'],
-  ['raid paid twice', 'lib/routes/raid.js', "    if (!row) fail(409, 'your island is busy, try again');\n    let loot = 0;", '    row ||= mine;\n    let loot = 0;'],
+  ['raid paid twice', 'lib/routes/raid.js', "    if (!row) fail(409, 'your island is busy, try again');\n    let loot = 0, res = {}, points = 0;", '    row ||= mine;\n    let loot = 0, res = {}, points = 0;'],
   ['endless Dust from one account', 'lib/routes/raid.js', 'const PAIR_PER_DAY = 2,', 'const PAIR_PER_DAY = 99,'],
   ['no daily ceiling on stolen Dust', 'lib/routes/raid.js', 'raid.loot = Math.min(raid.loot, lootLeft);', ''],
   ['same-connection raid pays', 'lib/routes/raid.js', '< PAIR_PER_DAY && state?.dk !== dev', '< PAIR_PER_DAY'],

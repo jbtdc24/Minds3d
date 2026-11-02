@@ -313,7 +313,7 @@ document.addEventListener('click', e => {
 $('#hub-ranked').onclick = async () => {
   if (!guest && !myMinds.length && !rankPass) return offerRankPass();   // a wallet without Minds: the Rank Pass lets them play ranked
   if (!guest) { openPrep('ranked'); if (online) refreshEnergy(); return; }
-  const r = await modal(`<img class="wide" src="assets/mode_ranked.webp" alt=""><h3>Ranked is for Mind holders</h3><p>Trial accounts can practice vs bots. Connect a wallet that holds a Mind to play ranked, climb the leaderboard and earn points.</p>`, [['Connect wallet', 1, 'primary'], ['Practice instead', 2], ['Close', 0]]);
+  const r = await modal(`<img class="wide" src="assets/mode_ranked.webp" alt=""><h3>Play Ranked</h3><p>Connect a wallet to play ranked, climb the leaderboard and earn points.</p><p><b>🎟️ No Mind? No problem.</b> With any wallet you can get a <b>Rank Pass</b> (${costText(RANK_PASS.price)} or ${RANK_PASS.gems} 💎): ${RANK_PASS.days} days of Ranked with loaner Minds.</p><p class="muted">Trial accounts can practice vs bots.</p>`, [['Connect wallet', 1, 'primary'], ['Practice instead', 2], ['Close', 0]]);
   if (r === 1) { logout(); show('login'); } else if (r === 2) openPrep('practice');
 };
 // 🎟️ Rank Pass: 7 days of ranked with loaner Minds, for players who connected a wallet but hold no Mind
