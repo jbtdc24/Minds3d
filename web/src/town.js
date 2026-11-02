@@ -4,6 +4,7 @@
 import { chibi } from './island/chibi.js';
 import { makeNoise, fbm } from './island/pixel.js';
 import { hash } from './island/gen.js';
+import { drawCinema, dropShadow } from './island/cinema.js';
 import { T, WATER, SAND, GRASS, PAVE, PATH, PLANK, ROCK, MEADOW, paintTile, shop, tower, arena, pier, tree, hedge, lampPost, bench, bed, fountain } from './townart.js';
 import { liveRoom } from './net.js';
 import { babble, music, sfx } from './audio.js';
@@ -196,10 +197,11 @@ function frame(tMs) {
   const step = Math.floor(tMs / 170) & 1;
   for (const d of draw) {
     if (d.mind) drawMind(d.mind, step);
-    else g.drawImage(d.spr.cv, Math.round(d.x - d.spr.w / 2), Math.round(d.y - d.spr.h));
+    else { if (!d.flat && d.spr.w > 20) dropShadow(g, d.x, d.y - 1, d.spr.w * 0.8); g.drawImage(d.spr.cv, Math.round(d.x - d.spr.w / 2), Math.round(d.y - d.spr.h)); }   // buildings and trees cast soft shadows
   }
   // words stay the same size at every zoom
   g.setTransform(DPR, 0, 0, DPR, 0, 0);
+  drawCinema(g, W, H, t, dt, { motes: 'pollen' });   // warm light, sun rays, drifting pollen, vignette (like the island)
   for (const b of SPOTS) if (b.name) label(b.name, b.px, b.py - b.spr.h + (b.flat ? 2 : -3), b.go ? '#d4ff1f' : '#fff8e4', undefined, 12);
   for (const o of people.values()) label(o.name, o.x, o.y - 26);
   label('You', meP.x, meP.y - 26, '#d4ff1f');

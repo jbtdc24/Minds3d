@@ -14,6 +14,12 @@ PAUSED by owner 2026-11-02 ("save for later"). All checks pass, including the fu
 - [x] Staked Minds still count: lib/staked.js stakedBy() reads the Minds Transfer logs from the wallet; a Mind held by a contract that it last went to from this wallet = staked by this player. Used in ownedMinds (login, /api/me), stillOwns (duels, adventures, energy) and the island Mind count. Optional Vercel env: STAKING_CONTRACTS (only those contracts count), MINDS_FROM_BLOCK (log search start). Checked on the live chain 2026-11-02: RPC allows 10M blocks per search, so it searches in pieces from block 88,000,000 (first Minds transfer 88,181,971); real stakers found (34 / 1 / 4 Minds, ~1 s). The contract 0x71a92aDc34BAa4c87079840E01aF4b24A4bA6FD4 holds 603 Minds (likely the staking contract).
 - [x] Island edit mode (✏️ Edit tool, key 7): tap or drag over buildings to select (drag along a wall grabs the line), "All Walls · N" chips per type, then ⬆ Upgrade all (shows total cost), ↔ Move as a group (rules.js act 'moveMany': all or nothing, ghosts show where they land), 📦 Store, 🗑 Remove. island.js paintEdit/onEditBar; the bar is created in code so old cached pages do not break.
 
+## ROUND 11 (owner 2026-11-02): looks + cosmetics (owner: keep improving, OpenArt LOW ok, no questions)
+- [x] Cosmetics (looks only): rules.js COSMETICS + act 'cosmetic' (buy once, wear, take off; st.cos). 4 card backs (web/assets/back_*.webp, OpenArt Grok Imagine 2 LOW): Ember Dragon, Frost Crystal, Moon Night (3,000 ✨), Golden Sun (15 💎). 4 CSS profile frames: Gold, Ice, Flame (5,000 ✨), Prism (20 💎). Shop → ✨ Style tab. web/src/cosmetics.js wear().
+- [x] Duels show both sides' card back + frame (lib/game.js reads each island's cos once at match start; filler bots sometimes wear some so they look human). AI API cannot spend Gems on premium looks.
+- [x] Loading screen uses the painted sunset sky with warm pixel clouds.
+- [x] Mind Town: warm light/rays/pollen/vignette (drawCinema) + soft building shadows.
+
 ## REMAINING (saved for later)
 Owner to do:
 1. [~] Vercel: STABLE_TOKEN ADDED by owner 2026-11-02 (redeployed by a push). Still to do: add env STABLE_TOKEN = 0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168 (USDG), redeploy, then one small real USDG purchase (and one ETH).

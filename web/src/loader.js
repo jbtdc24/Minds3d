@@ -4,6 +4,7 @@ import { shipSprite } from './island/worldmap.js';
 
 const BW = 200, BH = 112;   // pixel buffer, scaled up
 let L = null;
+const skyImg = new Image(); skyImg.src = 'assets/sky_adventure.webp';
 const box = () => {
   let el = document.getElementById('loader');
   if (el) return el;
@@ -16,9 +17,14 @@ function frame(t) {
   if (!L) return;
   L.raf = requestAnimationFrame(frame);
   const g = L.g, s = (t - L.t0) / 1000;
-  const sky = g.createLinearGradient(0, 0, 0, BH);
-  sky.addColorStop(0, '#2b3f8f'); sky.addColorStop(0.6, '#6aa8e8'); sky.addColorStop(1, '#bfe6ff');
-  g.fillStyle = sky; g.fillRect(0, 0, BW, BH);
+  if (skyImg.complete && skyImg.naturalWidth) {   // the painted sky, slowly sliding (falls back to a gradient)
+    const w = BH * skyImg.naturalWidth / skyImg.naturalHeight * 1.1, x = -((s * 4) % (w - BW));
+    g.drawImage(skyImg, x, 0, w, BH);
+  } else {
+    const sky = g.createLinearGradient(0, 0, 0, BH);
+    sky.addColorStop(0, '#2b3f8f'); sky.addColorStop(0.6, '#6aa8e8'); sky.addColorStop(1, '#bfe6ff');
+    g.fillStyle = sky; g.fillRect(0, 0, BW, BH);
+  }
   for (const c of L.clouds) {   // three layers of blocky clouds, the near ones faster and brighter
     const x = ((c.x - s * c.v) % (BW + 80) + BW + 80) % (BW + 80) - 40;
     g.fillStyle = c.shade; for (const [dx, dy, r] of c.puffs) g.fillRect(Math.round(x + dx - r), Math.round(c.y + dy - r / 2), r * 2, r);
@@ -37,7 +43,7 @@ export function loading({ title = 'Loading', sub = '', tips = [], tier = 1, minM
   g.imageSmoothingEnabled = false;
   const r = (i => () => (i = (i * 16807) % 2147483647) / 2147483647)(Date.now() % 2147483646 + 1);
   const clouds = [0, 1, 2].flatMap(layer => Array.from({ length: 4 }, () => ({
-    x: r() * (BW + 80), y: 10 + r() * (BH - 20), v: 8 + layer * 14, shade: ['#8fb4e0', '#c9dcf2', '#e8f2ff'][layer], light: '#ffffff',
+    x: r() * (BW + 80), y: 10 + r() * (BH - 20), v: 8 + layer * 14, shade: ['#c98aa6', '#efb6c0', '#ffd9d6'][layer], light: '#fff3ec',
     puffs: Array.from({ length: 3 }, () => [(r() - 0.5) * 24, (r() - 0.5) * 4, 4 + layer * 2 + Math.round(r() * 4)]),
   })));
   L = { g, t0: performance.now(), clouds, ship: shipSprite(Math.max(0, Math.min(3, tier))), shown: Date.now() };
