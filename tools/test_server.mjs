@@ -5,6 +5,7 @@ const { signSession, readSession, loginMessage, checkSignature, checkName } = aw
 const { startMatch, act, getView, forfeit, chatLine } = await import('../lib/game.js');
 const { privateKeyToAccount } = await import('viem/accounts');
 import { randomUUID } from 'node:crypto';
+{ const ch = await import('../lib/chain.js'); ch.client.getLogs = async () => []; ch.client.getCode = async () => '0x'; }   // tests never read real chain logs
 
 // ---- tiny PostgREST-ish in-memory db ----
 const T = { players: [], matches: [], queue: [], nonces: [], ratelimit: [], mind_energy: [], islands: [], payments: [], flags: [], mail: [], mail_claims: [], reports: [], agent_keys: [], cups: [], cup_entries: [], town_now: [], town_chat: [], messages: [], friends: [], admin_log: [], errors: [], recon_findings: [], recon_runs: [], payment_intents: [] };
@@ -264,6 +265,28 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   ok(stat('tower', 2, 'Damage') === Math.round(RD.TOWER.dmg * 1.3) && stat('camp', 2, 'Camp') === `+${RD.CAMP_SPACE * 2}`, 'upgrade preview uses the real tower damage and camp space');
   ok(stat('house', 1, 'HP') === R.BUILD.house.hp && stat('house', 2, 'HP') === Math.round(R.BUILD.house.hp * R.hpMult(2)), 'upgrade preview HP matches the raid HP');
   ok(R.BUILD.trap.desc.includes(String(RD.TRAP_DMG)), 'trap description says its real damage');
+}
+
+// ---- staked Minds still count for the player who staked them ----
+{
+  const chain = await import('../lib/chain.js'), { stakedBy } = await import('../lib/staked.js'), { stillOwns } = await import('../lib/owned.js');
+  const ME = '0x00000000000000000000000000000000000000A1', VAULT = '0x00000000000000000000000000000000000057a7', BUYER = '0x00000000000000000000000000000000000000B2';
+  const owner = { 101: VAULT, 102: BUYER, 103: VAULT, 104: ME };   // 101 staked · 102 sold · 103 staked by someone else · 104 in the wallet
+  const logs = [{ blockNumber: 5n, logIndex: 0, args: { from: ME, to: VAULT, tokenId: 101n } }, { blockNumber: 6n, logIndex: 0, args: { from: ME, to: BUYER, tokenId: 102n } }, { blockNumber: 7n, logIndex: 0, args: { from: ME, to: BUYER, tokenId: 103n } }];
+  const gl = chain.client.getLogs, gc = chain.client.getCode, mc = chain.client.multicall;
+  chain.client.getLogs = async () => logs;
+  chain.client.getCode = async ({ address }) => address === VAULT ? '0x6080' : '0x';
+  chain.client.multicall = async ({ contracts }) => contracts.map(c => ({ status: 'success', result: owner[Number(c.args[0])] || '0x0000000000000000000000000000000000000000' }));
+  const ids = await stakedBy(ME);
+  ok(ids.join() === '101', 'a Mind in a staking contract still counts for the wallet that staked it; sold ones do not');
+  ok(await stillOwns(ME, [101, 104]) && !(await stillOwns(ME, [102])), 'staked Minds can play duels and adventures; sold ones cannot');
+  process.env.STAKING_CONTRACTS = '0x0000000000000000000000000000000000000fff';
+  const { stakedBy: sb2 } = await import('../lib/staked.js?only'); const none = await sb2(ME);
+  ok(none.length === 0, 'with STAKING_CONTRACTS set, only those contracts count');
+  delete process.env.STAKING_CONTRACTS;
+  chain.client.getLogs = async () => { throw new Error('rpc down'); };
+  ok((await stakedBy(BUYER)).length === 0, 'chain trouble never breaks a login');
+  chain.client.getLogs = gl; chain.client.getCode = gc; chain.client.multicall = mc;
 }
 
 // ---- a raided village burns until it is restored ----
