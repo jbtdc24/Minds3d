@@ -213,12 +213,27 @@ Object.assign(bsprites, {
 // Lv2: stone foundation + a blue pennant. Lv3: gold trim above the stone, a gold pennant and sparkles.
 // Walls show it on their cap instead (blue-grey at Lv2, gold at Lv3). Works on any sprite, including the home.
 const lvCache = new WeakMap();
+// Looks for every level 2-10, in tiers: 2-3 stone, 4-5 iron, 6-7 gold, 8-9 crystal, 10 legendary.
+// Each tier keeps what the one below had and adds more: foundation, trim, rivets, gilded roof, crystals, a crown and a glow.
+const TIER = [null, null,
+  { base: STONE, trim: null, flag: ['#3b82f6', '#ffffff'], cap: ['#a9bce0', '#7d93c0'] },   // 2
+  { base: STONE, trim: ['#ffd84a', '#e0a82a'], flag: ['#ffd84a', '#c43c3c'], cap: ['#ffd84a', '#e0a82a'] },   // 3
+  { base: ['#3a4256', '#56607a', '#6c7894', '#4a536b', '#8792ad'], trim: ['#b8c4dc', '#8792ad'], flag: ['#9aa7c4', '#33405c'], cap: ['#c3cde3', '#8792ad'], rivet: '#e8eef8' },   // 4 iron
+  { base: ['#3a4256', '#56607a', '#6c7894', '#4a536b', '#8792ad'], trim: ['#e8eef8', '#b8c4dc'], flag: ['#e8eef8', '#3b82f6'], cap: ['#e8eef8', '#b8c4dc'], rivet: '#ffffff' },   // 5
+  { base: ['#7a5a14', '#a87d1e', '#d9a92c', '#8f6a18', '#f0c84a'], trim: ['#fff0a0', '#ffd84a'], flag: ['#ffd84a', '#8a1c1c'], cap: ['#ffe680', '#e0a82a'], rivet: '#fff6c8', gild: 0.18 },   // 6 gold
+  { base: ['#7a5a14', '#a87d1e', '#d9a92c', '#8f6a18', '#f0c84a'], trim: ['#ffffff', '#ffd84a'], flag: ['#ffffff', '#c43c3c'], cap: ['#fff6c8', '#ffd84a'], rivet: '#ffffff', gild: 0.28 },   // 7
+  { base: ['#244a6e', '#2f6c9c', '#4fb3e8', '#2a5a84', '#9ce8ff'], trim: ['#c8f4ff', '#4fb3e8'], flag: ['#7fe0ff', '#1c4f8a'], cap: ['#c8f4ff', '#4fb3e8'], rivet: '#e8fbff', gild: 0.22, crystal: '#7fe0ff' },   // 8 crystal
+  { base: ['#244a6e', '#2f6c9c', '#4fb3e8', '#2a5a84', '#9ce8ff'], trim: ['#ffffff', '#9ce8ff'], flag: ['#c8f4ff', '#6b3fd1'], cap: ['#ffffff', '#9ce8ff'], rivet: '#ffffff', gild: 0.3, crystal: '#c8f4ff' },   // 9
+  { base: ['#3b1f5e', '#5a2f8c', '#8a4fd1', '#4a2878', '#c9a0ff'], trim: ['#ffd84a', '#ffffff'], flag: ['#ffd84a', '#6b3fd1'], cap: ['#ffd84a', '#c9a0ff'], rivet: '#fff6b0', gild: 0.35, crystal: '#ffd84a', crown: true, glow: '#ffd84a' },   // 10 legendary
+];
+const mix = (px, i, hex, a) => { const n = parseInt(hex.slice(1), 16); px[i] = px[i] * (1 - a) + (n >> 16) * a; px[i + 1] = px[i + 1] * (1 - a) + ((n >> 8) & 255) * a; px[i + 2] = px[i + 2] * (1 - a) + (n & 255) * a; };
 export function leveled(spr, lv, type) {
   if (!spr || !(lv >= 2)) return spr;
+  lv = Math.min(10, lv | 0);
   let byLv = lvCache.get(spr);
   if (!byLv) lvCache.set(spr, byLv = {});
   if (byLv[lv]) return byLv[lv];
-  const { w, h } = spr, cv = document.createElement('canvas');
+  const T = TIER[lv], { w, h } = spr, cv = document.createElement('canvas');
   cv.width = w; cv.height = h;
   const g = cv.getContext('2d');
   g.drawImage(spr.cv, 0, 0);
@@ -227,19 +242,38 @@ export function leveled(spr, lv, type) {
   const solid = (x, y) => { const i = at(x, y); return px[i + 3] > 0 && px[i] + px[i + 1] + px[i + 2] > 150; };   // not empty, not the dark outline
   const put = (x, y, hex) => { const i = at(x, y), n = parseInt(hex.slice(1), 16); px[i] = n >> 16; px[i + 1] = (n >> 8) & 255; px[i + 2] = n & 255; px[i + 3] = 255; };
   if (type === 'wall') {
-    const cap = lv >= 3 ? ['#ffd84a', '#e0a82a'] : ['#a9bce0', '#7d93c0'];
-    for (let x = 0; x < w; x++) { let n = 0; for (let y = 0; y < h && n < 2; y++) if (solid(x, y)) put(x, y, cap[n++]); }
+    for (let x = 0; x < w; x++) { let n = 0; for (let y = 0; y < h && n < 2; y++) if (solid(x, y)) put(x, y, T.cap[n++]); }
+    if (T.gild) for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (solid(x, y)) mix(px, at(x, y), T.base[2], T.gild);
+    if (T.rivet) for (let x = 2; x < w - 1; x += 4) if (solid(x, (h / 2) | 0)) put(x, (h / 2) | 0, T.rivet);
+    if (T.crystal) { const cx = (w / 2) | 0, cy = ((h / 2) | 0) + 2; for (const [dx, dy] of [[0, -1], [-1, 0], [0, 0], [1, 0], [0, 1]]) if (solid(cx + dx, cy + dy)) put(cx + dx, cy + dy, T.crystal); }
   } else {
-    for (let y = h - 4; y <= h - 2; y++) for (let x = 0; x < w; x++) if (solid(x, y)) put(x, y, (x + (y % 2) * 2) % 4 === 0 ? STONE[1] : y === h - 4 ? STONE[4] : STONE[3]);
-    if (lv >= 3) for (let x = 0; x < w; x++) if (solid(x, h - 5)) put(x, h - 5, x % 3 ? '#ffd84a' : '#e0a82a');
+    // roof and walls take on the tier's metal, foundation in its stone, a trim line, rivets along it
+    if (T.gild) for (let y = 0; y < h - 5; y++) for (let x = 0; x < w; x++) if (solid(x, y)) mix(px, at(x, y), y < h * 0.45 ? T.base[4] : T.base[2], T.gild * (y < h * 0.45 ? 1.2 : 0.6));
+    for (let y = h - 4; y <= h - 2; y++) for (let x = 0; x < w; x++) if (solid(x, y)) put(x, y, (x + (y % 2) * 2) % 4 === 0 ? T.base[1] : y === h - 4 ? T.base[4] : T.base[3]);
+    if (T.trim) for (let x = 0; x < w; x++) if (solid(x, h - 5)) put(x, h - 5, x % 3 ? T.trim[0] : T.trim[1]);
+    if (T.rivet) for (let x = 2; x < w - 1; x += 5) if (solid(x, h - 3)) put(x, h - 3, T.rivet);
+    if (T.crystal) for (const [fx, fy] of [[0.3, 0.55], [0.7, 0.5], [0.5, 0.7]]) { const cx = (w * fx) | 0, cy = (h * fy) | 0; for (const [dx, dy] of [[0, -1], [-1, 0], [0, 0], [1, 0], [0, 1]]) if (solid(cx + dx, cy + dy)) put(cx + dx, cy + dy, T.crystal); }
+  }
+  // Lv10: a golden glow hugging the outline
+  if (T.glow) {
+    const edge = [];
+    for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) if (px[at(x, y) + 3] === 0 && (px[at(x + 1, y) + 3] || px[at(x - 1, y) + 3] || px[at(x, y + 1) + 3] || px[at(x, y - 1) + 3])) edge.push([x, y]);
+    for (const [x, y] of edge) { const i = at(x, y), n = parseInt(T.glow.slice(1), 16); px[i] = n >> 16; px[i + 1] = (n >> 8) & 255; px[i + 2] = n & 255; px[i + 3] = 110; }
   }
   g.putImageData(id, 0, 0);
-  if (type !== 'wall') {   // a pennant on a little pole in the top-left corner
-    g.fillStyle = DARK; g.fillRect(1, 0, 1, 14);
-    g.fillStyle = lv >= 3 ? '#ffd84a' : '#3b82f6';
-    for (let y = 0; y < 7; y++) g.fillRect(2, y, 9 - Math.abs(3 - y) * 2, 1);
-    g.fillStyle = lv >= 3 ? '#c43c3c' : '#ffffff'; g.fillRect(2, 3, 5, 1);
-    if (lv >= 3) { g.fillStyle = '#fff6b0'; for (const [x, y] of [[w - 4, 2], [w - 8, 6], [w - 3, 9]]) g.fillRect(x, y, 1, 1); }
+  if (type !== 'wall') {   // a pennant on a little pole in the top-left corner; bigger from gold up
+    const tall = lv >= 6 ? 16 : 14, wide = lv >= 6 ? 11 : 9;
+    g.fillStyle = DARK; g.fillRect(1, 0, 1, tall);
+    g.fillStyle = T.flag[0];
+    for (let y = 0; y < 7; y++) g.fillRect(2, y, wide - Math.abs(3 - y) * 2, 1);
+    g.fillStyle = T.flag[1]; g.fillRect(2, 3, wide - 4, 1);
+    if (lv >= 3) { g.fillStyle = lv >= 8 ? '#e8fbff' : '#fff6b0'; for (const [x, y] of [[w - 4, 2], [w - 8, 6], [w - 3, 9], ...(lv >= 8 ? [[w - 11, 3], [w - 6, 12]] : [])]) g.fillRect(x, y, 1, 1); }
+    if (T.crown) {   // a little gold crown over the roof
+      const cx = (w / 2) | 0;
+      g.fillStyle = DARK; g.fillRect(cx - 4, 0, 9, 5);
+      g.fillStyle = '#ffd84a'; g.fillRect(cx - 3, 2, 7, 2); for (const dx of [-3, 0, 3]) g.fillRect(cx + dx, 1, 1, 1);
+      g.fillStyle = '#c43c3c'; g.fillRect(cx, 2, 1, 1);
+    }
   }
   return (byLv[lv] = { cv, w, h });
 }

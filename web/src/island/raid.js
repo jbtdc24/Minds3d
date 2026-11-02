@@ -28,7 +28,11 @@ export const CRY = { radius: 3.5 * T, ticks: 70, mult: 1.5, heal: 120 };        
 export const GUARD = { hp: 260, dps: 20, speed: 32, reach: 12, aggro: 6 * T };
 export const ARMY_BASE = 10, ARMY_PER_MIND = 1, ARMY_MAX_BONUS = 3;                   // army size: 10 (+1 per Mind owned, max +3)
 export const CAMP_SPACE = 3;                                                          // each Army Camp level adds 3 space
-export const armyCap = (minds, camps = 0) => ARMY_BASE + Math.min(ARMY_MAX_BONUS, (minds | 0) * ARMY_PER_MIND) + (camps | 0) * CAMP_SPACE;
+// army size for one raid: 10 (+1 per Mind, max +3) + 3 per Army Camp level, never above what the Town Hall allows
+// tower damage: +30% a level up to Lv3 (as before), then +45% a level
+export const towerMult = lv => { const l = Math.max(1, Math.min(10, lv || 1)); return 1 + 0.3 * (Math.min(l, 3) - 1) + 0.45 * Math.max(0, l - 3); };
+export const TH_ARMY = [20, 26, 32, 36, 40, 44, 48, 52, 56, 60];
+export const armyCap = (minds, camps = 0, th = 10) => Math.min(TH_ARMY[Math.max(1, Math.min(10, th | 0 || 1)) - 1], ARMY_BASE + Math.min(ARMY_MAX_BONUS, (minds | 0) * ARMY_PER_MIND) + (camps | 0) * CAMP_SPACE);
 export const guardsFor = minds => 2 + Math.min(2, minds | 0);                         // every base: 2 guards, +1 per Mind (max 4)
 export const TOWER = { range: 5 * T, dmg: 26, every: 10 };
 export const TRAP_DMG = 45, WALL_COST = 9, COVER_COST = 3;
@@ -292,7 +296,7 @@ export function step(S) {
     if (s.cd > 0) { s.cd--; continue; }
     let foe = null, fd = 1e9;
     for (const r of mine) { if (r.dead) continue; const d = Math.hypot(r.x - s.cx, r.y - s.cy); if (d <= TOWER.range && d < fd) { fd = d; foe = r; } }
-    if (foe) { hurt(S, foe, TOWER.dmg * (1 + 0.3 * ((s.lv || 1) - 1)), 'arrow'); s.cd = TOWER.every; S.fx.push({ e: 'shot', x: s.cx, y: s.y0 - 14, tx: foe.x, ty: foe.y - 6 }); }
+    if (foe) { hurt(S, foe, TOWER.dmg * towerMult(s.lv), 'arrow'); s.cd = TOWER.every; S.fx.push({ e: 'shot', x: s.cx, y: s.y0 - 14, tx: foe.x, ty: foe.y - 6 }); }
   }
   const alive = S.units.some(u => isMine(u) && !u.dead);
   const waiting = Object.values(S.left).some(n => n > 0) || !S.heroOut;
@@ -354,14 +358,24 @@ export function autoPlan(snap, army) {
 
 // loot: share of the defender's unprotected Dust (barns keep some safe), capped
 export const LOOT_SHARE = 0.25, LOOT_MAX = 2000, BARN_SAFE = 1000, SHIELD_MS = 8 * 3600e3;
-export function lootOf(dust, barns, pct, share = LOOT_SHARE) {
+// th: the defender's Town Hall; the most one raid can take grows with it (2,000 at Lv1 … 11,000 at Lv10)
+export const lootCap = th => Math.round(LOOT_MAX * (1 + 0.5 * (Math.max(1, Math.min(10, th | 0 || 1)) - 1)));
+export function lootOf(dust, barns, pct, share = LOOT_SHARE, th = 1) {
   const open = Math.max(0, dust - barns * BARN_SAFE);
-  return Math.min(LOOT_MAX, Math.floor(open * share * pct));
+  return Math.min(lootCap(th), Math.floor(open * share * pct));
 }
+// raiders also carry off wood and stone: 20% of what Barns do not protect (100 of each per Barn level), capped by Town Hall
+export const RES_SHARE = 0.2, RES_SAFE = 100;
+export function resLootOf(inv, barns, pct, th = 1) {
+  const out = {}, cap = 150 * Math.max(1, Math.min(10, th | 0 || 1));
+  for (const k of ['wood', 'stone']) { const n = Math.min(cap, Math.floor(Math.max(0, (inv?.[k] || 0) - barns * RES_SAFE) * RES_SHARE * pct)); if (n > 0) out[k] = n; }
+  return out;
+}
+export const botRes = (level, th = 1) => ({ wood: 20 * level * Math.max(1, th), stone: 20 * level * Math.max(1, th) });
 // raids per day: 6 for everyone, +1 per Mind owned (max +3)
 export const raidsPerDay = (minds, camps = 0) => 6 + Math.min(3, minds | 0) + Math.min(3, camps | 0);
 // full loot of a game village by level (you get the % you destroy): 500 / 800 / 1,100
-export const botLoot = level => 200 + 300 * level;
+export const botLoot = (level, th = 1) => Math.round((200 + 300 * level) * (1 + 0.4 * (Math.max(1, th) - 1)));
 export const RAID_FEE_PER_SPACE = 5;                                   // supplies: 5 Dust per camp space you bring
 export const raidFee = troops => RAID_FEE_PER_SPACE * armyUsed(troops || {});
 
@@ -383,6 +397,7 @@ export function villageName(seed) {
 // (Lv2) with one gate, upgraded towers between the rings, traps at the gate and up to 6 Minds on guard.
 export function bossFortress(seed, level = 5) {
   const w = gen(seed), st = newIsland(seed, 0), r = i => hash(seed, i, 919);
+  for (const b of st.b) if (b.type === 'home') b.lv = 10;   // building limits as a top Town Hall; levels are set below
   st.dust = 1e6; st.inv = { wood: 1e4, stone: 1e4 };
   const hx = w.house.x + 1, hy = w.house.y + 1, outer = 8 + (level > 5 ? 1 : 0);
   for (let k = 0; k < TW * TH; k++) if (w.land[k] && w.cover[k] !== COVER.FIXED && Math.hypot(kx(k) - hx, (ky(k) - hy) * 1.15) < outer + 3) st.tiles[k] = { s: 'c', t: 0 };
@@ -407,8 +422,9 @@ export function bossFortress(seed, level = 5) {
   const guardIds = Array.from({ length: guards }, (_, i) => 1 + ((hash(seed, i + 1, 77) * 3333) | 0));
   return { ...snapshotOf(seed, st, 4, { guardIds, name: 'Boss Fortress', level, layout: 'fortress', dust: 0 }), guards };
 }
-export function botVillage(seed, level = 1) {
+export function botVillage(seed, level = 1, th = 1) {   // th: buildings at this level (matches the raider's Town Hall)
   const w = gen(seed), st = newIsland(seed, 0), r = i => hash(seed, i, 313);
+  const homeB = st.b.find(b => b.type === 'home'); if (homeB) homeB.lv = 10;   // building limits as a top Town Hall (reset below)
   st.dust = 1e6; st.inv = { wood: 1e4, stone: 1e4, seed_bean: 99, seed_carrot: 99, seed_melon: 99 };
   const hx = w.house.x + 1, hy = w.house.y + 1;
   const yard = 9 + level + r(1) * 3;
@@ -431,7 +447,8 @@ export function botVillage(seed, level = 1) {
   }
   for (const k of plots) st.tiles[k] = { s: 'p', t: 0, c: ['bean', 'carrot', 'melon'][(hash(k, seed, 2) * 3) | 0], p: 0 };
   place('barn', 4.5, level >= 2 ? 2 : 1, spin); place('mill', 5, 1, spin + 1); place('house', 6, 1 + level, spin + 2);
-  const towers = layout === 'farm' ? level : 1 + level;
+  const more = Math.max(1, th) - 1;   // a higher Town Hall village has more towers, walls and traps
+  const towers = (layout === 'farm' ? level : 1 + level) + more;
   place('tower', layout === 'scatter' ? 6 : 3.5, towers, spin + 3);
   const wallsAt = (ring, n) => {
     const tiles = [];
@@ -443,7 +460,10 @@ export function botVillage(seed, level = 1) {
   if (layout === 'ring') wallsAt(8 + (level > 2 ? 1 : 0), 80);
   else if (layout === 'keep') wallsAt(4.6, 40 + level * 10);
   else if (layout === 'scatter') wallsAt(7, 20 + level * 15);
-  place('trap', layout === 'farm' ? 4 : 7, (layout === 'farm' ? 4 : 2) + level, spin + 4);
+  if (more >= 2 && layout !== 'keep') wallsAt(4.4, 20 + more * 6);   // an inner wall around the Town Hall
+  place('trap', layout === 'farm' ? 4 : 7, (layout === 'farm' ? 4 : 2) + level + more, spin + 4);
   const guardIds = [1, 2, 3, 4].map(i => 1 + ((hash(seed, i, 77) * 3333) | 0));
-  return snapshotOf(seed, st, guardsFor(Math.round(r(8) * level)), { guardIds, name: villageName(seed), level, layout, dust: Math.round(700 + level * 600 + r(9) * 900) });
+  const lv = Math.max(1, Math.min(10, th | 0 || 1));
+  for (const b of st.b) b.lv = lv;
+  return snapshotOf(seed, st, guardsFor(Math.round(r(8) * level)), { guardIds, name: villageName(seed), level, layout, dust: Math.round((700 + level * 600 + r(9) * 900) * (1 + 0.4 * (lv - 1))) });
 }

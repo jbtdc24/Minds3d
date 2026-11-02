@@ -7,7 +7,7 @@ import { sfx } from '../audio.js';
 import { gen, COVER, T, TW, TH, WW, WH, hash } from './gen.js';
 import { drawSky, groundFor, sprites, sprouts, heart, SOIL, toolSprites } from './art.js';
 import { rng } from './pixel.js';
-import { CROPS, coverAt, ripe, growMs, regrowMs, maxPlots, plotCount, PLOT_COST, speedBonus, BUILD, buildingAt, fits, footprint, maxOf, countOf, canAfford, costText, homeOf, wellOf, STASH_MAX, rushGems, builders, busy, gemPrice, UPGRADABLE, MAX_LV, lvOf, upgradeCost, wellShards, SHARD_CAP, SHARD_MS, SHARDS_PER_ENERGY, BUILD_SECS, upgradeSecs, levelStats, burning, restoreCost, repairMs, BURN_CROPS_MS, workLanes } from './rules.js';
+import { CROPS, coverAt, ripe, growMs, regrowMs, maxPlots, plotCount, PLOT_COST, speedBonus, BUILD, buildingAt, fits, footprint, maxOf, countOf, canAfford, costText, homeOf, wellOf, STASH_MAX, rushGems, builders, busy, gemPrice, UPGRADABLE, MAX_LV, lvOf, upgradeCost, wellShards, SHARD_CAP, SHARD_MS, SHARDS_PER_ENERGY, BUILD_SECS, upgradeSecs, levelStats, upgradeBlock, thLv, burning, restoreCost, repairMs, BURN_CROPS_MS, workLanes } from './rules.js';
 import { bsprites, drawSails, buildIcon, leveled } from './buildings.js';
 import { drawCinema, dropShadow } from './cinema.js';
 import { isle, doAct, now, onChange, flush, tickWork } from './store.js';
@@ -723,7 +723,7 @@ function placeAt(k) {
   popText(x, y - d.h * 16, stored ? 'Placed!' : d.w > 1 ? `${d.name} built!` : costText(d.cost).replace(/(\d+)/g, '−$1'), '#fff8e4');
   // a Mind comes over to admire it
   const m = minds.find(m => !m.job); if (m) { m.tx = x + 12; m.ty = y + 4; m.state = 'go'; emote(m, 'heart'); }
-  if (d.w > 1 && !(isle.state.stash?.[buildType] > 0) && !(countOf(isle.state, buildType) < maxOf(buildType, isle.minds))) setTool('hand');
+  if (d.w > 1 && !(isle.state.stash?.[buildType] > 0) && !(countOf(isle.state, buildType) < maxOf(buildType, isle.minds, thLv(isle.state)))) setTool('hand');
 }
 function openBuild(force) {
   tourStep('buildmenu');
@@ -736,7 +736,7 @@ function openBuild(force) {
     + `<div class="bm-head"><label class="paygems"><input type="checkbox" id="pay-gems" ${payGems ? 'checked' : ''}> 💎 Pay with Gems (you have ${st.gems || 0})</label></div>`
     + Object.entries(BUILD).filter(([, d]) => !d.fixed).map(([type, d]) => {
       const price = payGems ? { gems: gemPrice(d.cost) } : d.cost;
-      const n = countOf(st, type), max = maxOf(type, isle.minds), full = n >= max, poor = !canAfford(st, price);
+      const n = countOf(st, type), max = maxOf(type, isle.minds, thLv(st)), full = n >= max, poor = !canAfford(st, price);
       return `<button data-build="${type}" class="${type === buildType ? 'on' : ''} ${full || poor ? 'none' : ''} ${d.gem ? 'gem' : ''}"><img src="${buildIcon(type)}" alt=""><b>${d.name}</b><span>${d.desc}</span><span>${costText(price)} · ⏱ ${BUILD_SECS[type] ? fmtTime(BUILD_SECS[type] * 1000) : 'instant'}</span><em>${n}/${max}</em></button>`;
     }).join('');
   box.classList.add('on');
@@ -771,7 +771,7 @@ function openBMenu(b) {
     box.dataset.id = b.id; box.classList.add('on'); sfx('click');
     return;
   }
-  box.innerHTML = `<img src="${buildIcon(b.type)}" alt=""><div><b>${d.name} · Lv${lvOf(b)}${site ? ' 🔨' : ''}</b><span>${site ? `${b.uplv ? 'Upgrading' : 'Being built'} · ${fmtTime(b.done - now())} left` : d.desc}</span>${canUp ? upgradePreview(b) : ''}</div>${site ? `<button data-bm="rush">⚡ Finish · ${rushGems(b, now())} 💎</button>` : ''}${canUp ? `<button data-bm="upgrade" title="Stronger, more HP, better effect">⬆ Lv${lvOf(b) + 1} · ${costText(upgradeCost(b))} · ⏱ ${upgradeSecs(b) ? fmtTime(upgradeSecs(b) * 1000) : 'instant'}</button><button data-bm="upgems">⬆ ${gemPrice(upgradeCost(b))} 💎</button>` : ''}<button data-bm="move">↔ Move</button>${d.fixed ? '' : `<button data-bm="store" title="Keep it in storage and place it later">📦 Store</button><button data-bm="demolish" title="Get back ${refund}">🗑 Remove</button>`}<button data-bm="x">✕</button>`;
+  box.innerHTML = `<img src="${buildIcon(b.type)}" alt=""><div><b>${d.name} · Lv${lvOf(b)}${site ? ' 🔨' : ''}</b><span>${site ? `${b.uplv ? 'Upgrading' : 'Being built'} · ${fmtTime(b.done - now())} left` : d.desc}</span>${canUp ? upgradePreview(b) : ''}</div>${site ? `<button data-bm="rush">⚡ Finish · ${rushGems(b, now())} 💎</button>` : ''}${canUp && upgradeBlock(isle.state, b) ? `<span class="bm-lock">🔒 ${upgradeBlock(isle.state, b)}</span>` : canUp ? `<button data-bm="upgrade" title="Stronger, more HP, better effect">⬆ Lv${lvOf(b) + 1} · ${costText(upgradeCost(b))} · ⏱ ${upgradeSecs(b) ? fmtTime(upgradeSecs(b) * 1000) : 'instant'}</button><button data-bm="upgems">⬆ ${gemPrice(upgradeCost(b))} 💎</button>` : ''}<button data-bm="move">↔ Move</button>${d.fixed ? '' : `<button data-bm="store" title="Keep it in storage and place it later">📦 Store</button><button data-bm="demolish" title="Get back ${refund}">🗑 Remove</button>`}<button data-bm="x">✕</button>`;
   box.dataset.id = b.id; box.classList.add('on'); sfx('click');
 }
 function closeBMenu() { $('#isl-bmenu')?.classList.remove('on'); }
@@ -835,7 +835,7 @@ function paintHud() {
   $('#isl-ready').classList.toggle('on', ready > 0);
   $('#isl-sync').textContent = isle.offline ? '⚠ Offline · not saved' : isle.error ? '⚠ Not saved yet, retrying…' : '☁ Saved';
   $('#isl-sync').classList.toggle('bad', isle.offline || !!isle.error);
-  $('#isl-bonus').textContent = (minds.length ? `🧠 ${minds.length} Mind${minds.length > 1 ? 's' : ''} working${queued().length ? ` · ${queued().length} job${queued().length > 1 ? 's' : ''} left` : ''}` : '')
+  $('#isl-bonus').textContent = `🏰 Town Hall Lv${thLv(st)}${(st.boost || 0) > now() ? ` · ⚡ Builder Boost ${fmtTime(st.boost - now())}` : ''} · ` + (minds.length ? `🧠 ${minds.length} Mind${minds.length > 1 ? 's' : ''} working${queued().length ? ` · ${queued().length} job${queued().length > 1 ? 's' : ''} left` : ''}` : '')
     + (isle.minds ? ` · +${Math.min(isle.minds, 6)} plots · crops ${Math.round(speedBonus(isle.minds) * 100)}% faster` : ' · own Minds for more plots and faster crops');
   if ($('#isl-seeds').classList.contains('on')) openSeeds(true);
 }
@@ -848,7 +848,7 @@ document.getElementById('isl-build').addEventListener('click', e => {
   buildType = b.dataset.build; moving = null; closeBuild(); setTool('build'); sfx('select');
   const d = BUILD[buildType];
   if (isle.state.stash?.[buildType] > 0) cb.toast(`Tap where your ${d.name} from storage should go.`);
-  else if (countOf(isle.state, buildType) >= maxOf(buildType, isle.minds)) cb.toast(`You already have the most ${d.name}s you can build.`, true);
+  else if (countOf(isle.state, buildType) >= maxOf(buildType, isle.minds, thLv(isle.state))) cb.toast(`You already have the most ${d.name}s you can build.`, true);
   else if (!canAfford(isle.state, d.cost)) cb.toast(`A ${d.name} costs ${costText(d.cost)}. Clear trees and rocks for 🪵 and 🪨, sell crops for ✨.`, true);
 });
 document.getElementById('isl-bmenu').addEventListener('click', e => {

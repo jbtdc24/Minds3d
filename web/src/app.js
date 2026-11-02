@@ -26,7 +26,7 @@ import { AREAS, POTIONS_MAX, SPOTS, SHIPS, spotLevel } from './island/adventure.
 import { openMap, updateMap, closeMap } from './island/worldmap.js';
 import { initAdmin, tryCode } from './admin.js';
 import { isle, loadIsland, doAct, flush as flushIsland, resetIsland, refreshIsland, now as islandNow } from './island/store.js';
-import { CROPS, RAW, growMs, permitCost, MAX_PERMITS, ripe, campLevels, campCount, SHOP, RECIPES, TROOP_MAX, troopCount, costText, canAfford, BUILD, STASH_MAX, gemPrice, ENERGY_PRICE, SHARDS_PER_ENERGY, REFILLS_PER_DAY, wellShards, troopLv, troopUpCost, troopLevels, MAX_TL, COSMETICS, RANK_PASS, passActive, passLeft } from './island/rules.js';
+import { CROPS, RAW, growMs, permitCost, MAX_PERMITS, ripe, campLevels, campCount, SHOP, RECIPES, troopMax, thLv, troopCount, costText, canAfford, BUILD, STASH_MAX, gemPrice, ENERGY_PRICE, SHARDS_PER_ENERGY, REFILLS_PER_DAY, wellShards, troopLv, troopUpCost, troopLevels, MAX_TL, COSMETICS, RANK_PASS, passActive, passLeft } from './island/rules.js';
 import { buildIcon } from './island/buildings.js';
 import { islandThumb } from './island/art.js';
 import { hashStr } from './island/gen.js';
@@ -452,7 +452,7 @@ function invItems() {
   const stash = Object.entries(isle.state.stash || {}).filter(([, n]) => n > 0).map(([t, n]) => cell(`<img src="${buildIcon(t)}" alt="">`, BUILD[t]?.name || t, n));
   const stashN = Object.values(isle.state.stash || {}).reduce((s, n) => s + n, 0);
   return `<div class="items-grid">${cells.join('')}</div>`
-    + `<h4 class="items-h">⚔️ Army camp <span class="muted">${troopCount(isle.state)}/${TROOP_MAX}</span></h4><div class="items-grid">${troops.join('') || '<p class="muted">No troops. Train them in Shop → Army.</p>'}</div>`
+    + `<h4 class="items-h">⚔️ Army camp <span class="muted">${troopCount(isle.state)}/${troopMax(isle.state)}</span></h4><div class="items-grid">${troops.join('') || '<p class="muted">No troops. Train them in Shop → Army.</p>'}</div>`
     + `<p class="muted items-note">📦 ${stashN} stored building${stashN === 1 ? '' : 's'} · open 📦 on your island to place them.</p>`
     + `<div class="items-foot"><button class="btn small" id="inv-go-island">🏝️ Go to my island</button><button class="btn small" id="inv-go-shop">🛒 Shop</button></div>`;
 }
@@ -556,7 +556,7 @@ async function startRaid(revenge = 0) {
   sfx('click');
   const lead = (picked()[0] ?? myMinds[0]) || 49, holder = online && !guest && myMinds.length;
   if (!(await ensureIsland())) return;
-  const cap = armyCap(guest ? 0 : myMinds.length, campLevels(isle.state));
+  const cap = armyCap(guest ? 0 : myMinds.length, campLevels(isle.state), thLv(isle.state));
   const troops = await pickArmy(cap, holder ? 'hero' : 'captain', lead);
   if (!troops) return;
   let target = null;
@@ -589,7 +589,7 @@ async function startRaid(revenge = 0) {
       } else if (res0.stars >= 2) { settings.raidWins = (settings.raidWins || 0) + 1; saveSettings(); }
       const stars = '★'.repeat(res.stars) + '☆'.repeat(3 - res.stars);
       if (res.stars) sfx('victory');
-      await modal(`<h3 class="raid-result">${res.stars ? 'Raid won!' : 'Raid failed'}</h3><div class="raid-stars big">${stars}</div><p>${Math.round(res.pct * 100)}% destroyed${res.home ? ' · house down' : ''}${res.traps ? ` · ${res.traps} hidden trap${res.traps > 1 ? 's' : ''} hit your troops` : ''}</p>${local ? '<p class="muted">Offline raid: loot is not saved.</p>' : `<p class="raid-loot-won"><b>+${(res.loot || 0).toLocaleString()} ✨</b> loot</p>${target.raidsLeft != null ? `<p class="muted">${target.raidsLeft} raid${target.raidsLeft === 1 ? '' : 's'} left today</p>` : ''}`}`, [['Back to my island', true, 'primary']]);
+      await modal(`<h3 class="raid-result">${res.stars ? 'Raid won!' : 'Raid failed'}</h3><div class="raid-stars big">${stars}</div><p>${Math.round(res.pct * 100)}% destroyed${res.home ? ' · house down' : ''}${res.traps ? ` · ${res.traps} hidden trap${res.traps > 1 ? 's' : ''} hit your troops` : ''}</p>${local ? '<p class="muted">Offline raid: loot is not saved.</p>' : `<p class="raid-loot-won"><b>+${(res.loot || 0).toLocaleString()} ✨</b> loot${res.res?.wood ? ` · +${res.res.wood} 🪵` : ''}${res.res?.stone ? ` · +${res.res.stone} 🪨` : ''}${res.points ? ` · +${res.points} 🏆 points` : ''}</p>${target.raidsLeft != null ? `<p class="muted">${target.raidsLeft} raid${target.raidsLeft === 1 ? '' : 's'} left today</p>` : ''}`}`, [['Back to my island', true, 'primary']]);
       closeRaid(); goIsland();
     },
   });
@@ -674,7 +674,7 @@ async function launchAdventure(pick) {
     onEnd: async A => {
       let loot = A.bag;
       if (!local) {
-        try { const r = await api('adventure', { op: 'end', inputs: A.inputs, end: A.tick }); loot = r.loot; A.ko = r.ko; resetIsland(); }
+        try { const r = await api('adventure', { op: 'end', inputs: A.inputs, end: A.tick }); loot = r.loot; A.ko = r.ko; resetIsland(); if (r.points) setTimeout(() => toast(`+${r.points} 🏆 leaderboard points for the trip`), 1200); }
         catch (e) { toast(e.message, true); loot = {}; }
       } else {
         if (A.ko) loot = Object.fromEntries(Object.entries(loot).map(([k, n]) => [k, Math.floor(n / 2)]));
@@ -756,7 +756,7 @@ function paintShop() {
   } else if (shopTab === 'army' || shopTab === 'items' || shopTab === 'gems') {
     const keys = Object.keys(SHOP).filter(k => shopTab === 'army' ? k.startsWith('troop_') : shopTab === 'gems' ? SHOP[k].gem : !k.startsWith('troop_') && !SHOP[k].gem);
     const have = k => { const g = Object.keys(SHOP[k].gives)[0]; return g === 'dust' ? null : inv[g] || 0; };
-    const head = shopTab === 'army' ? `<div class="shop-info px">⚔️ Troops you train wait in your camp (${troopCount(st)}/${TROOP_MAX}). In a raid you only lose the ones you send in; the rest come home. Earn Dust by farming, adventures and raids.</div>`
+    const head = shopTab === 'army' ? `<div class="shop-info px">⚔️ Troops you train wait in your camp (${troopCount(st)}/${troopMax(st)}). In a raid you only lose the ones you send in; the rest come home. Earn Dust by farming, adventures and raids.</div>`
       : shopTab === 'gems' ? `<div class="shop-info px gemsinfo">💎 <b>Gems</b> buy exclusive things and save time. You find a few by beating Ogres on adventures. <button class="btn small primary" id="buy-gems">Get more Gems</button></div>`
       : `<div class="shop-info px">🧪 Bring potions on adventures (your hero does not heal by itself). Craft them from herbs found on adventures, or buy them.</div>`;
     const icon = k => k.startsWith('troop_') ? `<img src="${troopIcon(k.slice(6))}" alt="">` : `<i>${SHOP[k].icon}</i>`;
@@ -802,7 +802,7 @@ async function buyGems() {
   if (!cur) return;
   const usd = cur === 'usd', price = pk => usd ? `${pk.usd} ${st.symbol}` : `${pk.eth} ETH`;
   const pick = await modal(`<h3>💎 Get Gems</h3><p class="muted">Paid in ${usd ? st.symbol : 'ETH'} on Robinhood Chain, from your connected wallet.</p>
-    <div class="gem-packs">${info.packs.map(pk => `<div class="gem-pack"><b>${pk.icon}</b><span>${pk.name}</span><em>${pk.gems} 💎</em>${pk.tag ? `<small>${pk.tag}</small>` : ''}<strong>${price(pk)}</strong></div>`).join('')}</div>`,
+    <div class="gem-packs">${info.packs.map(pk => `<div class="gem-pack"><b>${pk.icon}</b><span>${pk.name}</span><em>${pk.gems} 💎</em><small class="gem-bonus">+${pk.gems} 🏆 points · +${(pk.gems * 20).toLocaleString()} ✨ · +${pk.gems * 2} 🪵🪨</small>${pk.tag ? `<small>${pk.tag}</small>` : ''}<strong>${price(pk)}</strong></div>`).join('')}</div>`,
     [...info.packs.map(pk => [`${pk.gems} 💎 · ${price(pk)}`, pk.id, 'primary']), ['Cancel', 0]]);
   if (!pick) return;
   const pack = info.packs.find(x => x.id === pick), key = usd ? `${pack.id}:usd` : pack.id;
@@ -1420,6 +1420,7 @@ async function finish(v) {
     [v.ranked ? `${d > 0 ? '+' : ''}${d}` : '—', 'Rating', d > 0 ? 'up' : d < 0 ? 'down' : ''],
     ...(v.ranked && v.pts != null ? [[`${v.pts > 0 ? '+' : v.pts < 0 ? '−' : ''}${Math.abs(v.pts)}`, `Points · stake x${v.view.me.minds.length}`, v.pts > 0 ? 'up' : v.pts < 0 ? 'down' : '']] : []),
     ...(v.dustWon ? [[`+${v.dustWon} ✨`, 'Sent to your island', 'up']] : []),
+    ...(v.chests || []).map(c => [c.name.replace(/^\S+\s/, ''), [c.dust && `+${c.dust} ✨`, c.gems && `+${c.gems} 💎`, ...Object.entries(c.items || {}).map(([k, n]) => `+${n} ${k.replace(/_/g, ' ')}`), c.boost && '⚡ Builder Boost 2 h', c.shield && '🛡️ 8 h shield'].filter(Boolean).join(' · ') + ' · on your island', 'up']),
     [esc(v.view.rival.name), v.botLevel ? `Rival · ${v.botLevel}` : 'Rival', ''],
     [v.ranked ? 'Ranked' : v.botLevel ? 'Practice' : 'Classic', 'Mode', ''],
   ].map(([b, s, c]) => `<div><b class="${c}">${esc(b)}</b><span>${s}</span></div>`).join('');

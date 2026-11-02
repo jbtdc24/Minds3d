@@ -1,7 +1,7 @@
 // Mind jobs: give any Mind you own a job and it keeps working while you are away. The same rules as playing by hand:
 // a job calls act(), so crops still take their time, seeds and Dust are still spent, and nothing is free.
 // A Mind does one round every 30 minutes and gets tired after 8 hours, so it pays to come back.
-import { act, coverAt, DROPS, ripe, troopCount, TROOP_MAX, CROPS, wellShards, burning } from './rules.js';
+import { act, coverAt, DROPS, ripe, troopCount, troopMax, CROPS, wellShards, burning } from './rules.js';
 import { gen, TW, TH, hash } from './gen.js';
 
 export const JOB_MS = 30 * 60e3, JOB_SHIFT = 16, LOG_MAX = 20;
@@ -37,7 +37,7 @@ function chopRound(st, ctx, w) {
   return { cleared: tiles.length ? act(st, { type: 'clear', tiles }, ctx).done || 0 : 0 };
 }
 function drillRound(st, ctx) {
-  if (st.dust < 560 || troopCount(st) >= TROOP_MAX * 0.75) return {};
+  if (st.dust < 560 || troopCount(st) >= troopMax(st) * 0.75) return {};
   const item = troopCount(st) % 3 === 2 ? 'troop_archer' : 'troop_brawler';
   return { trained: act(st, { type: 'shop', item, n: 1 }, ctx).done || 0 };
 }

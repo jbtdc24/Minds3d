@@ -1,7 +1,7 @@
 // Mind Autopilot: your Mind plays the game for you. A plan is a list of steps that repeats; presets are ready plans,
 // and a typed message ("farm, then raid, then go to town for an hour") becomes a plan too. Runs in the browser and on
 // the server (lib/routes/autopilot.js) with the same rules as playing by hand: nothing is free or faster.
-import { CROPS, BUILD, SHOP, ripe, fits, canAfford, countOf, maxOf, homeOf, troopCount, TROOP_MAX, wellShards } from './rules.js';
+import { CROPS, BUILD, SHOP, ripe, fits, canAfford, countOf, maxOf, homeOf, troopCount, troopMax, thLv, wellShards } from './rules.js';
 import { TW, TH } from './gen.js';
 
 // a step: { do, n?, min? }. 'duel' and 'town' and 'wait' run in the game tab; the rest is one server call each.
@@ -91,7 +91,7 @@ export const sellActs = st => Object.entries(st.inv || {}).filter(([k, n]) => k.
 export const wellActs = (st, now) => wellShards(st, now) > 0 ? [{ type: 'well' }] : [];
 // train troops with spare Dust: brawlers and archers, keeps 600 Dust, stops at 3/4 of the camp
 export function trainActs(st) {
-  const room = Math.floor(TROOP_MAX * 0.75) - troopCount(st), spare = (st.dust || 0) - 600;
+  const room = Math.floor(troopMax(st) * 0.75) - troopCount(st), spare = (st.dust || 0) - 600;
   if (room <= 0 || spare <= 0) return [];
   const per = SHOP.troop_brawler.price.dust + 5, n = Math.max(0, Math.min(room, Math.floor(spare / per), 10));
   return n ? [{ type: 'shop', item: 'troop_brawler', n: Math.ceil(n / 2) }, { type: 'shop', item: 'troop_archer', n: Math.floor(n / 2) }].filter(a => a.n > 0) : [];
@@ -109,7 +109,7 @@ export function decorActs(st, w) {
   let budget = { ...(st.inv || {}), dust: (st.dust || 0) - 400 };
   const tryPut = (type, k) => {
     const d = BUILD[type];
-    if (taken.has(k) || countOf(st, type) + acts.filter(a => a.item === type).length >= maxOf(type, 0) || !fits(st, w, type, k)) return false;
+    if (taken.has(k) || countOf(st, type) + acts.filter(a => a.item === type).length >= maxOf(type, 0, thLv(st)) || !fits(st, w, type, k)) return false;
     if (!canAfford({ ...st, dust: budget.dust, inv: budget }, d.cost)) return false;
     for (const [i, n] of Object.entries(d.cost)) budget[i] = (budget[i] || 0) - n;
     taken.add(k); acts.push({ type: 'build', item: type, tiles: [k] }); return true;

@@ -66,7 +66,7 @@ ok(!(await checkSignature(acct.address, msg.replace('abc123', 'zzz'), sig)), 'ta
 ok(!(await checkSignature('0x0000000000000000000000000000000000000001', msg, sig)), 'wrong wallet rejected');
 const tok = signSession({ id: 'p1', address: acct.address });
 ok(readSession({ headers: { authorization: `Bearer ${tok}` } })?.pid === 'p1', 'session round-trips');
-ok(readSession({ headers: { authorization: `Bearer ${tok.slice(0, -2)}xx` } }) === null, 'forged session rejected');
+ok(readSession({ headers: { authorization: `Bearer ${tok.slice(0, -2)}${tok.slice(-2) === 'xx' ? 'yy' : 'xx'}` } }) === null, 'forged session rejected');
 const forged = Buffer.from(JSON.stringify({ pid: 'admin', exp: Date.now() + 1e9 })).toString('base64url') + '.' + tok.split('.')[1];
 ok(readSession({ headers: { authorization: `Bearer ${forged}` } }) === null, 'edited session body rejected');
 ok(checkName('ab') && checkName('bad name!') && checkName('fuck_you') && checkName('N1gg3r') && !checkName('Satoshi_42'), 'name filter');
@@ -361,7 +361,7 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   ok(R.act(st, { type: 'troopup', item: 'brawler' }, ctx).done === 1 && R.troopLv(st, 'brawler') === 2 && st.dust === 50000 - 700, 'Brawlers go to Lv2 for 700 Dust');
   ok(/Lv2/.test(R.act(st, { type: 'troopup', item: 'brawler' }, ctx).error || ''), 'Lv3 needs a Lv2 camp');
   ok(R.act(st, { type: 'troopup', item: '__proto__' }, ctx).error && R.act(st, { type: 'troopup', item: 'constructor' }, ctx).error, 'unknown troops are refused');
-  ok(RD.troopStats('brawler', 2).hp === Math.round(RD.TROOPS.brawler.hp * 1.2) && RD.troopStats('brawler', 9).hp === Math.round(RD.TROOPS.brawler.hp * 1.4), 'troop stats grow 20% a level, capped at Lv3');
+  ok(RD.troopStats('brawler', 2).hp === Math.round(RD.TROOPS.brawler.hp * 1.2) && RD.troopStats('brawler', 12).hp === Math.round(RD.TROOPS.brawler.hp * 2.1), 'troop stats grow 20% a level to Lv3, then 10%, capped at Lv10');
   const snap = RD.botVillage(4242, 2), plan = RD.autoPlan(snap, { troops: { brawler: 8 }, hero: 'captain' });
   const weak = RD.replay(snap, { troops: { brawler: 8 }, hero: 'captain' }, plan), strong = RD.replay(snap, { troops: { brawler: 8 }, hero: 'captain', lv: { brawler: 3 } }, plan);
   ok(strong.pct >= weak.pct, 'stronger troops do at least as well in the same raid');
@@ -632,12 +632,30 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   let k = -1; for (let t = 0; t < TW * TH && k < 0; t++) if (R.fits(st, w, 'barn', t)) k = t;
   R.act(st, { type: 'build', item: 'barn', k }, { seed, now, minds: 0, instant: true });
   const barn = st.b.find(b => b.type === 'barn');
+  ok(/Town Hall to Lv2/.test(R.act(st, { type: 'upgrade', id: barn.id }, { seed, now, minds: 0 }).error || ''), 'nothing goes above the Town Hall level');
+  st.b.find(b => b.type === 'home').lv = 2;
   let r = R.act(st, { type: 'upgrade', id: barn.id }, { seed, now, minds: 0 });
   ok(r.done === 1 && barn.done && barn.uplv === 2 && R.barnSafe(st) === 1, 'upgrading takes time; the barn keeps working at Lv1 meanwhile');
   R.normalize(st, seed, now + 1e8);
   ok(barn.lv === 2 && R.barnSafe(st) === 2, 'a Lv2 barn protects twice as much');
   const snap = RD.snapshotOf(seed, st, 2), S = RD.createRaid(snap, {});
   ok(S.structs.find(x => x.type === 'barn').max === Math.round(R.BUILD.barn.hp * 1.5), 'higher levels have more HP in raids');
+  {   // 🏰 Town Hall levels 1-10
+    const home = st.b.find(b => b.type === 'home');
+    ok(R.thLv(st) === 2 && R.MAX_LV === 10, 'the Home is the Town Hall, up to Lv10');
+    const up = lv => { st.dust = 1e7; st.inv.wood = 1e6; st.inv.stone = 1e6; return R.act(st, { type: 'upgrade', id: home.id }, { seed, now, minds: 0, instant: true }); };
+    barn.lv = 1;
+    ok(/Barn up to Lv2/.test(up().error || ''), 'the Town Hall waits until key buildings catch up (all aligned)');
+    barn.lv = 2;
+    ok(up().done === 1 && R.thLv(st) === 3, 'with every key building at its level, the Town Hall goes up');
+    ok(R.maxOf('wall', 0, 1) === 20 && R.maxOf('wall', 0, 10) === 110 && R.maxOf('house', 0, 1) === 2 && R.maxOf('house', 0, 10) === 6 && R.maxOf('tower', 3, 1) === 4, 'each Town Hall level unlocks more buildings');
+    ok(R.troopMax(st) === 60 && RD.armyCap(3, 30, 1) === 20 && RD.armyCap(3, 30, 10) === 60, 'troops kept and raid army size grow with the Town Hall');
+    const c2 = R.upgradeCost({ type: 'mill', lv: 2 }).dust, c9 = R.upgradeCost({ type: 'mill', lv: 9 }).dust;
+    ok(c9 > c2 * 10 && R.upgradeSecs({ type: 'mill', lv: 9 }) === 24 * 3600 && R.upgradeSecs({ type: 'mill', lv: 1 }) === 300, 'costs and times grow: minutes early, a day at the top');
+    ok(RD.lootCap(1) === 2000 && RD.lootCap(10) === 11000, 'the most a raid can take grows with the Town Hall of the defender');
+    const res = RD.resLootOf({ wood: 1100, stone: 50 }, 1, 1, 1);
+    ok(res.wood === 150 && !res.stone, 'raiders also carry off wood and stone that Barns do not protect, capped per raid');
+  }
   ok(AD.advMap(5, 1).monsters.some(m => m.type === 'ogre') && AD.advMap(5, 4).monsters.some(m => m.type === 'titan'), 'each tier has its own boss');
 }
 
@@ -731,11 +749,33 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   ok(R.wellShards({ wellAt: 0 }, 1e12) === R.SHARD_CAP, 'the well holds at most 6 shards');
   ok(duelDust(true, 3, false) === 180 && duelDust(false, 1, false) === 15 && duelDust(true, 1, true) === 30, 'ranked duels pay Dust by stake (bots half)');
   const alice = await db.insert('players', { name: 'Duelist', address: acct.address });
-  T.islands.push({ player_id: alice.id, seed: 9, state: R.newIsland(9, now), minds: 0, rev: 0, updated_at: new Date().toISOString() });
+  const RR = await import('../web/src/island/rankrewards.js');
+  T.islands.push({ player_id: alice.id, seed: 9, state: { ...R.newIsland(9, now), wk: RR.weekOf(Date.now()) }, minds: 0, rev: 0, updated_at: new Date().toISOString() });   // weekly chest already taken: only the Dust here
   const m2 = await startMatch({ player: alice, minds: [1, 2] }, null, { ranked: true, botLevel: 'normal' });
   await forfeit(m2.id, alice.id);
   const isl = T.islands.find(x => x.player_id === alice.id);
   ok(isl.state.dust === 100 + duelDust(false, 2, true), 'a ranked duel sends Dust to your island');
+  {   // leaderboard points from the island side, capped a day
+    const PT = await import('../lib/points.js'), st = R.newIsland(6, now);
+    ok(PT.pointsFor(st, 'adventure') === 5 && [1, 2, 3, 4, 5, 6].map(() => PT.pointsFor(st, 'adventure')).reduce((a, b) => a + b, 0) === 20, 'adventures give 5 points each, 25 a day');
+    ok(PT.pointsFor(st, 'raid', 3) === 6 && PT.pointsFor(st, 'nope') === 0, 'raids give 2 points a star');
+    const buyer = await db.insert('players', { name: 'Buyer', address: '0x' + '7'.repeat(40) });
+    T.islands.push({ player_id: buyer.id, seed: 3, state: R.newIsland(3, now), minds: 0, rev: 0, updated_at: new Date().toISOString() });
+    const { creditGems } = await import('../lib/routes/gems.js'), ib = T.islands.find(x => x.player_id === buyer.id), d0 = ib.state.dust;
+    await creditGems(buyer.id, '0xabc', 50); await creditGems(buyer.id, '0xabc', 50);
+    ok(ib.state.gems === 50 && ib.state.dust === d0 + 1000 && ib.state.inv.wood === 100 && T.players.find(x => x.id === buyer.id).points === 50, 'buying Gems also gives points, Dust and supplies, once per payment');
+  }
+  {   // ranked chests for the island
+    const st = R.newIsland(5, now), t0 = Date.parse('2026-11-04T10:00:00Z');
+    let got = RR.rankedRewards(st, { won: true, streak: 1, rating: 1300, now: t0 });
+    ok(got.length === 1 && /Gold weekly/.test(got[0].name) && st.dust === 100 + 2000 && st.inv.wood === 200 && st.shield > t0, 'the first ranked game of the week gives the tier chest and a raid shield');
+    ok(!RR.rankedRewards(st, { won: false, streak: 0, rating: 1300, now: t0 + 1000 }).length, 'only once a week');
+    RR.rankedRewards(st, { won: true, streak: 2, rating: 1300, now: t0 + 2000 });
+    got = RR.rankedRewards(st, { won: true, streak: 3, rating: 1300, now: t0 + 3000 });
+    ok(got.some(g => /Streak Chest/.test(g.name)) && got.some(g => /Daily Ranked/.test(g.name)) && st.boost > t0 + 3000, '3 in a row gives the streak chest; 3 wins today the daily chest and a Builder Boost');
+    ok(R.boostOf(st, t0 + 4000) === 0.5 && R.boostOf(st, t0 + 3 * 3600e3) === 1, 'the Builder Boost halves build time for 2 hours');
+    ok(RR.weekOf(Date.parse('2026-11-09T00:00:01Z')) !== RR.weekOf(Date.parse('2026-11-08T23:59:59Z')) && RR.tierOf(1650).name === 'Legend' && RR.tierOf(900).name === 'Bronze', 'weeks start on Monday; tiers follow the rating');
+  }
 }
 
 // ---- wallet (holder) accounts: the paths guests never reach ----
@@ -830,16 +870,16 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   ok(!(await hit(friends, A, null, 'GET')).body.chats?.some(c => c.player.id === C.id) && !(await hit(friends, A, null, 'GET')).body.friends.some(f => f.player.id === C.id), 'blocked players do not show in your lists');
   ok((await hit(friend, C, { op: 'add', id: A.id })).body.status === 'pending' && !T.friends.some(f => f.a === C.id && f.b === A.id), 'a blocked player cannot send a friend request');
   T.friends = T.friends.filter(f => f.status !== 'blocked'); T.messages = T.messages.filter(m => m.from_id !== C.id);
-  T.messages[0].created_at = new Date(Date.now() - 91 * 864e5).toISOString();
-  ok(!(await hit(messages, B, null, 'GET', { with: A.id })).body.messages.length, 'messages over 90 days old are gone');
+  T.messages[0].created_at = new Date(Date.now() - 31 * 864e5).toISOString();
+  ok(!(await hit(messages, B, null, 'GET', { with: A.id })).body.messages.length, 'messages over 30 days old are gone');
   ok((await hit(friend, A, { op: 'remove', id: B.id })).code === 200 && !T.friends.length, 'unfriend removes the friendship');
   ok((await hit(report, A, { kind: 'player', text: 'He was rude to me', target: B.id })).code === 200 && T.reports.length === 1, 'reports are saved');
   {   // chat and history clean-up (lib/retention.js)
     const { prune, KEEP } = await import('../lib/retention.js'), old = d => new Date(Date.now() - d * 864e5).toISOString();
-    T.messages.push({ id: 9001, from_id: A.id, to_id: B.id, text: 'old', created_at: old(91) }, { id: 9002, from_id: A.id, to_id: B.id, text: 'new', created_at: old(10) });
-    T.town_chat.push({ id: 9003, name: 'x', text: 'old town', kind: 'chat', created_at: old(8) }, { id: 9004, name: 'x', text: 'fresh town', kind: 'chat', created_at: old(1) });
+    T.messages.push({ id: 9001, from_id: A.id, to_id: B.id, text: 'old', created_at: old(31) }, { id: 9002, from_id: A.id, to_id: B.id, text: 'new', created_at: old(10) });
+    T.town_chat.push({ id: 9003, name: 'x', text: 'old town', kind: 'chat', created_at: old(2) }, { id: 9004, name: 'x', text: 'fresh town', kind: 'chat', created_at: old(0.5) });
     await prune();
-    ok(!T.messages.some(m => m.id === 9001) && T.messages.some(m => m.id === 9002) && !T.town_chat.some(c => c.id === 9003) && T.town_chat.some(c => c.id === 9004) && KEEP.messages === 90 && KEEP.town_chat === 7, 'chat over 90 days and town chat over 7 days are deleted, newer chat stays');
+    ok(!T.messages.some(m => m.id === 9001) && T.messages.some(m => m.id === 9002) && !T.town_chat.some(c => c.id === 9003) && T.town_chat.some(c => c.id === 9004) && KEEP.messages === 30 && KEEP.town_chat === 1 && KEEP.reports === 60, 'chat over 30 days and town chat over a day are deleted, newer chat stays');
   }
 
   // mail + admin
@@ -933,7 +973,7 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   out = await hit(town, A, { x: 100, y: 100, mind: 49 });
   const bob = out.body.people.find(o => o.name === 'Bob');
   ok(bob?.cos?.mega?.text === 'hello town' && bob.cos.name === 'name_gold', 'others in town see the Megaphone message and bought looks');
-  ok(out.body.chat.some(c => c.text === '📣 hello town'), 'a Megaphone message also goes into town chat');
+  ok(T.town_chat.some(c => c.text === '📣 hello town'), 'a Megaphone message also goes into town chat');
   isl(B).state.mega.until = Date.now() - 1;
   ok((await hit(town, B, { op: 'mega', text: '' })).code === 400, 'an empty Megaphone message is refused');
   {   // 🤝 trades in Mind Town + 🎁 gifts to friends
@@ -989,7 +1029,9 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   }
   T.town_now.find(x => x.player_id === A.id).since = new Date(Date.now() - 11 * 60e3).toISOString();
   out = await hit(town, A, { x: 100, y: 100, mind: 49, say: 'hi all' });
-  ok(out.body.got?.kind === 'time' && out.body.chat.some(c => c.text === 'hi all'), 'staying in town pays, and chat works');
+  ok(out.body.got?.kind === 'time' && T.town_chat.some(c => c.text === 'hi all') && !out.body.chat.some(c => c.kind === 'chat'), 'staying in town pays; walking in shows no old chat');
+  const seen = (await hit(town, B, { x: 110, y: 100, mind: 50, after: out.body.lastId - 1 })).body.chat;
+  ok(seen.some(c => c.text === 'hi all'), 'people already in town see new chat');
   const rowA = T.town_now.find(x => x.player_id === A.id);
   rowA.since = new Date(Date.now() - 5 * 60e3).toISOString(); rowA.at = new Date(Date.now() - 10e3).toISOString();
   const s0 = Date.parse(rowA.since);
@@ -1087,6 +1129,7 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   const v0 = await getView(m.id, X.id);
   ok(!JSON.stringify(v0).includes('"seed"') && !('play' in v0.view.rival) && !('crowns' in v0.view), 'a duel view hides the seed, future prizes and the rival pick');
   ok((await hit(match_view, V, null, 'GET', { id: m.id })).code === 403, 'you cannot read someone else\'s match');
+  isl(X).state.wk = (await import('../web/src/island/rankrewards.js')).weekOf(Date.now());
   const px0 = T.players.find(p => p.id === X.id), pts0 = px0.bot_losses, dust0 = isl(X).state.dust;
   await Promise.allSettled([forfeit(m.id, X.id), forfeit(m.id, X.id)]);
   ok(T.players.find(p => p.id === X.id).bot_losses === pts0 + 1 && isl(X).state.dust === dust0 + 8, 'a result pays out exactly once');

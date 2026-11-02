@@ -31,7 +31,7 @@ export const BUILD = {
   tower: { name: 'Watchtower', icon: '🗼', w: 1, h: 1, cost: { dust: 600, wood: 25, stone: 40 }, max: m => Math.min(6, 2 + m), hp: 480, desc: 'Shoots raiders (2 + 1 per Mind you own, max 6)' },
   trap: { name: 'Spike Trap', icon: '📌', w: 1, h: 1, cost: { dust: 100, wood: 8 }, max: 6, hp: 0, desc: 'Hidden from raiders. 45 damage, once per raid' },
   // always on the island, can be moved (not removed or stored)
-  home: { name: 'Home', icon: '🏠', w: 3, h: 3, cost: {}, max: 1, hp: 1100, fixed: true, desc: 'Your house. Raiders want it.' },
+  home: { name: 'Town Hall', icon: '🏰', w: 3, h: 3, cost: {}, max: 1, hp: 1100, fixed: true, desc: 'The heart of your island. Its level sets how high everything else can go. Raiders want it.' },
   well: { name: 'Energy Well', icon: '⛲', w: 2, h: 2, cost: {}, max: 1, hp: 0, fixed: true, deco: true, desc: 'A glowing well.' },
   // decorations (no effect in raids)
   flowers: { name: 'Flower Bed', icon: '🌷', w: 1, h: 1, cost: { dust: 30 }, max: 40, hp: 0, deco: true, desc: 'Pretty flowers' },
@@ -76,23 +76,52 @@ export const SHOP = {
   gem_adv: { name: 'Adventure Ticket', icon: '🧭', price: { gems: 4 }, gives: { adv_ticket: 1 }, desc: 'One extra adventure today', gem: true },
   gem_dust: { name: 'Sack of Dust', icon: '✨', price: { gems: 10 }, gives: { dust: 1200 }, desc: '1,200 Dust', gem: true },
 };
-export const TROOP_MAX = 60;                           // troops you can keep trained
+export const TROOP_MAX = 130;                          // the most troops any camp can keep (Town Hall 10)
+export const troopMax = st => 40 + 10 * (thLv(st) - 1);  // troops you can keep trained: 40 at Town Hall 1, +10 per level
 export const troopCount = st => Object.entries(st.inv).filter(([k]) => k.startsWith('troop_')).reduce((s, [, n]) => s + n, 0);
 // airship tiers (same numbers as adventure.js SHIPS; kept here so rules.js has no extra import)
 export const SHIP_COSTS = [null, { name: 'Sky Skiff', cost: { dust: 2000, wood: 80 }, gems: 24 }, { name: 'Cloud Galleon', cost: { dust: 10000, wood: 300, stone: 200 }, gems: 125 }, { name: 'Storm Cruiser', cost: { dust: 30000, wood: 800, stone: 600 }, gems: 375 }];
 export const RECIPES = { potion: { name: 'Health Potion', needs: { herb: 2 }, gives: { potion: 1 } } };
 export const HOME_HP = 1100;
-export const maxOf = (type, minds) => {
-  if (!BUILD[type]) return 0; const m = BUILD[type].max; return typeof m === 'function' ? m(minds) : m; };
+// Town Hall (your Home) levels 1-10 unlock more of each building; th = the Town Hall level (default: no limit)
+const UNLOCK = { house: [2, 2, 3, 3, 4, 4, 5, 5, 6, 6], camp: [1, 1, 2, 2, 3, 3, 3, 4, 4, 4], barn: [1, 1, 1, 2, 2, 2, 3, 3, 3, 3],
+  wall: [20, 30, 40, 50, 60, 70, 80, 90, 100, 110], tower: [2, 2, 3, 3, 4, 4, 5, 5, 6, 6], trap: [2, 3, 3, 4, 4, 5, 5, 6, 6, 6] };
+Object.setPrototypeOf(UNLOCK, null);
+export const maxOf = (type, minds, th = 10) => {
+  if (!BUILD[type]) return 0;
+  const u = UNLOCK[type];
+  if (u) return u[Math.max(1, Math.min(10, th | 0 || 1)) - 1] + (type === 'tower' ? Math.min(2, minds | 0) : 0);
+  const m = BUILD[type].max; return typeof m === 'function' ? m(minds) : m; };
 export const countOf = (st, type) => (st.b || []).filter(b => b.type === type).length;
 export const MILL_BONUS = 0.25, BARN_SAFE = 1000;
-// building levels (1-3): upgrading costs more each level, takes a builder and time; effects grow with the level
+// building levels (1-10): no building may be above the Town Hall, and the Town Hall only goes up once your key
+// buildings have caught up with it ("all aligned"). Each level costs more and takes longer: minutes early, a day at the top.
 export const UPGRADABLE = { camp: 1, home: 1, house: 1, mill: 1, barn: 1, tower: 1, wall: 1 };
-export const MAX_LV = 3;
+export const MAX_LV = 10, TH_KEY = ['house', 'mill', 'camp', 'barn', 'tower'];
 export const lvOf = b => b.lv || 1;
-export const upgradeCost = b => { const base = BUILD[b.type].cost, m = lvOf(b) * 1.6; const c = Object.fromEntries(Object.entries(base).map(([k, n]) => [k, Math.ceil(n * m)])); if (b.type === 'home') return { dust: 1500 * lvOf(b), wood: 80 * lvOf(b), stone: 80 * lvOf(b) }; return c; };
-export const upgradeSecs = b => b.type === 'wall' ? 0 : Math.round((BUILD_SECS[b.type] || 300) * lvOf(b) * 1.5);
-export const hpMult = lv => 1 + 0.5 * ((lv || 1) - 1);
+export const thLv = st => lvOf((st.b || []).find(b => b.type === 'home') || {});
+const UP_MULT = [1.6, 2.6, 4, 6, 9, 13, 18, 25, 34], TH_DUST = [1500, 3000, 5500, 9000, 14000, 21000, 30000, 42000, 60000];
+const UP_SECS = [300, 1200, 3600, 7200, 4 * 3600, 7 * 3600, 11 * 3600, 16 * 3600, 24 * 3600];
+export const upgradeCost = b => {
+  const i = Math.min(UP_MULT.length, lvOf(b)) - 1;
+  if (b.type === 'home') return { dust: TH_DUST[i], wood: TH_DUST[i] / 20, stone: TH_DUST[i] / 20 };
+  return Object.fromEntries(Object.entries(BUILD[b.type].cost).map(([k, n]) => [k, Math.ceil(n * UP_MULT[i])]));
+};
+export const upgradeSecs = b => b.type === 'wall' ? 0 : Math.round(UP_SECS[Math.min(UP_SECS.length, lvOf(b)) - 1] * (b.type === 'home' ? 1.2 : 1));
+// what stops an upgrade: the Town Hall (for other buildings), or key buildings behind (for the Town Hall); null = fine
+export function upgradeBlock(st, b) {
+  const th = thLv(st), next = lvOf(b) + 1;
+  if (b.type !== 'home') return next > th ? `Upgrade your Town Hall to Lv${next} first.` : null;
+  const behind = (st.b || []).filter(x => TH_KEY.includes(x.type) && (lvOf(x) < th || (x.done && !x.uplv)));
+  return behind.length ? `First bring every ${[...new Set(behind.map(x => BUILD[x.type].name))].join(', ')} up to Lv${th}.` : null;
+}
+// Builder Boost from the daily Ranked chest: builds and upgrades take half the time while it lasts
+export const boostOf = (st, now) => (st.boost || 0) > now ? 0.5 : 1;
+// HP: +50% a level up to Lv3 (as before), then +60% a level (×6.2 at Lv10)
+export const hpMult = lv => { const l = Math.max(1, Math.min(10, lv || 1)); return 1 + 0.5 * (Math.min(l, 3) - 1) + 0.6 * Math.max(0, l - 3); };
+// farm plots a Cottage gives: 2, 3, 4 at Lv1-3, then +1 every 2 levels (7 at Lv10)
+export const cottagePlots = lv => (lv || 1) <= 3 ? 1 + (lv || 1) : 4 + Math.floor(((lv || 1) - 3) / 2);
+export const millPct = lv => MILL_BONUS + 0.05 * ((lv || 1) - 1);
 // troop levels (1-3): each level gives +20% HP and damage. Weights match each troop's camp space (raid.js TROOPS; a test checks).
 // Lv2 needs an Army Camp, Lv3 needs an Army Camp at Lv2. The Siege Cup ignores troop levels (same army for everyone).
 // cosmetics: looks only, no power. Card backs show in your duels, frames around your profile picture.
@@ -122,28 +151,30 @@ export const tradeHave = (st, k) => k === 'dust' ? st.dust : k === 'gems' ? st.g
 export const RANK_PASS = { days: 7, games: 5, price: { dust: 5000 }, gems: 30 };
 export const passActive = (st, now) => (st.rp?.until || 0) > now;
 export const passLeft = (st, now) => !passActive(st, now) ? 0 : Math.max(0, RANK_PASS.games - (st.rp.day === new Date(now).toISOString().slice(0, 10) ? st.rp.used || 0 : 0));
-export const TROOP_UP = { brawler: 1, archer: 1, bomber: 2, giant: 3 }, MAX_TL = 3;
+export const TROOP_UP = { brawler: 1, archer: 1, bomber: 2, giant: 3 }, MAX_TL = 10;
 export const troopLv = (st, k) => Math.min(MAX_TL, Math.max(1, st.tl?.[k] | 0 || 1));
-export const troopMult = lv => 1 + 0.2 * ((lv || 1) - 1);
+// troops: +20% a level up to Lv3 (as before), then +10% a level (×2.1 at Lv10)
+export const troopMult = lv => { const l = Math.max(1, Math.min(10, lv || 1)); return 1 + 0.2 * (Math.min(l, 3) - 1) + 0.1 * Math.max(0, l - 3); };
 export const troopUpCost = (k, lv) => ({ dust: 700 * lv * TROOP_UP[k], stone: 20 * lv * TROOP_UP[k] });
 export const troopLevels = st => Object.fromEntries(Object.keys(TROOP_UP).map(k => [k, troopLv(st, k)]));
-const campNeeded = lv => lv - 1;   // the camp level the next troop level needs (Lv2 → any camp, Lv3 → a Lv2 camp)
+const campNeeded = lv => lv - 1;   // the camp level the next troop level needs (Lv2 → any camp, Lv3 → a Lv2 camp … Lv10 → a Lv9 camp)
 // what a building does at a level, for the upgrade preview (camp space 3 and tower damage 26 match raid.js; a test checks)
 export function levelStats(type, lv) {
   const hp = Math.round((type === 'home' ? HOME_HP : BUILD[type]?.hp || 0) * hpMult(lv)), out = hp ? [['❤️ HP', hp]] : [];
-  if (type === 'house') out.push(['🌱 Farm plots', 1 + lv]);
-  if (type === 'mill') out.push(['🌾 Crop price', `+${Math.round((MILL_BONUS + 0.1 * (lv - 1)) * 100)}%`]);
+  if (type === 'home') out.push(['🔓 Buildings up to', `Lv${lv}`], ['🎒 Troops kept', 40 + 10 * (lv - 1)]);
+  if (type === 'house') out.push(['🌱 Farm plots', cottagePlots(lv)]);
+  if (type === 'mill') out.push(['🌾 Crop price', `+${Math.round(millPct(lv) * 100)}%`]);
   if (type === 'barn') out.push(['🛖 Safe Dust', (BARN_SAFE * lv).toLocaleString()]);
   if (type === 'camp') out.push(['⛺ Camp space', `+${3 * lv}`]);
-  if (type === 'tower') out.push(['🏹 Damage', Math.round(26 * (1 + 0.3 * (lv - 1)))]);
+  if (type === 'tower') { const l = Math.max(1, Math.min(10, lv)); out.push(['🏹 Damage', Math.round(26 * (1 + 0.3 * (Math.min(l, 3) - 1) + 0.45 * Math.max(0, l - 3)))]); }
   return out;
 }
 const finished = (st, type) => (st.b || []).filter(b => b.type === type && (!b.done || b.uplv));   // being upgraded = still works at its old level
-export const millBonus = st => { const m = finished(st, 'mill')[0]; return m ? MILL_BONUS + 0.1 * (lvOf(m) - 1) : 0; };
+export const millBonus = st => { const m = finished(st, 'mill')[0]; return m ? millPct(lvOf(m)) : 0; };
 export const campLevels = st => finished(st, 'camp').reduce((s, b) => s + lvOf(b), 0);
 export const campCount = st => finished(st, 'camp').length;
 export const barnSafe = st => finished(st, 'barn').reduce((s, b) => s + BARN_SAFE * lvOf(b), 0) / BARN_SAFE;   // in "barns" (1 = 1,000 Dust)
-const housePlots = st => finished(st, 'house').reduce((s, b) => s + 1 + lvOf(b), 0);
+const housePlots = st => finished(st, 'house').reduce((s, b) => s + cottagePlots(lvOf(b)), 0);
 export const footprint = b => { const d = BUILD[b.type], out = []; for (let y = 0; y < d.h; y++) for (let x = 0; x < d.w; x++) out.push(b.k + y * TW + x); return out; };
 export function buildingAt(st, k) {
   for (const b of st.b || []) if (footprint(b).includes(k)) return b;
@@ -382,11 +413,12 @@ export function act(st, a, { seed, now, minds = 0, instant = false, queue = fals
       const spots = d.w === 1 ? tiles : [Number(a.k)];
       st.b ||= []; st.nb ||= 1;
       for (const k of spots) {
-        if (countOf(st, a.item) >= maxOf(a.item, minds)) return done ? { gain, done } : { error: `You can have ${maxOf(a.item, minds)} ${d.name}${maxOf(a.item, minds) > 1 ? 's' : ''}.` };
+        const most = maxOf(a.item, minds, thLv(st));
+        if (countOf(st, a.item) >= most) return done ? { gain, done } : { error: `Your Town Hall Lv${thLv(st)} allows ${most} ${d.name}${most > 1 ? 's' : ''}. Upgrade it for more.` };
         if (!fits(st, w, a.item, k)) { if (d.w > 1) return { error: 'It does not fit there: it needs open, cleared ground.' }; continue; }
         const cost = priceOf(d.cost, a.gems);
         if (!canAfford(st, cost)) return done ? { gain, done } : { error: `A ${d.name} costs ${costText(cost)}.` };
-        const secs = instant ? 0 : BUILD_SECS[a.item] || 0;
+        const secs = instant ? 0 : Math.round((BUILD_SECS[a.item] || 0) * boostOf(st, now));
         if (secs && busy(st) >= builders(minds)) return done ? { gain, done } : { error: `All your builders are busy (${builders(minds)}: one per Mind you own). Wait, or finish a build with 💎.` };
         for (const [i, n] of Object.entries(cost)) pay(i, -n);
         const b = { id: st.nb++, type: a.item, k };
@@ -476,7 +508,7 @@ export function act(st, a, { seed, now, minds = 0, instant = false, queue = fals
       const n = Math.max(1, Math.min(50, a.n | 0 || 1));
       for (let i = 0; i < n; i++) {
         if (it.gives.potion && (st.inv.potion || 0) >= 30) { if (!done) return { error: 'Your bag holds 30 potions.' }; break; }
-        if (Object.keys(it.gives).some(k => k.startsWith('troop_')) && troopCount(st) + Object.entries(it.gives).filter(([k]) => k.startsWith('troop_')).reduce((s, [, m]) => s + m, 0) > TROOP_MAX) { if (!done) return { error: `Your army camp holds ${TROOP_MAX} troops.` }; break; }
+        if (Object.keys(it.gives).some(k => k.startsWith('troop_')) && troopCount(st) + Object.entries(it.gives).filter(([k]) => k.startsWith('troop_')).reduce((s, [, m]) => s + m, 0) > troopMax(st)) { if (!done) return { error: `Your army camp holds ${troopMax(st)} troops (Town Hall Lv${thLv(st)}). Upgrade the Town Hall for more.` }; break; }
         const price = priceOf(it.price, a.gems);
         if (!canAfford(st, price)) { if (!done) return { error: `That costs ${costText(price)}.` }; break; }
         for (const [k, m] of Object.entries(price)) pay(k, -m);
@@ -513,7 +545,7 @@ export function act(st, a, { seed, now, minds = 0, instant = false, queue = fals
       if (!lv) return { error: 'unknown troop' };
       if (lv >= MAX_TL) return { error: 'That troop is at its top level.' };
       const camp = Math.max(0, ...finished(st, 'camp').map(lvOf));
-      if (camp < campNeeded(lv + 1)) return { error: lv + 1 === 2 ? 'Build an Army Camp first.' : 'Upgrade an Army Camp to Lv2 first.' };
+      if (camp < campNeeded(lv + 1)) return { error: lv + 1 === 2 ? 'Build an Army Camp first.' : `Upgrade an Army Camp to Lv${campNeeded(lv + 1)} first.` };
       const price = priceOf(troopUpCost(k, lv), a.gems);
       if (!canAfford(st, price)) return { error: `This upgrade costs ${costText(price)}.` };
       for (const [i, n] of Object.entries(price)) pay(i, -n);
@@ -525,7 +557,9 @@ export function act(st, a, { seed, now, minds = 0, instant = false, queue = fals
       if (!b || !UPGRADABLE[b.type]) return { error: 'That cannot be upgraded.' };
       if (b.done) return { error: 'It is already being worked on.' };
       if (lvOf(b) >= MAX_LV) return { error: 'Already at the top level.' };
-      const price = priceOf(upgradeCost(b), a.gems), secs = instant ? 0 : upgradeSecs(b);
+      const block = upgradeBlock(st, b);
+      if (block) return { error: block };
+      const price = priceOf(upgradeCost(b), a.gems), secs = instant ? 0 : Math.round(upgradeSecs(b) * boostOf(st, now));
       if (!canAfford(st, price)) return { error: `Upgrading costs ${costText(price)}.` };
       if (secs && busy(st) >= builders(minds)) return { error: `All your builders are busy (${builders(minds)}: one per Mind you own). Wait, or finish a build with 💎.` };
       for (const [k, m] of Object.entries(price)) pay(k, -m);

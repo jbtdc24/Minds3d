@@ -249,6 +249,7 @@ async function beat() {
       for (const o of r.people) { const q = people.get(o.id); if (q) walkTo(q, o.x, o.y); else people.set(o.id, { ...o, tx: o.x, ty: o.y }); }
     } else syncRoom();
     for (const o of r.people) wears.set(o.id, o.cos || null);   // bought looks: name colour + frame on the name tag
+    if (r.lastId) chatAfter = Math.max(chatAfter, r.lastId);
     stayLeft = r.stay; paintStay();
     for (const c of r.chat) {
       chatAfter = Math.max(chatAfter, c.id);
