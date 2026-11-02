@@ -113,6 +113,10 @@ export const COSMETICS = {
   name_neon: { kind: 'name', name: 'Neon Name', price: { dust: 4000 } },
   name_rainbow: { kind: 'name', name: 'Rainbow Name', price: { gems: 15 } },
 };
+// Rank Pass: wallet players without a Mind play ranked with loaner Minds for 7 days (5 ranked games a day, no rarity bonus)
+export const RANK_PASS = { days: 7, games: 5, price: { dust: 5000 }, gems: 30 };
+export const passActive = (st, now) => (st.rp?.until || 0) > now;
+export const passLeft = (st, now) => !passActive(st, now) ? 0 : Math.max(0, RANK_PASS.games - (st.rp.day === new Date(now).toISOString().slice(0, 10) ? st.rp.used || 0 : 0));
 export const TROOP_UP = { brawler: 1, archer: 1, bomber: 2, giant: 3 }, MAX_TL = 3;
 export const troopLv = (st, k) => Math.min(MAX_TL, Math.max(1, st.tl?.[k] | 0 || 1));
 export const troopMult = lv => 1 + 0.2 * ((lv || 1) - 1);
@@ -561,6 +565,13 @@ export function act(st, a, { seed, now, minds = 0, instant = false, queue = fals
       if (!canAfford(st, price)) return { error: `The ${sh.name} costs ${costText(price)}.` };
       for (const [k, m] of Object.entries(price)) pay(k, -m);
       st.ship = t; done = 1;
+      break;
+    }
+    case 'rankpass': {   // 7 more days of the Rank Pass (adds to what is left)
+      const price = a.gems ? { gems: RANK_PASS.gems } : RANK_PASS.price;
+      if (!canAfford(st, price)) return { error: `The Rank Pass costs ${costText(price)}.` };
+      for (const [k, m] of Object.entries(price)) pay(k, -m);
+      st.rp = { ...(st.rp || {}), until: Math.max(now, st.rp?.until || 0) + RANK_PASS.days * 864e5 }; done = 1;
       break;
     }
     case 'demolish': {

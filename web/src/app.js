@@ -25,7 +25,7 @@ import { AREAS, POTIONS_MAX, SPOTS, SHIPS, spotLevel } from './island/adventure.
 import { openMap, updateMap, closeMap } from './island/worldmap.js';
 import { initAdmin, tryCode } from './admin.js';
 import { isle, loadIsland, doAct, flush as flushIsland, resetIsland, refreshIsland, now as islandNow } from './island/store.js';
-import { CROPS, RAW, growMs, permitCost, MAX_PERMITS, ripe, campLevels, campCount, SHOP, RECIPES, TROOP_MAX, troopCount, costText, canAfford, BUILD, STASH_MAX, gemPrice, ENERGY_PRICE, SHARDS_PER_ENERGY, REFILLS_PER_DAY, wellShards, troopLv, troopUpCost, troopLevels, MAX_TL, COSMETICS } from './island/rules.js';
+import { CROPS, RAW, growMs, permitCost, MAX_PERMITS, ripe, campLevels, campCount, SHOP, RECIPES, TROOP_MAX, troopCount, costText, canAfford, BUILD, STASH_MAX, gemPrice, ENERGY_PRICE, SHARDS_PER_ENERGY, REFILLS_PER_DAY, wellShards, troopLv, troopUpCost, troopLevels, MAX_TL, COSMETICS, RANK_PASS, passActive, passLeft } from './island/rules.js';
 import { buildIcon } from './island/buildings.js';
 import { islandThumb } from './island/art.js';
 import { hashStr } from './island/gen.js';
@@ -177,7 +177,7 @@ setInterval(() => {
 addEventListener('resize', () => { if (current === 'hub') paintBoardOpen(); if (current === 'duel') duelLayout(); });
 
 // ---------- account ----------
-let me = null, myMinds = [], guest = false, online = false, energy = {}, energyResetAt = 0;
+let me = null, myMinds = [], guest = false, online = false, energy = {}, energyResetAt = 0, rankPass = null;   // rankPass: { until, left, minds } when a Rank Pass is active
 // the account is remembered on this device so the game opens instantly; the server copy refreshes in the background
 const ACC_KEY = 'mindclash.account';
 const saveAccount = () => { try { localStorage.setItem(ACC_KEY, JSON.stringify({ token: session.token, me, myMinds, guest, energy, energyResetAt })); } catch { /* private mode */ } };
@@ -188,7 +188,7 @@ function loadAccount() {
 async function refreshMe() {
   // send the Minds we saw last time: the server verifies them on-chain in one quick call instead of a full scan
   const r = await api(`me${!guest && myMinds.length ? `?known=${myMinds.join(',')}` : ''}`);
-  me = r.player; myMinds = r.minds; guest = r.guest;
+  me = r.player; myMinds = r.minds; guest = r.guest; rankPass = r.rankPass || null;
   energy = r.energy || {}; energyResetAt = Date.now() + (r.energyResetIn || 0);
   saveAccount();
   return r;
@@ -229,7 +229,7 @@ function paintHub() {
   $('#inv-badge').classList.toggle('on', !guest);
   $('#guest-note').style.display = guest ? 'block' : 'none';
   islandTile();
-  $('#hub-ranked-sub').textContent = guest ? 'Connect a wallet to play ranked' : `⚡ ${totalEnergy()} energy left today · refills in ${resetText()}`;
+  $('#hub-ranked-sub').textContent = guest ? 'Connect a wallet to play ranked' : !myMinds.length ? (rankPass ? `🎟️ Rank Pass · ${rankPass.left} games left today` : 'No Mind? Get a 🎟️ Rank Pass') : `⚡ ${totalEnergy()} energy left today · refills in ${resetText()}`;
   $('#hub-ranked-tag').textContent = guest ? '🔒 WALLET' : 'PLAY';
   $('#hub-ranked').classList.toggle('locked', guest);
 }
@@ -310,10 +310,25 @@ document.addEventListener('click', e => {
   show(go);
 });
 $('#hub-ranked').onclick = async () => {
+  if (!guest && !myMinds.length && !rankPass) return offerRankPass();   // a wallet without Minds: the Rank Pass lets them play ranked
   if (!guest) { openPrep('ranked'); if (online) refreshEnergy(); return; }
   const r = await modal(`<img class="wide" src="assets/mode_ranked.webp" alt=""><h3>Ranked is for Mind holders</h3><p>Trial accounts can practice vs bots. Connect a wallet that holds a Mind to play ranked, climb the leaderboard and earn points.</p>`, [['Connect wallet', 1, 'primary'], ['Practice instead', 2], ['Close', 0]]);
   if (r === 1) { logout(); show('login'); } else if (r === 2) openPrep('practice');
 };
+// 🎟️ Rank Pass: 7 days of ranked with loaner Minds, for players who connected a wallet but hold no Mind
+async function offerRankPass() {
+  if (!(await ensureIsland())) return;
+  const st = isle.state, until = st.rp?.until || 0, on = passActive(st, islandNow());
+  const go = await modal(`<img class="wide" src="assets/mode_ranked.webp" alt=""><h3>🎟️ Rank Pass</h3><p>No Mind yet? Play <b>Ranked</b> with loaner Minds: rating, points and Dust prizes all count.</p>
+    <p><b>${RANK_PASS.days} days</b> · <b>${RANK_PASS.games} ranked games a day</b>. Grind the Dust on your island, or use Gems.</p>${on ? `<p class="muted">Yours until ${new Date(until).toLocaleDateString()}: buying adds ${RANK_PASS.days} more days.</p>` : ''}`,
+    [[`${costText(RANK_PASS.price)}`, 'dust', 'primary'], [`${RANK_PASS.gems} 💎`, 'gems', 'gem'], ['Not now', 0]]);
+  if (!go) return;
+  const res = doAct({ type: 'rankpass', gems: go === 'gems' });
+  if (res.error) { sfx('denied'); return toast(res.error, true); }
+  sfx('levelup'); toast(`🎟️ Rank Pass active for ${RANK_PASS.days} more days!`);
+  await flushIsland(); try { await refreshMe(); } catch { /* shows on the next refresh */ }
+  if (current === 'hub') paintHub(); if (current === 'shop') paintShop();
+}
 $('#hub-practice').onclick = () => openPrep('practice');
 $('#hub-classic').onclick = () => openPrep('classic');
 $('#hub-town').onclick = () => { closeIsland(); show('town'); stage.paused = true; setMega(isle.state?.mega || null); openTown(); };
@@ -754,6 +769,7 @@ function paintShop() {
     };
     html = head + keys.map(k => { const it = SHOP[k], ok = canAfford(st, it.price), h = have(k);
       return shopCard(icon(k), it.name, it.desc + lvLine(k), h, `<button class="btn small ${it.gem ? 'gem' : 'primary'}" data-act="shop" data-item="${k}" data-n="1" ${ok ? '' : 'disabled'}>${costText(it.price)}</button>${it.gem ? '' : `<button class="btn small" data-act="shop" data-item="${k}" data-n="5" ${canAfford(st, Object.fromEntries(Object.entries(it.price).map(([a, n]) => [a, n * 5]))) ? '' : 'disabled'}>×5</button><button class="btn small gem" data-act="shop" data-gems="1" data-item="${k}" data-n="1" ${(st.gems || 0) < gemPrice(it.price) ? 'disabled' : ''}>${gemPrice(it.price)} 💎</button>`}`, it.gem ? 'gemcard' : ''); }).join('')
+      + (shopTab === 'items' && !guest ? shopCard('<i>🎟️</i>', 'Rank Pass', `Play Ranked without a Mind: loaner Minds, ${RANK_PASS.games} ranked games a day for ${RANK_PASS.days} days.${passActive(st, islandNow()) ? ` Active until ${new Date(st.rp.until).toLocaleDateString()} · ${passLeft(st, islandNow())} games left today.` : ''}`, null, `<button class="btn small primary" data-act="rankpass" ${canAfford(st, RANK_PASS.price) ? '' : 'disabled'}>${costText(RANK_PASS.price)}</button><button class="btn small gem" data-act="rankpass" data-gems="1" ${(st.gems || 0) >= RANK_PASS.gems ? '' : 'disabled'}>${RANK_PASS.gems} 💎</button>`, 'featured') : '')
       + (shopTab === 'items' && SHIPS[(st.ship || 0) + 1] ? shopCard(`<i>${SHIPS[(st.ship || 0) + 1].icon}</i>`, `Airship: ${SHIPS[(st.ship || 0) + 1].name}`, `${SHIPS[(st.ship || 0) + 1].desc} You have the ${SHIPS[st.ship || 0].name}.`, null, `<button class="btn small primary" data-ship="1">${costText(SHIPS[(st.ship || 0) + 1].cost)}</button><button class="btn small gem" data-ship="2">${SHIPS[(st.ship || 0) + 1].gems} 💎</button>`) : '')
       + (shopTab === 'items' ? Object.entries(RECIPES).map(([k, r]) => shopCard('<i>⚗️</i>', `Craft: ${r.name}`, `Uses ${costText(r.needs)}`, inv.herb || 0, `<button class="btn small primary" data-act="craft" data-item="${k}" data-n="1" ${canAfford(st, r.needs) ? '' : 'disabled'}>Craft</button>`)).join('') : '');
   } else if (shopTab === 'style') {   // cosmetics: card backs and profile frames (looks only)
@@ -835,6 +851,7 @@ $('#shop-grid').onclick = e => {
   if (res.error) { sfx('denied'); return toast(res.error, true); }
   sfx('coin');
   const g = res.gain || {};
+  if (b.dataset.act === 'rankpass') { toast(`🎟️ Rank Pass active for ${RANK_PASS.days} more days!`); flushIsland().then(() => refreshMe()).then(() => { if (current === 'hub') paintHub(); }).catch(() => {}); paintShop(); refreshHud(); return; }
   toast(b.dataset.act === 'sell' ? `Sold for ${g.dust} ✨` : b.dataset.act === 'craft' ? 'Crafted!' : b.dataset.act === 'troopup' ? 'Troop upgraded! Every one of them is stronger now.' : g.gems < 0 ? `Bought! ${-g.gems} 💎 spent` : `Bought! ${-(g.dust || 0)} ✨ spent`);
   flushIsland(); paintShop(); refreshHud();
 };
@@ -897,7 +914,8 @@ $('#board').onclick = e => { const p = e.target.closest('[data-pid]'); if (p) op
 let prep = { mode: 'ranked', minds: [], level: 'normal' };
 function openPrep(mode) {
   prep.mode = mode;
-  prep.minds = picked().filter(id => mode !== 'ranked' || energyOf(id) > 0).slice(0, 3);
+  prep.pass = mode === 'ranked' && !guest && !myMinds.length && !!rankPass;   // Rank Pass: the loaner Minds, the pass pays instead of energy
+  prep.minds = prep.pass ? [...rankPass.minds] : picked().filter(id => mode !== 'ranked' || energyOf(id) > 0).slice(0, 3);
   prep.level = settings.picks.level || 'normal';
   $('#prep-title').textContent = { ranked: 'Ranked Duel', classic: 'Classic Duel', practice: 'Practice vs bot' }[mode];
   $('#prep-go').textContent = mode === 'practice' ? 'Start practice' : 'Find match';
@@ -909,7 +927,11 @@ function openPrep(mode) {
   show('prep');
 }
 function renderPrepGrid() {
-  const ranked = prep.mode === 'ranked';
+  const ranked = prep.mode === 'ranked' && !prep.pass;
+  if (prep.pass) {
+    $('#prep-minds').innerHTML = rankPass.minds.map(id => `<div class="mind" data-id="${id}"><img src="${thumb(id)}" alt="" loading="lazy"><span class="tag" style="background:${RAR_COLOR[rarityOf(id)]}">#${id}</span><span class="order"></span></div>`).join('');
+    return paintPrep();
+  }
   // ranked: Minds with energy first, empty ones last (they can't be picked until the refill)
   const list = ranked ? [...myMinds].sort((a, b) => (energyOf(b) > 0) - (energyOf(a) > 0)) : myMinds;
   $('#prep-minds').innerHTML = list.map(id => `<div class="mind ${ranked && !energyOf(id) ? 'tired' : ''}" data-id="${id}"><img src="${thumb(id)}" alt="" loading="lazy"><span class="tag" style="background:${RAR_COLOR[rarityOf(id)]}">#${id}</span>${ranked ? energyTag(id) : ''}<span class="order"></span></div>`).join('');
@@ -918,7 +940,8 @@ function renderPrepGrid() {
 function paintPrep() {
   $$('#prep-minds .mind').forEach(m => { const i = prep.minds.indexOf(+m.dataset.id); m.classList.toggle('on', i >= 0); m.querySelector('.order').textContent = i + 1; });
   $('#prep-mind-count').textContent = `${prep.minds.length}/3`;
-  if (prep.mode === 'ranked') {
+  if (prep.pass) $('#prep-note').innerHTML = `🎟️ <b>Rank Pass</b>: loaner Minds · ${rankPass.left} ranked game${rankPass.left === 1 ? '' : 's'} left today · pass until ${new Date(rankPass.until).toLocaleDateString()}`;
+  else if (prep.mode === 'ranked') {
     const n = prep.minds.length;
     $('#prep-note').innerHTML = n ? `<span class="stake"><b class="sx">STAKE x${n}</b><b class="sw">WIN +${winReward(prep.minds)}</b><b class="sl">LOSE −${lossRisk(prep.minds)}</b><b class="se">⚡ −1 × ${n} Mind${n > 1 ? 's' : ''}</b></span>
       <small>Every Mind you stake multiplies the win and the loss, and each one spends 1 ⚡ (refills in ${resetText()}).</small>` : 'Pick 1 to 3 Minds to stake.';
@@ -929,6 +952,7 @@ function paintPrep() {
 $('#prep-minds').onclick = e => {
   const m = e.target.closest('[data-id]'); if (!m) return;
   const id = +m.dataset.id, i = prep.minds.indexOf(id);
+  if (prep.pass && i < 0 && !rankPass.minds.includes(id)) return;
   if (i < 0 && m.classList.contains('tired')) return refillEnergy(id);
   if (i >= 0) prep.minds.splice(i, 1); else if (prep.minds.length < 3) prep.minds.push(id); else return toast('Max 3 Minds. Tap one to remove it first.');
   sfx('select'); paintPrep();
@@ -939,7 +963,7 @@ $('#prep-go').onclick = async () => {
   if (!online) return startDuel(new LocalMatch({ name: me.name, minds: prep.minds, level: prep.mode === 'practice' ? prep.level : 'normal' }));
   const b = $('#prep-go'); b.disabled = true;
   try {
-    const r = await api('queue/join', { minds: prep.minds, ...(prep.mode === 'practice' ? { bot: prep.level } : prep.mode === 'classic' ? { mode: 'classic' } : {}) });
+    const r = await api('queue/join', { minds: prep.minds, ...(prep.pass ? { pass: true } : {}), ...(prep.mode === 'practice' ? { bot: prep.level } : prep.mode === 'classic' ? { mode: 'classic' } : {}) });
     if (r.match) return openMatch(r.match);
     queueLoop();
   } catch (e) { toast(e.message, true); }
@@ -1539,7 +1563,7 @@ initMindTalk({ minds: () => (guest ? [] : myMinds), esc });
 let apRefresh = 0;
 initAutopilot({ api, esc, toast, modal, sfx, babble, online: () => online, guest: () => guest, idle: () => current === 'hub' && !document.querySelector('#modal.on'),
   mindId: () => me?.pfp || myMinds[0] || 1, mindName: () => me ? `${me.name}'s Mind #${me.pfp}` : 'Your Mind', pfp: () => thumb(me?.pfp || 49),
-  myMinds: () => myMinds, energyOf: id => energyOf(id),
+  myMinds: () => myMinds, energyOf: id => energyOf(id), rankPass: () => rankPass,
   refresh: () => { resetIsland(); if (Date.now() - apRefresh > 20e3) { apRefresh = Date.now(); refreshMe().then(() => { if (current === 'hub') paintHub(); }).catch(() => {}); } } });
 initTown({ minds: () => (guest ? [] : myMinds), api, esc, toast, online: () => online, go: townGo, card: playerCard, mega: megaphone, me: () => me?.id, name: () => me?.name || 'You', canChat: () => online && !guest, chat });
 

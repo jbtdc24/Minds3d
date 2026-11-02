@@ -112,7 +112,9 @@ async function town(min) {
 }
 // one ranked duel, played card by card by the Mind (a strong bot brain that sees only what a player sees)
 async function duel() {
-  const ready = K.myMinds().filter(id => K.energyOf(id) > 0);
+  const pass = !K.myMinds().length && K.rankPass();   // no Mind of your own: the Rank Pass and its loaner Minds
+  if (!K.myMinds().length && (!pass || pass.left < 1)) { await log(pass ? '🃏 the Rank Pass has no games left today' : '🃏 ranked needs a Mind or a Rank Pass: skipping duels'); return false; }
+  const ready = pass ? pass.minds : K.myMinds().filter(id => K.energyOf(id) > 0);
   let minds = ready.slice(0, 3);
   if (!minds.length) {
     const id = K.myMinds()[lastDuelMind++ % Math.max(1, K.myMinds().length)];
@@ -120,7 +122,7 @@ async function duel() {
     if (!r.ok) { await log('🃏 no ranked energy left: skipping duels'); return false; }
     await log(`⚡ refilled Mind #${id} with ${r.pay === 'shard' ? 'shards' : r.pay === 'dust' ? 'Dust' : 'Gems'}`); K.refresh(); minds = [id];
   }
-  let q = await K.api('autopilot', { op: 'duel_join', mode: 'ranked', minds });
+  let q = await K.api('autopilot', { op: 'duel_join', mode: 'ranked', minds, ...(pass ? { pass: true } : {}) });
   const until = Date.now() + 90e3;
   while (running && !q.match && Date.now() < until) { $('#mp-now').textContent = '🃏 looking for a rival…'; await sleep(2500); q = await K.api('autopilot', { op: 'duel_poll' }); }
   if (!q.match) { await K.api('autopilot', { op: 'duel_leave' }).catch(() => {}); return false; }

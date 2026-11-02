@@ -1310,6 +1310,36 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   const isl = p => T.islands.find(x => x.player_id === p.id);
   const hit = async (fn, p, body, method = 'POST', query = {}, tok) => { const token = tok || signSession({ id: p.id, address: p.address }); let o = null; const res = { setHeader() {}, end(t) { o = { code: this.statusCode, body: JSON.parse(t) }; }, headersSent: false }; await fn({ method, url: '/api/x', headers: { authorization: 'Bearer ' + token }, body, query }, res); return o; };
 
+  {   // 🎟️ Rank Pass: a wallet without Minds plays ranked with loaner Minds, on the pass's own daily games
+    const [queue_join, queue_poll] = await Promise.all(['queue_join', 'queue_poll'].map(rt));
+    const { botMatch, tryPair } = await import('../lib/matchmaking.js'), { PASS_MINDS, passOf } = await import('../lib/rankpass.js');
+    const P1 = await mk('PassOne'), P2 = await mk('PassTwo');
+    ok((await hit(queue_join, P1, { minds: [], pass: true })).code === 403, 'no Rank Pass: no ranked without a Mind');
+    isl(P1).state.dust = 4000;
+    let r = R.act(isl(P1).state, { type: 'rankpass' }, { seed: isl(P1).seed, now: Date.now() });
+    ok(r.error && !isl(P1).state.rp, 'the Rank Pass costs 5,000 Dust');
+    isl(P1).state.dust = 6000; r = R.act(isl(P1).state, { type: 'rankpass' }, { seed: isl(P1).seed, now: Date.now() });
+    ok(!r.error && isl(P1).state.dust === 1000 && isl(P1).state.rp.until - Date.now() > 6.9 * 864e5, 'buying it with Dust gives 7 days');
+    const g0 = isl(P2).state.gems; R.act(isl(P2).state, { type: 'rankpass', gems: true }, { seed: isl(P2).seed, now: Date.now() });
+    ok(isl(P2).state.gems === g0 - 30 && R.passActive(isl(P2).state, Date.now()), 'or with 30 Gems');
+    const u0 = isl(P1).state.rp.until; R.act(isl(P1).state, { type: 'rankpass', gems: true }, { seed: isl(P1).seed, now: Date.now() });
+    ok(isl(P1).state.rp.until - u0 > 6.9 * 864e5, 'buying again adds 7 more days');
+    let out = await hit(queue_join, P2, { minds: [], pass: true });
+    ok(out.code === 200 && out.body.waiting && T.queue.find(q => q.player_id === P2.id)?.loadout.includes('pass') && JSON.stringify(T.queue.find(q => q.player_id === P2.id).minds) === JSON.stringify(PASS_MINDS), 'a pass player queues with the loaner Minds');
+    T.queue.find(q => q.player_id === P2.id).loadout = ['other-device', 'pass'];   // a different phone (same-connection players are never paired)
+    const mid = await tryPair(P1, { minds: PASS_MINDS }, 150, 'this-device', false, true);
+    ok(mid && isl(P1).state.rp.used === 1 && isl(P2).state.rp.used === 1, 'two pass players are matched and each pass pays one game');
+    T.matches.forEach(m => { m.status = 'done'; });
+    for (let i = 0; i < 4; i++) await botMatch(P1, { minds: PASS_MINDS }, null, true, false, true);
+    ok((await passOf(P1.id)).left === 0, 'five ranked games a day on the pass');
+    let err = null; try { await botMatch(P1, { minds: PASS_MINDS }, null, true, false, true); } catch (e) { err = e; }
+    ok(err && /no ranked games left/.test(err.message), 'after five the pass says come back tomorrow');
+    T.matches.forEach(m => { m.status = 'done'; });
+    ok((await hit(queue_join, P1, { minds: [], pass: true })).code === 403, 'an empty pass cannot queue');
+    isl(P2).state.rp.until = Date.now() - 1; T.queue = T.queue.filter(q => q.player_id !== P2.id);
+    ok((await hit(queue_join, P2, { minds: [], pass: true })).code === 403, 'an expired pass stops working');
+  }
+
   {   // 🧠 Mind Autopilot: plans, Gem layers, and steps that play by the normal rules
     const autopilot = await rt('autopilot'), AP = await import('../web/src/island/autoplay.js');
     const M = await mk('AutoMind');

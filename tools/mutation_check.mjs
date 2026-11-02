@@ -39,7 +39,7 @@ const M = [
   ['stale chat', 'web/src/chatsign.js', ' || Math.abs(now() - m.ts) > MAX_AGE', ''],
   ['reading others\' mail', 'lib/routes/mail.js', 'if (!m || (m.to_id && m.to_id !== p.id))', 'if (!m)'],
   ['anyone sends mail', 'lib/routes/admin.js', "if (!isAdmin(me)) fail(403, 'not allowed');", ''],
-  ['strangers can message', 'lib/routes/messages.js', "if (!(await friends(session.pid, body.to))) fail(403, 'you can only chat with friends');", ''],
+  ['blocked players can message', 'lib/routes/messages.js', "if (!(await friends(session.pid, body.to))) fail(403, 'you cannot chat with this player');", ''],
   ['outsider plays your match', 'lib/game.js', "    if (seat < 0) throw httpError(403, 'not your match');\n    if (r.status !== 'live') throw httpError(400, 'match is over');", "    if (r.status !== 'live') throw httpError(400, 'match is over');"],
   ['bot takes a real name', 'lib/names.js', "if (!(await db.one('players', `name_key=eq.${encodeURIComponent(name.toLowerCase())}&select=id`))) return name;", 'return name;'],
   ['no ledger mark', 'lib/routes/gems.js', "    (st.paid ||= {})[hash] = { g: gems, at: Date.now() };\n", ''],
