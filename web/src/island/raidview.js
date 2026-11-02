@@ -3,7 +3,7 @@
 // Every input is recorded with its tick so the server can replay the exact same raid.
 import { gen, COVER, T, TW, TH, WW, WH, hash } from './gen.js';
 import { drawSky, groundFor, sprites, SOIL } from './art.js';
-import { bsprites, drawSails, leveled } from './buildings.js';
+import { bsprites, drawSails, leveled, bossKeepSprite } from './buildings.js';
 import { chibi } from './chibi.js';
 import { coverAt, BUILD } from './rules.js';
 import { troopSprite, weapon, troopIcon } from './troops.js';
@@ -159,6 +159,7 @@ function frame(now) {
     if (t?.s === 'p') { g.fillStyle = SOIL.base; g.fillRect(tx * T + 1, ty * T + 1, T - 2, T - 2); g.fillStyle = SOIL.dark; g.fillRect(tx * T + 1, ty * T + 12, T - 2, 3); if (t.c) items.push({ y: by, spr: sprites.crop(t.c, 3), x: cx }); continue; }
     if (t?.s === 'b') continue;
     const cov = coverAt(st, w, k), v = hash(tx, ty, 7) * 4 | 0;
+    if (boss && cov !== COVER.ROCK) continue;   // scorched land: only rocks survive
     if (cov === COVER.WEEDS) items.push({ y: by - 1, spr: sprites.weeds(v), x: cx });
     else if (cov === COVER.BUSH) items.push({ y: by, spr: sprites.bush(v % 3), x: cx });
     else if (cov === COVER.ROCK) items.push({ y: by - 1, spr: sprites.rock(v % 3), x: cx });
@@ -174,7 +175,7 @@ function frame(now) {
     const by = s.y1 - 1, cx = s.cx;
     if (s.dead) { items.push({ y: by - 4, spr: bsprites.rubble(i % 5 + 1), x: cx, smoke: s.type !== 'wall' }); return; }
     let spr;
-    if (s.type === 'home') spr = S.snap.theme === 'boss' ? bossKeep(sprites.house(S.snap.seed, false)) : leveled(sprites.house(S.snap.seed, false), s.lv);
+    if (s.type === 'home') spr = S.snap.theme === 'boss' ? bossKeepSprite() : leveled(sprites.house(S.snap.seed, false), s.lv);
     else if (s.type === 'wall') { const k = s.tiles[0]; spr = leveled(bsprites.wall((walls.has(k - TW) ? 1 : 0) | (walls.has(k + 1) && kx(k) < TW - 1 ? 2 : 0) | (walls.has(k + TW) ? 4 : 0) | (walls.has(k - 1) && kx(k) > 0 ? 8 : 0)), s.lv, 'wall'); }
     else if (s.type === 'house') spr = leveled(bsprites.house(false), s.lv);
     else spr = leveled(bsprites[s.type](), s.lv, s.type);

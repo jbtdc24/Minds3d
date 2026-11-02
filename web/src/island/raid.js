@@ -379,6 +379,34 @@ export function villageName(seed) {
   return STYLE[(r(1) * STYLE.length) | 0](NAME_A[(r(2) * NAME_A.length) | 0], NAME_B[(r(3) * NAME_B.length) | 0], (r(4) * 9999) | 0);
 }
 // level 1-3: how well defended. Layouts vary (ring of walls, inner keep, open farm with traps, scattered).
+// the Siege Cup boss fortress: not a town. No farms; the keep sits inside a closed inner wall (Lv3), an outer wall
+// (Lv2) with one gate, upgraded towers between the rings, traps at the gate and up to 6 Minds on guard.
+export function bossFortress(seed, level = 5) {
+  const w = gen(seed), st = newIsland(seed, 0), r = i => hash(seed, i, 919);
+  st.dust = 1e6; st.inv = { wood: 1e4, stone: 1e4 };
+  const hx = w.house.x + 1, hy = w.house.y + 1, outer = 8 + (level > 5 ? 1 : 0);
+  for (let k = 0; k < TW * TH; k++) if (w.land[k] && w.cover[k] !== COVER.FIXED && Math.hypot(kx(k) - hx, (ky(k) - hy) * 1.15) < outer + 3) st.tiles[k] = { s: 'c', t: 0 };
+  const ctx = { seed, now: 0, minds: 6, instant: true };
+  const ring = rr => { const t = []; for (let i = 0; i < 160; i++) { const a = i / 160 * Math.PI * 2, k = Math.round(hy + Math.sin(a) * rr * 0.8) * TW + Math.round(hx + Math.cos(a) * rr); if (!t.includes(k)) t.push(k); } return t; };
+  const place = (type, rr, n, spin) => {
+    for (let a = 0, placed = 0; a < 90 && placed < n; a++) {
+      const ang = (a * 2.39996 + spin) % (Math.PI * 2), x = Math.round(hx + Math.cos(ang) * (rr + (a % 2) * 0.6)), y = Math.round(hy + Math.sin(ang) * (rr + (a % 2) * 0.6) * 0.85);
+      if (fits(st, w, type, y * TW + x) && !act(st, BUILD[type].w > 1 ? { type: 'build', item: type, k: y * TW + x } : { type: 'build', item: type, tiles: [y * TW + x] }, ctx).error) placed++;
+    }
+  };
+  const spin = r(1) * 6;
+  act(st, { type: 'build', item: 'wall', tiles: ring(3.6) }, ctx);                                // inner wall, closed
+  place('tower', 5.6, 3 + Math.min(3, level - 3), spin);                                         // towers between the rings
+  place('barn', 6.2, 2, spin + 1); place('house', 6.4, 2, spin + 2);                              // thick buildings to chew through
+  const outerRing = ring(outer), gate = (r(2) * outerRing.length) | 0;
+  act(st, { type: 'build', item: 'wall', tiles: outerRing.filter((_, i) => Math.abs(i - gate) > 1) }, ctx);   // outer wall, one gate
+  const gk = outerRing[gate];
+  for (const d of [-TW - 1, -TW + 1, TW - 1, TW + 1, -2, 2]) act(st, { type: 'build', item: 'trap', tiles: [gk + d] }, ctx);   // the gate is trapped
+  for (const b of st.b) b.lv = b.type === 'wall' ? (outerRing.includes(b.k) ? 2 : 3) : b.type === 'home' || b.type === 'tower' ? 3 : 2;
+  const guards = Math.min(6, 3 + Math.floor(level / 2));
+  const guardIds = Array.from({ length: guards }, (_, i) => 1 + ((hash(seed, i + 1, 77) * 3333) | 0));
+  return { ...snapshotOf(seed, st, 4, { guardIds, name: 'Boss Fortress', level, layout: 'fortress', dust: 0 }), guards };
+}
 export function botVillage(seed, level = 1) {
   const w = gen(seed), st = newIsland(seed, 0), r = i => hash(seed, i, 313);
   st.dust = 1e6; st.inv = { wood: 1e4, stone: 1e4, seed_bean: 99, seed_carrot: 99, seed_melon: 99 };

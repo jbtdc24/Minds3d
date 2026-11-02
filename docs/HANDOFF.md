@@ -9,6 +9,11 @@ Not checked with real players yet: burning village + restore, cup army picker, t
 Owner wants to keep going in the same chat, with no questions: update this file after every task.
 PAUSED by owner 2026-11-02 ("save for later"). All checks pass, including the full mutation run.
 
+## ROUND 10 (owner 2026-11-02): staked Minds, island edit mode, harder boss
+- [x] Siege Cup boss fortress: raid.js bossFortress(): closed inner wall Lv3, outer wall Lv2 with one trapped gate, 4-5 Lv3 towers, 5-6 Mind guards, no farms, dark keep sprite (buildings.js bossKeepSprite), scorched land. Budget 9: simple plans average ~1 star, rare clears.
+- [ ] Staked Minds still count for their owner.
+- [ ] Island edit mode: select many (same type), bulk move / upgrade / store / remove.
+
 ## REMAINING (saved for later)
 Owner to do:
 1. [ ] Vercel: add env STABLE_TOKEN = 0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168 (USDG), redeploy, then one small real USDG purchase (and one ETH).

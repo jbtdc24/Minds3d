@@ -243,3 +243,21 @@ export function leveled(spr, lv, type) {
   }
   return (byLv[lv] = { cv, w, h });
 }
+
+// the Siege Cup boss keep: dark stone walls with battlements, a tall centre tower, glowing windows and a red banner
+export function bossKeepSprite() {
+  return once('bosskeep', () => sprite(46, 50, set => {
+    const BS = ['#2a2433', '#3a3346', '#4a4258', '#5c536c'], EMBER = '#ff7a2e', GLOW = '#ffc53d';
+    const block = (x0, x1, y0, y1) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) set(x, y, (y - y0) % 4 === 3 || (x + ((y - y0) >> 2) * 3) % 7 === 0 ? BS[0] : pick(BS.slice(1), 0.75 - (x - x0) / (x1 - x0 + 1) * 0.5, x, y)); };
+    const merlons = (x0, x1, y) => { for (let x = x0; x <= x1; x++) if ((x - x0) % 4 < 2) { set(x, y, BS[3]); set(x, y + 1, BS[2]); } };
+    block(2, 43, 26, 49); merlons(2, 43, 24);                       // the great hall
+    block(0, 9, 16, 49); merlons(0, 9, 14); block(36, 45, 16, 49); merlons(36, 45, 14);   // corner towers
+    block(15, 30, 8, 30); merlons(15, 30, 6);                       // the centre tower
+    for (let y = 0; y < 8; y++) set(22, y, BS[0]);                  // banner pole
+    for (let y = 0; y < 5; y++) for (let x = 23; x < 23 + 7 - y; x++) set(x, y, y === 2 ? '#ff9a6a' : '#c43c3c');
+    for (let y = 38; y <= 49; y++) for (let x = 18; x <= 27; x++) { const arch = y < 41 && Math.abs(x - 22.5) > (y - 37) * 1.6; if (!arch) set(x, y, (x + y) % 3 ? '#1a1420' : '#2b2030'); }   // gate
+    for (let y = 41; y <= 49; y += 2) for (let x = 18; x <= 27; x++) set(x, y, BS[1]);   // portcullis bars
+    for (const [x, y] of [[4, 22], [40, 22], [19, 14], [25, 14], [12, 32], [33, 32]]) { set(x, y, GLOW); set(x + 1, y, EMBER); set(x, y + 1, EMBER); set(x + 1, y + 1, '#c43c3c'); }   // windows
+    for (let x = 2; x <= 43; x++) if ((x * 7) % 5 === 0) set(x, 48, EMBER);   // lava glow at the foot
+  }));
+}

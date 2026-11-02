@@ -1472,11 +1472,15 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   const { CUP_ARMY, CUP_LEVEL } = await import('../lib/routes/cup.js');
   let clears = 0, runs = 0;
   for (const seedV of [11, 22, 33, 44]) {
-    const army = { troops: { ...CUP_ARMY }, hero: 'captain' }, snap = { ...RD.botVillage(seedV * 2654435761 >>> 0, CUP_LEVEL), noise: seedV + 1 }, S = RD.createRaid(RD.publicSnap(snap), army), sp = [];
+    const army = { troops: { ...CUP_ARMY }, hero: 'captain' }, snap = { ...RD.bossFortress(seedV * 2654435761 >>> 0, CUP_LEVEL), noise: seedV + 1 }, S = RD.createRaid(RD.publicSnap(snap), army), sp = [];
     for (let k = 0; k < 64 * 48; k++) if (RD.dropOk(S, k)) sp.push(k);
     for (let i = 0; i < 25; i++) { const k = sp[(i * 131 + 7) % sp.length], inp = [{ t: 0, drop: 'hero', k }]; let t = 2; for (const [d, c] of Object.entries(S.left)) for (let j = 0; j < c; j++) inp.push({ t: t += 2, drop: d, k }); runs++; if (RD.replay(snap, army, inp).stars === 3) clears++; }
   }
   ok(clears / runs < 0.15, `the Siege Cup stays hard: ${clears} of ${runs} simple plans cleared it`);
+  const fort = RD.bossFortress(123456, CUP_LEVEL);
+  ok(fort.guards >= 5 && fort.guardIds.length === fort.guards && fort.b.filter(b => b.type === 'wall').every(b => b.lv >= 2) && fort.b.some(b => b.type === 'wall' && b.lv === 3) && fort.b.filter(b => b.type === 'tower').length >= 4 && !Object.values(fort.tiles).some(t => t.s === 'p'), 'the cup is a boss fortress: upgraded walls, towers, 5+ Mind guards, no farms');
+  const fs2 = RD.createRaid(RD.publicSnap({ ...fort, noise: 1 }), { troops: { ...CUP_ARMY }, hero: 'captain' });
+  ok(fs2.units.filter(u => u.kind === 'guard').length === fort.guards, 'every boss guard really fights');
   // players pick their own mix within one budget: no mix may make it easy, and nobody can go over the budget
   const { CUP_BUDGET, cupArmy } = await import('../lib/routes/cup.js');
   ok(CUP_BUDGET === 9 && JSON.stringify(cupArmy(null)) === JSON.stringify(CUP_ARMY) && Object.entries(CUP_ARMY).reduce((s, [k, n]) => s + RD.TROOPS[k].cost * n, 0) === CUP_BUDGET, 'the cup budget is 9 camp space; no pick = the standard army, which fits it');
@@ -1485,7 +1489,7 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   for (const mix of [{ brawler: 9 }, { archer: 9 }, { brawler: 5, archer: 4 }, { giant: 2, brawler: 1 }, { bomber: 2, brawler: 5 }]) {
     let c2 = 0, n2 = 0;
     for (const seedV of [11, 22, 33, 44]) {
-      const army = { troops: cupArmy(mix), hero: 'captain' }, snap = { ...RD.botVillage(seedV * 2654435761 >>> 0, CUP_LEVEL), noise: seedV + 1 }, S = RD.createRaid(RD.publicSnap(snap), army), sp = [];
+      const army = { troops: cupArmy(mix), hero: 'captain' }, snap = { ...RD.bossFortress(seedV * 2654435761 >>> 0, CUP_LEVEL), noise: seedV + 1 }, S = RD.createRaid(RD.publicSnap(snap), army), sp = [];
       for (let k = 0; k < 64 * 48; k++) if (RD.dropOk(S, k)) sp.push(k);
       for (let i = 0; i < 12; i++) { const k = sp[(i * 131 + 7) % sp.length], inp = [{ t: 0, drop: 'hero', k }]; let t = 2; for (const [d, c] of Object.entries(S.left)) for (let j = 0; j < c; j++) inp.push({ t: t += 2, drop: d, k }); n2++; if (RD.replay(snap, army, inp).stars === 3) c2++; }
     }
