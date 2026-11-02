@@ -96,7 +96,10 @@ ok(err === 'match is over', 'cannot act after the match ends');
 // ---- PvP match, cheating attempts ----
 const B = await db.insert('players', { name: 'Bob', name_key: 'bob', address: '0x000000000000000000000000000000000000dEaD' });
 const C = await db.insert('players', { name: 'Eve', name_key: 'eve', address: '0x000000000000000000000000000000000000bEEF' });
+T.islands.push({ player_id: B.id, seed: 1, state: { cos: { own: ['back_frost', 'frame_gold'], back: 'back_frost', frame: 'frame_gold' } }, rev: 0 });
 m = await startMatch({ player: A, minds: [1] }, { player: B, minds: [5, 6, 7] }, { ranked: true });
+{ const va = await getView(m.id, A.id); ok(va.view.rival.cos?.back === 'back_frost' && va.view.rival.cos.frame === 'frame_gold' && va.view.me.cos === null && !('own' in va.view.rival.cos), 'a duel shows the rival’s card back and frame, nothing else from their island'); }
+T.islands = T.islands.filter(i => i.player_id !== B.id);
 err = null; try { await getView(m.id, C.id); } catch (e) { err = e.status; }
 ok(err === 403, 'outsider cannot view a match');
 err = null; try { await act(m.id, A.id, { card: 9 }); } catch (e) { err = e.message; }

@@ -213,6 +213,11 @@ const showcaseIds = () => { const s = (me?.showcase || []).filter(id => myMinds.
 // your looks: from the island save, remembered on this device so they show before the island loads
 const myCos = () => isle.state?.cos || settings.cos || null;
 function wearMine() { const c = myCos(); if (isle.state?.cos && JSON.stringify(settings.cos) !== JSON.stringify(c)) { settings.cos = c; saveSettings(); } wear(c); }
+// the rival's looks in a duel: their card back on their revealed card, their frame on their picture
+function wearRival(cos) {
+  document.documentElement.style.setProperty('--rival-back', BACK_IMG[cos?.back] ? `url(${BACK_IMG[cos.back]})` : 'url(assets/card_back.webp)');
+  const el = $('#d-pfp1'); el.classList.remove(...Object.values(FRAME_CLASS)); if (FRAME_CLASS[cos?.frame]) el.classList.add(FRAME_CLASS[cos.frame]);
+}
 function paintHub() {
   $('#hub-pfp').src = thumb(me.pfp); $('#hub-name').textContent = me.name;
   wearMine();
@@ -974,7 +979,7 @@ function startDuel(local, first = local.view(), opts = {}) {
   const forced = new URLSearchParams(location.search).get('stage');   // ?stage=moon to preview one arena
   setStage(opts.stage || (BATTLE_STAGES.includes(forced) ? forced : BATTLE_STAGES[(Math.random() * BATTLE_STAGES.length) | 0]));
   placeFighters(first.view, true);
-  buildTable(); wearMine();   // your card back and frame
+  buildTable(); wearMine(); wearRival(first.view.rival.cos);   // card backs and frames on both sides
   $('#d-chat').style.display = D.tutorial ? 'none' : '';
   $('#d-chatpick').classList.remove('on');
   show('duel'); music('duel');
