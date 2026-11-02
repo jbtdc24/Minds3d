@@ -267,6 +267,25 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   ok(R.BUILD.trap.desc.includes(String(RD.TRAP_DMG)), 'trap description says its real damage');
 }
 
+// ---- edit mode: move a group of buildings together ----
+{
+  const R = await import('../web/src/island/rules.js'), { gen, TW } = await import('../web/src/island/gen.js');
+  const seed = 2024, now = 1e12, st = R.newIsland(seed, now), w = gen(seed), ctx = { seed, now, minds: 3, instant: true };
+  st.inv.stone = 999; st.dust = 99999;
+  for (let k = 0; k < 64 * 48; k++) if (w.land[k] && R.coverAt(st, w, k)) st.tiles[k] = { s: 'c', t: now };
+  let row = -1;   // find a free 3-wide strip with room 2 rows below
+  for (let k = TW * 5; k < TW * 40 && row < 0; k++) if ([0, 1, 2, 2 * TW, 2 * TW + 1, 2 * TW + 2].every(d => R.fits(st, w, 'wall', k + d))) row = k;
+  R.act(st, { type: 'build', item: 'wall', tiles: [row, row + 1, row + 2] }, ctx);
+  const ids = st.b.filter(b => b.type === 'wall').map(b => b.id);
+  let r = R.act(st, { type: 'moveMany', ids, dx: 0, dy: 2 }, ctx);
+  ok(r.done === 3 && st.b.filter(b => b.type === 'wall').map(b => b.k).sort((a, b) => a - b).join() === [row + 2 * TW, row + 2 * TW + 1, row + 2 * TW + 2].join() && st.tiles[row]?.s === 'c', 'a line of walls moves together');
+  ok(R.act(st, { type: 'moveMany', ids, dx: 1, dy: 0 }, ctx).done === 3, 'they can slide over their own old tiles');
+  const home = st.b.find(b => b.type === 'home'), before = JSON.stringify(st.b);
+  r = R.act(st, { type: 'moveMany', ids, dx: (home.k % TW) - ((row + 1) % TW), dy: Math.floor(home.k / TW) - Math.floor((row + 2 * TW) / TW) }, ctx);
+  ok(r.error && JSON.stringify(st.b) === before, 'blocked by another building: nothing moves');
+  ok(R.act(st, { type: 'moveMany', ids, dx: -999, dy: 0 }, ctx).error && R.act(st, { type: 'moveMany', ids: [], dx: 1, dy: 0 }, ctx).error, 'off the island or nothing picked: refused');
+}
+
 // ---- staked Minds still count for the player who staked them ----
 {
   const chain = await import('../lib/chain.js'), { stakedBy } = await import('../lib/staked.js'), { stillOwns } = await import('../lib/owned.js');

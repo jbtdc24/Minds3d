@@ -379,6 +379,28 @@ export function act(st, a, { seed, now, minds = 0, instant = false, queue = fals
       done = 1;
       break;
     }
+    case 'moveMany': {   // edit mode: shift a group of buildings together by (dx, dy) tiles, all or nothing
+      const ids = new Set((Array.isArray(a.ids) ? a.ids : []).slice(0, 300).map(Number)), dx = a.dx | 0, dy = a.dy | 0;
+      const group = (st.b || []).filter(b => ids.has(b.id));
+      if (!group.length) return { error: 'Pick some buildings first.' };
+      if (!dx && !dy) return { error: 'Tap a different spot to move them.' };
+      const inGroup = new Set(group), taken = new Set();
+      for (const b of group) {
+        const d = BUILD[b.type], x0 = (b.k % TW) + dx, y0 = ((b.k / TW) | 0) + dy;
+        if (x0 < 0 || y0 < 0 || x0 + d.w > TW || y0 + d.h > TH) return { error: 'That would push them off the island.' };
+        for (let y = 0; y < d.h; y++) for (let x = 0; x < d.w; x++) {
+          const t = (y0 + y) * TW + x0 + x, other = buildingAt(st, t);
+          if (!w.land[t] || w.cover[t] === COVER.FIXED || taken.has(t)) return { error: 'They do not all fit there.' };
+          if (other && !inGroup.has(other)) return { error: 'Something is in the way.' };
+          if (!other && (coverAt(st, w, t) !== COVER.NONE || st.tiles[t]?.s === 'p')) return { error: 'They need open, cleared ground.' };
+          taken.add(t);
+        }
+      }
+      for (const b of group) for (const t of footprint(b)) st.tiles[t] = { s: 'c', t: now };
+      for (const b of group) { b.k += dy * TW + dx; for (const t of footprint(b)) st.tiles[t] = { s: 'b', t: now }; }
+      done = group.length;
+      break;
+    }
     case 'store': {
       const b = (st.b || []).find(x => x.id === Number(a.id));
       if (!b) return { error: 'that building is gone' };

@@ -12,7 +12,7 @@ PAUSED by owner 2026-11-02 ("save for later"). All checks pass, including the fu
 ## ROUND 10 (owner 2026-11-02): staked Minds, island edit mode, harder boss
 - [x] Siege Cup boss fortress: raid.js bossFortress(): closed inner wall Lv3, outer wall Lv2 with one trapped gate, 4-5 Lv3 towers, 5-6 Mind guards, no farms, dark keep sprite (buildings.js bossKeepSprite), scorched land. Budget 9: simple plans average ~1 star, rare clears.
 - [x] Staked Minds still count: lib/staked.js stakedBy() reads the Minds Transfer logs from the wallet; a Mind held by a contract that it last went to from this wallet = staked by this player. Used in ownedMinds (login, /api/me), stillOwns (duels, adventures, energy) and the island Mind count. Optional Vercel env: STAKING_CONTRACTS (only those contracts count), MINDS_FROM_BLOCK (log search start). Checked on the live chain 2026-11-02: RPC allows 10M blocks per search, so it searches in pieces from block 88,000,000 (first Minds transfer 88,181,971); real stakers found (34 / 1 / 4 Minds, ~1 s). The contract 0x71a92aDc34BAa4c87079840E01aF4b24A4bA6FD4 holds 603 Minds (likely the staking contract).
-- [ ] Island edit mode: select many (same type), bulk move / upgrade / store / remove.
+- [x] Island edit mode (✏️ Edit tool, key 7): tap or drag over buildings to select (drag along a wall grabs the line), "All Walls · N" chips per type, then ⬆ Upgrade all (shows total cost), ↔ Move as a group (rules.js act 'moveMany': all or nothing, ghosts show where they land), 📦 Store, 🗑 Remove. island.js paintEdit/onEditBar; the bar is created in code so old cached pages do not break.
 
 ## REMAINING (saved for later)
 Owner to do:

@@ -450,6 +450,15 @@ function frame(nowT) {
     if (it.float) { g.globalAlpha = 1; }
     g.globalAlpha = 1;
   }
+  if (tool === 'edit') {   // selected buildings glow; while moving, ghosts show where they would land
+    g.lineWidth = 1;
+    const ghost = groupMove && hover >= 0 ? { dx: kx(hover) - kx(groupMove.anchor), dy: ky(hover) - ky(groupMove.anchor) } : null;
+    for (const b of pickedList()) {
+      const d = BUILD[b.type];
+      g.strokeStyle = `rgba(212,255,31,${0.6 + 0.35 * Math.sin(Tm * 6)})`; g.strokeRect(kx(b.k) * T + 0.5, ky(b.k) * T + 0.5, d.w * T - 1, d.h * T - 1);
+      if (ghost) { const x = kx(b.k) + ghost.dx, y = ky(b.k) + ghost.dy, ok = x >= 0 && y >= 0 && x + d.w <= TW && y + d.h <= TH; g.fillStyle = ok ? 'rgba(212,255,31,.3)' : 'rgba(255,90,74,.4)'; g.fillRect(x * T, y * T, d.w * T, d.h * T); }
+    }
+  }
   if (tool === 'build' && hover >= 0) {
     const type = moving ? moving.type : buildType, d = BUILD[type], ok = fits(st, w, type, hover, moving);
     g.fillStyle = ok ? 'rgba(212,255,31,.35)' : 'rgba(255,90,74,.4)';
@@ -534,7 +543,73 @@ function smart(k, p) {
   sfx('click');
   cb.toast(`Open ground. Use ⛏ Plot to make a farm plot here (${PLOT_COST} ✨).`);
 }
+// ---------- edit mode: select many buildings, then act on all of them ----------
+const picked = new Set();
+let editStroke = null, groupMove = null;   // stroke: 'on' adds, 'off' removes (set by the first building touched)
+const pickedList = () => (isle.state?.b || []).filter(b => picked.has(b.id));
+function editAt(k) {
+  if (groupMove) return moveGroupTo(k);
+  const b = k >= 0 ? buildingAt(isle.state, k) : null;
+  if (!b) return;
+  editStroke ??= picked.has(b.id) ? 'off' : 'on';
+  if (editStroke === 'on' && !picked.has(b.id)) { picked.add(b.id); sfx('select'); }
+  else if (editStroke === 'off' && picked.has(b.id)) { picked.delete(b.id); sfx('deselect'); }
+  paintEdit();
+}
+function moveGroupTo(k) {
+  const list = pickedList(), a = groupMove.anchor;
+  const res = doAct({ type: 'moveMany', ids: list.map(b => b.id), dx: kx(k) - kx(a), dy: ky(k) - ky(a) });
+  if (res.error) { sfx('denied'); cb.toast(res.error, true); return; }
+  sfx('land'); bits(kx(k) * T + 8, ky(k) * T + 12, ['#c99a63', '#a3a2b5', '#f3dfb6'], 20, 50);
+  groupMove = null; cb.toast(`Moved ${res.done} building${res.done > 1 ? 's' : ''}.`); paintEdit();
+}
+function editBar() {   // made here, so an older cached page still works
+  let bar = document.getElementById('isl-edit');
+  const tools = document.getElementById('isl-tools');
+  if (!bar && tools) { bar = document.createElement('div'); bar.id = 'isl-edit'; bar.className = 'isl-edit px'; tools.before(bar); bar.addEventListener('click', onEditBar); }
+  return bar;
+}
+function paintEdit() {
+  const bar = editBar();
+  if (!bar) return;
+  bar.classList.toggle('on', tool === 'edit');
+  if (tool !== 'edit' || !isle.state) return;
+  const st = isle.state, list = pickedList(), count = {}, all = {};
+  for (const b of list) count[b.type] = (count[b.type] || 0) + 1;
+  for (const b of st.b || []) if (!BUILD[b.type].fixed) all[b.type] = (all[b.type] || 0) + 1;
+  const chips = Object.entries(all).sort((a, b) => b[1] - a[1]).map(([t, n]) => `<button data-ed="all" data-type="${t}">All ${BUILD[t].name}s · ${n}</button>`).join('');
+  if (!list.length) { bar.innerHTML = `<span class="ed-what">Tap or drag over buildings to select them.</span>${chips}`; return; }
+  const up = list.filter(b => UPGRADABLE[b.type] && lvOf(b) < MAX_LV && !b.done), cost = {};
+  for (const b of up) for (const [i, n] of Object.entries(upgradeCost(b))) cost[i] = (cost[i] || 0) + n;
+  bar.innerHTML = `<span class="ed-what"><b>${list.length} selected</b> · ${Object.entries(count).map(([t, n]) => `${BUILD[t].name} ×${n}`).join(', ')}</span>`
+    + (groupMove ? '<span class="ed-what">Tap where the top-left one should go.</span><button data-ed="cancel">Cancel move</button>'
+      : `${up.length ? `<button data-ed="up" class="${canAfford(st, cost) ? 'go' : ''}">⬆ Upgrade ${up.length} · ${costText(cost)}</button>` : ''}<button data-ed="move">↔ Move</button><button data-ed="store">📦 Store</button><button data-ed="remove">🗑 Remove</button><button data-ed="none">✕ Clear</button>`)
+    + chips;
+}
+function onEditBar(e) {
+  const btn = e.target.closest('button[data-ed]'); if (!btn) return;
+  const st = isle.state, list = pickedList(), what = btn.dataset.ed;
+  if (what === 'all') { for (const b of st.b || []) if (b.type === btn.dataset.type) picked.add(b.id); sfx('select'); return paintEdit(); }
+  if (what === 'none') { picked.clear(); groupMove = null; sfx('deselect'); return paintEdit(); }
+  if (what === 'cancel') { groupMove = null; return paintEdit(); }
+  if (what === 'move') {   // the top-left building leads; everything keeps its place relative to it
+    const lead = list.reduce((a, b) => (ky(b.k) < ky(a.k) || (ky(b.k) === ky(a.k) && kx(b.k) < kx(a.k)) ? b : a));
+    groupMove = { anchor: lead.k }; sfx('click'); return paintEdit();
+  }
+  let ok = 0, why = '';
+  for (const b of list) {
+    if (what !== 'up' && BUILD[b.type].fixed) continue;
+    if (what === 'up' && !(UPGRADABLE[b.type] && lvOf(b) < MAX_LV && !b.done)) continue;
+    const r = doAct(what === 'up' ? { type: 'upgrade', id: b.id } : what === 'store' ? { type: 'store', id: b.id } : { type: 'demolish', id: b.id });
+    if (r.error) why ||= r.error; else ok++;
+  }
+  for (const id of [...picked]) if (!(st.b || []).some(b => b.id === id)) picked.delete(id);
+  sfx(ok ? (what === 'up' ? 'levelup' : 'pop') : 'denied'); flush(); paintHud(); paintEdit();
+  const verb = what === 'up' ? 'Upgrading' : what === 'store' ? 'Stored' : 'Removed';
+  cb.toast(ok ? `${verb} ${ok}.${why ? ` Some could not: ${why}` : ''}` : why || 'Nothing to do.', !ok);
+}
 function useTool(k) {
+  if (tool === 'edit') return editAt(k);
   if (k < 0 || !w.land[k] || tool === 'hand') return;
   if (tool === 'build') return placeAt(k);
   if (tool === 'plant') enqueue('plant', k, { crop: seed });
@@ -582,7 +657,7 @@ const up = e => {
     const p = toWorld(e.clientX, e.clientY);
     smart(tileAt(p.x, p.y), p);
   }
-  if (!ptrs.size) { downAt = null; painting = false; if (e.pointerType !== 'mouse') hover = -1; flush(); }
+  if (!ptrs.size) { downAt = null; painting = false; editStroke = null; if (e.pointerType !== 'mouse') hover = -1; flush(); }
 };
 cv.addEventListener('pointerup', up);
 cv.addEventListener('pointercancel', up);
@@ -596,8 +671,8 @@ function zoomAt(sx, sy, z) {
 }
 addEventListener('keydown', e => {
   if (!running || e.target.closest?.('input,textarea')) return;
-  const map = { 1: 'hand', 2: 'clear', 3: 'till', 4: 'plant', 5: 'harvest', 6: 'build' };
-  if (e.key === 'Escape') { moving = null; closeBuild(); closeBMenu(); }
+  const map = { 1: 'hand', 2: 'clear', 3: 'till', 4: 'plant', 5: 'harvest', 6: 'build', 7: 'edit' };
+  if (e.key === 'Escape') { moving = null; closeBuild(); closeBMenu(); if (groupMove) groupMove = null; else picked.clear(); paintEdit(); }
   if (map[e.key]) setTool(map[e.key]);
 });
 
@@ -609,6 +684,7 @@ const TIPS = {
   plant: 'Drag across empty plots to plant. Tap 🌱 again to pick another seed.',
   harvest: 'Drag across ripe crops to harvest them',
   build: 'Pick a building, then tap open cleared ground. A Mind builds it (one builder per Mind you own). Walls/fences: drag a line.',
+  edit: 'Tap or drag over buildings to select many at once (drag along a wall to grab the line). Then move, upgrade, store or remove them together.',
 };
 export function setTool(t) {
   tool = t;
@@ -617,6 +693,8 @@ export function setTool(t) {
   cv.style.cursor = t === 'hand' ? 'grab' : 'crosshair';
   if (t === 'plant' && (isle.state?.inv['seed_' + seed] || 0) < 1) openSeeds(true);
   if (t !== 'build') { moving = null; closeBuild(); }
+  if (t !== 'edit') { picked.clear(); groupMove = null; }
+  paintEdit();
   if (t === 'build' && moving) $('#isl-tip').textContent = `Moving your ${BUILD[moving.type].name}: tap where it should go (Esc to cancel).`;
 }
 

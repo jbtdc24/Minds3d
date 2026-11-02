@@ -934,3 +934,10 @@ h3.raid-result { text-align: center; }
 .rlog-row small { display: block; color: var(--muted); font-size: 12px; }
 .rlog-tabs { margin-top: 8px; }
 .linkbtn { border: 0; background: none; padding: 0; font: 900 15px var(--font); color: var(--sky-d); text-decoration: underline; cursor: pointer; }
+
+/* ✏️ island edit mode: what is selected + bulk actions */
+.isl-edit { display: none; flex-wrap: wrap; align-items: center; gap: 6px; background: var(--paper); padding: 6px 8px; margin-bottom: 6px; max-height: 30vh; overflow-y: auto; }
+.isl-edit.on { display: flex; }
+.isl-edit .ed-what { font-size: 13px; margin-right: 4px; }
+.isl-edit button { border: 0; padding: 5px 9px; background: var(--paper-2); font: 800 13px var(--font); cursor: pointer; box-shadow: 0 0 0 2px var(--ink); }
+.isl-edit button.go { background: var(--lime); }
