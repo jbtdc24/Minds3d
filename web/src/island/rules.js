@@ -186,8 +186,28 @@ function migrate3(st, seed) {
   st.v = 3;
 }
 // weeds creep back over ground nobody looks after
+// ---------- a raided village burns ----------
+// A raid with stars leaves the buildings it broke on fire (st.burn). While it burns your island earns nothing:
+// no harvests, no selling, Mind jobs stand still, and after BURN_CROPS_MS the crops on your plots are lost.
+// Restore it at once (Dust + wood, or Gems) or let your Minds repair it for free, which takes time.
+export const BURN_CROPS_MS = 3 * 3600e3, REPAIR_MS = 10 * 60e3, REPAIR_MAX = 2 * 3600e3;
+export const burning = (st, now) => !!st.burn && !(st.burn.fix && st.burn.fix <= now);
+const burnSize = st => Math.max(1, st.burn?.ids?.length || 0);
+export const restoreCost = st => ({ dust: 80 * burnSize(st), wood: 6 * burnSize(st) });
+export const repairMs = st => Math.min(REPAIR_MAX, REPAIR_MS * burnSize(st));
+export function burnVillage(st, now, { by, ids = [], stars = 0 }) {
+  if (stars < 1) return;
+  const keep = new Set((st.b || []).filter(b => !BUILD[b.type]?.deco && b.type !== 'wall' && b.type !== 'trap').map(b => b.id));
+  const all = new Set([...(st.burn?.ids || []), ...ids.filter(id => keep.has(id))]);
+  st.burn = { at: st.burn?.at || now, by, ids: [...all].slice(0, 30) };   // a second raid adds to the fire, it does not restart the clock
+}
 export function normalize(st, seed, now) {
   migrate(st); migrate3(st, seed);
+  if (st.burn?.fix && st.burn.fix <= now) delete st.burn;   // the Minds finished the repairs
+  if (burning(st, now) && !st.burn.lost && now - st.burn.at > BURN_CROPS_MS) {   // left burning too long: the crops are gone
+    for (const t of Object.values(st.tiles)) if (t.s === 'p' && t.c) { delete t.c; delete t.p; }
+    st.burn.lost = true;
+  }
   st.wellAt ??= now;
   for (const b of st.b || []) if (b.done && b.done <= now) { if (b.uplv) b.lv = b.uplv; delete b.done; delete b.start; delete b.uplv; }   // finished building / upgrade
   if ((st.v || 1) < 5) {   // v5: the islets are gone; anything built there goes to storage, farm tiles there are dropped
@@ -303,6 +323,7 @@ export function act(st, a, { seed, now, minds = 0, instant = false, queue = fals
       break;
     }
     case 'harvest':
+      if (burning(st, now)) return { error: 'Your village is burning! Restore it first (tap 🔥 Restore).' };
       for (const k of tiles) {
         const t = st.tiles[k];
         if (t?.s !== 'p' || !ripe(t, now, minds)) continue;
@@ -414,6 +435,15 @@ export function act(st, a, { seed, now, minds = 0, instant = false, queue = fals
       }
       break;
     }
+    case 'restore': {   // put the fire out: pay now, or let the Minds repair it for free over time
+      if (!burning(st, now)) return { error: 'Nothing is burning.' };
+      if (a.slow) { if (!st.burn.fix) st.burn.fix = now + repairMs(st); done = 1; break; }
+      const price = priceOf(restoreCost(st), a.gems);
+      if (!canAfford(st, price)) return { error: `Restoring costs ${costText(price)}. Or let your Minds repair it for free (${Math.round(repairMs(st) / 60e3)} min).` };
+      for (const [i, n] of Object.entries(price)) pay(i, -n);
+      delete st.burn; done = 1;
+      break;
+    }
     case 'troopup': {   // a stronger troop type: every troop of that kind, for good
       const k = String(a.item), lv = TROOP_UP[k] ? troopLv(st, k) : 0;
       if (!lv) return { error: 'unknown troop' };
@@ -489,6 +519,7 @@ export function act(st, a, { seed, now, minds = 0, instant = false, queue = fals
       break;
     }
     case 'sell': {
+      if (burning(st, now)) return { error: 'Your village is burning! Nobody buys from a burning village. Restore it first.' };
       const item = String(a.item), mill = 1 + millBonus(st);
       const price = item.startsWith('crop_') ? Math.round((CROPS[item.slice(5)]?.sell || 0) * mill) : RAW[item]?.sell;
       if (!price) return { error: 'that cannot be sold' };

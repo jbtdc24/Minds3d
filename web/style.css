@@ -924,3 +924,7 @@ h3.raid-result { text-align: center; }
 /* troop levels in Shop → Army */
 .troop-lv { display: block; font-size: 12px; margin-top: 4px; color: var(--ink); } .troop-lv em { font-style: normal; color: #2f9e44; font-weight: 800; }
 .troop-up { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
+/* 🔥 burning village button on the island */
+.isl-burn { display: none; border: 0; cursor: pointer; background: #e8481c; color: #fff; font-weight: 900; animation: burnpulse 1.2s ease-in-out infinite; }
+.isl-burn.on { display: inline-block; }
+@keyframes burnpulse { 50% { background: #ff7a2e; } }

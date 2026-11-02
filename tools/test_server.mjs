@@ -266,6 +266,31 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   ok(R.BUILD.trap.desc.includes(String(RD.TRAP_DMG)), 'trap description says its real damage');
 }
 
+// ---- a raided village burns until it is restored ----
+{
+  const R = await import('../web/src/island/rules.js'), J = await import('../web/src/island/jobs.js');
+  const seed = 321, now = 1e12, st = R.newIsland(seed, now), ctx = { seed, now, minds: 0, instant: true };
+  st.dust = 5000; st.inv.wood = 100; st.b.push({ id: st.nb++, type: 'house', k: 5 }); const hid = st.nb - 1;
+  const plot = Object.keys(st.tiles).find(k => st.tiles[k].s === 'p') ?? 0; st.tiles[plot] = { s: 'p', c: 'bean', p: now - 864e5, t: now };
+  R.burnVillage(st, now, { by: 'Ash', ids: [hid, 99999], stars: 0 });
+  ok(!st.burn, 'a raid with no stars burns nothing');
+  R.burnVillage(st, now, { by: 'Ash', ids: [hid, 99999], stars: 2 });
+  ok(st.burn && st.burn.ids.join() === String(hid), 'a starred raid sets the broken buildings on fire (only real ones)');
+  ok(/burning/.test(R.act(st, { type: 'harvest', tiles: [+plot] }, ctx).error || '') && /burning/.test(R.act(st, { type: 'sell', item: 'wood', n: 1 }, ctx).error || ''), 'a burning village cannot harvest or sell');
+  st.jobs = { 1: { job: 'scout', at: now - 3 * 3600e3 } }; const d0 = st.dust; J.runJobs(st, { seed, now, minds: 1 });
+  ok(st.dust === d0 && st.jobs[1].at === now, 'Mind jobs stand still while it burns');
+  R.normalize(st, seed, now + R.BURN_CROPS_MS + 1000);
+  ok(!st.tiles[plot].c && st.burn.lost, 'left burning too long, the crops are lost');
+  ok(R.act(st, { type: 'restore' }, ctx).done === 1 && !st.burn && st.dust === d0 - 80 && st.inv.wood === 94, 'restoring costs 80 Dust + 6 wood per building and puts the fire out');
+  R.burnVillage(st, now, { by: 'Ash', ids: [hid], stars: 1 });
+  ok(R.act(st, { type: 'restore', slow: true }, ctx).done === 1 && R.burning(st, now) && !R.burning(st, now + R.repairMs(st)), 'the Minds can repair it for free, which takes time');
+  R.normalize(st, seed, now + R.repairMs(st) + 1); ok(!st.burn, 'the repair finishes on its own');
+  const { npcRaid } = await import('../lib/raiders.js'), ns = R.newIsland(55, now);
+  ns.dust = 5000; for (let i = 0; i < 5; i++) ns.b.push({ id: ns.nb++, type: 'house', k: 100 + i * 3 }); ns.npcAt = now - 3 * 864e5;
+  const e = npcRaid(ns, 55, now);
+  ok(!e || !e.stars || (ns.burn && ns.burn.ids.length >= 1), 'game raiders set the village on fire too');
+}
+
 // ---- troop upgrades ----
 {
   const R = await import('../web/src/island/rules.js'), RD = await import('../web/src/island/raid.js');

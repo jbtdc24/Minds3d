@@ -7,7 +7,7 @@ import { sfx } from '../audio.js';
 import { gen, COVER, T, TW, TH, WW, WH, hash } from './gen.js';
 import { drawSky, groundFor, sprites, sprouts, heart, SOIL, toolSprites } from './art.js';
 import { rng } from './pixel.js';
-import { CROPS, coverAt, ripe, growMs, regrowMs, maxPlots, plotCount, PLOT_COST, speedBonus, BUILD, buildingAt, fits, footprint, maxOf, countOf, canAfford, costText, homeOf, wellOf, STASH_MAX, rushGems, builders, busy, gemPrice, UPGRADABLE, MAX_LV, lvOf, upgradeCost, wellShards, SHARD_CAP, SHARD_MS, SHARDS_PER_ENERGY, BUILD_SECS, upgradeSecs, levelStats } from './rules.js';
+import { CROPS, coverAt, ripe, growMs, regrowMs, maxPlots, plotCount, PLOT_COST, speedBonus, BUILD, buildingAt, fits, footprint, maxOf, countOf, canAfford, costText, homeOf, wellOf, STASH_MAX, rushGems, builders, busy, gemPrice, UPGRADABLE, MAX_LV, lvOf, upgradeCost, wellShards, SHARD_CAP, SHARD_MS, SHARDS_PER_ENERGY, BUILD_SECS, upgradeSecs, levelStats, burning, restoreCost, repairMs, BURN_CROPS_MS } from './rules.js';
 import { bsprites, drawSails, buildIcon, leveled } from './buildings.js';
 import { drawCinema, dropShadow } from './cinema.js';
 import { isle, doAct, now, onChange, flush, tickWork } from './store.js';
@@ -277,6 +277,13 @@ function spawnFx(dt, L) {
   const hs = sprites.house(isle.seed, false);
   const ho = homeOf(isle.state, w), we = wellOf(isle.state, w);
   if (Math.random() < dt * 2.2) fx.push({ type: 'smoke', x: (ho.x + 1.5) * T + 12 + (Math.random() - 0.5) * 2, y: (ho.y + 3) * T - hs.h + 4, vx: 2 + Math.random() * 2, vy: -6 - Math.random() * 3, life: 3, max: 3 });
+  const burn = burning(isle.state, now()) ? isle.state.burn : null;
+  if (burn) for (const b of isle.state.b || []) {   // flames (or, while the Minds repair it, just smoke) on every broken building
+    if (!burn.ids.includes(b.id)) continue;
+    const d = BUILD[b.type], cx = (kx(b.k) + d.w / 2) * T, top = ky(b.k) * T + 2;
+    if (!burn.fix && Math.random() < dt * 14) fx.push({ type: 'fire', x: cx + (Math.random() - 0.5) * d.w * T * 0.8, y: top + d.h * T * 0.4 + Math.random() * 6, vx: (Math.random() - 0.5) * 4, vy: -14 - Math.random() * 10, life: 0.7, max: 0.7 });
+    if (Math.random() < dt * 4) fx.push({ type: 'dsmoke', x: cx + (Math.random() - 0.5) * 8, y: top, vx: 3 + Math.random() * 3, vy: -8 - Math.random() * 4, life: 2.6, max: 2.6 });
+  }
   if (Math.random() < dt * 3) fx.push({ type: 'glow', x: (we.x + 1) * T + (Math.random() - 0.5) * 12, y: (we.y + 2) * T - 10, vx: 0, vy: -5 - Math.random() * 4, life: 1.4, max: 1.4 });
   if (Math.random() < dt * 20) { const p = gr.waterPts[(Math.random() * gr.waterPts.length) | 0]; fx.push({ type: 'spark', x: p.x, y: p.y, life: 0.9, max: 0.9 }); }
   if (L.night && Math.random() < dt * 5) { const f = gr.flowerSpots[(Math.random() * gr.flowerSpots.length) | 0]; if (f) fx.push({ type: 'firefly', x: f.x, y: f.y - 6, vx: (Math.random() - 0.5) * 6, vy: -2, life: 3, max: 3, ph: Math.random() * 6 }); }
@@ -288,6 +295,8 @@ function drawFx(dt) {
     if (f.type === 'bit') f.vy += 90 * dt;
     const u = Math.max(0, f.life / f.max);
     if (f.type === 'smoke') { const s = 2 + (1 - u) * 5; g.globalAlpha = u * 0.55; g.fillStyle = '#ffffff'; g.fillRect(Math.round(f.x - s / 2), Math.round(f.y - s / 2), Math.round(s), Math.round(s)); }
+    else if (f.type === 'fire') { g.globalAlpha = Math.min(1, u * 1.6); g.fillStyle = u > 0.66 ? '#fff3b0' : u > 0.33 ? '#ffb02e' : '#e8481c'; const s = u > 0.5 ? 3 : 2; g.fillRect(Math.round(f.x), Math.round(f.y), s, s); }
+    else if (f.type === 'dsmoke') { const s = 3 + (1 - u) * 7; g.globalAlpha = u * 0.5; g.fillStyle = '#3a3440'; g.fillRect(Math.round(f.x - s / 2), Math.round(f.y - s / 2), Math.round(s), Math.round(s)); }
     else if (f.type === 'glow') { g.globalAlpha = u; g.fillStyle = u > 0.5 ? '#f1ffa8' : '#d4ff1f'; g.fillRect(Math.round(f.x), Math.round(f.y), 1, 1); }
     else if (f.type === 'spark') { g.globalAlpha = Math.sin(u * Math.PI) * 0.9; g.fillStyle = '#ffffff'; g.fillRect(Math.round(f.x) - 1, Math.round(f.y), 3, 1); }
     else if (f.type === 'star') { g.globalAlpha = Math.sin(u * Math.PI); g.fillStyle = '#fff3b0'; const x = Math.round(f.x), y = Math.round(f.y); g.fillRect(x - 1, y, 3, 1); g.fillRect(x, y - 1, 1, 3); }
@@ -405,12 +414,12 @@ function frame(nowT) {
       const k = b.k, mask = (wallAt.has(k - TW) ? 1 : 0) | (kx(k) < TW - 1 && wallAt.has(k + 1) ? 2 : 0) | (wallAt.has(k + TW) ? 4 : 0) | (kx(k) > 0 && wallAt.has(k - 1) ? 8 : 0);
       items.push({ y: by, spr: leveled(bsprites.wall(mask), b.lv, 'wall'), x: cx });
     } else if (b.type === 'trap') items.push({ y: y0 + 2, spr: bsprites.trap(), x: cx, flat: true });
-    else if (b.type === 'mill') { items.push({ y: by, spr: leveled(bsprites.mill(), b.lv), x: cx, sails: { x: cx, y: by - 26 } }); }
-    else if (b.type === 'home') items.push({ y: by, spr: leveled(sprites.house(isle.seed, !!L.night), b.lv), x: cx, shadow: 30 });
+    else if (b.type === 'mill') { items.push({ y: by, spr: charred(leveled(bsprites.mill(), b.lv), b), x: cx, sails: { x: cx, y: by - 26 } }); }
+    else if (b.type === 'home') items.push({ y: by, spr: charred(leveled(sprites.house(isle.seed, !!L.night), b.lv), b), x: cx, shadow: 30 });
     else if (b.type === 'well') items.push({ y: by, spr: sprites.well(), x: cx });
     else if (b.type === 'fence') items.push({ y: by, spr: bsprites.fence(maskOf(fenceAt, b.k)), x: cx });
     else if (b.type === 'lantern') items.push({ y: by, spr: bsprites.lantern(), x: cx, float: true });
-    else items.push({ y: by, spr: leveled(b.type === 'house' ? bsprites.house(L.night) : bsprites[b.type](), b.lv, b.type), x: cx, shadow: d.w * T * 0.8 });
+    else items.push({ y: by, spr: charred(leveled(b.type === 'house' ? bsprites.house(L.night) : bsprites[b.type](), b.lv, b.type), b), x: cx, shadow: d.w * T * 0.8 });
   }
   for (const p of w.portals) items.push({ y: ky(p.k) * T + 14, portal: p });
   for (const m of minds) items.push({ y: m.y, mind: m });
@@ -694,9 +703,42 @@ function openSeeds(force) {
   box.classList.add('on');
 }
 function closeSeeds() { $('#isl-seeds')?.classList.remove('on'); }
+// the 🔥 button (made here if an older cached page does not have it yet)
+function burnBtn() {
+  let b = document.getElementById('isl-burn');
+  const bar = document.querySelector('.isl-sub');
+  if (!b && bar) { b = document.createElement('button'); b.id = 'isl-burn'; b.className = 'isl-chip isl-burn px'; bar.append(b); }
+  return b;
+}
+// a building the raiders set on fire: blackened until the village is restored
+const charCache = new WeakMap();
+function charred(spr, b) {
+  if (!burning(isle.state, now()) || !isle.state.burn.ids.includes(b.id)) return spr;
+  if (charCache.has(spr)) return charCache.get(spr);
+  const cv = document.createElement('canvas'); cv.width = spr.w; cv.height = spr.h;
+  const c = cv.getContext('2d'); c.drawImage(spr.cv, 0, 0); c.globalCompositeOperation = 'source-atop';
+  c.fillStyle = 'rgba(25,15,20,.62)'; c.fillRect(0, 0, spr.w, spr.h);
+  const out = { cv, w: spr.w, h: spr.h }; charCache.set(spr, out); return out;
+}
+// 🔥 the village burns: say what it costs to wait, offer to pay or to let the Minds repair it
+function openRestore() {
+  const st = isle.state;
+  if (!burning(st, now())) return;
+  const b = st.burn, cost = restoreCost(st), mins = Math.round(repairMs(st) / 60e3), cropsIn = BURN_CROPS_MS - (now() - b.at);
+  cb.restore?.({ by: b.by, n: b.ids.length, cost, gems: gemPrice(cost), mins, fixing: b.fix ? b.fix - now() : 0, crops: b.lost ? 'Your crops were lost in the fire.' : `Crops burn in ${fmtTime(cropsIn)} if it is not restored.` });
+}
+export function restore(how) {
+  const res = doAct({ type: 'restore', ...(how === 'gems' ? { gems: true } : how === 'slow' ? { slow: true } : {}) });
+  if (res.error) { sfx('denied'); cb.toast(res.error, true); return; }
+  sfx(how === 'slow' ? 'click' : 'levelup'); flush(); paintHud();
+  cb.toast(how === 'slow' ? 'Your Minds are repairing the village. It earns again when they finish.' : 'Village restored! Your island earns again.');
+}
 function paintHud() {
   if (!isle.state) return;
   const st = isle.state, inv = st.inv;
+  const fire = burning(st, now()), fb = burnBtn();
+  fb?.classList.toggle('on', fire);
+  if (fire && fb) fb.textContent = st.burn.fix ? `🔨 Repairing · ${fmtTime(st.burn.fix - now())}` : '🔥 Village burning · Restore';
   $('#isl-dust').textContent = st.dust.toLocaleString();
   $('#isl-wood').textContent = inv.wood || 0;
   $('#isl-gems').textContent = st.gems || 0;
@@ -715,6 +757,7 @@ function paintHud() {
 }
 onChange(info => { if (info.failed && running) cb.toast('Island not saved yet: ' + info.failed, true); if (info.points) cb.toast(`+${info.points} leaderboard points from selling!`); paintHud(); });
 setInterval(() => { if (running) paintHud(); }, 1000);
+burnBtn()?.addEventListener('click', () => { sfx('click'); openRestore(); });
 document.getElementById('isl-build').addEventListener('change', e => { if (e.target.id === 'pay-gems') { payGems = e.target.checked; openBuild(true); } });
 document.getElementById('isl-build').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
@@ -792,8 +835,8 @@ onChange(info => { if (info.act) tourStep(info.act.type); });
 export const startTour = () => { tour = 0; paintTour(); };
 
 // ---------- open / close ----------
-export function openIsland({ minds: ids = [], toast, shop, bag } = {}) {
-  cb = { toast: toast || cb.toast, shop: shop || cb.shop, bag: bag || cb.bag };
+export function openIsland({ minds: ids = [], toast, shop, bag, restore: onRestore } = {}) {
+  cb = { toast: toast || cb.toast, shop: shop || cb.shop, bag: bag || cb.bag, restore: onRestore || cb.restore };
   w = gen(isle.seed); gr = groundFor(isle.seed);
   const r = rng(isle.seed ^ 0x5bd1e995);
   clouds.length = 0;

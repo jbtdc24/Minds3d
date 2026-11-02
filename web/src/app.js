@@ -13,7 +13,7 @@ import { chatSigner } from './chatsign.js';
 import { initTown, openTown, closeTown } from './town.js';
 import { capOf, ENERGY_CAP } from './energy.js';
 import { loading } from './loader.js';
-import { openIsland, closeIsland, refreshHud, cropImg, fmtTime } from './island/island.js';
+import { openIsland, closeIsland, refreshHud, cropImg, fmtTime, restore } from './island/island.js';
 import { chibi } from './island/chibi.js';
 import { openRaid, closeRaid } from './island/raidview.js';
 import { botVillage, armyCap, cleanArmy, armyUsed, TROOPS, DEFAULT_ARMY, raidsPerDay, raidFee, botLoot, CAMP_SPACE, troopStats } from './island/raid.js';
@@ -342,6 +342,15 @@ function pickCupArmy(budget, start) {
     $('#modal').classList.add('on');
   });
 }
+// 🔥 a raided village: pay to restore it now, or let the Minds repair it for free (it earns nothing until then)
+async function openRestoreModal(f) {
+  const st = isle.state;
+  const how = await modal(`<h3>🔥 Your village is burning</h3><p><b>${esc(f.by || 'Raiders')}</b> set ${f.n} building${f.n === 1 ? '' : 's'} on fire.</p>
+    <p>Until it is restored your island earns nothing: no harvests, no selling, and your Minds' jobs stand still.</p><p class="muted">${esc(f.crops)}</p>
+    ${f.fixing > 0 ? `<p>🔨 Your Minds are repairing it: done in <b>${fmtTime(f.fixing)}</b>. Pay to finish now.</p>` : ''}`,
+    [[`Restore now · ${costText(f.cost)}`, 'pay', canAfford(st, f.cost) ? 'primary' : ''], [`Restore · ${f.gems} 💎`, 'gems', 'gem'], ...(f.fixing > 0 ? [] : [[`Minds repair it free · ${f.mins} min`, 'slow']]), ['Later', 0]]);
+  if (how) restore(how);
+}
 async function openCup() {
   if (!online) return toast('The cup needs the game server.', true);
   sfx('click');
@@ -459,7 +468,7 @@ async function ensureIsland() {
 async function goIsland() {
   if (!(await ensureIsland())) return;
   show('island'); stage.paused = true; music('cozy');
-  openIsland({ minds: myMinds, toast: (m, bad) => toast(m, bad), shop: tab => openShop(tab), bag: () => { invTab = 'items'; openInventory(); }, mind: id => openMinds(id) });
+  openIsland({ minds: myMinds, toast: (m, bad) => toast(m, bad), shop: tab => openShop(tab), bag: () => { invTab = 'items'; openInventory(); }, mind: id => openMinds(id), restore: openRestoreModal });
   const worked = (isle.state?.jobLog || []).filter(e => e.at > (settings.jobSeen || 0)).slice(0, 6);
   if (worked.length) { settings.jobSeen = worked[0].at; saveSettings(); }
   // raided while you were away?

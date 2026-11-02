@@ -1,7 +1,7 @@
 // Mind jobs: give any Mind you own a job and it keeps working while you are away. The same rules as playing by hand:
 // a job calls act(), so crops still take their time, seeds and Dust are still spent, and nothing is free.
 // A Mind does one round every 30 minutes and gets tired after 8 hours, so it pays to come back.
-import { act, coverAt, DROPS, ripe, troopCount, TROOP_MAX, CROPS, wellShards } from './rules.js';
+import { act, coverAt, DROPS, ripe, troopCount, TROOP_MAX, CROPS, wellShards, burning } from './rules.js';
 import { gen, TW, TH, hash } from './gen.js';
 
 export const JOB_MS = 30 * 60e3, JOB_SHIFT = 16, LOG_MAX = 20;
@@ -56,6 +56,7 @@ const SAY = {
 // run everything owed since each Mind's last round; the server does this whenever the island is opened
 export function runJobs(st, { seed, now, minds = 0 }) {
   if (!st.jobs) return 0;
+  if (burning(st, now)) { for (const j of Object.values(st.jobs)) j.at = now; return 0; }   // a burning village: the Minds fight the fire, no work gets done
   const w = gen(seed);
   let rounds = 0;
   for (const [idTxt, j] of Object.entries(st.jobs)) {
