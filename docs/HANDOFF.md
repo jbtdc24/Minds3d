@@ -8,6 +8,7 @@ STABLE_TOKEN is set in Vercel (owner, 2026-11-02) and redeployed.
 OWNER TODO: (1) one small real USDG purchase and one ETH purchase; (2) ask Animoca for Minds API access (send https://minds3d.vercel.app/api/agent?format=tools); (3) launch list below.
 Not checked with real players yet: burning village + restore, edit-mode group moves, cup army picker, staked Minds at login, rivals seeing cosmetics, two-player duel timing.
 Owner rules: keep going in the same chat, no questions, short plain replies, update this file after every task. OpenArt allowed for art, QUALITY ALWAYS LOW.
+Minds Builder API (2026-11-03): owner got a Builder API key (JWT, role builder, expires 2027-11). Checked: works. Base https://api.build.hellominds.ai, header `X-Api-Key: <key>` (OAuth tokens use Bearer). Docs https://build.hellominds.ai/docs/api, npm @animocabrands/minds-client-lib. GET /v1/humans/{humanId}/minds lists the owner's 7 Minds; messaging = POST /v1/messaging/conversation + /message, replies via /histories/{alias} or /events. NEVER commit the key: it goes in Vercel env MINDS_API_KEY (owner adds). Next: decide what to build (real Mind talk in mindtalk.js, or Minds Connect sign-in).
 If a table is added to the prototype-lock line in rules.js, also update tools/mutation_check.mjs line 56.
 
 ## ROUND 10 (owner 2026-11-02): staked Minds, island edit mode, harder boss
