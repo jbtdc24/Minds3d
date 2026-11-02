@@ -13,6 +13,7 @@ import { chatSigner } from './chatsign.js';
 import { initTown, openTown, closeTown } from './town.js';
 import { capOf, ENERGY_CAP } from './energy.js';
 import { loading } from './loader.js';
+import { wear, BACK_IMG, FRAME_CLASS } from './cosmetics.js';
 import { openIsland, closeIsland, refreshHud, cropImg, fmtTime, restore } from './island/island.js';
 import { chibi } from './island/chibi.js';
 import { openRaid, closeRaid } from './island/raidview.js';
@@ -23,7 +24,7 @@ import { AREAS, POTIONS_MAX, SPOTS, SHIPS, spotLevel } from './island/adventure.
 import { openMap, updateMap, closeMap } from './island/worldmap.js';
 import { initAdmin, tryCode } from './admin.js';
 import { isle, loadIsland, doAct, flush as flushIsland, resetIsland, refreshIsland, now as islandNow } from './island/store.js';
-import { CROPS, RAW, growMs, permitCost, MAX_PERMITS, ripe, campLevels, campCount, SHOP, RECIPES, TROOP_MAX, troopCount, costText, canAfford, BUILD, STASH_MAX, gemPrice, ENERGY_PRICE, SHARDS_PER_ENERGY, REFILLS_PER_DAY, wellShards, troopLv, troopUpCost, troopLevels, MAX_TL } from './island/rules.js';
+import { CROPS, RAW, growMs, permitCost, MAX_PERMITS, ripe, campLevels, campCount, SHOP, RECIPES, TROOP_MAX, troopCount, costText, canAfford, BUILD, STASH_MAX, gemPrice, ENERGY_PRICE, SHARDS_PER_ENERGY, REFILLS_PER_DAY, wellShards, troopLv, troopUpCost, troopLevels, MAX_TL, COSMETICS } from './island/rules.js';
 import { buildIcon } from './island/buildings.js';
 import { islandThumb } from './island/art.js';
 import { hashStr } from './island/gen.js';
@@ -209,8 +210,12 @@ function refreshEnergy() {
 const energyTag = id => { const n = energyOf(id), c = capFor(id); return `<span class="en ${n ? '' : 'none'}" title="Ranked energy left today">⚡${n}/${c}</span>`; };
 const picked = () => { const p = (settings.picks.minds || []).filter(id => myMinds.includes(id)); return p.length ? p : myMinds.slice(0, 3); };
 const showcaseIds = () => { const s = (me?.showcase || []).filter(id => myMinds.includes(id)); return s.length ? s : picked().length ? picked() : [me?.pfp || 49]; };
+// your looks: from the island save, remembered on this device so they show before the island loads
+const myCos = () => isle.state?.cos || settings.cos || null;
+function wearMine() { const c = myCos(); if (isle.state?.cos && JSON.stringify(settings.cos) !== JSON.stringify(c)) { settings.cos = c; saveSettings(); } wear(c); }
 function paintHub() {
   $('#hub-pfp').src = thumb(me.pfp); $('#hub-name').textContent = me.name;
+  wearMine();
   $('#hub-sub').innerHTML = guest ? 'Trial account' : `${valIcon('rating')}${me.rating} &nbsp;${valIcon('points')}${me.points}`;
   $('#inv-badge').textContent = guest ? '' : `⚡${totalEnergy()}`;
   $('#inv-badge').classList.toggle('on', !guest);
@@ -740,6 +745,14 @@ function paintShop() {
       return shopCard(icon(k), it.name, it.desc + lvLine(k), h, `<button class="btn small ${it.gem ? 'gem' : 'primary'}" data-act="shop" data-item="${k}" data-n="1" ${ok ? '' : 'disabled'}>${costText(it.price)}</button>${it.gem ? '' : `<button class="btn small" data-act="shop" data-item="${k}" data-n="5" ${canAfford(st, Object.fromEntries(Object.entries(it.price).map(([a, n]) => [a, n * 5]))) ? '' : 'disabled'}>×5</button><button class="btn small gem" data-act="shop" data-gems="1" data-item="${k}" data-n="1" ${(st.gems || 0) < gemPrice(it.price) ? 'disabled' : ''}>${gemPrice(it.price)} 💎</button>`}`, it.gem ? 'gemcard' : ''); }).join('')
       + (shopTab === 'items' && SHIPS[(st.ship || 0) + 1] ? shopCard(`<i>${SHIPS[(st.ship || 0) + 1].icon}</i>`, `Airship: ${SHIPS[(st.ship || 0) + 1].name}`, `${SHIPS[(st.ship || 0) + 1].desc} You have the ${SHIPS[st.ship || 0].name}.`, null, `<button class="btn small primary" data-ship="1">${costText(SHIPS[(st.ship || 0) + 1].cost)}</button><button class="btn small gem" data-ship="2">${SHIPS[(st.ship || 0) + 1].gems} 💎</button>`) : '')
       + (shopTab === 'items' ? Object.entries(RECIPES).map(([k, r]) => shopCard('<i>⚗️</i>', `Craft: ${r.name}`, `Uses ${costText(r.needs)}`, inv.herb || 0, `<button class="btn small primary" data-act="craft" data-item="${k}" data-n="1" ${canAfford(st, r.needs) ? '' : 'disabled'}>Craft</button>`)).join('') : '');
+  } else if (shopTab === 'style') {   // cosmetics: card backs and profile frames (looks only)
+    const cos = st.cos || { own: [] }, owns = k => cos.own.includes(k);
+    const btn = (k, c) => owns(k) ? (cos[c.kind] === k ? `<button class="btn small" data-cos="none" data-kind="${c.kind}">✓ Wearing · take off</button>` : `<button class="btn small primary" data-cos="${k}" data-equip="1">Wear</button>`)
+      : `<button class="btn small ${c.price.gems ? 'gem' : 'primary'}" data-cos="${k}" ${canAfford(st, c.price) ? '' : 'disabled'}>${costText(c.price)}</button>`;
+    const pfp = thumb(me?.pfp || 49);
+    html = '<div class="shop-info px">✨ Looks only: they never make you stronger. Card backs show on your cards in every duel; frames go around your profile picture.</div>'
+      + Object.entries(COSMETICS).map(([k, c]) => shopCard(c.kind === 'back' ? `<img class="cos-back" src="${BACK_IMG[k]}" alt="">` : `<img class="cos-pfp ${FRAME_CLASS[k]}" src="${pfp}" alt="">`,
+        c.name, c.kind === 'back' ? 'Card back for your duels' : 'Frame for your profile picture', null, btn(k, c), owns(k) ? 'owned' : '')).join('');
   } else {
     html = [['🌳', 'Decorations', 'Trees, statues, paths and lights for your island'], ['🃏', 'Card backs', 'Show off in every duel · 3,000 ✨'], ['🖼️', 'Profile frames', 'A frame around your profile picture · 5,000 ✨'],
       ['⚡', 'Energy shard', '+1 ranked energy for one Mind · 800 ✨ (1 a day)'], ['🛡️', 'Raid defenses', 'Walls, traps and guards for when raids arrive']]
@@ -796,6 +809,15 @@ $('#shop-grid').addEventListener('click', e => {
 });
 $('#shop-tabs').onclick = e => { const v = e.target.closest('button')?.dataset.v; if (!v) return; shopTab = v; paintShop(); };
 $('#shop-grid').onclick = e => {
+  const cb2 = e.target.closest('button[data-cos]');
+  if (cb2) {   // cosmetics: buy (then wear), wear, or take off
+    if (cb2.disabled) return;
+    const res = doAct({ type: 'cosmetic', item: cb2.dataset.cos, equip: !!cb2.dataset.equip || cb2.dataset.cos === 'none', kind: cb2.dataset.kind });
+    if (res.error) { sfx('denied'); return toast(res.error, true); }
+    sfx(cb2.dataset.equip || cb2.dataset.cos === 'none' ? 'select' : 'levelup');
+    toast(cb2.dataset.cos === 'none' ? 'Taken off.' : cb2.dataset.equip ? 'Wearing it now!' : `${COSMETICS[cb2.dataset.cos].name} is yours, and you are wearing it!`);
+    flushIsland(); paintShop(); refreshHud(); wearMine(); return;
+  }
   const b = e.target.closest('button[data-act]'); if (!b || b.disabled) return;
   const res = doAct({ type: b.dataset.act, item: b.dataset.item, n: +b.dataset.n, gems: !!b.dataset.gems });
   if (res.error) { sfx('denied'); return toast(res.error, true); }
@@ -952,7 +974,7 @@ function startDuel(local, first = local.view(), opts = {}) {
   const forced = new URLSearchParams(location.search).get('stage');   // ?stage=moon to preview one arena
   setStage(opts.stage || (BATTLE_STAGES.includes(forced) ? forced : BATTLE_STAGES[(Math.random() * BATTLE_STAGES.length) | 0]));
   placeFighters(first.view, true);
-  buildTable();
+  buildTable(); wearMine();   // your card back and frame
   $('#d-chat').style.display = D.tutorial ? 'none' : '';
   $('#d-chatpick').classList.remove('on');
   show('duel'); music('duel');
@@ -1444,6 +1466,7 @@ async function openProfile(pid) {
   try {
     const r = await api(`player?id=${pid}`), p = r.player, mine = pid === me?.id;
     $('#pf-pfp').src = thumb(p.pfp); $('#pf-name').textContent = p.name;
+    wear(mine ? myCos() : null, ['#pf-pfp']);   // only your own profile wears your frame
     $('#pf-addr').textContent = p.guest ? 'Trial account' : p.address || '';
     const W = p.wins + (p.botWins || 0), L = p.losses + (p.botLosses || 0);
     $('#pf-stats').innerHTML = [[valIcon('rating') + p.rating, 'Rating'], [valIcon('points') + p.points, 'Points'], [W + L ? Math.round(W / (W + L) * 100) + '%' : '—', 'Win rate'], [W, 'Ranked wins'], [L, 'Ranked losses'], [p.bestStreak, 'Best streak']]

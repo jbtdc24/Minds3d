@@ -95,6 +95,18 @@ export const upgradeSecs = b => b.type === 'wall' ? 0 : Math.round((BUILD_SECS[b
 export const hpMult = lv => 1 + 0.5 * ((lv || 1) - 1);
 // troop levels (1-3): each level gives +20% HP and damage. Weights match each troop's camp space (raid.js TROOPS; a test checks).
 // Lv2 needs an Army Camp, Lv3 needs an Army Camp at Lv2. The Siege Cup ignores troop levels (same army for everyone).
+// cosmetics: looks only, no power. Card backs show in your duels, frames around your profile picture.
+// Bought once with Dust (or Gems for the premium ones), then equipped any time (st.cos = { own: [...], back, frame }).
+export const COSMETICS = {
+  back_ember: { kind: 'back', name: 'Ember Dragon', price: { dust: 3000 } },
+  back_frost: { kind: 'back', name: 'Frost Crystal', price: { dust: 3000 } },
+  back_night: { kind: 'back', name: 'Moon Night', price: { dust: 3000 } },
+  back_sun: { kind: 'back', name: 'Golden Sun', price: { gems: 15 } },
+  frame_gold: { kind: 'frame', name: 'Gold Frame', price: { dust: 5000 } },
+  frame_frost: { kind: 'frame', name: 'Ice Frame', price: { dust: 5000 } },
+  frame_flame: { kind: 'frame', name: 'Flame Frame', price: { dust: 5000 } },
+  frame_rainbow: { kind: 'frame', name: 'Prism Frame', price: { gems: 20 } },
+};
 export const TROOP_UP = { brawler: 1, archer: 1, bomber: 2, giant: 3 }, MAX_TL = 3;
 export const troopLv = (st, k) => Math.min(MAX_TL, Math.max(1, st.tl?.[k] | 0 || 1));
 export const troopMult = lv => 1 + 0.2 * ((lv || 1) - 1);
@@ -234,7 +246,7 @@ export function normalize(st, seed, now) {
   return st;
 }
 
-for (const table of [CROPS, BUILD, SHOP, RECIPES, RAW, UPGRADABLE, TROOP_UP]) Object.setPrototypeOf(table, null);
+for (const table of [CROPS, BUILD, SHOP, RECIPES, RAW, UPGRADABLE, TROOP_UP, COSMETICS]) Object.setPrototypeOf(table, null);
 const okTile = (w, k) => Number.isInteger(k) && k >= 0 && k < TW * TH && w.land[k] === 1;
 const add = (o, k, n) => { if (n) o[k] = (o[k] || 0) + n; };
 // ---------- hand work (clear, plot, plant, harvest) takes real time ----------
@@ -465,6 +477,20 @@ export function act(st, a, { seed, now, minds = 0, instant = false, queue = fals
       if (!canAfford(st, price)) return { error: `Restoring costs ${costText(price)}. Or let your Minds repair it for free (${Math.round(repairMs(st) / 60e3)} min).` };
       for (const [i, n] of Object.entries(price)) pay(i, -n);
       delete st.burn; done = 1;
+      break;
+    }
+    case 'cosmetic': {   // buy a look once, or equip one you own (item 'none' + kind takes it off)
+      const c = COSMETICS[a.item], cos = (st.cos ||= { own: [] });
+      if (a.equip) {
+        if (a.item === 'none' && (a.kind === 'back' || a.kind === 'frame')) { cos[a.kind] = null; done = 1; break; }
+        if (!c || !cos.own.includes(a.item)) return { error: 'Get it first.' };
+        cos[c.kind] = a.item; done = 1; break;
+      }
+      if (!c) return { error: 'unknown item' };
+      if (cos.own.includes(a.item)) return { error: 'You already have it.' };
+      if (!canAfford(st, c.price)) return { error: `${c.name} costs ${costText(c.price)}.` };
+      for (const [i, n] of Object.entries(c.price)) pay(i, -n);
+      cos.own.push(a.item); cos[c.kind] = a.item; done = 1;   // wear it right away
       break;
     }
     case 'troopup': {   // a stronger troop type: every troop of that kind, for good

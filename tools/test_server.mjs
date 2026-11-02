@@ -267,6 +267,17 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   ok(R.BUILD.trap.desc.includes(String(RD.TRAP_DMG)), 'trap description says its real damage');
 }
 
+// ---- cosmetics: looks only ----
+{
+  const R = await import('../web/src/island/rules.js'), seed = 7, now = 1e12, st = R.newIsland(seed, now), ctx = { seed, now, minds: 0 };
+  st.dust = 4000; st.gems = 0;
+  ok(R.act(st, { type: 'cosmetic', item: 'back_ember' }, ctx).done && st.dust === 1000 && st.cos.back === 'back_ember', 'buy a card back with Dust, and wear it');
+  ok(/already/.test(R.act(st, { type: 'cosmetic', item: 'back_ember' }, ctx).error) && st.dust === 1000, 'a look is bought once');
+  ok(/costs/.test(R.act(st, { type: 'cosmetic', item: 'back_sun' }, ctx).error) && R.act(st, { type: 'cosmetic', item: 'frame_gold', equip: true }, ctx).error, 'premium looks need Gems; you cannot wear what you do not own');
+  ok(R.act(st, { type: 'cosmetic', item: 'none', kind: 'back', equip: true }, ctx).done && st.cos.back === null && R.act(st, { type: 'cosmetic', item: 'back_ember', equip: true }, ctx).done && st.cos.back === 'back_ember', 'take a look off and put it back on');
+  ok(R.act(st, { type: 'cosmetic', item: '__proto__' }, ctx).error && R.act(st, { type: 'cosmetic', item: 'constructor', equip: true }, ctx).error, 'odd names are refused');
+}
+
 // ---- edit mode: move a group of buildings together ----
 {
   const R = await import('../web/src/island/rules.js'), { gen, TW } = await import('../web/src/island/gen.js');

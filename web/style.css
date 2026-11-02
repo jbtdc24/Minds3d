@@ -261,6 +261,7 @@ img.vi { width: .9em; height: .9em; object-fit: contain; vertical-align: -.1em; 
 @keyframes slidein { from { transform: translateX(-60vw) rotate(-20deg); } } @keyframes slidein2 { from { transform: translateX(60vw) rotate(20deg); } }
 .rc-face, .rc-back { position: absolute; inset: 0; backface-visibility: hidden; transition: transform .45s; box-shadow: 0 -4px 0 0 var(--ink), 0 4px 0 0 var(--ink), -4px 0 0 0 var(--ink), 4px 0 0 0 var(--ink), 0 12px 0 0 rgba(29,27,47,.35); }
 .rc-back { background: url(assets/card_back.webp) center / cover, var(--ink-2); }
+#rv0 .rc-back { background: var(--my-back, url(assets/card_back.webp)) center / cover, var(--ink-2); }   /* your own card back */
 .rc-face { background: linear-gradient(180deg, #fff, var(--paper) 60%, var(--paper-2)); display: grid; place-items: center; transform: rotateY(180deg); }
 .rc-face b { font-size: clamp(55px, 12vw, 84px); line-height: 1; color: var(--c, var(--ink)); text-shadow: 3px 3px 0 var(--ink), -3px -3px 0 var(--ink), 3px -3px 0 var(--ink), -3px 3px 0 var(--ink); transition: transform .2s; }
 .rcard.flip .rc-back { transform: rotateY(180deg); } .rcard.flip .rc-face { transform: rotateY(360deg); }
@@ -941,3 +942,14 @@ h3.raid-result { text-align: center; }
 .isl-edit .ed-what { font-size: 13px; margin-right: 4px; }
 .isl-edit button { border: 0; padding: 5px 9px; background: var(--paper-2); font: 800 13px var(--font); cursor: pointer; box-shadow: 0 0 0 2px var(--ink); }
 .isl-edit button.go { background: var(--lime); }
+
+/* ✨ cosmetics: profile frames (looks only) and the Style shop */
+.fr-gold { box-shadow: 0 0 0 3px #ffd84a, 0 0 0 5px #8a5a00, 0 0 14px 3px rgba(255, 200, 60, .7) !important; }
+.fr-frost { box-shadow: 0 0 0 3px #bfefff, 0 0 0 5px #2f8fd0, 0 0 14px 3px rgba(127, 214, 255, .75) !important; }
+.fr-flame { box-shadow: 0 0 0 3px #ffb02e, 0 0 0 5px #c43c3c, 0 0 16px 4px rgba(255, 106, 26, .8) !important; animation: frflame 1.4s ease-in-out infinite; }
+.fr-prism { box-shadow: 0 0 0 3px #fff, 0 0 0 6px #9b6bff, 0 0 18px 5px rgba(212, 255, 31, .7) !important; animation: frprism 3s linear infinite; }
+@keyframes frflame { 50% { box-shadow: 0 0 0 3px #ffd84a, 0 0 0 5px #e8481c, 0 0 22px 7px rgba(255, 140, 40, .9); } }
+@keyframes frprism { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } }
+.cos-back { width: 54px; height: 81px; object-fit: cover; image-rendering: pixelated; box-shadow: var(--ps); }
+.cos-pfp { width: 56px; height: 56px; image-rendering: pixelated; background: var(--paper-2); margin: 6px; }
+.shop-card.owned { outline: 3px solid var(--lime); }
