@@ -374,7 +374,9 @@ export function drawSky(g, W, H, t, kind = 'island') {
     const smooth = g.imageSmoothingEnabled; g.imageSmoothingEnabled = false;
     g.drawImage(im, (W - w) / 2 + Math.sin(t * 0.03) * (w - W) / 2, (H - h) / 2, w, h);
     g.imageSmoothingEnabled = smooth;
+    g.globalAlpha = kind === 'aurora' ? 0.3 : 1;   // pale clouds at night
     drawPixelClouds(g, W, H, t);
+    g.globalAlpha = 1;
     return;
   }
   if (!skyGrad || skyH !== H) { skyGrad = g.createLinearGradient(0, 0, 0, H); skyGrad.addColorStop(0, '#6fc7ff'); skyGrad.addColorStop(0.55, '#a9e2ff'); skyGrad.addColorStop(1, '#f1d9ff'); skyH = H; }

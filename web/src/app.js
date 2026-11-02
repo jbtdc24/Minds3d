@@ -13,7 +13,7 @@ import { chatSigner } from './chatsign.js';
 import { initTown, openTown, closeTown } from './town.js';
 import { capOf, ENERGY_CAP } from './energy.js';
 import { loading } from './loader.js';
-import { wear, BACK_IMG, FRAME_CLASS } from './cosmetics.js';
+import { wear, BACK_IMG, FRAME_CLASS, SKY_IMG } from './cosmetics.js';
 import { openIsland, closeIsland, refreshHud, cropImg, fmtTime, restore } from './island/island.js';
 import { chibi } from './island/chibi.js';
 import { openRaid, closeRaid } from './island/raidview.js';
@@ -755,9 +755,10 @@ function paintShop() {
     const btn = (k, c) => owns(k) ? (cos[c.kind] === k ? `<button class="btn small" data-cos="none" data-kind="${c.kind}">✓ Wearing · take off</button>` : `<button class="btn small primary" data-cos="${k}" data-equip="1">Wear</button>`)
       : `<button class="btn small ${c.price.gems ? 'gem' : 'primary'}" data-cos="${k}" ${canAfford(st, c.price) ? '' : 'disabled'}>${costText(c.price)}</button>`;
     const pfp = thumb(me?.pfp || 49);
-    html = '<div class="shop-info px">✨ Looks only: they never make you stronger. Card backs show on your cards in every duel; frames go around your profile picture.</div>'
-      + Object.entries(COSMETICS).map(([k, c]) => shopCard(c.kind === 'back' ? `<img class="cos-back" src="${BACK_IMG[k]}" alt="">` : `<img class="cos-pfp ${FRAME_CLASS[k]}" src="${pfp}" alt="">`,
-        c.name, c.kind === 'back' ? 'Card back for your duels' : 'Frame for your profile picture', null, btn(k, c), owns(k) ? 'owned' : '')).join('');
+    const look = (k, c) => c.kind === 'back' ? `<img class="cos-back" src="${BACK_IMG[k]}" alt="">` : c.kind === 'sky' ? `<img class="cos-sky" src="${SKY_IMG[k]}" alt="">` : `<img class="cos-pfp ${FRAME_CLASS[k]}" src="${pfp}" alt="">`;
+    const what = { back: 'Card back for your duels', frame: 'Frame for your profile picture', sky: 'The sky around your island, for you and your raiders' };
+    html = '<div class="shop-info px">✨ Looks only: they never make you stronger. Card backs show in every duel, frames around your profile picture, skies around your island.</div>'
+      + Object.entries(COSMETICS).map(([k, c]) => shopCard(look(k, c), c.name, what[c.kind], null, btn(k, c), owns(k) ? 'owned' : '')).join('');
   } else {
     html = [['🌳', 'Decorations', 'Trees, statues, paths and lights for your island'], ['🃏', 'Card backs', 'Show off in every duel · 3,000 ✨'], ['🖼️', 'Profile frames', 'A frame around your profile picture · 5,000 ✨'],
       ['⚡', 'Energy shard', '+1 ranked energy for one Mind · 800 ✨ (1 a day)'], ['🛡️', 'Raid defenses', 'Walls, traps and guards for when raids arrive']]
@@ -1349,6 +1350,20 @@ async function roundScreen(view) {
   const lbl = $('#d-round'); lbl.classList.remove('new'); void lbl.offsetWidth; lbl.classList.add('new');
 }
 
+// a win rains pixel confetti and crowns over the screen
+function confetti() {
+  const box = el('div', 'confetti');
+  const cols = ['#d4ff1f', '#ffd84a', '#ff6fae', '#5ec8ff', '#9b6bff', '#ffffff'];
+  for (let i = 0; i < 70; i++) {
+    const p = el('i', i % 9 ? '' : 'crown');
+    p.style.left = `${Math.random() * 100}%`; p.style.background = i % 9 ? cols[i % cols.length] : '';
+    p.style.animationDelay = `${Math.random() * 0.9}s`; p.style.animationDuration = `${1.8 + Math.random() * 1.6}s`;
+    p.style.setProperty('--dx', `${(Math.random() - 0.5) * 160}px`); p.style.setProperty('--r', `${(Math.random() - 0.5) * 900}deg`);
+    box.append(p);
+  }
+  document.body.append(box);
+  setTimeout(() => box.remove(), 4200);
+}
 async function finish(v) {
   if (!D || D.finished) return;
   D.finished = true;
@@ -1361,6 +1376,7 @@ async function finish(v) {
   if (winF) { camTo(winF.home.x * 0.6, 1.3, 0.4, 2); const fx = setInterval(() => { if (current !== 'duel' && current !== 'result') return clearInterval(fx); stars(winF.pos.x, winF.height, 6); }, 400); setTimeout(() => clearInterval(fx), 4000); }
   sfx(won ? 'victory' : draw ? 'round' : 'defeat'); music(null);
   const title = won ? 'VICTORY!' : draw ? 'DRAW' : 'DEFEAT';
+  if (won) confetti();
   await banner(`<div class="bt ${won ? '' : draw ? 'white' : 'red'}">${title}</div>`, 1600);
   $('#r-title').textContent = title;
   $('#r-title').style.color = won ? 'var(--lime)' : draw ? '#fff' : 'var(--red)';

@@ -954,3 +954,9 @@ h3.raid-result { text-align: center; }
 .cos-back { width: 54px; height: 81px; object-fit: cover; image-rendering: pixelated; box-shadow: var(--ps); }
 .cos-pfp { width: 56px; height: 56px; image-rendering: pixelated; background: var(--paper-2); margin: 6px; }
 .shop-card.owned { outline: 3px solid var(--lime); }
+.cos-sky { width: 96px; height: 54px; object-fit: cover; image-rendering: pixelated; box-shadow: var(--ps); }
+/* victory confetti (pixel squares + a few crowns) */
+.confetti { position: fixed; inset: 0; z-index: 30; pointer-events: none; overflow: hidden; }
+.confetti i { position: absolute; top: -20px; width: 8px; height: 8px; animation: confall linear forwards; }
+.confetti i.crown { width: 22px; height: 18px; background: url(assets/crown.png) center / contain no-repeat; image-rendering: pixelated; }
+@keyframes confall { to { transform: translate(var(--dx), 110vh) rotate(var(--r)); } }

@@ -146,7 +146,7 @@ function frame(now) {
   const sx = (Math.random() - 0.5) * shake, sy = (Math.random() - 0.5) * shake; shake = Math.max(0, shake - dt * 20);
   g.setTransform(DPR, 0, 0, DPR, 0, 0); g.imageSmoothingEnabled = false;
   const boss = S.snap.theme === 'boss';
-  if (boss) bossSky(g, W, H, Tm); else drawSky(g, W, H, Tm);
+  if (boss) bossSky(g, W, H, Tm); else drawSky(g, W, H, Tm, /^sky_[a-z]+$/.test(S.snap.sky || '') ? S.snap.sky.slice(4) : 'island');
   g.setTransform(cam.z * DPR, 0, 0, cam.z * DPR, (W / 2 - cam.x * cam.z + sx) * DPR, (H / 2 - cam.y * cam.z + sy) * DPR);
   g.drawImage(boss ? lavaGround(S.snap.seed, gr.ground.cv) : gr.ground.cv, 0, 0);
   const wave = Math.sin(Tm * 1.4);

@@ -279,6 +279,8 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   ok(/costs/.test(R.act(st, { type: 'cosmetic', item: 'back_sun' }, ctx).error) && R.act(st, { type: 'cosmetic', item: 'frame_gold', equip: true }, ctx).error, 'premium looks need Gems; you cannot wear what you do not own');
   ok(R.act(st, { type: 'cosmetic', item: 'none', kind: 'back', equip: true }, ctx).done && st.cos.back === null && R.act(st, { type: 'cosmetic', item: 'back_ember', equip: true }, ctx).done && st.cos.back === 'back_ember', 'take a look off and put it back on');
   ok(R.act(st, { type: 'cosmetic', item: '__proto__' }, ctx).error && R.act(st, { type: 'cosmetic', item: 'constructor', equip: true }, ctx).error, 'odd names are refused');
+  st.dust = 6000; const RD = await import('../web/src/island/raid.js');
+  ok(R.act(st, { type: 'cosmetic', item: 'sky_aurora' }, ctx).done && st.cos.sky === 'sky_aurora' && RD.snapshotOf(seed, st).sky === 'sky_aurora', 'a sky look goes around your island, and raiders see it too');
 }
 
 // ---- edit mode: move a group of buildings together ----

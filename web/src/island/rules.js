@@ -106,6 +106,9 @@ export const COSMETICS = {
   frame_frost: { kind: 'frame', name: 'Ice Frame', price: { dust: 5000 } },
   frame_flame: { kind: 'frame', name: 'Flame Frame', price: { dust: 5000 } },
   frame_rainbow: { kind: 'frame', name: 'Prism Frame', price: { gems: 20 } },
+  sky_aurora: { kind: 'sky', name: 'Aurora Night', price: { dust: 6000 } },
+  sky_sakura: { kind: 'sky', name: 'Blossom Dawn', price: { dust: 6000 } },
+  sky_storm: { kind: 'sky', name: 'Golden Storm', price: { gems: 25 } },
 };
 export const TROOP_UP = { brawler: 1, archer: 1, bomber: 2, giant: 3 }, MAX_TL = 3;
 export const troopLv = (st, k) => Math.min(MAX_TL, Math.max(1, st.tl?.[k] | 0 || 1));
@@ -482,7 +485,7 @@ export function act(st, a, { seed, now, minds = 0, instant = false, queue = fals
     case 'cosmetic': {   // buy a look once, or equip one you own (item 'none' + kind takes it off)
       const c = COSMETICS[a.item], cos = (st.cos ||= { own: [] });
       if (a.equip) {
-        if (a.item === 'none' && (a.kind === 'back' || a.kind === 'frame')) { cos[a.kind] = null; done = 1; break; }
+        if (a.item === 'none' && ['back', 'frame', 'sky'].includes(a.kind)) { cos[a.kind] = null; done = 1; break; }
         if (!c || !cos.own.includes(a.item)) return { error: 'Get it first.' };
         cos[c.kind] = a.item; done = 1; break;
       }

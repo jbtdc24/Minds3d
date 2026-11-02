@@ -369,7 +369,7 @@ function frame(nowT) {
   spawnFx(dt, L);
   g.setTransform(DPR, 0, 0, DPR, 0, 0);
   g.imageSmoothingEnabled = false;
-  drawSky(g, W, H, Tm);
+  drawSky(g, W, H, Tm, isle.state.cos?.sky ? isle.state.cos.sky.slice(4) : 'island');   // a sky look, if you wear one
   g.setTransform(cam.z * DPR, 0, 0, cam.z * DPR, (W / 2 - cam.x * cam.z) * DPR, (H / 2 - cam.y * cam.z) * DPR);
   g.drawImage(gr.ground.cv, 0, 0);
   const wave = Math.sin(Tm * 1.4);

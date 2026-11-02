@@ -61,7 +61,7 @@ export const armyUsed = a => Object.entries(TROOPS).reduce((s, [k, d]) => s + (a
 export function snapshotOf(seed, st, guards = 2, extra = {}) {
   const tiles = {};
   for (const [k, t] of Object.entries(st.tiles)) tiles[k] = t.c ? { s: t.s, c: t.c } : { s: t.s };
-  return { seed, tiles, b: (st.b || []).filter(b => !b.done || b.uplv).map(b => ({ id: b.id, type: b.type, k: b.k, lv: b.lv || 1 })), guards: Math.max(2, Math.min(4, guards | 0)), ...extra };
+  return { seed, tiles, b: (st.b || []).filter(b => !b.done || b.uplv).map(b => ({ id: b.id, type: b.type, k: b.k, lv: b.lv || 1 })), guards: Math.max(2, Math.min(4, guards | 0)), ...(st.cos?.sky ? { sky: st.cos.sky } : {}), ...extra };   // sky: the defender's sky look
 }
 
 // what the raider's browser gets: hidden traps stay on the server, which replays the real snapshot

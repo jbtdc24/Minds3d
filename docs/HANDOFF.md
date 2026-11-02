@@ -19,6 +19,8 @@ PAUSED by owner 2026-11-02 ("save for later"). All checks pass, including the fu
 - [x] Duels show both sides' card back + frame (lib/game.js reads each island's cos once at match start; filler bots sometimes wear some so they look human). AI API cannot spend Gems on premium looks.
 - [x] Loading screen uses the painted sunset sky with warm pixel clouds.
 - [x] Mind Town: warm light/rays/pollen/vignette (drawCinema) + soft building shadows.
+- [x] Sky looks (cosmetic kind 'sky'): Aurora Night, Blossom Dawn (6,000 ✨), Golden Storm (25 💎); web/assets/sky_aurora|sakura|storm.webp (OpenArt LOW). Shown around your island and to raiders (snapshot.sky).
+- [x] Duel wins rain pixel confetti and crowns.
 
 ## REMAINING (saved for later)
 Owner to do:
