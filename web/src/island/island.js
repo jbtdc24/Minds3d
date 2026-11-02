@@ -324,7 +324,7 @@ function drawClouds(dt) {
   for (const c of clouds) {
     c.x += c.v * dt;
     if (c.x > WW + 80) c.x = -80;
-    for (const [dx, dy, r] of c.puffs) { g.beginPath(); g.ellipse(c.x + dx, c.y + dy, r, r * 0.6, 0, 0, Math.PI * 2); g.fill(); }
+    for (const [dx, dy, r] of c.puffs) g.fillRect(Math.round(c.x + dx - r), Math.round(c.y + dy - r * 0.6), Math.round(r * 2), Math.round(r * 1.2));   // blocky pixel cloud shadows
   }
 }
 function drawLights(L) {

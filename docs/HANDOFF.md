@@ -3,7 +3,7 @@
 
 ## CURRENT STATUS (2026-11-02)
 Live on main: all security fixes, server-run adventures, error monitoring, payment ledger and daily check, draft Terms and Privacy, harder Siege Cup, London region. SQL 007, 008 and 009 are run. Bots stay unlabelled outside Practice and Training. Owner said GO on the saved tasks (2026-11-02).
-Tasks 3, 4, 5 SHIPPED to main (2026-11-02). Task 0 (island timers) SHIPPED too. Mutation check miss FIXED (trap test now retries until the raid target really has traps). Tasks 6-11, 13, 14 done. Next: 10, 11, 13, 14, 12, then 1, 2 (owner: do all, don't stop, don't ask). Owner wants to keep going in the same chat: update this file after every task.
+Tasks 3, 4, 5 SHIPPED to main (2026-11-02). Task 0 (island timers) SHIPPED too. Mutation check miss FIXED (trap test now retries until the raid target really has traps). Tasks 6-14 done. Next: 1 (USDC), then 2 (animocaminds). Was next: 10, 11, 13, 14, 12, then 1, 2 (owner: do all, don't stop, don't ask). Owner wants to keep going in the same chat: update this file after every task.
 Order: tasks 6 to 14 in order, task 1 before Gems are sold, task 2 last.
 Owner decided 2026-11-02: Siege Cup = same budget, any mix. USDC prices = 50/$5, 120/$10, 300/$20, 800/$50, and ETH stays too (anything on Robinhood Chain). Keep Town rewards.
 Before public launch: confirm Supabase backups, fill in Terms and Privacy and get legal review (docs/LEGAL_REVIEW.md), add CRON_SECRET in Vercel, test capacity on a separate Supabase project, test Safari, Firefox and real phones, one real Gem purchase, two-wallet chat test.
@@ -24,14 +24,14 @@ Checks before any deploy: node tools/test_server.mjs, tools/fuzz_server.mjs, too
 10. [x] **Siege Cup: boss look.** Done: cup villages carry theme 'boss'; raidview draws scorched ground with lava cracks, red sky, embers, dark fortress buildings, no crops, battle music, "BOSS FORTRESS" banner. Possible polish: a real keep sprite for the home.
 11. [x] **Siege Cup: choose your army.** Done: CUP_BUDGET 9 camp space, any mix (cupArmy in lib/routes/cup.js validates; picker in app.js pickCupArmy). CUP_LEVEL raised to 5 so no mix makes it easy (test checks 5 mixes). Troop levels/Minds never count. Original: Strategy should decide it, not the game. Owner's concern: it can become pay-to-win or grind-to-win. Suggestion: everyone gets the same budget and picks any mix. Owner to confirm.
 
-12. [ ] **Pixel clouds + background environment** on the island and in adventures. Owner allows OpenArt for these backgrounds (2026-11-02): any/auto model, QUALITY ALWAYS LOW.
+12. [x] **Pixel clouds + background environment** DONE: web/assets/sky_island.webp + sky_adventure.webp (OpenArt Grok Imagine 2, quality LOW, ~70 KB each). art.js drawSky(g, W, H, t, kind) draws the backdrop with a slow drift plus code pixel clouds in two layers (falls back to the code sky). Island cloud shadows are blocky now. Was: Owner allows OpenArt for these backgrounds (2026-11-02): any/auto model, QUALITY ALWAYS LOW.
 13. [x] **Raid damage:** Done: rules.js burnVillage/burning/restore. A starred raid (player or game raiders) sets broken buildings on fire (st.burn). While burning: no harvest, no selling, Mind jobs stand still; after 3 h crops are lost. Restore: 80 Dust + 6 wood per building, or Gems, or free Minds repair (10 min per building, max 2 h). Island shows charred buildings, flames, smoke and a 🔥 Restore button. Original: a raided village is left burning/broken; the player must restore it to keep earning. While broken: crops are lost, no income.
 14. [x] **Raid history:** Done: 📜 button on the island → raids on you / your raids (st.raidLog + new st.atkLog), raids won; tap a raider's name → their own history (raid op 'history', names/stars/loot only); ⚔️ Revenge per entry. Original: see all raids on you, look at the raider's own history, then revenge (or other actions).
 
 Owner said GO (2026-11-02): work top to bottom.
 
 Owner: Mindclash game owner. Hates long text: short replies, decide for them, build/test/ship without asking
-(stop only for Supabase SQL, Vercel settings, money/payments, OpenArt credits). Everything is drawn in CODE (no OpenArt).
+(stop only for Supabase SQL, Vercel settings, money/payments). Drawn in CODE, except backgrounds: OpenArt allowed there, QUALITY ALWAYS LOW.
 
 ## Project
 - Repo https://github.com/jbtdc24/Minds3d (local D:\ANIMOCA MINDS\MINDS.GAMES\Minds3d). Live https://minds3d.vercel.app

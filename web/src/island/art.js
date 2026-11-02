@@ -346,7 +346,37 @@ export const toolSprites = {
 // ---------- the sky behind the floating islands ----------
 let skyGrad = null, skyH = 0;
 const farRocks = Array.from({ length: 9 }, (_, i) => ({ x: (i * 0.137 + 0.05) % 1, y: 0.15 + ((i * 0.61) % 1) * 0.75, s: 0.4 + ((i * 0.37) % 1) * 0.8, v: 3 + i % 4 }));
-export function drawSky(g, W, H, t) {
+// painted backdrops (assets/sky_*.webp) slide slowly behind the island; until one loads, the code sky shows
+const skyImg = {};
+const backdrop = kind => {
+  if (!(kind in skyImg)) { const im = new Image(); im.decoding = 'async'; im.src = `assets/sky_${kind}.webp`; skyImg[kind] = im; im.onerror = () => { skyImg[kind] = null; }; }
+  const im = skyImg[kind];
+  return im && im.complete && im.naturalWidth ? im : null;
+};
+// blocky pixel clouds drifting across the screen in two layers (far: slow and pale, near: faster and whiter)
+const pxClouds = Array.from({ length: 10 }, (_, i) => ({ x: (i * 0.31) % 1, y: 0.06 + ((i * 0.53) % 1) * 0.85, near: i % 3 === 0, w: 3 + (i * 7) % 4,
+  puffs: Array.from({ length: 4 }, (_, j) => [((j * 37 + i * 11) % 17) - 8, ((j * 13 + i * 5) % 5) - 2, 4 + ((i + j * 3) % 4)]) }));
+function drawPixelClouds(g, W, H, t) {
+  const px = Math.max(3, Math.round(Math.min(W, H) / 160));   // one cloud "pixel" on screen
+  for (const c of pxClouds) {
+    const sp = c.near ? 14 : 6, span = W + 60 * px, x = ((c.x * span + t * sp) % span) - 30 * px, y = c.y * H;
+    for (const [dx, dy, r] of c.puffs) {
+      const cx = Math.round((x + dx * px * c.w * 0.5) / px) * px, cy = Math.round((y + dy * px) / px) * px, rw = r * px * 2, rh = Math.max(px * 2, Math.round(r * 0.55) * px);
+      g.fillStyle = c.near ? 'rgba(206,214,245,.85)' : 'rgba(225,232,255,.45)'; g.fillRect(cx - rw / 2, cy, rw, rh);   // shaded underside
+      g.fillStyle = c.near ? 'rgba(255,255,255,.95)' : 'rgba(255,255,255,.55)'; g.fillRect(cx - rw / 2 + px, cy - px, rw - px * 2, rh - px);
+    }
+  }
+}
+export function drawSky(g, W, H, t, kind = 'island') {
+  const im = backdrop(kind);
+  if (im) {   // cover the screen, drifting a little sideways
+    const s = Math.max(W / im.naturalWidth, H / im.naturalHeight) * 1.08, w = im.naturalWidth * s, h = im.naturalHeight * s;
+    const smooth = g.imageSmoothingEnabled; g.imageSmoothingEnabled = false;
+    g.drawImage(im, (W - w) / 2 + Math.sin(t * 0.03) * (w - W) / 2, (H - h) / 2, w, h);
+    g.imageSmoothingEnabled = smooth;
+    drawPixelClouds(g, W, H, t);
+    return;
+  }
   if (!skyGrad || skyH !== H) { skyGrad = g.createLinearGradient(0, 0, 0, H); skyGrad.addColorStop(0, '#6fc7ff'); skyGrad.addColorStop(0.55, '#a9e2ff'); skyGrad.addColorStop(1, '#f1d9ff'); skyH = H; }
   g.fillStyle = skyGrad; g.fillRect(0, 0, W, H);
   for (const r of farRocks) {
@@ -355,4 +385,5 @@ export function drawSky(g, W, H, t) {
     g.fillStyle = 'rgba(110,120,170,.28)'; g.beginPath(); g.moveTo(x - s * 1.3, y); g.lineTo(x, y + s * 1.4); g.lineTo(x + s * 1.3, y); g.fill();
     g.fillStyle = 'rgba(160,220,170,.35)'; g.fillRect(x - s * 1.4, y - s * 0.5, s * 2.8, s * 0.3);
   }
+  drawPixelClouds(g, W, H, t);
 }

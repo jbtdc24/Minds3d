@@ -123,7 +123,7 @@ function frame(now) {
   cam.x += (h.x - cam.x) * Math.min(1, dt * 6); cam.y += (h.y - 10 - cam.y) * Math.min(1, dt * 6);
   const sx = (Math.random() - 0.5) * shake, sy = (Math.random() - 0.5) * shake; shake = Math.max(0, shake - dt * 20);
   g.setTransform(DPR, 0, 0, DPR, 0, 0); g.imageSmoothingEnabled = false;
-  drawSky(g, W, H, Tm);
+  drawSky(g, W, H, Tm, 'adventure');
   g.setTransform(cam.z * DPR, 0, 0, cam.z * DPR, (W / 2 - cam.x * cam.z + sx) * DPR, (H / 2 - cam.y * cam.z + sy) * DPR);
   g.drawImage(A.ground.cv, 0, 0);
   const wave = Math.sin(Tm * 1.4);
