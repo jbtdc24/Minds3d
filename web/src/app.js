@@ -1149,15 +1149,23 @@ async function revealTurn(ev, seat, side) {
     else if (st.k === 'trap') { rvMsg(`TRAP! ${s === 0 ? 'You steal' : 'Rival steals'} the crown from the 7!`, s === 0 ? 'good' : 'bad'); sfx('trap'); shake(16); flash(0.35, '#c9a6ff'); ring(D.F[1 - s].pos.x, 0.2, '#9b6bff', 40, 1.2); }
     else if (st.k === 'trapMiss') { rvMsg(`${s === 0 ? 'Your' : 'Rival'} Trap missed (no 7 won)`, ''); sfx('miss'); cols[s].querySelector('.chip')?.classList.add('x'); }
     else if (st.k === 'doubleTie') { rvMsg(`Tie, but ${s === 0 ? 'your' : 'rival'} Double wins it!`, 'magic'); sfx('buff'); }
-    else if (st.k === 'double') { rvMsg(`DOUBLE! Crown x${st.mult}`, 'magic'); sfx('levelup'); stars(f.pos.x, 2.2, 14); }
+    else if (st.k === 'double') {
+      rvMsg(`DOUBLE! Crown x${st.mult}`, 'magic'); sfx('levelup'); stars(f.pos.x, 2.2, 14);
+      // the prize on top grows too, so it always matches the points that fly to the winner
+      $('#d-crown').textContent = ev.pot * st.mult; const cb = $('#d-crownbox'); cb.classList.remove('new'); void cb.offsetWidth; cb.classList.add('new');
+    }
     await wait(1000);
   }
   const w = ev.win === null ? null : side(ev.win);
   const scores = [ev.scores[seat], ev.scores[1 - seat]];
-  if (w === null) { rvMsg('Tie! The crown carries to the next turn', ''); sfx('block'); }
+  // the result in big letters: who won, how many points, and where the points came from
+  const how = [`crown ${ev.crown}`, ev.pot > ev.crown ? `+ ${ev.pot - ev.crown} from the tie` : '', ev.mult > 1 ? `x${ev.mult} Double` : '',
+    ev.steps.some(s => s.k === 'trap') ? 'stolen with Trap' : ev.steps.some(s => s.k === 'reverse') ? 'lower card won (Reverse)' : ''].filter(Boolean).join(' · ');
+  const result = (title, sub, cls) => { const m = $('#rv-msg'); m.className = 'rv-msg px'; void m.offsetWidth; m.innerHTML = `<b>${title}</b><span>${sub}</span>`; m.className = `rv-msg px on result ${cls}`; };
+  if (w === null) { cols.forEach(c => c.classList.add('tie')); result('TIE!', `Nobody wins: the ${ev.pot} 👑 carries to the next turn`, ''); sfx('block'); }
   else {
     cols[w].classList.add('win'); cols[1 - w].classList.add('lose');
-    rvMsg(`${w === 0 ? 'You take' : 'Rival takes'} ${ev.points} 👑`, w === 0 ? 'good' : 'bad');
+    result(w === 0 ? `YOU WIN +${ev.points} 👑` : `RIVAL WINS +${ev.points} 👑`, how, w === 0 ? 'good' : 'bad');
     flyCrown(w); sfx(w === 0 ? 'coin' : 'hit');
   }
   // fighter animation runs on requestAnimationFrame (paused in hidden tabs): never let it block the game

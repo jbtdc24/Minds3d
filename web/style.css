@@ -274,6 +274,15 @@ img.vi { width: .9em; height: .9em; object-fit: contain; vertical-align: -.1em; 
 .rv-msg { position: absolute; left: 50%; bottom: max(30px, 7vh); transform: translateX(-50%); background: var(--paper); padding: 6px 18px; text-align: center; font-size: clamp(19px, 3vw, 25px); display: none; z-index: 6; max-width: min(620px, 90vw); }
 .rv-msg.on { display: block; animation: drop .3s cubic-bezier(.3,1.6,.5,1); }
 .rv-msg.good { background: var(--lime); } .rv-msg.bad { background: #ffd0d5; } .rv-msg.magic { background: #e6dbff; }
+/* the turn result: big title + where the points came from */
+.rv-msg.result { padding: 8px 26px 10px; } .rv-msg.result b { display: block; font-size: clamp(28px, 5.4vw, 44px); line-height: 1.05; letter-spacing: .04em; }
+.rv-msg.result span { display: block; font-size: clamp(14px, 2.2vw, 18px); opacity: .8; }
+.rv-msg.result.bad { background: var(--red); color: #fff; }
+/* WIN / LOSE / TIE stamped on the revealed cards */
+.rv-col.win .rcard::after, .rv-col.lose .rcard::after, .rv-col.tie .rcard::after { position: absolute; left: 50%; bottom: -12px; transform: translateX(-50%) rotate(-6deg); z-index: 3; padding: 1px 10px; font-size: clamp(16px, 2.6vw, 22px); font-weight: 900; letter-spacing: .08em; box-shadow: var(--ps); animation: drop .3s cubic-bezier(.3,1.6,.5,1); }
+.rv-col.win .rcard::after { content: 'WIN'; background: var(--lime); color: var(--ink); }
+.rv-col.lose .rcard::after { content: 'LOSE'; background: var(--red); color: #fff; }
+.rv-col.tie .rcard::after { content: 'TIE'; background: #fff; color: var(--ink); }
 
 /* tutorial coach */
 .coach { position: absolute; left: 12px; top: calc(max(10px, env(safe-area-inset-top)) + 92px); z-index: 20; display: none; gap: 12px; align-items: flex-start; background: var(--paper); padding: 12px 14px; width: min(440px, 34vw); }

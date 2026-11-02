@@ -3,7 +3,7 @@
 
 ## CURRENT STATUS (2026-11-02)
 Live on main: all security fixes, server-run adventures, error monitoring, payment ledger and daily check, draft Terms and Privacy, harder Siege Cup, London region. SQL 007, 008 and 009 are run. Bots stay unlabelled outside Practice and Training. Owner said GO on the saved tasks (2026-11-02).
-Tasks 3 and 4 DONE on branch island (not yet merged to main). Next: task 5, then 6 to 11 in order, task 1 before Gems are sold, task 2 last.
+Tasks 3, 4, 5 DONE on branch island (not yet merged to main). Next: task 6, then 7 to 14 in order, task 1 before Gems are sold, task 2 last.
 Owner decided 2026-11-02: Siege Cup = same budget, any mix. USDC prices = 50/$5, 120/$10, 300/$20, 800/$50, and ETH stays too (anything on Robinhood Chain). Keep Town rewards.
 Before public launch: confirm Supabase backups, fill in Terms and Privacy and get legal review (docs/LEGAL_REVIEW.md), add CRON_SECRET in Vercel, test capacity on a separate Supabase project, test Safari, Firefox and real phones, one real Gem purchase, two-wallet chat test.
 Ideas on hold: Mind Office, Season Pass, cosmetics, referrals, Town moderation, pitch deck, AI demo, trailer, Train Mind and Auto Battle, play.minds.games domain, Minds Investment Programme application.
@@ -14,7 +14,7 @@ Checks before any deploy: node tools/test_server.mjs, tools/fuzz_server.mjs, too
 2. [ ] **AI connects to animocaminds.** Do this LAST, after everything else is final.
 3. [x] **Duel: prize timing.** Fixed: app.js handle() keeps newer views in D.pending while a reveal runs, so live pushes no longer repaint the prize mid-animation.
 4. [x] **Duel: round change.** Done: roundScreen() in app.js = dimmed screen with ROUND 2 / FINAL ROUND, both Minds, round crowns and score (2.6 s); duel HUD hides meanwhile.
-5. [ ] **Duel: clear result.** The crown prize does not match the action, and it is unclear who won. Make each result obvious.
+5. [x] **Duel: clear result.** Done: big "YOU WIN +N 👑 / RIVAL WINS / TIE" box with where the points came from, WIN/LOSE/TIE stamps on the cards, prize box grows on Double so it matches the points.
 6. [ ] **Raid: loading screen.** Current one looks bad. Design a proper one, and loading screens elsewhere if needed, including for when many players are online.
 7. [ ] **Buildings: show what upgrades do.** Show stats before and after.
 8. [ ] **Buildings: looks change with level.** Each level should look different.
@@ -22,7 +22,11 @@ Checks before any deploy: node tools/test_server.mjs, tools/fuzz_server.mjs, too
 10. [ ] **Siege Cup: boss look.** Boss levels, lava style, not a regular town. Best one wins.
 11. [ ] **Siege Cup: choose your army.** Strategy should decide it, not the game. Owner's concern: it can become pay-to-win or grind-to-win. Suggestion: everyone gets the same budget and picks any mix. Owner to confirm.
 
-Owner said list only, do not build yet. Start when the owner says.
+12. [ ] **Pixel clouds + background environment** on the island and in adventures. Owner allows OpenArt for these backgrounds (2026-11-02): any/auto model, QUALITY ALWAYS LOW.
+13. [ ] **Raid damage:** a raided village is left burning/broken; the player must restore it to keep earning. While broken: crops are lost, no income.
+14. [ ] **Raid history:** see all raids on you, look at the raider's own history, then revenge (or other actions).
+
+Owner said GO (2026-11-02): work top to bottom.
 
 Owner: Mindclash game owner. Hates long text: short replies, decide for them, build/test/ship without asking
 (stop only for Supabase SQL, Vercel settings, money/payments, OpenArt credits). Everything is drawn in CODE (no OpenArt).
