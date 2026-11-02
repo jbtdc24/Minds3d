@@ -1310,6 +1310,38 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   const isl = p => T.islands.find(x => x.player_id === p.id);
   const hit = async (fn, p, body, method = 'POST', query = {}, tok) => { const token = tok || signSession({ id: p.id, address: p.address }); let o = null; const res = { setHeader() {}, end(t) { o = { code: this.statusCode, body: JSON.parse(t) }; }, headersSent: false }; await fn({ method, url: '/api/x', headers: { authorization: 'Bearer ' + token }, body, query }, res); return o; };
 
+  {   // 🧠 Mind Autopilot: plans, Gem layers, and steps that play by the normal rules
+    const autopilot = await rt('autopilot'), AP = await import('../web/src/island/autoplay.js');
+    const M = await mk('AutoMind');
+    const plan = AP.parsePlan('farm, then raid, then go to town for 2 hours and duel 3 times');
+    ok(JSON.stringify(plan.steps.map(x => x.do)) === '["farm","raid","town","duel"]' && plan.steps[2].min === 120 && plan.steps[3].n === 3, 'a typed message becomes a plan in the order it was said');
+    ok(AP.parsePlan('stop now').stop && AP.parsePlan('be a farmer').preset === 'farmer' && AP.parsePlan('blah blah').talk, 'stop, presets and unknown words are understood');
+    ok(AP.cleanPlan([{ do: 'hack' }, { do: 'wait', min: 99999 }, { do: 'duel', n: 50 }]).every(x => x.do !== 'hack') && AP.cleanPlan([{ do: 'wait', min: 99999 }])[0].min === 240 && AP.cleanPlan([{ do: 'duel', n: 50 }])[0].n === 10, 'plans keep known steps and sane numbers only');
+    ok((await hit(autopilot, M, { op: 'save', steps: [] })).code === 400, 'an empty plan is refused');
+    let out = await hit(autopilot, M, { op: 'save', steps: AP.PRESETS.daily.steps, preset: 'daily' });
+    ok(out.code === 200 && out.body.steps.length === AP.PRESETS.daily.steps.length && !out.body.gems.on, 'a preset plan is saved, Gems start OFF');
+    ok((await hit(autopilot, M, { op: 'gems', on: true, cap: 10 })).code === 400, 'Gems need the typed CONFIRM');
+    ok((await hit(autopilot, M, { op: 'gems', on: true, cap: 500, confirm: 'CONFIRM' })).code === 400, 'the daily Gem limit has a maximum');
+    out = await hit(autopilot, M, { op: 'gems', on: true, cap: 4, confirm: 'CONFIRM' });
+    ok(out.code === 200 && out.body.gems.on && out.body.gems.cap === 4, 'Gems turn on with a limit and CONFIRM');
+    const st = isl(M).state, plots = Object.keys(st.tiles).filter(k => st.tiles[k].s === 'p');
+    out = await hit(autopilot, M, { op: 'step', do: 'farm' });
+    ok(out.code === 200 && (!plots.length || out.body.ok), `the farm step plays through the island rules: ${out.body.text}`);
+    out = await hit(autopilot, M, { op: 'step', do: 'decorate' });
+    ok(out.body.ok && (isl(M).state.b || []).some(b => ['flowers', 'lamp', 'bench', 'banner'].includes(b.type)) && isl(M).state.dust >= 400, `the Mind decorates with spare Dust and keeps some: ${out.body.text}`);
+    ok(!(isl(M).state.b || []).some(b => R.BUILD[b.type]?.gem), 'the Mind never buys Gem decorations');
+    isl(M).state.rd = { day: new Date().toISOString().slice(0, 10), n: 99 }; isl(M).state.inv.troop_brawler = 10;
+    const g0 = isl(M).state.gems;
+    out = await hit(autopilot, M, { op: 'step', do: 'raid' });
+    ok(isl(M).state.gems === g0 - 4 && isl(M).state.ap.gems.spent === 4, `out of raids, the Mind buys one Raid Ticket within the limit: ${out.body.text}`);
+    isl(M).state.rd = { day: new Date().toISOString().slice(0, 10), n: 99 }; delete isl(M).state.inv.raid_ticket;
+    out = await hit(autopilot, M, { op: 'step', do: 'raid' });
+    ok(!out.body.ok && isl(M).state.gems === g0 - 4, 'over the daily limit the Mind spends no more Gems');
+    ok((await hit(autopilot, M, { op: 'gems', on: false })).body.gems.on === false, 'one tap turns Gem spending off');
+    ok(isl(M).state.ap.log.some(l => /spent 4 Gems/.test(l.text)), 'every Gem spent is in the log');
+    ok((await hit(autopilot, M, { op: 'step', do: 'nope' })).code === 400, 'unknown steps are refused');
+  }
+
   const P = await mk('Racer');
   T.mail.push({ id: 700, to_id: null, title: 'Gift', body: '', gift: { gems: 7 }, created_at: new Date().toISOString() });
   const g0 = isl(P).state.gems;

@@ -106,6 +106,21 @@
       <button class="mode px soon" id="hub-auto" hidden></button>
       <div class="guest-note px" id="guest-note">Trial mode: play <b>Classic</b> with everyone and <b>Practice</b> vs bots using demo Minds. <a href="#" id="guest-connect">Connect a wallet</a> to play ranked with your own Minds.</div>
     </div>
+    <div class="col-mind panel px" id="mindp">
+      <div class="mp-head"><img id="mp-pfp" alt=""><div><b>🧠 <span id="mp-name">Your Mind</span></b><small>Autopilot: your Mind plays for you</small></div><button class="iconbtn px small" id="mp-fold" title="Fold">▾</button></div>
+      <div class="mp-body">
+        <div class="mp-plan" id="mp-plan"></div>
+        <div class="mp-now" id="mp-now"></div>
+        <div class="mp-row"><button class="btn primary" id="mp-go">▶ Start</button><button class="btn small" id="mp-gems" title="Let your Mind spend Gems (off by default)">💎 Gems OFF</button></div>
+        <div class="label">Plans</div>
+        <div class="mp-presets" id="mp-presets"></div>
+        <div class="label">Train your Mind</div>
+        <div class="mp-chat" id="mp-chat"></div>
+        <div class="fr-add"><input id="mp-in" maxlength="200" placeholder="e.g. farm, then raid, then town for 1 hour"><button class="btn small primary" id="mp-send">Send</button></div>
+        <div class="label">What it did</div>
+        <ol class="mp-log" id="mp-log"></ol>
+      </div>
+    </div>
     <button class="board-tab px" id="board-tab" title="Show leaderboard"><img src="assets/icon_trophy.png" alt=""><span>TOP</span><div class="tab-pfps" id="board-tab-pfps"></div><b>‹</b></button>
     <div class="col-board panel px" id="board">
       <div class="board-head"><img src="assets/icon_trophy.png" alt=""><h3>Leaderboard</h3><span class="live">● LIVE</span><button class="iconbtn px small" id="board-hide" title="Hide leaderboard">›</button></div>

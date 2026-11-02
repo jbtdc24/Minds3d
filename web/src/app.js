@@ -11,6 +11,7 @@ import { PHRASES, MATCH_CHAT, FRIEND_CHAT, BOT_REPLIES } from './chat.js';
 import { initMindTalk, openMinds } from './mindtalk.js';
 import { chatSigner } from './chatsign.js';
 import { initTown, openTown, closeTown, setMega } from './town.js';
+import { initAutopilot, openAutopilot } from './autopilot.js';
 import { capOf, ENERGY_CAP } from './energy.js';
 import { loading } from './loader.js';
 import { wear, nameLook, frameCls, nameCls, BACK_IMG, FRAME_CLASS, SKY_IMG, NAME_CLASS } from './cosmetics.js';
@@ -145,7 +146,8 @@ function lobbyLayout() {
   // centre the plaza (and the Minds on it) in the free space between the play column and the leaderboard
   const l = $('.col-play').getBoundingClientRect(), open = !$('#s-hub').classList.contains('board-closed');
   const r = open ? $('#board').getBoundingClientRect() : $('#board-tab').getBoundingClientRect();
-  const free = l.width && current === 'hub' ? (l.right + (r.width ? r.left : innerWidth)) / 2 : innerWidth / 2;
+  const mp = $('#mindp')?.getBoundingClientRect(), right = Math.min(r.width ? r.left : innerWidth, mp?.width ? mp.left : innerWidth);   // the Mind panel sits on the right too
+  const free = l.width && current === 'hub' ? (l.right + right) / 2 : innerWidth / 2;
   camSnap(-(free - innerWidth / 2) / stage.K, 1);
 }
 // collapsible leaderboard: open by default on wide screens, a slim tab otherwise
@@ -238,6 +240,7 @@ async function enterHub() {
   lobbyScene(showcaseIds());
   loadBoard();
   friendsPoll();
+  openAutopilot();
   if (!settings.tutorialDone && !settings.tutorialAsked) {
     settings.tutorialAsked = true; saveSettings();
     const r = await modal(`<img class="wide" src="assets/stage_meadow.webp" alt=""><h3>New here?</h3><p>Learn MINDS CLASH in 2 minutes with a guided duel.</p>`, [['Start tutorial', 1, 'primary'], ['Skip', 0]]);
@@ -1532,6 +1535,12 @@ $('#pf-save').onclick = async () => {
 
 const chat = chatSigner(api);
 initMindTalk({ minds: () => (guest ? [] : myMinds), esc });
+// 🧠 Mind Autopilot (lobby panel): it plays only while you sit in the lobby, and waits while you play yourself
+let apRefresh = 0;
+initAutopilot({ api, esc, toast, modal, sfx, babble, online: () => online, guest: () => guest, idle: () => current === 'hub' && !document.querySelector('#modal.on'),
+  mindId: () => me?.pfp || myMinds[0] || 1, mindName: () => me ? `${me.name}'s Mind #${me.pfp}` : 'Your Mind', pfp: () => thumb(me?.pfp || 49),
+  myMinds: () => myMinds, energyOf: id => energyOf(id),
+  refresh: () => { resetIsland(); if (Date.now() - apRefresh > 20e3) { apRefresh = Date.now(); refreshMe().then(() => { if (current === 'hub') paintHub(); }).catch(() => {}); } } });
 initTown({ minds: () => (guest ? [] : myMinds), api, esc, toast, online: () => online, go: townGo, card: playerCard, mega: megaphone, me: () => me?.id, name: () => me?.name || 'You', canChat: () => online && !guest, chat });
 
 // ---------- friends + friend chat (preset lines) ----------

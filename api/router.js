@@ -32,11 +32,12 @@ import logout_all from '../lib/routes/logout_all.js';
 import errors_report from '../lib/routes/errors_report.js';
 import cron_reconcile from '../lib/routes/cron_reconcile.js';
 import town from '../lib/routes/town.js';
+import autopilot from '../lib/routes/autopilot.js';
 
 const ROUTES = {
   'auth/nonce': auth_nonce, 'auth/verify': auth_verify, 'auth/guest': auth_guest, me, profile,
   'queue/join': queue_join, 'queue/poll': queue_poll, 'queue/leave': queue_leave,
-  'match/view': match_view, 'match/act': match_act, 'match/forfeit': match_forfeit, 'match/chat': match_chat, leaderboard, player, friends, friend, messages, island, raid, adventure, admin, gems, energy, mail, report, agent, 'agent/keys': agentKeys, cup, town, 'chat/cert': chat_cert, 'auth/logout-all': logout_all, 'errors/report': errors_report, 'cron/reconcile': cron_reconcile,
+  'match/view': match_view, 'match/act': match_act, 'match/forfeit': match_forfeit, 'match/chat': match_chat, leaderboard, player, friends, friend, messages, island, raid, adventure, admin, gems, energy, mail, report, agent, 'agent/keys': agentKeys, cup, town, autopilot, 'chat/cert': chat_cert, 'auth/logout-all': logout_all, 'errors/report': errors_report, 'cron/reconcile': cron_reconcile,
 };
 
 export default async function handler(req, res) {

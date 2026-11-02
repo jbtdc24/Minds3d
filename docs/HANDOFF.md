@@ -2,7 +2,8 @@
 # HANDOFF — read this first (next AI session: continue from the top of "NEXT TASKS")
 
 ## >>> START AT "ROUND 12" BELOW <<<
-## CURRENT STATUS (2026-11-03)
+## CURRENT STATUS (2026-11-03, late)
+ROUND 12 SHIPPED to main (all tasks below). Only open part: real Minds AI chat per player needs Minds Connect = OWNER gives the OAuth client ID (see task 10).
 Live on main (latest 201902d): everything below through ROUND 11, plus village helpers. 465 tests pass; fuzz, economy audit and full mutation check pass.
 Done 2026-11-02/03: all saved tasks 0-14, round 10 (staked Minds, island edit mode, boss fortress, Giants, helpers), round 11 (cosmetics: 4 card backs, 4 frames, 3 skies, 3 name colours, rival sees looks; victory confetti; 2 new duel arenas; painted loading sky; warmer Mind Town).
 STABLE_TOKEN is set in Vercel (owner, 2026-11-02) and redeployed.
@@ -13,18 +14,18 @@ Minds Builder API (2026-11-03): owner got a Builder API key (JWT, role builder, 
 If a table is added to the prototype-lock line in rules.js, also update tools/mutation_check.mjs line 56.
 
 ## ROUND 12 (owner 2026-11-03) — NEXT TASKS, do top to bottom (quick fixes first, big Mind Autopilot last)
-1. [ ] Opening screen: title text covers the characters; Start/Enter button covers the 3 legendary Minds. Move them.
-2. [ ] Island build menu must scroll (list of things to build).
-3. [ ] Cosmetics hard to find: owner can't see them. Make the ✨ Style shop obvious (lobby/profile entry, not only Shop tab).
-4. [ ] Skins bug: two phones dueling see different backgrounds. Arena (and sky) must come from match state so both see the same.
-4b. [ ] Paid cosmetics visible to other players EVERYWHERE (duel, town, raid, profile, friends); paid looks win over defaults.
-4c. [ ] Default cards look plain: decorate the default card back/front (OpenArt LOW allowed).
-5. [ ] Siege Cup prize: house keeps 10% of the prize pool, winner gets 90%. Show it on the cup screen.
-6. [ ] Raid targets: real player villages first, bot villages only as fill (still some for fun). Game raiders on players stay.
-7. [ ] Chat/history retention (AI decided): all chat (friend, duel, private) deleted after 90 days; Mind Town public chat 7 days; mail 90 days; raid/attack logs keep newest 50 per player; reports 180 days. Daily cron cleans.
-8. [ ] Mind Town: tap ANY Mind → card with owner name, rating, wins, island level, looks; Add friend, Private chat (allowed before friends, blockable/reportable), Duel invite. 📣 Megaphone: 1 💎 puts a message over your head for 1 hour (server-checked, filtered, reportable).
-9. [ ] Cuter Mind voices: higher, softer gibberish (audio.js), little chirps; same for raid screams.
-10. [ ] REAL MIND TALK + MIND AUTOPILOT (showcase: "your Mind plays the game for you"):
+1. [x] Opening screen (logo top, Tap to Play bottom; style.css .boot): title text covers the characters; Start/Enter button covers the 3 legendary Minds. Move them.
+2. [x] Island build menu scrolls (.isl-seeds max-height + overflow) (list of things to build).
+3. [x] DONE: gold ✨ button in the lobby top bar + "Change my looks" in your profile + Style is the 2nd shop tab. Was: owner can't see them. Make the ✨ Style shop obvious (lobby/profile entry, not only Shop tab).
+4. [x] Arena = hash of match id (app.js arenaFor), same on both phones. Was: two phones dueling see different backgrounds. Arena (and sky) must come from match state so both see the same.
+4b. [x] lib/looks.js looksOf/withLooks (20 s cache) adds cos to profile, leaderboard, friends, Mind Town (name colour + frame-coloured tag); duels/raids already had it. Was: Paid cosmetics visible to other players EVERYWHERE (duel, town, raid, profile, friends); paid looks win over defaults.
+4c. [x] CSS: coloured pixel frame, side gems, glow, diamond pattern on hand cards and reveal faces (no OpenArt needed). Was: decorate the default card back/front (OpenArt LOW allowed).
+5. [x] cup.js CUP_FEE 0.10, prizePool(); GET shows prize + fee. Was: house keeps 10% of the prize pool, winner gets 90%. Show it on the cup screen.
+6. [x] raid.js BOT_FUN 0.15, real pool limit 150. Was: real player villages first, bot villages only as fill (still some for fun). Game raiders on players stay.
+7. [x] lib/retention.js prune() (daily cron + maybePrune on chat routes); raid logs 50; privacy page updated. Was (AI decided): all chat (friend, duel, private) deleted after 90 days; Mind Town public chat 7 days; mail 90 days; raid/attack logs keep newest 50 per player; reports 180 days. Daily cron cleans.
+8. [x] town.js tap → app.js playerCard (stats, Add friend, Message, Profile, Report, Block); residents show Mind # + rarity. messages.js: anyone with a wallet can DM unless blocked (friend op 'block'); friends route returns chats. 📣 town op 'mega' (st.mega, 1 💎, 1 h). Was: Mind Town: tap ANY Mind → card with owner name, rating, wins, island level, looks; Add friend, Private chat (allowed before friends, blockable/reportable), Duel invite. 📣 Megaphone: 1 💎 puts a message over your head for 1 hour (server-checked, filtered, reportable).
+9. [x] audio.js babble/squeak: high sine blips with a hop, wobble, cute syllables. Was: higher, softer gibberish (audio.js), little chirps; same for raid screams.
+10. [~] BUILT: lobby panel 🧠 Your Mind (web/src/autopilot.js), plans + chat-to-plan + moves in web/src/island/autoplay.js, server steps lib/routes/autopilot.js (uses agent.js runOp, so same rules; ranked by the Mind is AI-labelled via ai_until). Runs while the lobby tab is open, pauses while you play; Mind jobs farm when closed. Gems: 3 layers (warning, daily cap 3/10/25, type CONFIRM), server cap + log; only Raid/Adventure Tickets and energy. LEFT: real AI talk via Minds Connect (blocked on client ID). Was: REAL MIND TALK + MIND AUTOPILOT (showcase: "your Mind plays the game for you"):
    - Lobby side panel "🧠 Your Mind": presets (Farmer, Raider, Ranked grinder, Explorer, Balanced daily loop, Decorator) + a chat box to train it manually after a preset.
    - Mind can do everything through the existing /api/agent ops: plant/harvest, decorate, build, raid, adventure, ranked duels, visit Mind Town for rewards, then loop (e.g. farm → adventure → duel → town few hours → farm → raid).
    - OWNER DECIDED 2026-11-03: every player signs in with Minds Connect (or makes a Minds account in the flow), and the game AWAKENS ONE AI MIND PER MINDS NFT they own (POST /v1/minds/awaken, scope minds:awaken; names checked with /v1/minds/check/name, e.g. Clash-1234). Each AI Mind chats/trains/plays for its NFT (messaging:send). One at a time with progress; stop cleanly if Minds refuses (per-account limit and credit cost unknown). Sold NFT = AI Mind stops playing it in game. BLOCKER for this part: owner registers an OAuth client in https://build.hellominds.ai/console (redirects https://minds3d.vercel.app/ + http://localhost:5173/, scopes minds:awaken, messaging:send, read minds) and gives the client ID (no secret).
