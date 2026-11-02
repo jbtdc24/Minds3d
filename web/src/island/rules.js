@@ -95,7 +95,7 @@ export const upgradeSecs = b => b.type === 'wall' ? 0 : Math.round((BUILD_SECS[b
 export const hpMult = lv => 1 + 0.5 * ((lv || 1) - 1);
 // troop levels (1-3): each level gives +20% HP and damage. Weights match each troop's camp space (raid.js TROOPS; a test checks).
 // Lv2 needs an Army Camp, Lv3 needs an Army Camp at Lv2. The Siege Cup ignores troop levels (same army for everyone).
-export const TROOP_UP = { brawler: 1, archer: 1, bomber: 2, giant: 4 }, MAX_TL = 3;
+export const TROOP_UP = { brawler: 1, archer: 1, bomber: 2, giant: 3 }, MAX_TL = 3;
 export const troopLv = (st, k) => Math.min(MAX_TL, Math.max(1, st.tl?.[k] | 0 || 1));
 export const troopMult = lv => 1 + 0.2 * ((lv || 1) - 1);
 export const troopUpCost = (k, lv) => ({ dust: 700 * lv * TROOP_UP[k], stone: 20 * lv * TROOP_UP[k] });
@@ -238,12 +238,13 @@ for (const table of [CROPS, BUILD, SHOP, RECIPES, RAW, UPGRADABLE, TROOP_UP]) Ob
 const okTile = (w, k) => Number.isInteger(k) && k >= 0 && k < TW * TH && w.land[k] === 1;
 const add = (o, k, n) => { if (n) o[k] = (o[k] || 0) + n; };
 // ---------- hand work (clear, plot, plant, harvest) takes real time ----------
-// A player's work goes into st.q with the time it will be done; your Minds work side by side (1 lane each, max 12).
+// A player's work goes into st.q with the time it will be done; your Minds work side by side (1 lane each, at least 3
+// so it matches the 3 Minds everyone sees walking around, max 12).
 // It keeps going while you are away, and nothing is done before its time, so leaving the island never rushes it.
 export const WORK_MS = { [COVER.WEEDS]: 2200, [COVER.BUSH]: 2500, [COVER.ROCK]: 2900, [COVER.TREE]: 3200, till: 2400, plant: 2000, harvest: 2100 };
 const WORK = { clear: 1, till: 1, plant: 1, harvest: 1 }, QUEUE_MAX = 300;
 Object.setPrototypeOf(WORK, null);
-export const workLanes = minds => Math.max(1, Math.min(12, minds | 0));
+export const workLanes = minds => Math.max(3, Math.min(12, minds | 0));
 export const workMs = (st, w, type, k) => (type === 'clear' ? WORK_MS[coverAt(st, w, k)] : WORK_MS[type]) || 2000;
 function queueWork(st, a, w, tiles, { now, minds }) {
   if (a.type === 'plant' && !CROPS[a.crop]) return { error: 'unknown seed' };

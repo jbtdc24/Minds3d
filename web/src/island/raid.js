@@ -13,7 +13,7 @@ export const TROOPS = {
   brawler: { name: 'Brawler', icon: '🪓', desc: 'Tough fighter. Smashes the nearest building.', cost: 1, hp: 210, dps: 22, speed: 30, reach: 14, aim: 'any' },
   archer: { name: 'Archer', icon: '🏹', desc: 'Shoots from range, even over walls. Fragile.', cost: 1, hp: 85, dps: 15, speed: 30, reach: 3.4 * T, aim: 'any', ranged: true },
   bomber: { name: 'Bomber', icon: '💣', desc: 'Runs at walls and blows them up.', cost: 2, hp: 70, dps: 0, speed: 40, reach: 12, aim: 'wall', blast: 150, radius: 1.6 * T },
-  giant: { name: 'Giant', icon: '🗿', desc: 'Huge HP. Walks straight to the towers.', cost: 4, hp: 760, dps: 14, speed: 20, reach: 15, aim: 'tower' },
+  giant: { name: 'Giant', icon: '🗿', desc: 'Huge HP. Walks straight to the towers and soaks their shots.', cost: 3, hp: 1000, dps: 26, speed: 20, reach: 15, aim: 'tower' },
 };
 // a troop at its level: more HP and damage (walls blow up harder too)
 export const troopStats = (k, lv) => {

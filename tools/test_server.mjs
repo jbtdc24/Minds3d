@@ -355,16 +355,17 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
 {
   const { gen, COVER } = await import('../web/src/island/gen.js');
   const R = await import('../web/src/island/rules.js');
-  const seed = 4242, now = 1e12, st = R.newIsland(seed, now), w = gen(seed), ctx = { seed, now, minds: 2, queue: true };
+  const seed = 4242, now = 1e12, st = R.newIsland(seed, now), w = gen(seed), ctx = { seed, now, minds: 4, queue: true };
   const weeds = [...w.cover.keys()].filter(k => w.cover[k] === COVER.WEEDS).slice(0, 6), dust0 = st.dust;
   let r = R.act(st, { type: 'clear', tiles: weeds }, ctx);
   ok(r.queued === 6 && st.dust === dust0, 'six weeds queued, nothing paid yet');
   ok(R.act(st, { type: 'clear', tiles: weeds }, ctx).error, 'the same tile cannot be queued twice');
-  R.settleWork(st, { seed, now: now + 1000, minds: 2 });
+  R.settleWork(st, { seed, now: now + 1000, minds: 4 });
   ok(st.dust === dust0 && st.q.length === 6, 'nothing is done before its time');
-  R.settleWork(st, { seed, now: now + R.WORK_MS[COVER.WEEDS] * 2, minds: 2 });
-  ok(st.dust === dust0 + 4 && st.q.length === 2, 'two Minds clear two weeds at a time');
-  R.settleWork(st, { seed, now: now + 3600e3, minds: 2 });
+  R.settleWork(st, { seed, now: now + R.WORK_MS[COVER.WEEDS], minds: 4 });
+  ok(st.dust === dust0 + 4 && st.q.length === 2, 'four Minds clear four weeds at a time');
+  ok(R.workLanes(0) === 3 && R.workLanes(20) === 12, 'at least 3 workers (the Minds everyone sees), at most 12');
+  R.settleWork(st, { seed, now: now + 3600e3, minds: 4 });
   ok(st.dust === dust0 + 6 && !st.q && !st.ql, 'the rest finishes while you are away');
   ok(R.act(st, { type: 'plant', crop: 'constructor', tiles: [1] }, ctx).error, 'queue refuses unknown seeds');
 }
@@ -1319,7 +1320,7 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   const { agentKeys } = await import('../lib/routes/agent.js'), adm = await import('../lib/admin.js');
   const raw = async (fn, { body, tok, host = 'mindsclash.test', ip = '3.3.3.3' }) => { let o = null; const res = { setHeader() {}, end(t) { o = { code: this.statusCode, body: JSON.parse(t) }; }, headersSent: false }; await fn({ method: 'POST', url: '/api/x', headers: { host, 'x-forwarded-for': ip, ...(tok ? { authorization: 'Bearer ' + tok } : {}) }, body, query: {} }, res); return o; };
   // the secret roll
-  const base = RD.botVillage(4242, 3), army = { troops: { brawler: 6, archer: 5, bomber: 2, giant: 1 }, hero: 'captain' }, plan = RD.autoPlan(base, army);
+  const base = RD.botVillage(4242, 3), army = { troops: { brawler: 3, archer: 3, bomber: 1, giant: 0 }, hero: 'captain' }, plan = RD.autoPlan(base, army);   // small enough not to flatten it
   const open = RD.replay(base, army, plan), a = RD.replay({ ...base, noise: 11 }, army, plan), b = RD.replay({ ...base, noise: 77 }, army, plan);
   const hp = r => JSON.stringify(r.S.structs.map(x => Math.round(x.hp)));
   ok(hp(a) !== hp(open) && hp(a) !== hp(b), 'the secret roll changes the fight, so a rehearsal cannot predict it');
@@ -1527,7 +1528,7 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   // players pick their own mix within one budget: no mix may make it easy, and nobody can go over the budget
   const { CUP_BUDGET, cupArmy } = await import('../lib/routes/cup.js');
   ok(CUP_BUDGET === 9 && JSON.stringify(cupArmy(null)) === JSON.stringify(CUP_ARMY) && Object.entries(CUP_ARMY).reduce((s, [k, n]) => s + RD.TROOPS[k].cost * n, 0) === CUP_BUDGET, 'the cup budget is 9 camp space; no pick = the standard army, which fits it');
-  let over = null; try { cupArmy({ giant: 3 }); } catch (e) { over = e; }
+  let over = null; try { cupArmy({ giant: 4 }); } catch (e) { over = e; }
   ok(over && /budget/.test(over.message) && cupArmy({ giant: 2, brawler: 1 }).giant === 2 && cupArmy({ brawler: -3, giant: 1 }).brawler === 0 && cupArmy({ giant: 1 }).archer === 0, 'armies over the budget are refused, odd values are dropped');
   for (const mix of [{ brawler: 9 }, { archer: 9 }, { brawler: 5, archer: 4 }, { giant: 2, brawler: 1 }, { bomber: 2, brawler: 5 }]) {
     let c2 = 0, n2 = 0;
