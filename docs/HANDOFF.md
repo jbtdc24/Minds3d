@@ -3,7 +3,7 @@
 
 ## CURRENT STATUS (2026-11-02)
 Live on main: all security fixes, server-run adventures, error monitoring, payment ledger and daily check, draft Terms and Privacy, harder Siege Cup, London region. SQL 007, 008 and 009 are run. Bots stay unlabelled outside Practice and Training. Owner said GO on the saved tasks (2026-11-02).
-Tasks 3, 4, 5 SHIPPED to main (2026-11-02). Task 0 (island timers) SHIPPED too. Mutation check miss FIXED (trap test now retries until the raid target really has traps). Tasks 6, 7, 8 done. Next: 9, 10, 11, 13, 14, 12, then 1, 2 (owner: do all, don't stop, don't ask). Owner wants to keep going in the same chat: update this file after every task.
+Tasks 3, 4, 5 SHIPPED to main (2026-11-02). Task 0 (island timers) SHIPPED too. Mutation check miss FIXED (trap test now retries until the raid target really has traps). Tasks 6-9 done. Next: 10, 11, 13, 14, 12, then 1, 2 (owner: do all, don't stop, don't ask). Owner wants to keep going in the same chat: update this file after every task.
 Order: tasks 6 to 14 in order, task 1 before Gems are sold, task 2 last.
 Owner decided 2026-11-02: Siege Cup = same budget, any mix. USDC prices = 50/$5, 120/$10, 300/$20, 800/$50, and ETH stays too (anything on Robinhood Chain). Keep Town rewards.
 Before public launch: confirm Supabase backups, fill in Terms and Privacy and get legal review (docs/LEGAL_REVIEW.md), add CRON_SECRET in Vercel, test capacity on a separate Supabase project, test Safari, Firefox and real phones, one real Gem purchase, two-wallet chat test.
@@ -20,7 +20,7 @@ Checks before any deploy: node tools/test_server.mjs, tools/fuzz_server.mjs, too
 6. [x] **Raid: loading screen.** Done: web/src/loader.js `loading({title, sub, tips, tier})` = airship (worldmap shipSprite) in pixel clouds + card with tips; says "Lots of players online" after 6 s, "Taking longer" after 15 s. Used for raid find + raid result. Can be reused for other waits (adventure start next if needed).
 7. [x] **Buildings: show what upgrades do.** Done: rules.levelStats(type, lv); building menu shows e.g. "❤️ HP 520 → 780 · 🌱 Farm plots 2 → 3" (test checks numbers match raid.js). Trap desc fixed to 45 damage.
 8. [x] **Buildings: looks change with level.** Done: buildings.js leveled(spr, lv, type): Lv2 stone foundation + blue pennant, Lv3 gold trim + gold pennant + sparkles; walls get blue/gold caps. Used on the island and in raids.
-9. [ ] **Troop upgrades.** New feature, with stats and costs.
+9. [x] **Troop upgrades.** Done: st.tl troop levels 1-3 (+20% HP/damage each), act 'troopup' (Dust+stone or Gems), Lv2 needs an Army Camp, Lv3 a Lv2 camp. raid.js troopStats; server stores raid.lv at find and replays with it. Shop → Army shows Lv, stats now → next, upgrade buttons. Siege Cup ignores troop levels.
 10. [ ] **Siege Cup: boss look.** Boss levels, lava style, not a regular town. Best one wins.
 11. [ ] **Siege Cup: choose your army.** Strategy should decide it, not the game. Owner's concern: it can become pay-to-win or grind-to-win. Suggestion: everyone gets the same budget and picks any mix. Owner to confirm.
 

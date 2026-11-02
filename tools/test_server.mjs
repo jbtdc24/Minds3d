@@ -266,6 +266,23 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   ok(R.BUILD.trap.desc.includes(String(RD.TRAP_DMG)), 'trap description says its real damage');
 }
 
+// ---- troop upgrades ----
+{
+  const R = await import('../web/src/island/rules.js'), RD = await import('../web/src/island/raid.js');
+  ok(Object.keys(R.TROOP_UP).join() === Object.keys(RD.TROOPS).join() && Object.entries(R.TROOP_UP).every(([k, n]) => RD.TROOPS[k].cost === n), 'troop upgrade weights match the troops');
+  const seed = 99, now = 1e12, st = R.newIsland(seed, now), ctx = { seed, now, minds: 0, instant: true };
+  Object.assign(st, { dust: 50000 }); st.inv.stone = 500;
+  ok(/Army Camp/.test(R.act(st, { type: 'troopup', item: 'brawler' }, ctx).error || ''), 'troop upgrades need an Army Camp');
+  st.b.push({ id: st.nb++, type: 'camp', k: 0 });
+  ok(R.act(st, { type: 'troopup', item: 'brawler' }, ctx).done === 1 && R.troopLv(st, 'brawler') === 2 && st.dust === 50000 - 700, 'Brawlers go to Lv2 for 700 Dust');
+  ok(/Lv2/.test(R.act(st, { type: 'troopup', item: 'brawler' }, ctx).error || ''), 'Lv3 needs a Lv2 camp');
+  ok(R.act(st, { type: 'troopup', item: '__proto__' }, ctx).error && R.act(st, { type: 'troopup', item: 'constructor' }, ctx).error, 'unknown troops are refused');
+  ok(RD.troopStats('brawler', 2).hp === Math.round(RD.TROOPS.brawler.hp * 1.2) && RD.troopStats('brawler', 9).hp === Math.round(RD.TROOPS.brawler.hp * 1.4), 'troop stats grow 20% a level, capped at Lv3');
+  const snap = RD.botVillage(4242, 2), plan = RD.autoPlan(snap, { troops: { brawler: 8 }, hero: 'captain' });
+  const weak = RD.replay(snap, { troops: { brawler: 8 }, hero: 'captain' }, plan), strong = RD.replay(snap, { troops: { brawler: 8 }, hero: 'captain', lv: { brawler: 3 } }, plan);
+  ok(strong.pct >= weak.pct, 'stronger troops do at least as well in the same raid');
+}
+
 // ---- hand work takes real time, also while you are away ----
 {
   const { gen, COVER } = await import('../web/src/island/gen.js');

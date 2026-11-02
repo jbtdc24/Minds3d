@@ -16,14 +16,14 @@ import { loading } from './loader.js';
 import { openIsland, closeIsland, refreshHud, cropImg, fmtTime } from './island/island.js';
 import { chibi } from './island/chibi.js';
 import { openRaid, closeRaid } from './island/raidview.js';
-import { botVillage, armyCap, cleanArmy, armyUsed, TROOPS, DEFAULT_ARMY, raidsPerDay, raidFee, botLoot, CAMP_SPACE } from './island/raid.js';
+import { botVillage, armyCap, cleanArmy, armyUsed, TROOPS, DEFAULT_ARMY, raidsPerDay, raidFee, botLoot, CAMP_SPACE, troopStats } from './island/raid.js';
 import { troopIcon } from './island/troops.js';
 import { openAdventure, closeAdventure } from './island/advview.js';
 import { AREAS, POTIONS_MAX, SPOTS, SHIPS, spotLevel } from './island/adventure.js';
 import { openMap, updateMap, closeMap } from './island/worldmap.js';
 import { initAdmin, tryCode } from './admin.js';
 import { isle, loadIsland, doAct, flush as flushIsland, resetIsland, refreshIsland, now as islandNow } from './island/store.js';
-import { CROPS, RAW, growMs, permitCost, MAX_PERMITS, ripe, campLevels, campCount, SHOP, RECIPES, TROOP_MAX, troopCount, costText, canAfford, BUILD, STASH_MAX, gemPrice, ENERGY_PRICE, SHARDS_PER_ENERGY, REFILLS_PER_DAY, wellShards } from './island/rules.js';
+import { CROPS, RAW, growMs, permitCost, MAX_PERMITS, ripe, campLevels, campCount, SHOP, RECIPES, TROOP_MAX, troopCount, costText, canAfford, BUILD, STASH_MAX, gemPrice, ENERGY_PRICE, SHARDS_PER_ENERGY, REFILLS_PER_DAY, wellShards, troopLv, troopUpCost, troopLevels, MAX_TL } from './island/rules.js';
 import { buildIcon } from './island/buildings.js';
 import { islandThumb } from './island/art.js';
 import { hashStr } from './island/gen.js';
@@ -506,7 +506,7 @@ async function startRaid(revenge = 0) {
   const local = !target?.snap;
   if (local) await loading({ title: 'Finding an island to raid', sub: 'Your airship is out looking', tips: RAID_TIPS, tier: isle.state?.ship || 1 })();
   const snap = local ? botVillage((Math.random() * 2 ** 31) | 0, Math.min(3, 1 + Math.floor((settings.raidWins || 0) / 3))) : target.snap;
-  const army = { troops: target?.army ?? cleanArmy(troops, cap), hero: target?.hero ?? (holder ? 'hero' : 'captain') };
+  const army = { troops: target?.army ?? cleanArmy(troops, cap), hero: target?.hero ?? (holder ? 'hero' : 'captain'), lv: target?.lv ?? troopLevels(isle.state) };
   closeIsland(); show('raid');
   await banner(`<div class="bt">RAID!</div><small>${esc(local ? snap.name : target.name)}'s island</small>`, 1100);
   openRaid({
@@ -656,8 +656,16 @@ function paintShop() {
       : shopTab === 'gems' ? `<div class="shop-info px gemsinfo">💎 <b>Gems</b> buy exclusive things and save time. You find a few by beating Ogres on adventures. <button class="btn small primary" id="buy-gems">Get more Gems</button></div>`
       : `<div class="shop-info px">🧪 Bring potions on adventures (your hero does not heal by itself). Craft them from herbs found on adventures, or buy them.</div>`;
     const icon = k => k.startsWith('troop_') ? `<img src="${troopIcon(k.slice(6))}" alt="">` : `<i>${SHOP[k].icon}</i>`;
+    // troops: their level, what the next level gives, and the upgrade buttons
+    const lvLine = k => {
+      if (!k.startsWith('troop_')) return '';
+      const t = k.slice(6), lv = troopLv(st, t), a = troopStats(t, lv), z = troopStats(t, lv + 1), up = troopUpCost(t, lv);
+      const stat = (d, n) => `❤️ ${d.hp}${d.dps ? ` · ⚔️ ${Math.round(d.dps)}` : ''}${d.blast ? ` · 💥 ${d.blast}` : ''}`;
+      return `<span class="troop-lv"><b>Lv${lv}</b> ${stat(a)}${lv < MAX_TL ? ` → <em>Lv${lv + 1} ${stat(z)}</em>` : ' · top level'}</span>`
+        + (lv < MAX_TL ? `<span class="troop-up"><button class="btn small" data-act="troopup" data-item="${t}" ${canAfford(st, up) ? '' : 'disabled'}>⬆ Lv${lv + 1} · ${costText(up)}</button><button class="btn small gem" data-act="troopup" data-gems="1" data-item="${t}" ${(st.gems || 0) >= gemPrice(up) ? '' : 'disabled'}>⬆ ${gemPrice(up)} 💎</button></span>` : '');
+    };
     html = head + keys.map(k => { const it = SHOP[k], ok = canAfford(st, it.price), h = have(k);
-      return shopCard(icon(k), it.name, it.desc, h, `<button class="btn small ${it.gem ? 'gem' : 'primary'}" data-act="shop" data-item="${k}" data-n="1" ${ok ? '' : 'disabled'}>${costText(it.price)}</button>${it.gem ? '' : `<button class="btn small" data-act="shop" data-item="${k}" data-n="5" ${canAfford(st, Object.fromEntries(Object.entries(it.price).map(([a, n]) => [a, n * 5]))) ? '' : 'disabled'}>×5</button><button class="btn small gem" data-act="shop" data-gems="1" data-item="${k}" data-n="1" ${(st.gems || 0) < gemPrice(it.price) ? 'disabled' : ''}>${gemPrice(it.price)} 💎</button>`}`, it.gem ? 'gemcard' : ''); }).join('')
+      return shopCard(icon(k), it.name, it.desc + lvLine(k), h, `<button class="btn small ${it.gem ? 'gem' : 'primary'}" data-act="shop" data-item="${k}" data-n="1" ${ok ? '' : 'disabled'}>${costText(it.price)}</button>${it.gem ? '' : `<button class="btn small" data-act="shop" data-item="${k}" data-n="5" ${canAfford(st, Object.fromEntries(Object.entries(it.price).map(([a, n]) => [a, n * 5]))) ? '' : 'disabled'}>×5</button><button class="btn small gem" data-act="shop" data-gems="1" data-item="${k}" data-n="1" ${(st.gems || 0) < gemPrice(it.price) ? 'disabled' : ''}>${gemPrice(it.price)} 💎</button>`}`, it.gem ? 'gemcard' : ''); }).join('')
       + (shopTab === 'items' && SHIPS[(st.ship || 0) + 1] ? shopCard(`<i>${SHIPS[(st.ship || 0) + 1].icon}</i>`, `Airship: ${SHIPS[(st.ship || 0) + 1].name}`, `${SHIPS[(st.ship || 0) + 1].desc} You have the ${SHIPS[st.ship || 0].name}.`, null, `<button class="btn small primary" data-ship="1">${costText(SHIPS[(st.ship || 0) + 1].cost)}</button><button class="btn small gem" data-ship="2">${SHIPS[(st.ship || 0) + 1].gems} 💎</button>`) : '')
       + (shopTab === 'items' ? Object.entries(RECIPES).map(([k, r]) => shopCard('<i>⚗️</i>', `Craft: ${r.name}`, `Uses ${costText(r.needs)}`, inv.herb || 0, `<button class="btn small primary" data-act="craft" data-item="${k}" data-n="1" ${canAfford(st, r.needs) ? '' : 'disabled'}>Craft</button>`)).join('') : '');
   } else {
@@ -714,7 +722,7 @@ $('#shop-grid').onclick = e => {
   if (res.error) { sfx('denied'); return toast(res.error, true); }
   sfx('coin');
   const g = res.gain || {};
-  toast(b.dataset.act === 'sell' ? `Sold for ${g.dust} ✨` : b.dataset.act === 'craft' ? 'Crafted!' : g.gems < 0 ? `Bought! ${-g.gems} 💎 spent` : `Bought! ${-(g.dust || 0)} ✨ spent`);
+  toast(b.dataset.act === 'sell' ? `Sold for ${g.dust} ✨` : b.dataset.act === 'craft' ? 'Crafted!' : b.dataset.act === 'troopup' ? 'Troop upgraded! Every one of them is stronger now.' : g.gems < 0 ? `Bought! ${-g.gems} 💎 spent` : `Bought! ${-(g.dust || 0)} ✨ spent`);
   flushIsland(); paintShop(); refreshHud();
 };
 $('#inv-tabs').onclick = e => { const v = e.target.dataset.v; if (!v) return; invTab = v; paintInventory(); };

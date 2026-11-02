@@ -6,7 +6,7 @@
 // Giants soak damage and go for the towers. Your hero is one of your Minds (no Mind = a Captain, a bit weaker).
 // Defence: watchtowers, hidden spike traps, walls and guards (2 for everyone + 1 per Mind the defender owns, max 4).
 import { gen, COVER, T, TW, TH, hash } from './gen.js';
-import { BUILD, HOME_HP, footprint, coverAt, newIsland, act, fits, hpMult } from './rules.js';
+import { BUILD, HOME_HP, footprint, coverAt, newIsland, act, fits, hpMult, troopMult, MAX_TL } from './rules.js';
 
 export const TICK = 0.1, MAX_TICKS = 1200, DROP_UNTIL = 900;                // 10 ticks a second, 2 min raid
 export const TROOPS = {
@@ -14,6 +14,11 @@ export const TROOPS = {
   archer: { name: 'Archer', icon: '🏹', desc: 'Shoots from range, even over walls. Fragile.', cost: 1, hp: 85, dps: 15, speed: 30, reach: 3.4 * T, aim: 'any', ranged: true },
   bomber: { name: 'Bomber', icon: '💣', desc: 'Runs at walls and blows them up.', cost: 2, hp: 70, dps: 0, speed: 40, reach: 12, aim: 'wall', blast: 150, radius: 1.6 * T },
   giant: { name: 'Giant', icon: '🗿', desc: 'Huge HP. Walks straight to the towers.', cost: 4, hp: 760, dps: 14, speed: 20, reach: 15, aim: 'tower' },
+};
+// a troop at its level: more HP and damage (walls blow up harder too)
+export const troopStats = (k, lv) => {
+  const d = TROOPS[k], m = troopMult(Math.min(MAX_TL, Math.max(1, lv | 0 || 1)));
+  return m === 1 ? d : { ...d, hp: Math.round(d.hp * m), dps: d.dps * m, ...(d.blast ? { blast: Math.round(d.blast * m) } : {}) };
 };
 export const HERO = {
   hero: { name: 'Hero', hp: 470, dps: 30, speed: 30, reach: 14, aim: 'any' },          // one of your Minds
@@ -64,7 +69,7 @@ export const publicSnap = ({ noise, ...s }) => ({ ...s, b: s.b.filter(x => x.typ
 // army: { troops: {...}, hero: 'hero' | 'captain' }
 export function createRaid(snap, army = {}) {
   const w = gen(snap.seed), st = { tiles: snap.tiles, b: snap.b };
-  const S = { nz: snap.noise || 0, tick: 0, over: false, w, snap, structs: [], traps: [], units: [], fx: [], spellsUsed: {}, left: { ...DEFAULT_ARMY, ...(army.troops || {}) }, heroKind: army.hero === 'hero' ? 'hero' : 'captain', heroOut: false, cried: false, anyDrop: false };
+  const S = { nz: snap.noise || 0, tick: 0, over: false, w, snap, structs: [], traps: [], units: [], fx: [], spellsUsed: {}, left: { ...DEFAULT_ARMY, ...(army.troops || {}) }, heroKind: army.hero === 'hero' ? 'hero' : 'captain', heroOut: false, cried: false, anyDrop: false, tl: { ...(army.lv || {}) } };
   // the home always comes first (stars count it); older snapshots have it at the generated spot
   const homeB = snap.b.find(b => b.type === 'home');
   const home = [];
@@ -136,8 +141,8 @@ export function input(S, a) {
       S.heroOut = true;
       u = mkUnit(S.heroKind, HERO[S.heroKind], cxOf(k), cyOf(k), 0);
     } else {
-      const d = TROOPS[a.drop];
-      if (!d) return 'unknown troop';
+      if (!TROOPS[a.drop]) return 'unknown troop';
+      const d = troopStats(a.drop, S.tl[a.drop]);
       if (!(S.left[a.drop] > 0)) return `no ${d.name}s left`;
       S.left[a.drop]--;
       u = mkUnit(a.drop, d, cxOf(k) + ((S.tick * 7) % 5) - 2, cyOf(k) + ((S.tick * 3) % 5) - 2, 0);

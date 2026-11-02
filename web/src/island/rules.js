@@ -93,6 +93,14 @@ export const lvOf = b => b.lv || 1;
 export const upgradeCost = b => { const base = BUILD[b.type].cost, m = lvOf(b) * 1.6; const c = Object.fromEntries(Object.entries(base).map(([k, n]) => [k, Math.ceil(n * m)])); if (b.type === 'home') return { dust: 1500 * lvOf(b), wood: 80 * lvOf(b), stone: 80 * lvOf(b) }; return c; };
 export const upgradeSecs = b => b.type === 'wall' ? 0 : Math.round((BUILD_SECS[b.type] || 300) * lvOf(b) * 1.5);
 export const hpMult = lv => 1 + 0.5 * ((lv || 1) - 1);
+// troop levels (1-3): each level gives +20% HP and damage. Weights match each troop's camp space (raid.js TROOPS; a test checks).
+// Lv2 needs an Army Camp, Lv3 needs an Army Camp at Lv2. The Siege Cup ignores troop levels (same army for everyone).
+export const TROOP_UP = { brawler: 1, archer: 1, bomber: 2, giant: 4 }, MAX_TL = 3;
+export const troopLv = (st, k) => Math.min(MAX_TL, Math.max(1, st.tl?.[k] | 0 || 1));
+export const troopMult = lv => 1 + 0.2 * ((lv || 1) - 1);
+export const troopUpCost = (k, lv) => ({ dust: 700 * lv * TROOP_UP[k], stone: 20 * lv * TROOP_UP[k] });
+export const troopLevels = st => Object.fromEntries(Object.keys(TROOP_UP).map(k => [k, troopLv(st, k)]));
+const campNeeded = lv => lv - 1;   // the camp level the next troop level needs (Lv2 → any camp, Lv3 → a Lv2 camp)
 // what a building does at a level, for the upgrade preview (camp space 3 and tower damage 26 match raid.js; a test checks)
 export function levelStats(type, lv) {
   const hp = Math.round((type === 'home' ? HOME_HP : BUILD[type]?.hp || 0) * hpMult(lv)), out = hp ? [['❤️ HP', hp]] : [];
@@ -206,7 +214,7 @@ export function normalize(st, seed, now) {
   return st;
 }
 
-for (const table of [CROPS, BUILD, SHOP, RECIPES, RAW, UPGRADABLE]) Object.setPrototypeOf(table, null);
+for (const table of [CROPS, BUILD, SHOP, RECIPES, RAW, UPGRADABLE, TROOP_UP]) Object.setPrototypeOf(table, null);
 const okTile = (w, k) => Number.isInteger(k) && k >= 0 && k < TW * TH && w.land[k] === 1;
 const add = (o, k, n) => { if (n) o[k] = (o[k] || 0) + n; };
 // ---------- hand work (clear, plot, plant, harvest) takes real time ----------
@@ -404,6 +412,18 @@ export function act(st, a, { seed, now, minds = 0, instant = false, queue = fals
         for (const [k, m] of Object.entries(it.gives)) pay(k, m);
         done++;
       }
+      break;
+    }
+    case 'troopup': {   // a stronger troop type: every troop of that kind, for good
+      const k = String(a.item), lv = TROOP_UP[k] ? troopLv(st, k) : 0;
+      if (!lv) return { error: 'unknown troop' };
+      if (lv >= MAX_TL) return { error: 'That troop is at its top level.' };
+      const camp = Math.max(0, ...finished(st, 'camp').map(lvOf));
+      if (camp < campNeeded(lv + 1)) return { error: lv + 1 === 2 ? 'Build an Army Camp first.' : 'Upgrade an Army Camp to Lv2 first.' };
+      const price = priceOf(troopUpCost(k, lv), a.gems);
+      if (!canAfford(st, price)) return { error: `This upgrade costs ${costText(price)}.` };
+      for (const [i, n] of Object.entries(price)) pay(i, -n);
+      (st.tl ||= {})[k] = lv + 1; done = 1;
       break;
     }
     case 'upgrade': {   // level a building up (takes a builder + time, or Gems)
