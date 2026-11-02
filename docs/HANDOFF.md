@@ -22,6 +22,7 @@ PAUSED by owner 2026-11-02 ("save for later"). All checks pass, including the fu
 - [x] Sky looks (cosmetic kind 'sky'): Aurora Night, Blossom Dawn (6,000 ✨), Golden Storm (25 💎); web/assets/sky_aurora|sakura|storm.webp (OpenArt LOW). Shown around your island and to raiders (snapshot.sky).
 - [x] Duel wins rain pixel confetti and crowns.
 - [x] Name colours (cosmetic kind 'name'): Gold, Neon (4,000 ✨), Rainbow (15 💎). Shown on your lobby name, your profile, and your duel nameplate (rival sees it via match state cos).
+- [x] 2 new duel arenas (OpenArt LOW): Volcano Forge (stage_forge.webp, new 'embers' ambient) and Sky Citadel (stage_castle.webp); added to BATTLE_STAGES. Preview with ?stage=forge / ?stage=castle.
 - Note: adding a table to the prototype-lock line in rules.js means updating tools/mutation_check.mjs line 56 too.
 
 ## REMAINING (saved for later)

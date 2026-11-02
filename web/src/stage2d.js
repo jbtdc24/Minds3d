@@ -12,9 +12,11 @@ export const STAGES = {
   sky: { name: 'Sky Arena', img: 'assets/arena_day.webp', ground: 0.62, ambient: 'sparkle', rays: true, tint: '#fff0c8' },
   moon: { name: 'Moonlit Arena', img: 'assets/arena_night.webp', ground: 0.665, ambient: 'fireflies', rays: false, tint: '#dcd8ff' },
   blossom: { name: 'Blossom Arena', img: 'assets/arena_crystal.webp', ground: 0.67, ambient: 'petals', rays: true, tint: '#ffe8f4' },
+  forge: { name: 'Volcano Forge', img: 'assets/stage_forge.webp', ground: 0.78, ambient: 'embers', rays: false, tint: '#ffd0b0' },
+  castle: { name: 'Sky Citadel', img: 'assets/stage_castle.webp', ground: 0.72, ambient: 'sparkle', rays: true, tint: '#fff6dc' },
   lobby: { name: 'Mind Plaza', img: 'assets/lobby.webp', ground: 0.665, ambient: 'lime', rays: true, tint: '#fff6c8', focusX: 0.055 },
 };
-export const BATTLE_STAGES = ['meadow', 'crystal', 'night', 'beach', 'sky', 'moon', 'blossom'];
+export const BATTLE_STAGES = ['meadow', 'crystal', 'night', 'beach', 'sky', 'moon', 'blossom', 'forge', 'castle'];
 
 const canvas = document.createElement('canvas');
 document.getElementById('view').append(canvas);
@@ -93,7 +95,7 @@ export function stars(x, y, n = 12) {
 // ambient FX spawned around the visible area
 function ambient(dt) {
   const a = stage.def.ambient, s = S(), halfW = W / 2 / s, top = gyScreen() / s;
-  const rate = { leaves: 5, petals: 7, snow: 16, fireflies: 6, sparkle: 7, lime: 6 }[a] || 0;
+  const rate = { leaves: 5, petals: 7, snow: 16, fireflies: 6, sparkle: 7, lime: 6, embers: 12 }[a] || 0;
   stage.acc = (stage.acc || 0) + dt * rate * (stage.quality === 'low' ? 0.4 : 1);
   while (stage.acc > 1) {
     stage.acc--;
@@ -103,6 +105,7 @@ function ambient(dt) {
     else if (a === 'snow') spawn({ x, y: top + 0.2, vx: R(-0.2, 0.2), vy: R(-0.7, -0.35), life: 9, size: R(0.03, 0.06), color: '#ffffff', sway: R(0.5, 1.5) });
     else if (a === 'fireflies') spawn({ x, y: R(0.2, top * 0.8), vx: R(-0.2, 0.2), vy: R(-0.1, 0.25), life: R(3, 6), size: R(0.03, 0.05), color: Math.random() < 0.5 ? '#d4ff1f' : '#ffd36b', glow: true, twinkle: true, sway: R(0.5, 1.2) });
     else if (a === 'sparkle') spawn({ x, y: R(top * 0.25, top * 0.6), life: R(0.6, 1.2), size: R(0.03, 0.06), color: '#ffffff', glow: true, star: true });
+    else if (a === 'embers') spawn({ x, y: R(0, 0.4), vx: R(-0.15, 0.15), vy: R(0.35, 0.9), life: R(1.5, 3.2), size: R(0.025, 0.05), color: ['#ff6a1a', '#ffb02e', '#ffd84a'][(Math.random() * 3) | 0], glow: true, twinkle: true, sway: R(0.4, 1) });   // rising sparks (lava stage)
     else if (a === 'lime') spawn({ x, y: R(0, top * 0.7), vy: R(0.2, 0.6), life: R(2, 4), size: R(0.03, 0.06), color: Math.random() < 0.6 ? '#d4ff1f' : '#ffffff', glow: true, twinkle: true, star: Math.random() < 0.3 });
   }
 }
