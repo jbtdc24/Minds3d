@@ -7,6 +7,18 @@ ALL SAVED TASKS 0-14 SHIPPED to main on 2026-11-02 (447 tests). Only task 2 wait
 OWNER TODO: (1) set STABLE_TOKEN in Vercel to turn on USDG payments, then one small real purchase; (2) ask Animoca for Minds API access.
 Not checked with real players yet: burning village + restore, cup army picker, troop upgrades online, two-player duel timing.
 Owner wants to keep going in the same chat, with no questions: update this file after every task.
+PAUSED by owner 2026-11-02 ("save for later"). All checks pass, including the full mutation run.
+
+## REMAINING (saved for later)
+Owner to do:
+1. [ ] Vercel: add env STABLE_TOKEN = 0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168 (USDG), redeploy, then one small real USDG purchase (and one ETH).
+2. [ ] Ask Animoca for Minds API access; give them https://minds3d.vercel.app/api/agent?format=tools (task 2).
+Before public launch (owner): confirm Supabase backups, legal review of Terms/Privacy (docs/LEGAL_REVIEW.md), CRON_SECRET in Vercel, capacity test on a separate Supabase project, Safari/Firefox/real phones, two-wallet chat test.
+Next for the AI when the owner says go:
+3. [ ] Test with real players/wallets: burning village + restore, cup army picker, troop upgrades, raid history, two-player duel prize timing.
+4. [ ] Polish: a real keep sprite for the Siege Cup boss home; offline island work runs slower than lane count suggests (check isle.minds for guests).
+5. [ ] Balance: Giants are weak for their camp space (sim shows Brawlers best per space); review troop costs.
+6. [ ] Ideas on hold (below) when the owner picks one.
 Owner decided 2026-11-02: Siege Cup = same budget, any mix. USDC prices = 50/$5, 120/$10, 300/$20, 800/$50, and ETH stays too (anything on Robinhood Chain). Keep Town rewards.
 Before public launch: confirm Supabase backups, fill in Terms and Privacy and get legal review (docs/LEGAL_REVIEW.md), add CRON_SECRET in Vercel, test capacity on a separate Supabase project, test Safari, Firefox and real phones, one real Gem purchase, two-wallet chat test.
 Ideas on hold: Mind Office, Season Pass, cosmetics, referrals, Town moderation, pitch deck, AI demo, trailer, Train Mind and Auto Battle, play.minds.games domain, Minds Investment Programme application.
