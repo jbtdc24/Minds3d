@@ -3,7 +3,7 @@
 
 ## CURRENT STATUS (2026-11-02)
 Live on main: all security fixes, server-run adventures, error monitoring, payment ledger and daily check, draft Terms and Privacy, harder Siege Cup, London region. SQL 007, 008 and 009 are run. Bots stay unlabelled outside Practice and Training. Owner said GO on the saved tasks (2026-11-02).
-Tasks 3, 4, 5 SHIPPED to main (2026-11-02). Task 0 (island timers) SHIPPED too. Mutation check miss FIXED (trap test now retries until the raid target really has traps). Task 6 (raid loading screen) done. Next: task 7, then 8 to 14. Owner wants to keep going in the same chat: update this file after every task.
+Tasks 3, 4, 5 SHIPPED to main (2026-11-02). Task 0 (island timers) SHIPPED too. Mutation check miss FIXED (trap test now retries until the raid target really has traps). Tasks 6 and 7 done. Next: task 8, then 9 to 14. Owner wants to keep going in the same chat: update this file after every task.
 Order: tasks 6 to 14 in order, task 1 before Gems are sold, task 2 last.
 Owner decided 2026-11-02: Siege Cup = same budget, any mix. USDC prices = 50/$5, 120/$10, 300/$20, 800/$50, and ETH stays too (anything on Robinhood Chain). Keep Town rewards.
 Before public launch: confirm Supabase backups, fill in Terms and Privacy and get legal review (docs/LEGAL_REVIEW.md), add CRON_SECRET in Vercel, test capacity on a separate Supabase project, test Safari, Firefox and real phones, one real Gem purchase, two-wallet chat test.
@@ -18,7 +18,7 @@ Checks before any deploy: node tools/test_server.mjs, tools/fuzz_server.mjs, too
 4. [x] **Duel: round change.** Done: roundScreen() in app.js = dimmed screen with ROUND 2 / FINAL ROUND, both Minds, round crowns and score (2.6 s); duel HUD hides meanwhile.
 5. [x] **Duel: clear result.** Done: big "YOU WIN +N 👑 / RIVAL WINS / TIE" box with where the points came from, WIN/LOSE/TIE stamps on the cards, prize box grows on Double so it matches the points.
 6. [x] **Raid: loading screen.** Done: web/src/loader.js `loading({title, sub, tips, tier})` = airship (worldmap shipSprite) in pixel clouds + card with tips; says "Lots of players online" after 6 s, "Taking longer" after 15 s. Used for raid find + raid result. Can be reused for other waits (adventure start next if needed).
-7. [ ] **Buildings: show what upgrades do.** Show stats before and after.
+7. [x] **Buildings: show what upgrades do.** Done: rules.levelStats(type, lv); building menu shows e.g. "❤️ HP 520 → 780 · 🌱 Farm plots 2 → 3" (test checks numbers match raid.js). Trap desc fixed to 45 damage.
 8. [ ] **Buildings: looks change with level.** Each level should look different.
 9. [ ] **Troop upgrades.** New feature, with stats and costs.
 10. [ ] **Siege Cup: boss look.** Boss levels, lava style, not a regular town. Best one wins.

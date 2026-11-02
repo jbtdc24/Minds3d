@@ -257,6 +257,15 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   ok(out.body.results[0].error && out.body.points === 0, 'seeds cannot be sold; guests earn no points');
 }
 
+// ---- upgrade preview numbers match the real raid numbers ----
+{
+  const R = await import('../web/src/island/rules.js'), RD = await import('../web/src/island/raid.js');
+  const stat = (t, lv, k) => R.levelStats(t, lv).find(([n]) => n.includes(k))[1];
+  ok(stat('tower', 2, 'Damage') === Math.round(RD.TOWER.dmg * 1.3) && stat('camp', 2, 'Camp') === `+${RD.CAMP_SPACE * 2}`, 'upgrade preview uses the real tower damage and camp space');
+  ok(stat('house', 1, 'HP') === R.BUILD.house.hp && stat('house', 2, 'HP') === Math.round(R.BUILD.house.hp * R.hpMult(2)), 'upgrade preview HP matches the raid HP');
+  ok(R.BUILD.trap.desc.includes(String(RD.TRAP_DMG)), 'trap description says its real damage');
+}
+
 // ---- hand work takes real time, also while you are away ----
 {
   const { gen, COVER } = await import('../web/src/island/gen.js');

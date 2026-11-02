@@ -29,7 +29,7 @@ export const BUILD = {
   barn: { name: 'Barn', icon: '🛖', w: 2, h: 2, cost: { dust: 1000, wood: 50 }, max: 2, hp: 700, desc: 'Keeps 1,000 ✨ safe from raiders' },
   wall: { name: 'Wall', icon: '🧱', w: 1, h: 1, cost: { stone: 3 }, max: 80, hp: 160, desc: 'Blocks raiders. Drag to build a line.' },
   tower: { name: 'Watchtower', icon: '🗼', w: 1, h: 1, cost: { dust: 600, wood: 25, stone: 40 }, max: m => Math.min(6, 2 + m), hp: 480, desc: 'Shoots raiders (2 + 1 per Mind you own, max 6)' },
-  trap: { name: 'Spike Trap', icon: '📌', w: 1, h: 1, cost: { dust: 100, wood: 8 }, max: 6, hp: 0, desc: 'Hidden from raiders. 35 damage, once per raid' },
+  trap: { name: 'Spike Trap', icon: '📌', w: 1, h: 1, cost: { dust: 100, wood: 8 }, max: 6, hp: 0, desc: 'Hidden from raiders. 45 damage, once per raid' },
   // always on the island, can be moved (not removed or stored)
   home: { name: 'Home', icon: '🏠', w: 3, h: 3, cost: {}, max: 1, hp: 1100, fixed: true, desc: 'Your house. Raiders want it.' },
   well: { name: 'Energy Well', icon: '⛲', w: 2, h: 2, cost: {}, max: 1, hp: 0, fixed: true, deco: true, desc: 'A glowing well.' },
@@ -93,6 +93,16 @@ export const lvOf = b => b.lv || 1;
 export const upgradeCost = b => { const base = BUILD[b.type].cost, m = lvOf(b) * 1.6; const c = Object.fromEntries(Object.entries(base).map(([k, n]) => [k, Math.ceil(n * m)])); if (b.type === 'home') return { dust: 1500 * lvOf(b), wood: 80 * lvOf(b), stone: 80 * lvOf(b) }; return c; };
 export const upgradeSecs = b => b.type === 'wall' ? 0 : Math.round((BUILD_SECS[b.type] || 300) * lvOf(b) * 1.5);
 export const hpMult = lv => 1 + 0.5 * ((lv || 1) - 1);
+// what a building does at a level, for the upgrade preview (camp space 3 and tower damage 26 match raid.js; a test checks)
+export function levelStats(type, lv) {
+  const hp = Math.round((type === 'home' ? HOME_HP : BUILD[type]?.hp || 0) * hpMult(lv)), out = hp ? [['❤️ HP', hp]] : [];
+  if (type === 'house') out.push(['🌱 Farm plots', 1 + lv]);
+  if (type === 'mill') out.push(['🌾 Crop price', `+${Math.round((MILL_BONUS + 0.1 * (lv - 1)) * 100)}%`]);
+  if (type === 'barn') out.push(['🛖 Safe Dust', (BARN_SAFE * lv).toLocaleString()]);
+  if (type === 'camp') out.push(['⛺ Camp space', `+${3 * lv}`]);
+  if (type === 'tower') out.push(['🏹 Damage', Math.round(26 * (1 + 0.3 * (lv - 1)))]);
+  return out;
+}
 const finished = (st, type) => (st.b || []).filter(b => b.type === type && (!b.done || b.uplv));   // being upgraded = still works at its old level
 export const millBonus = st => { const m = finished(st, 'mill')[0]; return m ? MILL_BONUS + 0.1 * (lvOf(m) - 1) : 0; };
 export const campLevels = st => finished(st, 'camp').reduce((s, b) => s + lvOf(b), 0);

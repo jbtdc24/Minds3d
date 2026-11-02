@@ -7,7 +7,7 @@ import { sfx } from '../audio.js';
 import { gen, COVER, T, TW, TH, WW, WH, hash } from './gen.js';
 import { drawSky, groundFor, sprites, sprouts, heart, SOIL, toolSprites } from './art.js';
 import { rng } from './pixel.js';
-import { CROPS, coverAt, ripe, growMs, regrowMs, maxPlots, plotCount, PLOT_COST, speedBonus, BUILD, buildingAt, fits, footprint, maxOf, countOf, canAfford, costText, homeOf, wellOf, STASH_MAX, rushGems, builders, busy, gemPrice, UPGRADABLE, MAX_LV, lvOf, upgradeCost, wellShards, SHARD_CAP, SHARD_MS, SHARDS_PER_ENERGY, BUILD_SECS, upgradeSecs } from './rules.js';
+import { CROPS, coverAt, ripe, growMs, regrowMs, maxPlots, plotCount, PLOT_COST, speedBonus, BUILD, buildingAt, fits, footprint, maxOf, countOf, canAfford, costText, homeOf, wellOf, STASH_MAX, rushGems, builders, busy, gemPrice, UPGRADABLE, MAX_LV, lvOf, upgradeCost, wellShards, SHARD_CAP, SHARD_MS, SHARDS_PER_ENERGY, BUILD_SECS, upgradeSecs, levelStats } from './rules.js';
 import { bsprites, drawSails, buildIcon } from './buildings.js';
 import { drawCinema, dropShadow } from './cinema.js';
 import { isle, doAct, now, onChange, flush, tickWork } from './store.js';
@@ -661,6 +661,11 @@ function openStorage() {
   box.classList.add('on'); sfx('click');
 }
 document.getElementById('isl-stash').addEventListener('click', () => { closeSeeds(); closeBMenu(); openStorage(); });
+// what the next level changes: "❤️ HP 520 → 780", the better number in green
+const upgradePreview = b => {
+  const a = levelStats(b.type, lvOf(b)), z = levelStats(b.type, lvOf(b) + 1);
+  return a.length ? `<span class="bm-up">${a.map(([k, v], i) => `${k} ${v} → <em>${z[i][1]}</em>`).join(' · ')}</span>` : '';
+};
 function openBMenu(b) {
   const d = BUILD[b.type], refund = costText(Object.fromEntries(Object.entries(d.cost).map(([i, n]) => [i, Math.floor(n / 2)])));
   const box = $('#isl-bmenu');
@@ -673,7 +678,7 @@ function openBMenu(b) {
     box.dataset.id = b.id; box.classList.add('on'); sfx('click');
     return;
   }
-  box.innerHTML = `<img src="${buildIcon(b.type)}" alt=""><div><b>${d.name} · Lv${lvOf(b)}${site ? ' 🔨' : ''}</b><span>${site ? `${b.uplv ? 'Upgrading' : 'Being built'} · ${fmtTime(b.done - now())} left` : d.desc}</span></div>${site ? `<button data-bm="rush">⚡ Finish · ${rushGems(b, now())} 💎</button>` : ''}${canUp ? `<button data-bm="upgrade" title="Stronger, more HP, better effect">⬆ Lv${lvOf(b) + 1} · ${costText(upgradeCost(b))} · ⏱ ${upgradeSecs(b) ? fmtTime(upgradeSecs(b) * 1000) : 'instant'}</button><button data-bm="upgems">⬆ ${gemPrice(upgradeCost(b))} 💎</button>` : ''}<button data-bm="move">↔ Move</button>${d.fixed ? '' : `<button data-bm="store" title="Keep it in storage and place it later">📦 Store</button><button data-bm="demolish" title="Get back ${refund}">🗑 Remove</button>`}<button data-bm="x">✕</button>`;
+  box.innerHTML = `<img src="${buildIcon(b.type)}" alt=""><div><b>${d.name} · Lv${lvOf(b)}${site ? ' 🔨' : ''}</b><span>${site ? `${b.uplv ? 'Upgrading' : 'Being built'} · ${fmtTime(b.done - now())} left` : d.desc}</span>${canUp ? upgradePreview(b) : ''}</div>${site ? `<button data-bm="rush">⚡ Finish · ${rushGems(b, now())} 💎</button>` : ''}${canUp ? `<button data-bm="upgrade" title="Stronger, more HP, better effect">⬆ Lv${lvOf(b) + 1} · ${costText(upgradeCost(b))} · ⏱ ${upgradeSecs(b) ? fmtTime(upgradeSecs(b) * 1000) : 'instant'}</button><button data-bm="upgems">⬆ ${gemPrice(upgradeCost(b))} 💎</button>` : ''}<button data-bm="move">↔ Move</button>${d.fixed ? '' : `<button data-bm="store" title="Keep it in storage and place it later">📦 Store</button><button data-bm="demolish" title="Get back ${refund}">🗑 Remove</button>`}<button data-bm="x">✕</button>`;
   box.dataset.id = b.id; box.classList.add('on'); sfx('click');
 }
 function closeBMenu() { $('#isl-bmenu')?.classList.remove('on'); }
