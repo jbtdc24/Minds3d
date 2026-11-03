@@ -273,6 +273,11 @@ async function talk() {
     const mine = parsePlan(text);
     if (mine.steps) { r = mine; fromWords = true; }
   }
+  // what the player asked always counts: "diamonds only" makes the plan's upgrades Gem upgrades, "don't farm" takes farming out
+  const asked = parsePlan(text);
+  if (r.steps && asked.steps?.some(x => x.gems)) r = { ...r, steps: r.steps.map(x => (x.do === 'build' ? { ...x, gems: 1 } : x)) };
+  if (r.steps && /(?:don'?t|do not|dont|no|never|without|not)\s+(?:\w+\s+){0,2}?farm/i.test(text.replace(/’/g, "'"))) r = { ...r, steps: r.steps.filter(x => x.do !== 'farm') };
+  if (r.steps && !r.steps.length) r = parsePlan('');
   if (r.stop) return stop(slot, 'Okay, I stop. 💤');
   if (r.steps) { say(slot, `📋 ${fromWords ? 'Plan from what you asked' : 'I made a plan'}: ${planText(cleanPlan(r.steps))}. Approve it to use it.`); previewPlan(r.steps, r.preset || null, r.loop, fromWords ? 'The plan from what you asked (your AI agreed).' : `${ai.name || 'Your AI'} suggests this plan for what you asked.`); }
   else if (plan) say(slot, '(I could not turn that into game steps. Try: farm, sell, upgrade buildings, raid, adventure, duel, town.)');
