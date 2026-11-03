@@ -1609,7 +1609,10 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
         ok(out.body.ai['0'].job.kind === 'ranked', 'nothing to do: on to the next job of the plan');
         await hit(autopilot, M, { op: 'advance', mind: 0, did: false }); out = await hit(autopilot, M, { op: 'advance', mind: 0, did: false });
         ok(out.body.ai['0'].job.kind === 'raid' && out.body.lap, 'a whole lap with nothing to do starts again from the top (and rests)');
-        ok(!(await hit(autopilot, M, { op: 'job', mind: 0, kind: 'farm', plan: [] })).body.ai['0'].job.plan, 'one job again: the plan is gone'); }
+        ok(!(await hit(autopilot, M, { op: 'job', mind: 0, kind: 'farm', plan: [] })).body.ai['0'].job.plan, 'one job again: the plan is gone');
+        const { rankedTeam } = await import('../web/src/island/training.js');
+        ok(rankedTeam(5, [5, 7, 9], { 5: 0, 7: 1, 9: 3 }, 1).join() === '9', 'Ranked AI: its own Mind is out of energy, so another held Mind with energy plays');
+        ok(rankedTeam(5, [5, 7, 9], { 5: 2, 7: 1, 9: 3 }, 3).join() === '5,9,7' && rankedTeam(5, [5, 9], { 5: 0, 9: 0 }, 2).length === 0, 'Ranked AI team: own Mind first, then the most energy; none left = no team'); }
       fake.reply = null; await hit(autopilot, M, { op: 'job', mind: 0, kind: 'raid' });
       ok((await hit(autopilot, M, { op: 'work', mind: 0, round: 5, token: tok })).body.pending, 'a slow AI makes the job wait (short calls), it never plays for the AI'); }
     { // 🌙 away play: the server keeps doing the jobs for up to 7 days, with its own sealed Hello Minds sign-in

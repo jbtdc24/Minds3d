@@ -986,8 +986,8 @@ function paintPrep() {
   if (prep.pass) $('#prep-note').innerHTML = `🎟️ <b>Rank Pass</b>: loaner Minds · ${rankPass.left} ranked game${rankPass.left === 1 ? '' : 's'} left today · pass until ${new Date(rankPass.until).toLocaleDateString()}`;
   else if (prep.mode === 'ranked') {
     const n = prep.minds.length;
-    $('#prep-note').innerHTML = n ? `<span class="stake"><b class="sx">STAKE x${n}</b><b class="sw">WIN +${winReward(prep.minds)}</b><b class="sl">LOSE −${lossRisk(prep.minds)}</b><b class="se">⚡ −1 × ${n} Mind${n > 1 ? 's' : ''}</b></span>
-      <small>Every Mind you stake multiplies the win and the loss, and each one spends 1 ⚡ (refills in ${resetText()}).</small>` : 'Pick 1 to 3 Minds to stake.';
+    $('#prep-note').innerHTML = n ? `<span class="stake"><b class="sx">TEAM ×${n}</b><b class="sw">WIN +${winReward(prep.minds)}</b><b class="sl">LOSE −${lossRisk(prep.minds)}</b><b class="se">⚡ −1 × ${n} Mind${n > 1 ? 's' : ''}</b></span>
+      <small>Every Mind in your team multiplies the win and the loss, and each one spends 1 ⚡ (refills in ${resetText()}).</small>` : 'Pick 1 to 3 Minds for your team.';
   }
   $('#prep-go').disabled = !prep.minds.length;
   $('#prep-err').textContent = prep.minds.length ? '' : 'Pick at least 1 Mind.';
@@ -1499,7 +1499,7 @@ async function finish(v) {
   const d = v.delta || 0;
   $('#r-stats').innerHTML = [
     [v.ranked ? `${d > 0 ? '+' : ''}${d}` : '—', 'Rating', d > 0 ? 'up' : d < 0 ? 'down' : ''],
-    ...(v.ranked && v.pts != null ? [[`${v.pts > 0 ? '+' : v.pts < 0 ? '−' : ''}${Math.abs(v.pts)}`, `Points · stake x${v.view.me.minds.length}`, v.pts > 0 ? 'up' : v.pts < 0 ? 'down' : '']] : []),
+    ...(v.ranked && v.pts != null ? [[`${v.pts > 0 ? '+' : v.pts < 0 ? '−' : ''}${Math.abs(v.pts)}`, `Points · Team ×${v.view.me.minds.length}`, v.pts > 0 ? 'up' : v.pts < 0 ? 'down' : '']] : []),
     ...(v.dustWon ? [[`+${v.dustWon} ✨`, 'Sent to your island', 'up']] : []),
     ...(v.chests || []).map(c => [c.name.replace(/^\S+\s/, ''), [c.dust && `+${c.dust} ✨`, c.gems && `+${c.gems} 💎`, ...Object.entries(c.items || {}).map(([k, n]) => `+${n} ${k.replace(/_/g, ' ')}`), c.boost && '⚡ Builder Boost 2 h', c.shield && '🛡️ 8 h shield'].filter(Boolean).join(' · ') + ' · on your island', 'up']),
     [esc(v.view.rival.name), v.botLevel ? `Rival · ${v.botLevel}` : 'Rival', ''],

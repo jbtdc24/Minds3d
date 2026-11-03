@@ -4,7 +4,7 @@
 // and presses Start. Every round the server asks the AI for that job's details (which crop, which army, which cards…)
 // and does it by the normal rules (lib/routes/autopilot.js 'work', 'duel_plan', 'duel_think'). It waits while you play.
 // 👁 Follow watches it live; 📜 History has everything. Gems: OFF by default, a typed daily limit + CONFIRM.
-import { JOBS, PACE, TRAINING, PLAN_MAX, cleanTraining } from './island/training.js';
+import { JOBS, PACE, TRAINING, PLAN_MAX, cleanTraining, rankedTeam } from './island/training.js';
 import * as HM from './hellominds.js';
 
 let K = null, ap = null, sel = null, busy = false, looping = false, wake = null, follow = null;
@@ -180,7 +180,7 @@ function paint() {
     <details class="md-set"><summary>⚙️ Settings for this job</summary>
       <label>How often <select id="md-pace">${Object.entries(PACE).map(([k, v]) => `<option value="${k}" ${job.pace === k ? 'selected' : ''}>${v.name}</option>`).join('')}</select></label>
       <label>Your tip for the AI <input id="md-tip" maxlength="240" value="${K.esc(job.tip || '')}" placeholder="e.g. save big cards for crowns 10+"></label>
-      ${job.kind === 'ranked' ? rulesBox(ai) : ''}
+      ${job.kind === 'ranked' || job.plan?.includes('ranked') ? `<label>Ranked team <select id="md-team">${[1, 2, 3].map(n => `<option value="${n}" ${job.team === n ? 'selected' : ''}>${n} Mind${n > 1 ? `s · Team ×${n} points (win or lose), ${n} ⚡ a duel` : ' · ×1 points, 1 ⚡ a duel'}</option>`).join('')}</select></label><small class="muted">Its own Mind plays first; when its energy is gone it uses your other Minds that still have energy.</small>${rulesBox(ai)}` : ''}
       <div class="md-row"><button class="btn small" data-a="saveset">Save settings</button><button class="btn small ${ap.gems.on ? 'gem' : ''}" data-a="gems">${ap.gems.on ? `💎 Gems ON · ${ap.gems.spent}/${ap.gems.cap} today` : '💎 Gems OFF'}</button></div>
       <small class="muted">Gems are only used if you turn them ON with a daily limit (Siege Cup entries, tickets, energy, and Gem upgrades).</small>
     </details>` : '<p class="muted md-pick">Tap a job: your AI plays it for you and decides every move itself.</p>'}
@@ -219,11 +219,11 @@ async function onClick(e) {
   if (a === 'away') return awayToggle();
   if (a === 'rules') return saveRules();
   if (a === 'airules') return aiRules();
-  if (a === 'saveset') return saveJob(jobOf(sel)?.kind, { pace: $('#md-pace')?.value, tip: $('#md-tip')?.value }).then(() => K.toast('Saved.'));
+  if (a === 'saveset') return saveJob(jobOf(sel)?.kind, { pace: $('#md-pace')?.value, tip: $('#md-tip')?.value, team: $('#md-team')?.value }).then(() => K.toast('Saved.'));
 }
 async function saveJob(kind, extra = {}) {
   const j = jobOf(sel) || {};
-  try { ap = await K.api('autopilot', { op: 'job', mind: sel, kind, pace: extra.pace ?? j.pace, tip: extra.tip ?? j.tip, plan: 'plan' in extra ? extra.plan : j.plan }); } catch (err) { K.toast(err.message, true); }
+  try { ap = await K.api('autopilot', { op: 'job', mind: sel, kind, pace: extra.pace ?? j.pace, tip: extra.tip ?? j.tip, team: extra.team ?? j.team, plan: 'plan' in extra ? extra.plan : j.plan }); } catch (err) { K.toast(err.message, true); }
   paint();
 }
 // a new job starts with a clean status: nothing of the old job's result or reason is shown under it
@@ -411,13 +411,16 @@ async function work(slot, job) {
 async function duel(slot, i, n) {
   const ai = aiOf(slot), train = cleanTraining(ai?.train), pass = slot === '0' && K.rankPass();
   if (slot === '0' && (!pass || pass.left < 1)) { await log(slot, pass ? '🃏 the Rank Pass has no games left today' : '🃏 ranked needs a Mind or a Rank Pass: skipping duels'); return false; }
-  let minds = pass ? pass.minds : [+slot];
-  if (!pass && K.energyOf(+slot) <= 0) {
-    if (train.energy.refill === 'stop') { await log(slot, '🃏 out of ranked energy (training: stop dueling)'); return false; }
+  // the team: this Mind first, then any other Mind held with energy left (Minds another AI duels with stay out)
+  const held = K.myMinds().map(Number), busy = [...running].filter(s => s !== slot && jobOf(s)?.kind === 'ranked').map(Number);
+  let minds = pass ? pass.minds : rankedTeam(+slot, held, Object.fromEntries(held.map(id => [id, K.energyOf(id)])), jobOf(slot)?.team, busy);
+  if (!pass && !minds.length) {
+    if (train.energy.refill === 'stop') { await log(slot, '🃏 none of your Minds has ranked energy left (training: stop dueling)'); return false; }
     const r = await K.api('autopilot', { op: 'refill', mind: +slot, only: train.energy.refill }).catch(() => ({ ok: false }));
-    if (!r.ok) { await log(slot, r.max ? '🃏 no energy and no refills left today: I wait 30 minutes, then look again' : '🃏 no ranked energy left (no shards, Dust or allowed Gems): I wait 30 minutes'); L(slot).long = Date.now() + 30 * 60e3; return false; }
+    if (!r.ok) { await log(slot, r.max ? '🃏 none of your Minds has energy and no refills are left today: I wait 30 minutes, then look again' : '🃏 none of your Minds has ranked energy (no shards, Dust or allowed Gems for a refill): I wait 30 minutes'); L(slot).long = Date.now() + 30 * 60e3; return false; }
     await log(slot, `⚡ refilled with ${r.pay === 'shard' ? 'shards' : r.pay === 'dust' ? 'Dust' : 'Gems'}`); K.refresh(); minds = [+slot];
   }
+  if (!pass && (minds.length > 1 || minds[0] !== +slot)) think(slot, `My team: ${minds.map(id => `#${id}`).join(' + ')}${minds.length > 1 ? ` (Team ×${minds.length} points)` : ''}`);
   setNow(slot, '🧠 writing its duel strategy…', 'duel');   // the AI's own rules for turns where its live answer is too slow
   let sp = {};
   for (let n = 0; n < 18 && running.has(slot); n++) { sp = await K.api('autopilot', { op: 'duel_plan', mind: slot, token: await HM.token() }).catch(() => ({})); if (!sp.pending) break; setNow(slot, `🧠 writing its duel strategy… ${n * 8} s`, 'duel'); }

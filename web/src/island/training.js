@@ -166,7 +166,14 @@ export function cleanJob(j) {
   const plan = [...new Set((Array.isArray(j?.plan) ? j.plan : []).map(String).filter(k => Object.hasOwn(JOBS, k)))].slice(0, PLAN_MAX);
   let kind = Object.hasOwn(JOBS, String(j?.kind)) ? String(j.kind) : plan[0] || 'farm';
   if (plan.length > 1 && !plan.includes(kind)) kind = plan[0];
-  return { kind, pace: Object.hasOwn(PACE, String(j?.pace)) ? String(j.pace) : 'fast', tip: String(j?.tip || '').replace(/[\u0000-\u001f]/g, ' ').slice(0, 240), ...(plan.length > 1 ? { plan } : {}) };
+  return { kind, pace: Object.hasOwn(PACE, String(j?.pace)) ? String(j.pace) : 'fast', tip: String(j?.tip || '').replace(/[\u0000-\u001f]/g, ' ').slice(0, 240), team: Math.min(3, Math.max(1, Number(j?.team) | 0 || 1)), ...(plan.length > 1 ? { plan } : {}) };
+}
+// 🃏 the team an AI brings to a ranked duel (1-3 Minds: Team ×N points, each spends 1 energy): its own Mind first, then
+// any other Mind the player holds that still has energy (most energy first). Empty = no energy on any Mind.
+export function rankedTeam(own, held, energy, size = 1, busy = []) {
+  const ok = id => (energy[id] || 0) > 0 && !busy.includes(id);
+  const rest = held.filter(id => id !== own && ok(id)).sort((a, b) => (energy[b] || 0) - (energy[a] || 0));
+  return [...(ok(own) ? [own] : []), ...rest].slice(0, Math.max(1, Math.min(3, size | 0)));
 }
 // the job after this one in the plan (after the last, the first again)
 export const nextJob = j => (j.plan?.length > 1 ? j.plan[(j.plan.indexOf(j.kind) + 1) % j.plan.length] : j.kind);
