@@ -48,7 +48,7 @@ const sq = (kind, gap = 0.28) => { const now = performance.now() / 1000; if (squ
 const snd = (name, gap = 0.06) => { const now = performance.now() / 1000; if ((sndGate[name] || 0) > now) return; sndGate[name] = now + gap; sfx(name); };
 function takeFx() {
   for (const f of S.fx) {
-    if (f.e === 'shot') { shots.push({ ...f, t: 0 }); snd('twang', 0.08); }
+    if (f.e === 'shot') { shots.push({ ...f, t: 0 }); snd(f.kind === 'cannon' || f.kind === 'mortar' ? 'boom' : 'twang', f.kind === 'mortar' ? 0.06 : 0.08); }
     else if (f.e === 'arrow') { shots.push({ ...f, t: 0, mine: true }); snd('twang', 0.1); }
     else if (f.e === 'smack') { if (Math.random() < 0.25) sq('scream', 0.5); burst(f.x, f.y, f.kind === 'giant' ? ['#c4b49c', '#ffffff', '#8a6a3a'] : ['#ffffff', '#ffe27a', '#c99a63'], f.kind === 'giant' ? 8 : 4, 40); snd('smash', 0.07); if (f.kind === 'giant') shake = Math.max(shake, 2); }
     else if (f.e === 'dmg') say(f.x, f.y, `-${f.n}`, '#ff8a7a');
@@ -208,11 +208,20 @@ function frame(now) {
     if (it.s && it.s.hp < it.s.max && it.s.type !== 'wall') hpBar(it.x, it.y - s.h - 3, it.s.hp / it.s.max, '#ffc53d', 18);
   }
   shots = shots.filter(p => {
-    p.t += dt / (p.bolt ? 0.15 : 0.22);
-    const u = Math.min(1, p.t), x = p.x + (p.tx - p.x) * u, y = p.y + (p.ty - p.y) * u - (p.bolt ? 0 : Math.sin(u * Math.PI) * 10);
-    if (p.bolt) { g.strokeStyle = '#fff3b0'; g.lineWidth = 2; g.beginPath(); g.moveTo(p.x, p.y); for (let i = 1; i <= 7; i++) g.lineTo(p.tx + (i < 7 ? (Math.random() - 0.5) * 12 : 0), p.y + (p.ty - p.y) * i / 7); g.stroke(); }
+    p.t += dt / (p.bolt ? 0.15 : p.kind === 'mortar' ? 0.7 : p.kind === 'spire' ? 0.18 : 0.22);
+    const u = Math.min(1, p.t), x = p.x + (p.tx - p.x) * u, y = p.y + (p.ty - p.y) * u - (p.bolt || p.kind === 'spire' ? 0 : Math.sin(u * Math.PI) * (p.kind === 'mortar' ? 46 : p.kind === 'cannon' ? 4 : 10));
+    if (p.kind === 'spire') {   // lightning from the crystal through every raider it jumps to
+      g.strokeStyle = Math.random() < 0.5 ? '#c9a6ff' : '#ffffff'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(p.x, p.y);
+      let lx = p.x, ly = p.y;
+      for (const [px, py] of p.path || [[p.tx, p.ty]]) { g.lineTo((lx + px) / 2 + (Math.random() - 0.5) * 8, (ly + py) / 2 + (Math.random() - 0.5) * 8); g.lineTo(px, py); lx = px; ly = py; }
+      g.stroke();
+    } else if (p.kind === 'cannon' || p.kind === 'mortar') {
+      const r = p.kind === 'mortar' ? 4 : 3; g.fillStyle = '#1d1b2f'; g.fillRect(Math.round(x) - 1, Math.round(y) - 1, r, r);
+      if (p.kind === 'mortar') { g.fillStyle = '#ff9a3a'; g.fillRect(Math.round(x), Math.round(y) - 2, 1, 1); }   // a lit fuse
+    } else if (p.bolt) { g.strokeStyle = '#fff3b0'; g.lineWidth = 2; g.beginPath(); g.moveTo(p.x, p.y); for (let i = 1; i <= 7; i++) g.lineTo(p.tx + (i < 7 ? (Math.random() - 0.5) * 12 : 0), p.y + (p.ty - p.y) * i / 7); g.stroke(); }
     else { const a = Math.atan2(p.ty - p.y, p.tx - p.x); g.save(); g.translate(x, y); g.rotate(a); g.fillStyle = p.mine ? '#e8e0d0' : '#4a2e1c'; g.fillRect(-3, 0, 6, 1); g.fillStyle = '#fff'; g.fillRect(3, 0, 1, 1); g.restore(); }
-    if (u >= 1 && !p.bolt) { burst(p.tx, p.ty, ['#ffffff', '#cfcfdc'], 3, 20); snd('arrowHit', 0.08); }
+    if (u >= 1 && p.kind === 'mortar') { burst(p.tx, p.ty, ['#ff9a3a', '#ffd84a', '#5b5a6e'], 14, 40); shake = Math.max(shake, 3); }
+    else if (u >= 1 && !p.bolt && p.kind !== 'spire') { burst(p.tx, p.ty, p.kind === 'cannon' ? ['#5b5a6e', '#ffd84a'] : ['#ffffff', '#cfcfdc'], p.kind === 'cannon' ? 6 : 3, 20); snd('arrowHit', 0.08); }
     return u < 1;
   });
   parts = parts.filter(q => { q.life -= dt; q.vy += q.g * dt; q.x += q.vx * dt; q.y += q.vy * dt; g.globalAlpha = Math.max(0, Math.min(1, q.life / q.max * 1.5)); g.fillStyle = q.c; g.fillRect(Math.round(q.x), Math.round(q.y), q.s, q.s); return q.life > 0; });

@@ -3,17 +3,17 @@
 // (which troop was dropped where and when, which spell, when the hero shouted) to get the real result.
 //
 // Troops: Brawlers smash the nearest building, Archers shoot from range (over walls), Bombers blow up walls,
-// Giants soak damage and go for the towers. Your hero is one of your Minds (no Mind = a Captain, a bit weaker).
+// Giants soak damage and take on a tower when one is close (otherwise the nearest building). Your hero is one of your Minds (no Mind = a Captain, a bit weaker).
 // Defence: watchtowers, hidden spike traps, walls and guards (2 for everyone + 1 per Mind the defender owns, max 4).
 import { gen, COVER, T, TW, TH, hash } from './gen.js';
-import { BUILD, HOME_HP, footprint, coverAt, newIsland, act, fits, hpMult, troopMult, MAX_TL } from './rules.js';
+import { BUILD, HOME_HP, footprint, coverAt, newIsland, act, fits, hpMult, troopMult, MAX_TL, DEFENSE, defMult, maxOf } from './rules.js';
 
 export const TICK = 0.1, MAX_TICKS = 1200, DROP_UNTIL = 900;                // 10 ticks a second, 2 min raid
 export const TROOPS = {
   brawler: { name: 'Brawler', icon: '🪓', desc: 'Tough fighter. Smashes the nearest building.', cost: 1, hp: 210, dps: 22, speed: 30, reach: 14, aim: 'any' },
   archer: { name: 'Archer', icon: '🏹', desc: 'Shoots from range, even over walls. Fragile.', cost: 1, hp: 85, dps: 15, speed: 30, reach: 3.4 * T, aim: 'any', ranged: true },
   bomber: { name: 'Bomber', icon: '💣', desc: 'Runs at walls and blows them up.', cost: 2, hp: 70, dps: 0, speed: 40, reach: 12, aim: 'wall', blast: 150, radius: 1.6 * T },
-  giant: { name: 'Giant', icon: '🗿', desc: 'Huge HP. Walks straight to the towers and soaks their shots.', cost: 3, hp: 1000, dps: 26, speed: 20, reach: 15, aim: 'tower' },
+  giant: { name: 'Giant', icon: '🗿', desc: 'Huge HP. Soaks shots and goes for a tower when one is close.', cost: 3, hp: 1000, dps: 26, speed: 20, reach: 15, aim: 'tower' },
 };
 // a troop at its level: more HP and damage (walls blow up harder too)
 export const troopStats = (k, lv) => {
@@ -30,11 +30,11 @@ export const ARMY_BASE = 10, ARMY_PER_MIND = 1, ARMY_MAX_BONUS = 3;             
 export const CAMP_SPACE = 3;                                                          // each Army Camp level adds 3 space
 // army size for one raid: 10 (+1 per Mind, max +3) + 3 per Army Camp level, never above what the Town Hall allows
 // tower damage: +30% a level up to Lv3 (as before), then +45% a level
-export const towerMult = lv => { const l = Math.max(1, Math.min(10, lv || 1)); return 1 + 0.3 * (Math.min(l, 3) - 1) + 0.45 * Math.max(0, l - 3); };
+export const towerMult = defMult;
 export const TH_ARMY = [20, 26, 32, 36, 40, 44, 48, 52, 56, 60];
 export const armyCap = (minds, camps = 0, th = 10) => Math.min(TH_ARMY[Math.max(1, Math.min(10, th | 0 || 1)) - 1], ARMY_BASE + Math.min(ARMY_MAX_BONUS, (minds | 0) * ARMY_PER_MIND) + (camps | 0) * CAMP_SPACE);
 export const guardsFor = minds => 2 + Math.min(2, minds | 0);                         // every base: 2 guards, +1 per Mind (max 4)
-export const TOWER = { range: 5 * T, dmg: 26, every: 10 };
+export const TOWER = DEFENSE.tower;   // range 5 tiles
 export const TRAP_DMG = 45, WALL_COST = 9, COVER_COST = 3;
 export const SPELLS = {
   rage: { name: 'Rage', icon: '😤', desc: '+60% damage for 6 s', radius: 3 * T, ticks: 60, mult: 1.6 },
@@ -230,6 +230,7 @@ function pathTo(S, u, si) {
   for (let c = found; c !== start && c >= 0; c = prev[c]) path.push(c);
   return path.reverse();
 }
+const TOWER_NEAR = 4 * T;
 function pickTarget(S, u) {
   const aim = u.d.aim;
   let best = -1, bd = 1e9;
@@ -238,7 +239,7 @@ function pickTarget(S, u) {
     const d = distRect(s, u.x, u.y); if (d < bd) { bd = d; best = i; }
   });
   if (aim === 'wall') look(s => s.type === 'wall');
-  if (aim === 'tower') look(s => s.type === 'tower');
+  if (aim === 'tower') { look(s => !!DEFENSE[s.type]); if (bd > TOWER_NEAR) { best = -1; bd = 1e9; } }   // Giants only turn to a defence that is close
   if (best < 0) look(s => s.type !== 'wall');
   return best;
 }
@@ -292,11 +293,26 @@ export function step(S) {
   }
   for (const s of S.structs) {
     s.hit = Math.max(0, s.hit - 1);
-    if (s.type !== 'tower' || s.dead) continue;
+    const D = DEFENSE[s.type];
+    if (!D || s.dead) continue;
     if (s.cd > 0) { s.cd--; continue; }
     let foe = null, fd = 1e9;
-    for (const r of mine) { if (r.dead) continue; const d = Math.hypot(r.x - s.cx, r.y - s.cy); if (d <= TOWER.range && d < fd) { fd = d; foe = r; } }
-    if (foe) { hurt(S, foe, TOWER.dmg * towerMult(s.lv), 'arrow'); s.cd = TOWER.every; S.fx.push({ e: 'shot', x: s.cx, y: s.y0 - 14, tx: foe.x, ty: foe.y - 6 }); }
+    for (const r of mine) { if (r.dead) continue; const d = Math.hypot(r.x - s.cx, r.y - s.cy); if (d <= D.range && d >= (D.min || 0) && d < fd) { fd = d; foe = r; } }
+    if (!foe) continue;
+    const dmg = D.dmg * defMult(s.lv), fx = { e: 'shot', kind: s.type, x: s.cx, y: s.y0 - (s.type === 'spire' ? 28 : 14), tx: foe.x, ty: foe.y - 6 };
+    s.cd = D.every;
+    if (D.splash) { for (const r of mine) if (!r.dead && Math.hypot(r.x - foe.x, r.y - foe.y) <= D.splash) hurt(S, r, dmg, 'arrow'); }   // a shell hits the whole group
+    else if (D.chain) {   // lightning jumps to the next raider close by, a bit weaker each time
+      let at = foe, n = dmg; const done = new Set(), path = [];
+      for (let i = 0; i < D.chain && at; i++) {
+        hurt(S, at, n, 'arrow'); done.add(at); path.push([Math.round(at.x), Math.round(at.y - 6)]); n *= 0.75;
+        let next = null, nd = 1.6 * T;
+        for (const r of mine) { if (r.dead || done.has(r)) continue; const d = Math.hypot(r.x - at.x, r.y - at.y); if (d < nd) { nd = d; next = r; } }
+        at = next;
+      }
+      fx.path = path;
+    } else hurt(S, foe, dmg, 'arrow');
+    S.fx.push(fx);
   }
   const alive = S.units.some(u => isMine(u) && !u.dead);
   const waiting = Object.values(S.left).some(n => n > 0) || !S.heroOut;
@@ -450,6 +466,8 @@ export function botVillage(seed, level = 1, th = 1) {   // th: buildings at this
   const more = Math.max(1, th) - 1;   // a higher Town Hall village has more towers, walls and traps
   const towers = (layout === 'farm' ? level : 1 + level) + more;
   place('tower', layout === 'scatter' ? 6 : 3.5, towers, spin + 3);
+  // the newer defences, as the Town Hall allows (game villages build about half of what they could)
+  for (const [type, rr, i] of [['cannon', 4.6, 5], ['mortar', 2.8, 6], ['spire', 5.2, 7]]) place(type, rr, Math.ceil(maxOf(type, 0, th) / 2), spin + i);
   const wallsAt = (ring, n) => {
     const tiles = [];
     for (let i = 0; i < 120; i++) { const ang = i / 120 * Math.PI * 2, k = Math.round(hy + Math.sin(ang) * ring * 0.8) * TW + Math.round(hx + Math.cos(ang) * ring); if (!tiles.includes(k)) tiles.push(k); }

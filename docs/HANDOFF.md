@@ -1,12 +1,19 @@
 # The game's real name is MINDS CLASH (internal keys still say mindclash so nobody gets signed out)
 # HANDOFF — read this first (next AI session: continue from the top of "NEXT TASKS")
 
-## >>> START AT "ROUND 12" BELOW <<<
-## CURRENT STATUS (2026-11-03, night)
-EVERYTHING BELOW IS LIVE on main (latest pushed 2026-11-03 night): Round 12, Rank Pass, trading + gifts (owner ran 010_trades.sql), Round 13 (Town Hall 1-10, ranked chests, island + Gem points, bigger raid losses), owner's chat retention. 538 tests, fuzz (now incl. trade/autopilot/rankpass), mutation check, economy audit, raid sims, load test all pass. Live demo done as a trial player (start screen, lobby Mind panel, Rank Pass message, Style shop, Town Hall build limits, Mind Town card, decorated cards).
-OWNER TODO: give the Minds Connect OAuth client ID (real Mind AI chat). Test with a wallet: Rank Pass buy, a trade between two wallets in Mind Town, a friend gift, Autopilot Start, ranked chests.
-Known: Style shop takes a few seconds to open (it loads the island first); could show a loading note.
-NEXT (owner asked 2026-11-03): MORE COSMETICS that show off in Mind Town + Ranked: auras (Mind glow in town + duel nameplate), titles under the name (town tag, profile, duel), walking trails in town (hearts/stars/petals); add to rules.js COSMETICS, lib/looks.js clean(), lib/game.js looks(), town.js drawing, shop Style previews.
+## >>> START AT "NEXT" BELOW <<<
+## CURRENT STATUS (2026-11-03, late night)
+EVERYTHING IS LIVE on main: Round 12, Rank Pass, trading + gifts, Round 13, chat retention, and round 14 below. Tests, fuzz, mutation check, economy audit and raid sims pass.
+ROUND 14 (owner 2026-11-03) DONE:
+- Rank Pass bug: a wallet with no Minds was logged out and turned into a trial guest. Now it stays a wallet account (Classic/Practice use loaner Minds 49/14/8, Rank Pass buyable). Server: queue_join `loan` (marked 'pass' in the queue row), profile allows loaner pfp. Old affected players must sign out and Connect wallet again.
+- Troop upgrades take time (rules TL_SECS 10 min → 2 days, one at a time, st.tlq, settles in normalize), act 'troopnow' rushes with Gems (1 💎 / 5 min left). AI keys cannot rush.
+- Cosmetics shown in Mind Town + duels: auras (aura_*, glow in town, glow on duel/profile pictures), titles (title_*, above name in town, under name in duel/profile/leaderboard/player card), trails (trail_*, pixel hearts/stars/petals/gems while walking in town). Style shop lists them first.
+- Style shop opens at once (loading note only on first load).
+- Edit mode: ⬆ Upgrade N · X 💎 button (Gems pay the cost, builders/time same as the building menu).
+- Giants only go for a defence within 4 tiles, else the nearest building (other troops already hit the nearest).
+- New defences (rules DEFENSE + defMult, raid.js shared loop): 💥 Cannon (TH2, heavy, close), 🎇 Mortar (TH3, long range splash, not up close), ⚡ Spark Spire (TH4, chain lightning x3). Code sprites in buildings.js, Lv1-10 looks via leveled(); raidview shots per kind; game villages build half their TH allowance. Not in TH_KEY (do not block old players' Town Hall).
+OWNER TODO: Minds Connect OAuth client ID (real Mind AI chat). Test with a wallet: Rank Pass buy (wallet with no Minds), trade, gift, Autopilot Start, ranked chests.
+NEXT ideas: more defences (air units?), troop training time (training is still instant), Mind Town look test with 2 players.
 Live on main (latest 201902d): everything below through ROUND 11, plus village helpers. 465 tests pass; fuzz, economy audit and full mutation check pass.
 Done 2026-11-02/03: all saved tasks 0-14, round 10 (staked Minds, island edit mode, boss fortress, Giants, helpers), round 11 (cosmetics: 4 card backs, 4 frames, 3 skies, 3 name colours, rival sees looks; victory confetti; 2 new duel arenas; painted loading sky; warmer Mind Town).
 STABLE_TOKEN is set in Vercel (owner, 2026-11-02) and redeployed.

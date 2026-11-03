@@ -29,6 +29,9 @@ export const BUILD = {
   barn: { name: 'Barn', icon: '🛖', w: 2, h: 2, cost: { dust: 1000, wood: 50 }, max: 2, hp: 700, desc: 'Keeps 1,000 ✨ safe from raiders' },
   wall: { name: 'Wall', icon: '🧱', w: 1, h: 1, cost: { stone: 3 }, max: 80, hp: 160, desc: 'Blocks raiders. Drag to build a line.' },
   tower: { name: 'Watchtower', icon: '🗼', w: 1, h: 1, cost: { dust: 600, wood: 25, stone: 40 }, max: m => Math.min(6, 2 + m), hp: 480, desc: 'Shoots raiders (2 + 1 per Mind you own, max 6)' },
+  cannon: { name: 'Cannon', icon: '💥', w: 1, h: 1, cost: { dust: 900, wood: 20, stone: 60 }, max: 4, hp: 560, desc: 'Heavy shots at close range. Unlocks at Town Hall 2' },
+  mortar: { name: 'Mortar', icon: '🎇', w: 1, h: 1, cost: { dust: 1800, wood: 40, stone: 120 }, max: 3, hp: 600, desc: 'Lobs shells far that hit a whole group (not up close). Unlocks at Town Hall 3' },
+  spire: { name: 'Spark Spire', icon: '⚡', w: 1, h: 1, cost: { dust: 2500, wood: 30, stone: 150 }, max: 3, hp: 520, desc: 'Lightning that jumps between up to 3 raiders. Unlocks at Town Hall 4' },
   trap: { name: 'Spike Trap', icon: '📌', w: 1, h: 1, cost: { dust: 100, wood: 8 }, max: 6, hp: 0, desc: 'Hidden from raiders. 45 damage, once per raid' },
   // always on the island, can be moved (not removed or stored)
   home: { name: 'Town Hall', icon: '🏰', w: 3, h: 3, cost: {}, max: 1, hp: 1100, fixed: true, desc: 'The heart of your island. Its level sets how high everything else can go. Raiders want it.' },
@@ -52,7 +55,7 @@ export const wellShards = (st, now) => Math.min(SHARD_CAP, Math.floor((now - (st
 export const gemPrice = cost => cost.gems ? cost.gems : Math.max(1, Math.ceil(((cost.dust || 0) + (cost.wood || 0) * 5 + (cost.stone || 0) * 6) / 100));
 const priceOf = (cost, gems) => gems ? { gems: gemPrice(cost) } : cost;
 // building takes time (like a real build game): seconds per building; 0 = instant (walls, fences, flowers so you can drag lines)
-export const BUILD_SECS = { camp: 420, house: 300, mill: 900, barn: 600, tower: 480, trap: 60, lamp: 30, bench: 30, banner: 30, lantern: 20, crystal: 20, fountain: 60 };
+export const BUILD_SECS = { camp: 420, house: 300, mill: 900, barn: 600, tower: 480, cannon: 600, mortar: 1200, spire: 1800, trap: 60, lamp: 30, bench: 30, banner: 30, lantern: 20, crystal: 20, fountain: 60 };
 export const builders = minds => Math.max(1, Math.min(5, minds | 0));      // one builder per Mind you own (at least 1, max 5)
 export const busy = st => (st.b || []).filter(b => b.done).length;            // buildings still going up
 export const rushGems = (b, now) => Math.max(1, Math.ceil((b.done - now) / 300e3));   // 1 💎 per 5 minutes left
@@ -85,18 +88,28 @@ export const RECIPES = { potion: { name: 'Health Potion', needs: { herb: 2 }, gi
 export const HOME_HP = 1100;
 // Town Hall (your Home) levels 1-10 unlock more of each building; th = the Town Hall level (default: no limit)
 const UNLOCK = { house: [2, 2, 3, 3, 4, 4, 5, 5, 6, 6], camp: [1, 1, 2, 2, 3, 3, 3, 4, 4, 4], barn: [1, 1, 1, 2, 2, 2, 3, 3, 3, 3],
-  wall: [20, 30, 40, 50, 60, 70, 80, 90, 100, 110], tower: [2, 2, 3, 3, 4, 4, 5, 5, 6, 6], trap: [2, 3, 3, 4, 4, 5, 5, 6, 6, 6] };
+  wall: [20, 30, 40, 50, 60, 70, 80, 90, 100, 110], tower: [2, 2, 3, 3, 4, 4, 5, 5, 6, 6], trap: [2, 3, 3, 4, 4, 5, 5, 6, 6, 6],
+  cannon: [0, 1, 1, 2, 2, 2, 3, 3, 4, 4], mortar: [0, 0, 1, 1, 1, 2, 2, 2, 3, 3], spire: [0, 0, 0, 1, 1, 1, 2, 2, 2, 3] };
 Object.setPrototypeOf(UNLOCK, null);
 export const maxOf = (type, minds, th = 10) => {
   if (!BUILD[type]) return 0;
   const u = UNLOCK[type];
   if (u) return u[Math.max(1, Math.min(10, th | 0 || 1)) - 1] + (type === 'tower' ? Math.min(2, minds | 0) : 0);
   const m = BUILD[type].max; return typeof m === 'function' ? m(minds) : m; };
+// the Town Hall level a building first unlocks at (1 = from the start)
+export const unlockTh = type => { const u = UNLOCK[type]; return u ? Math.max(1, u.findIndex(n => n > 0) + 1) : 1; };
+// defences that shoot (raid.js uses these): range in pixels (16 a tile), damage per shot at Lv1, ticks between shots
+// min: cannot hit closer than this; splash: hits everyone this close to the target; chain: jumps to more raiders
+export const DEFENSE = { tower: { range: 80, dmg: 26, every: 10 }, cannon: { range: 64, dmg: 55, every: 16 },
+  mortar: { range: 112, min: 32, dmg: 34, every: 30, splash: 22 }, spire: { range: 56, dmg: 16, every: 8, chain: 3 } };
+Object.setPrototypeOf(DEFENSE, null);
+// defence damage: +30% a level up to Lv3, then +45% a level
+export const defMult = lv => { const l = Math.max(1, Math.min(10, lv || 1)); return 1 + 0.3 * (Math.min(l, 3) - 1) + 0.45 * Math.max(0, l - 3); };
 export const countOf = (st, type) => (st.b || []).filter(b => b.type === type).length;
 export const MILL_BONUS = 0.25, BARN_SAFE = 1000;
 // building levels (1-10): no building may be above the Town Hall, and the Town Hall only goes up once your key
 // buildings have caught up with it ("all aligned"). Each level costs more and takes longer: minutes early, a day at the top.
-export const UPGRADABLE = { camp: 1, home: 1, house: 1, mill: 1, barn: 1, tower: 1, wall: 1 };
+export const UPGRADABLE = { camp: 1, home: 1, house: 1, mill: 1, barn: 1, tower: 1, wall: 1, cannon: 1, mortar: 1, spire: 1 };
 export const MAX_LV = 10, TH_KEY = ['house', 'mill', 'camp', 'barn', 'tower'];
 export const lvOf = b => b.lv || 1;
 export const thLv = st => lvOf((st.b || []).find(b => b.type === 'home') || {});
@@ -141,7 +154,23 @@ export const COSMETICS = {
   name_gold: { kind: 'name', name: 'Gold Name', price: { dust: 4000 } },
   name_neon: { kind: 'name', name: 'Neon Name', price: { dust: 4000 } },
   name_rainbow: { kind: 'name', name: 'Rainbow Name', price: { gems: 15 } },
+  // auras: a glow around your Mind in Mind Town and around your picture in duels
+  aura_gold: { kind: 'aura', name: 'Golden Glow', price: { dust: 6000 } },
+  aura_frost: { kind: 'aura', name: 'Frost Glow', price: { dust: 6000 } },
+  aura_void: { kind: 'aura', name: 'Void Glow', price: { dust: 8000 } },
+  aura_rainbow: { kind: 'aura', name: 'Prism Glow', price: { gems: 25 } },
+  // titles: a few words under your name (Mind Town, duels, profile, player card)
+  title_farmer: { kind: 'title', name: 'Green Thumb', price: { dust: 3500 } },
+  title_raider: { kind: 'title', name: 'Sky Raider', price: { dust: 3500 } },
+  title_duel: { kind: 'title', name: 'Duel Master', price: { dust: 3500 } },
+  title_legend: { kind: 'title', name: 'Living Legend', price: { gems: 15 } },
+  // trails: little things your Mind leaves behind while it walks in Mind Town
+  trail_hearts: { kind: 'trail', name: 'Heart Trail', price: { dust: 5000 } },
+  trail_stars: { kind: 'trail', name: 'Star Trail', price: { dust: 5000 } },
+  trail_petals: { kind: 'trail', name: 'Petal Trail', price: { dust: 5000 } },
+  trail_gems: { kind: 'trail', name: 'Gem Trail', price: { gems: 20 } },
 };
+export const COS_KINDS = ['back', 'frame', 'sky', 'name', 'aura', 'title', 'trail'];
 // Trades and gifts between players: resources only (never Minds, buildings, troops or looks); daily send limits
 const TRADE_RAW = new Set(['dust', 'gems', 'wood', 'stone', 'herb', 'potion', 'fuel', 'raid_ticket', 'adv_ticket']);
 export const canTrade = k => TRADE_RAW.has(k) || (/^(seed|crop)_[a-z]+$/.test(k) && Object.hasOwn(CROPS, k.slice(5)));
@@ -156,6 +185,10 @@ export const troopLv = (st, k) => Math.min(MAX_TL, Math.max(1, st.tl?.[k] | 0 ||
 // troops: +20% a level up to Lv3 (as before), then +10% a level (×2.1 at Lv10)
 export const troopMult = lv => { const l = Math.max(1, Math.min(10, lv || 1)); return 1 + 0.2 * (Math.min(l, 3) - 1) + 0.1 * Math.max(0, l - 3); };
 export const troopUpCost = (k, lv) => ({ dust: 700 * lv * TROOP_UP[k], stone: 20 * lv * TROOP_UP[k] });
+// troop upgrades take time (one at a time, like a lab): 10 min to Lv2 … 2 days to Lv10; Gems rush at 1 💎 per 5 min left
+export const TL_SECS = [600, 1800, 3600, 3 * 3600, 6 * 3600, 10 * 3600, 16 * 3600, 24 * 3600, 48 * 3600];
+export const troopUpSecs = lv => TL_SECS[Math.min(TL_SECS.length, Math.max(1, lv)) - 1];
+export const troopRush = (st, now) => st.tlq ? Math.max(1, Math.ceil((st.tlq.d - now) / 300e3)) : 0;
 export const troopLevels = st => Object.fromEntries(Object.keys(TROOP_UP).map(k => [k, troopLv(st, k)]));
 const campNeeded = lv => lv - 1;   // the camp level the next troop level needs (Lv2 → any camp, Lv3 → a Lv2 camp … Lv10 → a Lv9 camp)
 // what a building does at a level, for the upgrade preview (camp space 3 and tower damage 26 match raid.js; a test checks)
@@ -166,7 +199,7 @@ export function levelStats(type, lv) {
   if (type === 'mill') out.push(['🌾 Crop price', `+${Math.round(millPct(lv) * 100)}%`]);
   if (type === 'barn') out.push(['🛖 Safe Dust', (BARN_SAFE * lv).toLocaleString()]);
   if (type === 'camp') out.push(['⛺ Camp space', `+${3 * lv}`]);
-  if (type === 'tower') { const l = Math.max(1, Math.min(10, lv)); out.push(['🏹 Damage', Math.round(26 * (1 + 0.3 * (Math.min(l, 3) - 1) + 0.45 * Math.max(0, l - 3)))]); }
+  if (DEFENSE[type]) out.push([type === 'spire' ? '⚡ Damage' : type === 'tower' ? '🏹 Damage' : '💥 Damage', Math.round(DEFENSE[type].dmg * defMult(lv))]);
   return out;
 }
 const finished = (st, type) => (st.b || []).filter(b => b.type === type && (!b.done || b.uplv));   // being upgraded = still works at its old level
@@ -267,6 +300,7 @@ export function normalize(st, seed, now) {
     st.burn.lost = true;
   }
   st.wellAt ??= now;
+  if (st.tlq && st.tlq.d <= now) { (st.tl ||= {})[st.tlq.k] = st.tlq.lv; delete st.tlq; }   // a troop upgrade finished
   for (const b of st.b || []) if (b.done && b.done <= now) { if (b.uplv) b.lv = b.uplv; delete b.done; delete b.start; delete b.uplv; }   // finished building / upgrade
   if ((st.v || 1) < 5) {   // v5: the islets are gone; anything built there goes to storage, farm tiles there are dropped
     const w5 = gen(seed);
@@ -529,7 +563,7 @@ export function act(st, a, { seed, now, minds = 0, instant = false, queue = fals
     case 'cosmetic': {   // buy a look once, or equip one you own (item 'none' + kind takes it off)
       const c = COSMETICS[a.item]?.kind ? COSMETICS[a.item] : null, cos = (st.cos ||= { own: [] });   // ?.kind: odd names never match a look
       if (a.equip) {
-        if (a.item === 'none' && ['back', 'frame', 'sky', 'name'].includes(a.kind)) { cos[a.kind] = null; done = 1; break; }
+        if (a.item === 'none' && COS_KINDS.includes(a.kind)) { cos[a.kind] = null; done = 1; break; }
         if (!c || !cos.own.includes(a.item)) return { error: 'Get it first.' };
         cos[c.kind] = a.item; done = 1; break;
       }
@@ -546,10 +580,22 @@ export function act(st, a, { seed, now, minds = 0, instant = false, queue = fals
       if (lv >= MAX_TL) return { error: 'That troop is at its top level.' };
       const camp = Math.max(0, ...finished(st, 'camp').map(lvOf));
       if (camp < campNeeded(lv + 1)) return { error: lv + 1 === 2 ? 'Build an Army Camp first.' : `Upgrade an Army Camp to Lv${campNeeded(lv + 1)} first.` };
+      if (st.tlq && st.tlq.d <= now) { (st.tl ||= {})[st.tlq.k] = st.tlq.lv; delete st.tlq; }
+      if (st.tlq) return { error: `Your camp is still training ${st.tlq.k}s to Lv${st.tlq.lv}. One troop upgrade at a time.` };
       const price = priceOf(troopUpCost(k, lv), a.gems);
       if (!canAfford(st, price)) return { error: `This upgrade costs ${costText(price)}.` };
       for (const [i, n] of Object.entries(price)) pay(i, -n);
-      (st.tl ||= {})[k] = lv + 1; done = 1;
+      if (instant) (st.tl ||= {})[k] = lv + 1;
+      else st.tlq = { k, lv: lv + 1, d: now + Math.round(troopUpSecs(lv) * 1000 * boostOf(st, now)) };
+      done = 1;
+      break;
+    }
+    case 'troopnow': {   // finish the troop upgrade right now with Gems (price grows with the time left)
+      if (!st.tlq) return { error: 'No troop upgrade is running.' };
+      if (st.tlq.d <= now) { (st.tl ||= {})[st.tlq.k] = st.tlq.lv; delete st.tlq; done = 1; break; }
+      const cost = troopRush(st, now);
+      if ((st.gems || 0) < cost) return { error: `Finishing now costs ${cost} 💎.` };
+      pay('gems', -cost); (st.tl ||= {})[st.tlq.k] = st.tlq.lv; delete st.tlq; done = 1;
       break;
     }
     case 'upgrade': {   // level a building up (takes a builder + time, or Gems)

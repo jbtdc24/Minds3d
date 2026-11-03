@@ -112,6 +112,34 @@ export function tower() {
     for (let x = 4; x <= 13; x++) set(x, 9, x % 3 === 0 ? DARK : WOOD[2]);   // arrow slits
   });
 }
+// Cannon: a black barrel on a wooden carriage, on a round stone platform
+export function cannon() {
+  return sprite(18, 20, set => {
+    for (let y = 13; y < 20; y++) for (let x = 1; x <= 16; x++) if (Math.hypot((x - 8.5) / 8, (y - 16) / 4) <= 1) set(x, y, y <= 14 ? STONE[4] : (x + y) % 5 === 0 ? STONE[1] : pick(STONE, 0.6, x, y));
+    for (let y = 9; y < 14; y++) for (let x = 4; x <= 13; x++) set(x, y, y === 9 ? WOOD[4] : pick(WOOD, 0.6, x, y));   // carriage
+    for (let i = 0; i < 9; i++) for (let d = -2; d <= 2; d++) set(6 + i, 9 - Math.round(i * 0.7) + d, d === -2 ? STONE[2] : d === 2 ? DARK : '#3a3848');   // barrel, aimed up
+    for (let d = -2; d <= 2; d++) set(15, 3 + d, DARK);
+    for (const cx of [5, 12]) for (let y = 10; y < 15; y++) for (let x = cx - 2; x <= cx + 2; x++) if (Math.hypot(x - cx, y - 12.5) <= 2.3) set(x, y, Math.hypot(x - cx, y - 12.5) < 1 ? WOOD[4] : WOOD[0]);   // wheels
+  });
+}
+// Mortar: a squat stone pot with a dark mouth and iron bands
+export function mortar() {
+  return sprite(18, 18, set => {
+    for (let y = 4; y < 18; y++) { const half = 5 + Math.round((y - 4) * 0.3); for (let x = 9 - half; x <= 8 + half; x++) set(x, y, y >= 15 ? STONE[1] : y % 5 === 0 ? '#3a3848' : pick(STONE, 0.7 - (x - 3) / 30, x, y)); }
+    for (let x = 4; x <= 13; x++) { set(x, 3, STONE[4]); set(x, 4, STONE[4]); }
+    for (let x = 5; x <= 12; x++) set(x, 5, DARK);                                         // the mouth
+    for (let x = 6; x <= 11; x++) set(x, 4, '#1d1b2f');
+  });
+}
+// Spark Spire: a tall stone needle with a glowing crystal on top
+export function spire() {
+  return sprite(14, 36, set => {
+    for (let y = 12; y < 36; y++) { const half = 2 + Math.round((y - 12) / 8); for (let x = 7 - half; x <= 6 + half; x++) set(x, y, x === 7 - half || y % 7 === 0 ? STONE[1] : pick(STONE, 0.75 - (x - 2) / 16, x, y)); }
+    for (let y = 31; y < 36; y++) for (let x = 1; x <= 12; x++) set(x, y, y === 31 ? STONE[4] : STONE[2]);   // base
+    for (let y = 0; y < 12; y++) { const half = y < 6 ? Math.ceil(y / 2) : Math.ceil((12 - y) / 2); for (let x = 7 - half; x <= 6 + half; x++) set(x, y, x < 7 ? '#c9a6ff' : y < 4 ? '#ffffff' : '#8a5cff'); }   // crystal
+    for (const y of [16, 22]) { set(6, y, '#c9a6ff'); set(7, y, '#c9a6ff'); }   // glowing runes
+  });
+}
 export function trap() {
   return sprite(14, 8, set => {
     for (let y = 4; y < 8; y++) for (let x = 0; x < 14; x++) set(x, y, y === 4 ? WOOD[3] : WOOD[1]);
@@ -133,6 +161,9 @@ export const bsprites = {
   camp: () => once('camp', camp),
   mill: () => once('mill', millBody),
   tower: () => once('tower', tower),
+  cannon: () => once('cannon', cannon),
+  mortar: () => once('mortar', mortar),
+  spire: () => once('spire', spire),
   trap: () => once('trap', trap),
   wall: wallPiece,
   rubble: (s = 1) => once('r' + s, () => rubble(s)),

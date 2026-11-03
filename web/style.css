@@ -952,6 +952,8 @@ h3.raid-result { text-align: center; }
 .isl-edit .ed-what { font-size: 13px; margin-right: 4px; }
 .isl-edit button { border: 0; padding: 5px 9px; background: var(--paper-2); font: 800 13px var(--font); cursor: pointer; box-shadow: 0 0 0 2px var(--ink); }
 .isl-edit button.go { background: var(--lime); }
+.isl-edit button.gem { background: #d9c8ff; }
+.isl-edit button.gem.go { background: #b48cff; color: #fff; }
 
 /* ✨ cosmetics: profile frames (looks only) and the Style shop */
 .fr-gold { box-shadow: 0 0 0 3px #ffd84a, 0 0 0 5px #8a5a00, 0 0 14px 3px rgba(255, 200, 60, .7) !important; }
@@ -975,6 +977,21 @@ h3.raid-result { text-align: center; }
 .nm-rainbow { background: linear-gradient(90deg, #ff5263, #ffc53d, #d4ff1f, #5ec8ff, #9b6bff, #ff5263); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent !important; animation: nmrain 3s linear infinite; }
 @keyframes nmrain { to { background-position: 200% 0; } }
 .cos-name { display: inline-block; font-size: 18px; padding: 14px 6px; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* auras (cosmetic): a pulsing glow around a picture */
+.au-gold { animation: augold 1.8s ease-in-out infinite; }
+.au-frost { animation: aufrost 1.8s ease-in-out infinite; }
+.au-void { animation: auvoid 2.2s ease-in-out infinite; }
+.au-prism { animation: auprism 2.4s linear infinite; }
+@keyframes augold { 0%, 100% { filter: drop-shadow(0 0 4px #ffd84a); } 50% { filter: drop-shadow(0 0 12px #ffb02e) drop-shadow(0 0 4px #fff3a8); } }
+@keyframes aufrost { 0%, 100% { filter: drop-shadow(0 0 4px #9fe6ff); } 50% { filter: drop-shadow(0 0 12px #5ec8ff) drop-shadow(0 0 4px #ffffff); } }
+@keyframes auvoid { 0%, 100% { filter: drop-shadow(0 0 5px #6a3cff); } 50% { filter: drop-shadow(0 0 14px #9b6bff) drop-shadow(0 0 3px #1d1b2f); } }
+@keyframes auprism { 0% { filter: drop-shadow(0 0 10px #ff5263); } 25% { filter: drop-shadow(0 0 10px #ffc53d); } 50% { filter: drop-shadow(0 0 10px #d4ff1f); } 75% { filter: drop-shadow(0 0 10px #5ec8ff); } 100% { filter: drop-shadow(0 0 10px #ff5263); } }
+/* titles (cosmetic): small words under a name */
+.cos-title, [data-title]::after { display: block; font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #ffd84a !important; -webkit-text-fill-color: #ffd84a; background: none !important; text-shadow: 0 1px 0 #2b2340; animation: none; white-space: nowrap; }
+[data-title]::after { content: '« ' attr(data-title) ' »'; }
+.cos-name .cos-title { margin-top: 2px; }
+.cos-trail { display: inline-block; font-size: 13px; padding: 16px 2px; white-space: nowrap; animation: trailbob 1.6s ease-in-out infinite; }
+@keyframes trailbob { 50% { transform: translateX(4px); opacity: .75; } }
 
 /* default card faces: a pixel frame in the card's colour, corner gems, a soft glow and a diamond pattern (no longer plain paper) */
 .card, .rc-face {

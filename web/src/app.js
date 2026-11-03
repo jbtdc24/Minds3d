@@ -15,7 +15,7 @@ import { initAutopilot, openAutopilot } from './autopilot.js';
 import { initTrade, openTrade, giftTo } from './trade.js';
 import { capOf, ENERGY_CAP } from './energy.js';
 import { loading } from './loader.js';
-import { wear, nameLook, frameCls, nameCls, BACK_IMG, FRAME_CLASS, SKY_IMG, NAME_CLASS } from './cosmetics.js';
+import { wear, nameLook, frameCls, nameCls, titleTag, BACK_IMG, FRAME_CLASS, AURA_CLASS, SKY_IMG, NAME_CLASS, TRAIL_ICON } from './cosmetics.js';
 import { openIsland, closeIsland, refreshHud, cropImg, fmtTime, restore } from './island/island.js';
 import { chibi } from './island/chibi.js';
 import { openRaid, closeRaid } from './island/raidview.js';
@@ -26,7 +26,7 @@ import { AREAS, POTIONS_MAX, SPOTS, SHIPS, spotLevel } from './island/adventure.
 import { openMap, updateMap, closeMap } from './island/worldmap.js';
 import { initAdmin, tryCode } from './admin.js';
 import { isle, loadIsland, doAct, flush as flushIsland, resetIsland, refreshIsland, now as islandNow } from './island/store.js';
-import { CROPS, RAW, growMs, permitCost, MAX_PERMITS, ripe, campLevels, campCount, SHOP, RECIPES, troopMax, thLv, troopCount, costText, canAfford, BUILD, STASH_MAX, gemPrice, ENERGY_PRICE, SHARDS_PER_ENERGY, REFILLS_PER_DAY, wellShards, troopLv, troopUpCost, troopLevels, MAX_TL, COSMETICS, RANK_PASS, passActive, passLeft } from './island/rules.js';
+import { CROPS, RAW, growMs, permitCost, MAX_PERMITS, ripe, campLevels, campCount, SHOP, RECIPES, troopMax, thLv, troopCount, costText, canAfford, BUILD, STASH_MAX, gemPrice, ENERGY_PRICE, SHARDS_PER_ENERGY, REFILLS_PER_DAY, wellShards, troopLv, troopUpCost, troopLevels, MAX_TL, troopUpSecs, troopRush, COSMETICS, RANK_PASS, passActive, passLeft } from './island/rules.js';
 import { buildIcon } from './island/buildings.js';
 import { islandThumb } from './island/art.js';
 import { hashStr } from './island/gen.js';
@@ -211,15 +211,18 @@ function refreshEnergy() {
   }).catch(() => {});
 }
 const energyTag = id => { const n = energyOf(id), c = capFor(id); return `<span class="en ${n ? '' : 'none'}" title="Ranked energy left today">⚡${n}/${c}</span>`; };
-const picked = () => { const p = (settings.picks.minds || []).filter(id => myMinds.includes(id)); return p.length ? p : myMinds.slice(0, 3); };
-const showcaseIds = () => { const s = (me?.showcase || []).filter(id => myMinds.includes(id)); return s.length ? s : picked().length ? picked() : [me?.pfp || 49]; };
+// a wallet with no Mind of its own plays Classic/Practice with the loaner Minds (same ids as the trial and the Rank Pass)
+const LOANERS = [49, 14, 8];
+const playMinds = () => myMinds.length ? myMinds : LOANERS;
+const picked = () => { const p = (settings.picks.minds || []).filter(id => playMinds().includes(id)); return p.length ? p : playMinds().slice(0, 3); };
+const showcaseIds = () => { const s = (me?.showcase || []).filter(id => playMinds().includes(id)); return s.length ? s : picked().length ? picked() : [me?.pfp || 49]; };
 // your looks: from the island save, remembered on this device so they show before the island loads
 const myCos = () => isle.state?.cos || settings.cos || null;
 function wearMine() { const c = myCos(); if (isle.state?.cos && JSON.stringify(settings.cos) !== JSON.stringify(c)) { settings.cos = c; saveSettings(); } wear(c); }
 // the rival's looks in a duel: their card back on their revealed card, their frame on their picture
 function wearRival(cos) {
   document.documentElement.style.setProperty('--rival-back', BACK_IMG[cos?.back] ? `url(${BACK_IMG[cos.back]})` : 'url(assets/card_back.webp)');
-  const el = $('#d-pfp1'); el.classList.remove(...Object.values(FRAME_CLASS)); if (FRAME_CLASS[cos?.frame]) el.classList.add(FRAME_CLASS[cos.frame]);
+  const el = $('#d-pfp1'); el.classList.remove(...Object.values(FRAME_CLASS), ...Object.values(AURA_CLASS)); if (FRAME_CLASS[cos?.frame]) el.classList.add(FRAME_CLASS[cos.frame]); if (AURA_CLASS[cos?.aura]) el.classList.add(AURA_CLASS[cos.aura]);
   nameLook(cos, ['#d-name1']);
 }
 function paintHub() {
@@ -252,9 +255,9 @@ async function afterLogin(out) {
   me = out.player; myMinds = out.minds; guest = !!out.guest;
   resetIsland();
   saveAccount();
-  if (!guest && !myMinds.length) {
-    await modal(`<h3>No Minds found</h3><p class="muted">This wallet doesn't hold any minds.games NFTs on Robinhood Chain yet. You can still try the game with demo Minds.</p>`, [['Try with demo Minds', 1, 'primary']]);
-    logout(); return startGuest();
+  if (!guest && !myMinds.length && !settings.noMindsSeen) {   // a wallet with no Mind stays a wallet account (Rank Pass, trading, Gems all work)
+    settings.noMindsSeen = true; saveSettings();
+    await modal(`<h3>No Minds in this wallet</h3><p>You're signed in with your wallet. Classic and Practice use loaner Minds.</p><p><b>🎟️ Want Ranked?</b> Get a Rank Pass in the Shop with Dust or Gems.</p>`, [['OK', 1, 'primary']]);
   }
   if (out.isNew && !guest) return openSetup();
   enterHub();
@@ -287,9 +290,9 @@ function offlineGuest() {
 
 let setupPfp = null;
 function openSetup() {
-  setupPfp = myMinds[0];
+  setupPfp = playMinds()[0];
   $('#setup-name').value = '';
-  $('#setup-pfp').innerHTML = myMinds.map(id => `<div class="mind ${id === setupPfp ? 'on' : ''}" data-id="${id}"><img src="${thumb(id)}" alt=""><span class="tag">#${id}</span></div>`).join('');
+  $('#setup-pfp').innerHTML = playMinds().map(id => `<div class="mind ${id === setupPfp ? 'on' : ''}" data-id="${id}"><img src="${thumb(id)}" alt=""><span class="tag">#${id}</span></div>`).join('');
   show('setup');
 }
 $('#setup-pfp').onclick = e => { const m = e.target.closest('[data-id]'); if (!m) return; setupPfp = +m.dataset.id; $$('#setup-pfp .mind').forEach(x => x.classList.toggle('on', x === m)); };
@@ -721,8 +724,14 @@ function islandTile() {
 let shopTab = 'seeds';
 async function openShop(tab) {
   if (tab) shopTab = tab;
-  if (!(await ensureIsland())) return;
-  paintShop(); show('shop');
+  if (isle.loaded && isle.offline === !online) {   // open at once; a stale island refreshes behind it
+    paintShop(); show('shop');
+    if (online && Date.now() - (isle.at || 0) > 8000) refreshIsland().then(() => { if (current === 'shop') paintShop(); }).catch(() => {});
+    return;
+  }
+  $('#shop-grid').innerHTML = '<div class="board-empty">✨ Opening the shop…</div>'; show('shop');
+  if (!(await ensureIsland())) { $('#shop-grid').innerHTML = '<div class="board-empty">Could not open the shop. Try again.</div>'; return; }
+  if (current === 'shop') paintShop();
 }
 const shopCard = (img, name, desc, have, btns, cls = '') => `<div class="shop-card px ${cls}"><div class="shop-img">${img}</div><div class="shop-txt"><b>${name}</b><span>${desc}</span>${have !== null ? `<em>You have ${have}</em>` : ''}</div><div class="shop-btns">${btns}</div></div>`;
 // +1 ranked energy on a Mind: island shards, Dust or Gems
@@ -765,8 +774,10 @@ function paintShop() {
       if (!k.startsWith('troop_')) return '';
       const t = k.slice(6), lv = troopLv(st, t), a = troopStats(t, lv), z = troopStats(t, lv + 1), up = troopUpCost(t, lv);
       const stat = (d, n) => `❤️ ${d.hp}${d.dps ? ` · ⚔️ ${Math.round(d.dps)}` : ''}${d.blast ? ` · 💥 ${d.blast}` : ''}`;
+      const q = st.tlq && st.tlq.d > islandNow() ? st.tlq : null, busy = !!q;
       return `<span class="troop-lv"><b>Lv${lv}</b> ${stat(a)}${lv < MAX_TL ? ` → <em>Lv${lv + 1} ${stat(z)}</em>` : ' · top level'}</span>`
-        + (lv < MAX_TL ? `<span class="troop-up"><button class="btn small" data-act="troopup" data-item="${t}" ${canAfford(st, up) ? '' : 'disabled'}>⬆ Lv${lv + 1} · ${costText(up)}</button><button class="btn small gem" data-act="troopup" data-gems="1" data-item="${t}" ${(st.gems || 0) >= gemPrice(up) ? '' : 'disabled'}>⬆ ${gemPrice(up)} 💎</button></span>` : '');
+        + (q?.k === t ? `<span class="troop-up">⏳ Lv${q.lv} in ${fmtTime(q.d - islandNow())} <button class="btn small gem" data-act="troopnow" ${(st.gems || 0) >= troopRush(st, islandNow()) ? '' : 'disabled'}>Finish · ${troopRush(st, islandNow())} 💎</button></span>`
+          : lv < MAX_TL ? `<span class="troop-up"><button class="btn small" data-act="troopup" data-item="${t}" ${!busy && canAfford(st, up) ? '' : 'disabled'}>⬆ Lv${lv + 1} · ${costText(up)} · ⏱ ${fmtTime(troopUpSecs(lv) * 1000)}</button><button class="btn small gem" data-act="troopup" data-gems="1" data-item="${t}" ${!busy && (st.gems || 0) >= gemPrice(up) ? '' : 'disabled'}>⬆ ${gemPrice(up)} 💎</button>${busy ? '<small> one upgrade at a time</small>' : ''}</span>` : '');
     };
     html = head + keys.map(k => { const it = SHOP[k], ok = canAfford(st, it.price), h = have(k);
       return shopCard(icon(k), it.name, it.desc + lvLine(k), h, `<button class="btn small ${it.gem ? 'gem' : 'primary'}" data-act="shop" data-item="${k}" data-n="1" ${ok ? '' : 'disabled'}>${costText(it.price)}</button>${it.gem ? '' : `<button class="btn small" data-act="shop" data-item="${k}" data-n="5" ${canAfford(st, Object.fromEntries(Object.entries(it.price).map(([a, n]) => [a, n * 5]))) ? '' : 'disabled'}>×5</button><button class="btn small gem" data-act="shop" data-gems="1" data-item="${k}" data-n="1" ${(st.gems || 0) < gemPrice(it.price) ? 'disabled' : ''}>${gemPrice(it.price)} 💎</button>`}`, it.gem ? 'gemcard' : ''); }).join('')
@@ -778,10 +789,14 @@ function paintShop() {
     const btn = (k, c) => owns(k) ? (cos[c.kind] === k ? `<button class="btn small" data-cos="none" data-kind="${c.kind}">✓ Wearing · take off</button>` : `<button class="btn small primary" data-cos="${k}" data-equip="1">Wear</button>`)
       : `<button class="btn small ${c.price.gems ? 'gem' : 'primary'}" data-cos="${k}" ${canAfford(st, c.price) ? '' : 'disabled'}>${costText(c.price)}</button>`;
     const pfp = thumb(me?.pfp || 49);
-    const look = (k, c) => c.kind === 'name' ? `<b class="cos-name ${NAME_CLASS[k]}">${esc(me?.name || 'You')}</b>` : c.kind === 'back' ? `<img class="cos-back" src="${BACK_IMG[k]}" alt="">` : c.kind === 'sky' ? `<img class="cos-sky" src="${SKY_IMG[k]}" alt="">` : `<img class="cos-pfp ${FRAME_CLASS[k]}" src="${pfp}" alt="">`;
-    const what = { back: 'Card back for your duels', frame: 'Frame for your profile picture', sky: 'The sky around your island, for you and your raiders', name: 'Your name colour in duels and the lobby' };
-    html = '<div class="shop-info px">✨ Looks only: they never make you stronger. Card backs show in every duel, frames around your profile picture, skies around your island.</div>'
-      + Object.entries(COSMETICS).map(([k, c]) => shopCard(look(k, c), c.name, what[c.kind], null, btn(k, c), owns(k) ? 'owned' : '')).join('');
+    const look = (k, c) => c.kind === 'name' ? `<b class="cos-name ${NAME_CLASS[k]}">${esc(me?.name || 'You')}</b>` : c.kind === 'back' ? `<img class="cos-back" src="${BACK_IMG[k]}" alt="">` : c.kind === 'sky' ? `<img class="cos-sky" src="${SKY_IMG[k]}" alt="">`
+      : c.kind === 'aura' ? `<img class="cos-pfp ${AURA_CLASS[k]}" src="${pfp}" alt="">` : c.kind === 'title' ? `<b class="cos-name">${esc(me?.name || 'You')}<small class="cos-title">${esc(c.name)}</small></b>`
+      : c.kind === 'trail' ? `<b class="cos-trail">${TRAIL_ICON[k]}</b>` : `<img class="cos-pfp ${FRAME_CLASS[k]}" src="${pfp}" alt="">`;
+    const what = { back: 'Card back for your duels', frame: 'Frame for your profile picture', sky: 'The sky around your island, for you and your raiders', name: 'Your name colour in duels, Mind Town and the lobby',
+      aura: 'A glow around your Mind in Mind Town and your picture in duels', title: 'Words under your name in Mind Town, duels and your profile', trail: 'Your Mind leaves these behind as it walks in Mind Town' };
+    const order = ['aura', 'trail', 'title', 'name', 'frame', 'back', 'sky'];   // the newest, most visible looks first
+    html = '<div class="shop-info px">✨ Looks only: they never make you stronger. Everyone sees them: in Mind Town, in duels, on your profile and the leaderboard.</div>'
+      + Object.entries(COSMETICS).sort((a, b) => order.indexOf(a[1].kind) - order.indexOf(b[1].kind)).map(([k, c]) => shopCard(look(k, c), c.name, what[c.kind], null, btn(k, c), owns(k) ? 'owned' : '')).join('');
   } else {
     html = [['🌳', 'Decorations', 'Trees, statues, paths and lights for your island'], ['🃏', 'Card backs', 'Show off in every duel · 3,000 ✨'], ['🖼️', 'Profile frames', 'A frame around your profile picture · 5,000 ✨'],
       ['⚡', 'Energy shard', '+1 ranked energy for one Mind · 800 ✨ (1 a day)'], ['🛡️', 'Raid defenses', 'Walls, traps and guards for when raids arrive']]
@@ -853,7 +868,7 @@ $('#shop-grid').onclick = e => {
   sfx('coin');
   const g = res.gain || {};
   if (b.dataset.act === 'rankpass') { toast(`🎟️ Rank Pass active for ${RANK_PASS.days} more days!`); flushIsland().then(() => refreshMe()).then(() => { if (current === 'hub') paintHub(); }).catch(() => {}); paintShop(); refreshHud(); return; }
-  toast(b.dataset.act === 'sell' ? `Sold for ${g.dust} ✨` : b.dataset.act === 'craft' ? 'Crafted!' : b.dataset.act === 'troopup' ? 'Troop upgraded! Every one of them is stronger now.' : g.gems < 0 ? `Bought! ${-g.gems} 💎 spent` : `Bought! ${-(g.dust || 0)} ✨ spent`);
+  toast(b.dataset.act === 'sell' ? `Sold for ${g.dust} ✨` : b.dataset.act === 'craft' ? 'Crafted!' : b.dataset.act === 'troopup' ? 'Troop upgrade started! It keeps going while you are away.' : b.dataset.act === 'troopnow' ? 'Troop upgraded! Every one of them is stronger now.' : g.gems < 0 ? `Bought! ${-g.gems} 💎 spent` : `Bought! ${-(g.dust || 0)} ✨ spent`);
   flushIsland(); paintShop(); refreshHud();
 };
 $('#inv-tabs').onclick = e => { const v = e.target.dataset.v; if (!v) return; invTab = v; paintInventory(); };
@@ -897,7 +912,7 @@ async function loadBoard() {
   if (!online) { top.innerHTML = podium([], boardBy); list.innerHTML = '<li class="board-empty">Live rankings show here when you play online.</li>'; mine.innerHTML = ''; return; }
   try {
     const r = await api(`leaderboard?by=${boardBy}`);
-    const row = (p, i) => `<li class="brow ${p.id === me?.id ? 'mine-row' : ''}" data-pid="${p.id}"><span class="rk">${i + 1}</span><img class="${frameCls(p.cos)}" src="${thumb(p.pfp)}" alt=""><span class="nm ${nameCls(p.cos)}">${esc(p.name)}</span><span class="vl">${valIcon(boardBy)}${boardBy === 'points' ? p.points : p.rating}</span></li>`;
+    const row = (p, i) => `<li class="brow ${p.id === me?.id ? 'mine-row' : ''}" data-pid="${p.id}"><span class="rk">${i + 1}</span><img class="${frameCls(p.cos)}" src="${thumb(p.pfp)}" alt=""><span class="nm ${nameCls(p.cos)}">${esc(p.name)}${titleTag(p.cos)}</span><span class="vl">${valIcon(boardBy)}${boardBy === 'points' ? p.points : p.rating}</span></li>`;
     top.innerHTML = podium(r.players, boardBy);
     $('#board-tab-pfps').innerHTML = r.players.slice(0, 3).map(p => `<img src="${thumb(p.pfp)}" alt="">`).join('');
     list.innerHTML = r.players.length > 3 ? r.players.slice(3, 12).map((p, i) => row(p, i + 3)).join('')
@@ -934,7 +949,7 @@ function renderPrepGrid() {
     return paintPrep();
   }
   // ranked: Minds with energy first, empty ones last (they can't be picked until the refill)
-  const list = ranked ? [...myMinds].sort((a, b) => (energyOf(b) > 0) - (energyOf(a) > 0)) : myMinds;
+  const list = ranked ? [...myMinds].sort((a, b) => (energyOf(b) > 0) - (energyOf(a) > 0)) : playMinds();
   $('#prep-minds').innerHTML = list.map(id => `<div class="mind ${ranked && !energyOf(id) ? 'tired' : ''}" data-id="${id}"><img src="${thumb(id)}" alt="" loading="lazy"><span class="tag" style="background:${RAR_COLOR[rarityOf(id)]}">#${id}</span>${ranked ? energyTag(id) : ''}<span class="order"></span></div>`).join('');
   paintPrep();
 }
@@ -1532,7 +1547,7 @@ async function openProfile(pid) {
     $('#pf-friend')?.addEventListener('click', () => addFriend({ id: p.id }));
     $('#pf-edit').style.display = mine && !guest ? 'flex' : 'none';
     if (mine && !guest) {
-      pfPick = p.pfp; pfShow = [...(p.showcase || [])].filter(id => myMinds.includes(id));
+      pfPick = p.pfp; pfShow = [...(p.showcase || [])].filter(id => playMinds().includes(id));
       $('#pf-name-in').value = p.name; $('#pf-err').textContent = '';
       paintProfileEdit();
     }
@@ -1543,8 +1558,8 @@ async function openProfile(pid) {
   } catch (e) { toast(e.message, true); }
 }
 function paintProfileEdit() {
-  $('#pf-pfps').innerHTML = myMinds.map(id => `<div class="mind ${id === pfPick ? 'on' : ''}" data-id="${id}"><img src="${thumb(id)}" alt="" loading="lazy"><span class="tag">#${id}</span></div>`).join('');
-  $('#pf-shows').innerHTML = myMinds.map(id => { const i = pfShow.indexOf(id); return `<div class="mind ${i >= 0 ? 'on' : ''}" data-id="${id}"><img src="${thumb(id)}" alt="" loading="lazy"><span class="tag">#${id}</span><span class="order">${i + 1}</span></div>`; }).join('');
+  $('#pf-pfps').innerHTML = playMinds().map(id => `<div class="mind ${id === pfPick ? 'on' : ''}" data-id="${id}"><img src="${thumb(id)}" alt="" loading="lazy"><span class="tag">#${id}</span></div>`).join('');
+  $('#pf-shows').innerHTML = playMinds().map(id => { const i = pfShow.indexOf(id); return `<div class="mind ${i >= 0 ? 'on' : ''}" data-id="${id}"><img src="${thumb(id)}" alt="" loading="lazy"><span class="tag">#${id}</span><span class="order">${i + 1}</span></div>`; }).join('');
   $('#pf-show-count').textContent = `${pfShow.length}/3 · shown in your lobby and profile`;
 }
 $('#pf-pfps').onclick = e => { const m = e.target.closest('[data-id]'); if (!m) return; pfPick = +m.dataset.id; sfx('select'); paintProfileEdit(); };
@@ -1568,7 +1583,7 @@ initAutopilot({ api, esc, toast, modal, sfx, babble, online: () => online, guest
   myMinds: () => myMinds, energyOf: id => energyOf(id), rankPass: () => rankPass,
   refresh: () => { resetIsland(); if (Date.now() - apRefresh > 20e3) { apRefresh = Date.now(); refreshMe().then(() => { if (current === 'hub') paintHub(); }).catch(() => {}); } } });
 initTrade({ api, esc, toast, modal, sfx, island: () => isle.state, inTown: () => current === 'town' && online && !guest, refresh: () => { resetIsland(); ensureIsland(); } });
-initTown({ minds: () => (guest ? [] : myMinds), api, esc, toast, online: () => online, go: townGo, card: playerCard, mega: megaphone, me: () => me?.id, name: () => me?.name || 'You', canChat: () => online && !guest, chat });
+initTown({ minds: () => (guest ? [] : myMinds), myCos, api, esc, toast, online: () => online, go: townGo, card: playerCard, mega: megaphone, me: () => me?.id, name: () => me?.name || 'You', canChat: () => online && !guest, chat });
 
 // ---------- friends + friend chat (preset lines) ----------
 let frTick = 0, friendsList = [], chatWith = null, frUnwatch = null, frTimer = null;
@@ -1669,7 +1684,7 @@ async function playerCard(o) {
   const btns = guest ? [['Profile', 'profile'], ['Close', 0, 'primary']]
     : [...(current === 'town' ? [['🤝 Trade', 'trade', 'primary']] : []), ...(f?.status === 'accepted' ? [] : [[f?.incoming ? 'Accept friend' : '➕ Add friend', 'add', current === 'town' ? '' : 'primary']]), ['💬 Message', 'chat', f?.status === 'accepted' && current !== 'town' ? 'primary' : ''],
       ...(f?.status === 'accepted' ? [['🎁 Gift', 'gift']] : []), ['Profile', 'profile'], ['🚩 Report', 'report'], ['⛔ Block', 'block'], ['Close', 0]];
-  const go = await modal(`<div class="pcard"><img class="${frameCls(cos)}" src="${thumb(p.pfp)}" alt=""><div><h3 class="${nameCls(cos)}">${esc(p.name)}</h3><p class="muted">${p.online ? '🟢 online' : 'offline'}${status ? ' · ' + status : ''}</p></div></div>
+  const go = await modal(`<div class="pcard"><img class="${frameCls(cos)}" src="${thumb(p.pfp)}" alt=""><div><h3 class="${nameCls(cos)}">${esc(p.name)}</h3>${titleTag(cos)}<p class="muted">${p.online ? '🟢 online' : 'offline'}${status ? ' · ' + status : ''}</p></div></div>
     <div class="army-facts"><span>${valIcon('rating')} Rating <b>${p.rating}</b></span><span>${valIcon('points')} Points <b>${p.points}</b></span><span>🏆 Wins <b>${W}</b></span><span>📈 Win rate <b>${W + L ? Math.round(W / (W + L) * 100) + '%' : '—'}</b></span><span>🔥 Best streak <b>${p.bestStreak || 0}</b></span></div>`, btns);
   if (go === 'trade') { if (await ensureIsland()) openTrade(p.id); }
   else if (go === 'gift') { if (await ensureIsland()) giftTo(p); }

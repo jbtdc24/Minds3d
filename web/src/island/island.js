@@ -7,7 +7,7 @@ import { sfx } from '../audio.js';
 import { gen, COVER, T, TW, TH, WW, WH, hash } from './gen.js';
 import { drawSky, groundFor, sprites, sprouts, heart, SOIL, toolSprites } from './art.js';
 import { rng } from './pixel.js';
-import { CROPS, coverAt, ripe, growMs, regrowMs, maxPlots, plotCount, PLOT_COST, speedBonus, BUILD, buildingAt, fits, footprint, maxOf, countOf, canAfford, costText, homeOf, wellOf, STASH_MAX, rushGems, builders, busy, gemPrice, UPGRADABLE, MAX_LV, lvOf, upgradeCost, wellShards, SHARD_CAP, SHARD_MS, SHARDS_PER_ENERGY, BUILD_SECS, upgradeSecs, levelStats, upgradeBlock, thLv, burning, restoreCost, repairMs, BURN_CROPS_MS, workLanes } from './rules.js';
+import { CROPS, coverAt, ripe, growMs, regrowMs, maxPlots, plotCount, PLOT_COST, speedBonus, BUILD, buildingAt, fits, footprint, maxOf, countOf, canAfford, costText, homeOf, wellOf, STASH_MAX, rushGems, builders, busy, gemPrice, UPGRADABLE, MAX_LV, lvOf, upgradeCost, wellShards, SHARD_CAP, SHARD_MS, SHARDS_PER_ENERGY, BUILD_SECS, upgradeSecs, levelStats, upgradeBlock, thLv, burning, restoreCost, unlockTh, repairMs, BURN_CROPS_MS, workLanes } from './rules.js';
 import { bsprites, drawSails, buildIcon, leveled } from './buildings.js';
 import { drawCinema, dropShadow } from './cinema.js';
 import { isle, doAct, now, onChange, flush, tickWork } from './store.js';
@@ -587,9 +587,10 @@ function paintEdit() {
   if (!list.length) { bar.innerHTML = `<span class="ed-what">Tap or drag over buildings to select them.</span>${chips}`; return; }
   const up = list.filter(b => UPGRADABLE[b.type] && lvOf(b) < MAX_LV && !b.done), cost = {};
   for (const b of up) for (const [i, n] of Object.entries(upgradeCost(b))) cost[i] = (cost[i] || 0) + n;
+  const gems = up.reduce((s, b) => s + gemPrice(upgradeCost(b)), 0);   // the same Gem price as each building's own menu
   bar.innerHTML = `<span class="ed-what"><b>${list.length} selected</b> · ${Object.entries(count).map(([t, n]) => `${BUILD[t].name} ×${n}`).join(', ')}</span>`
     + (groupMove ? '<span class="ed-what">Tap where the top-left one should go.</span><button data-ed="cancel">Cancel move</button>'
-      : `${up.length ? `<button data-ed="up" class="${canAfford(st, cost) ? 'go' : ''}">⬆ Upgrade ${up.length} · ${costText(cost)}</button>` : ''}<button data-ed="move">↔ Move</button><button data-ed="store">📦 Store</button><button data-ed="remove">🗑 Remove</button><button data-ed="none">✕ Clear</button>`)
+      : `${up.length ? `<button data-ed="up" class="${canAfford(st, cost) ? 'go' : ''}">⬆ Upgrade ${up.length} · ${costText(cost)}</button><button data-ed="upgems" class="gem ${(st.gems || 0) >= gems ? 'go' : ''}">⬆ Upgrade ${up.length} · ${gems} 💎</button>` : ''}<button data-ed="move">↔ Move</button><button data-ed="store">📦 Store</button><button data-ed="remove">🗑 Remove</button><button data-ed="none">✕ Clear</button>`)
     + chips;
 }
 function onEditBar(e) {
@@ -604,14 +605,15 @@ function onEditBar(e) {
   }
   let ok = 0, why = '';
   for (const b of list) {
-    if (what !== 'up' && BUILD[b.type].fixed) continue;
-    if (what === 'up' && !(UPGRADABLE[b.type] && lvOf(b) < MAX_LV && !b.done)) continue;
-    const r = doAct(what === 'up' ? { type: 'upgrade', id: b.id } : what === 'store' ? { type: 'store', id: b.id } : { type: 'demolish', id: b.id });
+    const upg = what === 'up' || what === 'upgems';
+    if (!upg && BUILD[b.type].fixed) continue;
+    if (upg && !(UPGRADABLE[b.type] && lvOf(b) < MAX_LV && !b.done)) continue;
+    const r = doAct(upg ? { type: 'upgrade', id: b.id, gems: what === 'upgems' } : what === 'store' ? { type: 'store', id: b.id } : { type: 'demolish', id: b.id });
     if (r.error) why ||= r.error; else ok++;
   }
   for (const id of [...picked]) if (!(st.b || []).some(b => b.id === id)) picked.delete(id);
-  sfx(ok ? (what === 'up' ? 'levelup' : 'pop') : 'denied'); flush(); paintHud(); paintEdit();
-  const verb = what === 'up' ? 'Upgrading' : what === 'store' ? 'Stored' : 'Removed';
+  sfx(ok ? (what === 'up' || what === 'upgems' ? 'levelup' : 'pop') : 'denied'); flush(); paintHud(); paintEdit();
+  const verb = what === 'up' || what === 'upgems' ? 'Upgrading' : what === 'store' ? 'Stored' : 'Removed';
   cb.toast(ok ? `${verb} ${ok}.${why ? ` Some could not: ${why}` : ''}` : why || 'Nothing to do.', !ok);
 }
 function useTool(k) {
@@ -737,7 +739,7 @@ function openBuild(force) {
     + Object.entries(BUILD).filter(([, d]) => !d.fixed).map(([type, d]) => {
       const price = payGems ? { gems: gemPrice(d.cost) } : d.cost;
       const n = countOf(st, type), max = maxOf(type, isle.minds, thLv(st)), full = n >= max, poor = !canAfford(st, price);
-      return `<button data-build="${type}" class="${type === buildType ? 'on' : ''} ${full || poor ? 'none' : ''} ${d.gem ? 'gem' : ''}"><img src="${buildIcon(type)}" alt=""><b>${d.name}</b><span>${d.desc}</span><span>${costText(price)} · ⏱ ${BUILD_SECS[type] ? fmtTime(BUILD_SECS[type] * 1000) : 'instant'}</span><em>${n}/${max}</em></button>`;
+      return `<button data-build="${type}" class="${type === buildType ? 'on' : ''} ${full || poor ? 'none' : ''} ${d.gem ? 'gem' : ''}"><img src="${buildIcon(type)}" alt=""><b>${d.name}</b><span>${d.desc}</span><span>${costText(price)} · ⏱ ${BUILD_SECS[type] ? fmtTime(BUILD_SECS[type] * 1000) : 'instant'}</span><em>${max ? `${n}/${max}` : `🔒 TH${unlockTh(type)}`}</em></button>`;
     }).join('');
   box.classList.add('on');
 }

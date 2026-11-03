@@ -360,6 +360,12 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   st.b.push({ id: st.nb++, type: 'camp', k: 0 });
   ok(R.act(st, { type: 'troopup', item: 'brawler' }, ctx).done === 1 && R.troopLv(st, 'brawler') === 2 && st.dust === 50000 - 700, 'Brawlers go to Lv2 for 700 Dust');
   ok(/Lv2/.test(R.act(st, { type: 'troopup', item: 'brawler' }, ctx).error || ''), 'Lv3 needs a Lv2 camp');
+  { const t = R.newIsland(seed, now); t.dust = 50000; t.inv.stone = 500; t.gems = 50; t.b.push({ id: t.nb++, type: 'camp', k: 0 }); const c = { seed, now, minds: 0 };
+    ok(R.act(t, { type: 'troopup', item: 'archer' }, c).done === 1 && R.troopLv(t, 'archer') === 1 && t.tlq?.d === now + 600e3, 'troop upgrades take time (10 min to Lv2)');
+    ok(/one troop upgrade/i.test(R.act(t, { type: 'troopup', item: 'brawler' }, c).error || ''), 'one troop upgrade at a time');
+    ok(R.troopUpSecs(9) > R.troopUpSecs(2), 'higher troop levels take longer');
+    ok(R.act(t, { type: 'troopnow' }, c).done === 1 && t.gems === 48 && R.troopLv(t, 'archer') === 2, 'Gems finish a troop upgrade, priced by time left');
+    t.tlq = { k: 'brawler', lv: 2, d: now + 5 }; R.normalize(t, seed, now + 10); ok(R.troopLv(t, 'brawler') === 2 && !t.tlq, 'a finished troop upgrade lands on load'); }
   ok(R.act(st, { type: 'troopup', item: '__proto__' }, ctx).error && R.act(st, { type: 'troopup', item: 'constructor' }, ctx).error, 'unknown troops are refused');
   ok(RD.troopStats('brawler', 2).hp === Math.round(RD.TROOPS.brawler.hp * 1.2) && RD.troopStats('brawler', 12).hp === Math.round(RD.TROOPS.brawler.hp * 2.1), 'troop stats grow 20% a level to Lv3, then 10%, capped at Lv10');
   const snap = RD.botVillage(4242, 2), plan = RD.autoPlan(snap, { troops: { brawler: 8 }, hero: 'captain' });

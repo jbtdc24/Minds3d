@@ -8,13 +8,14 @@ import { drawCinema, dropShadow } from './island/cinema.js';
 import { T, WATER, SAND, GRASS, PAVE, PATH, PLANK, ROCK, MEADOW, paintTile, shop, tower, arena, pier, tree, hedge, lampPost, bench, bed, fountain } from './townart.js';
 import { liveRoom } from './net.js';
 import { babble, music, sfx } from './audio.js';
+import { AURA_INK, TRAIL_INK, titleOf } from './cosmetics.js';
 
 const $ = s => document.querySelector(s), PEOPLE_N = 14;
 const TW = 100, TH = 65, WW = TW * T, WH = TH * T, RESIDENTS = PEOPLE_N, WALK = 72, LOADS = 3;
 const cv = document.getElementById('town-cv'), g = cv.getContext('2d');
 let K = null, running = false, raf = 0, last = 0, W = 0, H = 0, DPR = 1, zoom = 1.3, map = null;
 let frames = [], room = null, chatPing = 0;
-let meP = null, people = new Map(), bubbles = [], chatAfter = 0, sayQ = '', talkT = 1, stayLeft = 0, loads = 0, free = false;
+let meP = null, people = new Map(), bubbles = [], trails = [], chatAfter = 0, sayQ = '', talkT = 1, stayLeft = 0, loads = 0, free = false;
 const ptrs = new Map(), CAM = { x: WW / 2, y: WH / 2 }, looks = new Map();
 let tap = null, pinch = null;
 const key = (x, y) => y * TW + x;
@@ -144,8 +145,37 @@ function resident(i, t) {
   return { id: m.id, x: A.x + (B.x - A.x) * w, y: A.y + (B.y - A.y) * w, dir: B.x < A.x ? -1 : 1, walking: true };
 }
 const look = id => { if (looks.has(id)) return looks.get(id); if (loads >= LOADS) return null; loads++; try { const c = chibi(id).full; looks.set(id, c); return c; } catch { return null; } };
-function drawMind(m, step) {
+// a bought aura: a pulsing glow on the ground and a soft column of light around the Mind
+function drawAura(m, aura, t) {
+  const ink = aura === 'aura_rainbow' ? `hsl(${(t * 90) % 360} 95% 65%)` : AURA_INK[aura];
+  if (!ink) return;
+  const p = 0.75 + 0.25 * Math.sin(t * 3 + m.x * 0.01);
+  g.save(); g.globalAlpha = 0.55 * p; g.fillStyle = ink;
+  g.beginPath(); g.ellipse(m.x, m.y, 11 * p, 3.6 * p, 0, 0, 6.3); g.fill();
+  g.globalAlpha = 0.16 * p; g.fillRect(Math.round(m.x - 7), Math.round(m.y - 26), 14, 26);
+  g.globalAlpha = 0.9;   // a few sparks rising
+  for (let i = 0; i < 3; i++) { const k = (t * 0.8 + i / 3 + m.x * 0.003) % 1; g.fillRect(Math.round(m.x - 8 + ((i * 7 + m.y) % 16)), Math.round(m.y - k * 30), 1, 1); }
+  g.restore();
+}
+// trail bits in tiny pixel shapes (heart, star, petal, gem)
+const TRAIL_PX = { trail_hearts: [[0, 0], [2, 0], [-1, 1], [0, 1], [1, 1], [2, 1], [3, 1], [0, 2], [1, 2], [2, 2], [1, 3]], trail_stars: [[1, 0], [0, 1], [1, 1], [2, 1], [1, 2]],
+  trail_petals: [[0, 0], [1, 0], [1, 1]], trail_gems: [[1, 0], [0, 1], [1, 1], [2, 1], [1, 2]] };
+function dropTrail(x, y, kind, dt) {
+  if (!TRAIL_INK[kind] || Math.random() > dt * 9) return;
+  trails.push({ x: x + (Math.random() - 0.5) * 6, y: y - 1 - Math.random() * 3, kind, life: 1.4, vy: -4 - Math.random() * 6, c: TRAIL_INK[kind][Math.random() < 0.5 ? 0 : 1] });
+  if (trails.length > 300) trails.shift();
+}
+function drawTrails(dt) {
+  for (const p of trails) {
+    p.life -= dt; p.y += p.vy * dt; if (p.kind === 'trail_petals') p.x += Math.sin(p.life * 6) * 6 * dt;
+    g.globalAlpha = Math.max(0, Math.min(1, p.life)); g.fillStyle = p.c;
+    for (const [dx, dy] of TRAIL_PX[p.kind]) g.fillRect(Math.round(p.x) + dx - 1, Math.round(p.y) + dy - 2, 1, 1);
+  }
+  g.globalAlpha = 1; trails = trails.filter(p => p.life > 0);
+}
+function drawMind(m, step, t) {
   const s = look(m.id);
+  if (m.cos?.aura) drawAura(m, m.cos.aura, t);
   g.fillStyle = 'rgba(43,35,64,.3)'; g.beginPath(); g.ellipse(m.x, m.y, 5, 1.6, 0, 0, 6.3); g.fill();
   if (!s) return;
   g.save(); g.translate(Math.round(m.x), Math.round(m.y) - (step && m.walking ? 1 : 0)); if (m.dir < 0) g.scale(-1, 1);
@@ -191,25 +221,31 @@ function frame(tMs) {
   for (const o of people.values()) {
     const to = o.path?.[0] || { x: o.tx, y: o.ty }, d = Math.hypot(to.x - o.x, to.y - o.y), v = WALK * dt;
     if (d > v) { o.dir = to.x < o.x ? -1 : 1; o.x += (to.x - o.x) / d * v; o.y += (to.y - o.y) / d * v; } else { o.x = to.x; o.y = to.y; o.path?.shift(); }
-    draw.push({ y: o.y, mind: { id: o.mind || 49, x: o.x, y: o.y, dir: o.dir || 1, walking: d > v } });
+    const cos = wears.get(o.id);
+    if (d > v && cos?.trail) dropTrail(o.x, o.y, cos.trail, dt);
+    draw.push({ y: o.y, mind: { id: o.mind || 49, x: o.x, y: o.y, dir: o.dir || 1, walking: d > v, cos } });
   }
-  draw.push({ y: meP.y, mind: { id: meP.mind, x: meP.x, y: meP.y, dir: meP.dir || 1, walking: !!meP.path?.length } });
+  const mine = K.myCos?.() || null;
+  if (meP.path?.length && mine?.trail) dropTrail(meP.x, meP.y, mine.trail, dt);
+  draw.push({ y: meP.y, mind: { id: meP.mind, x: meP.x, y: meP.y, dir: meP.dir || 1, walking: !!meP.path?.length, cos: mine } });
   draw.sort((a, b) => (a.flat ? -1 : a.y) - (b.flat ? -1 : b.y));
   const step = Math.floor(tMs / 170) & 1;
+  drawTrails(dt);
   for (const d of draw) {
-    if (d.mind) drawMind(d.mind, step);
+    if (d.mind) drawMind(d.mind, step, t);
     else { if (!d.flat && d.spr.w > 20) dropShadow(g, d.x, d.y - 1, d.spr.w * 0.8); g.drawImage(d.spr.cv, Math.round(d.x - d.spr.w / 2), Math.round(d.y - d.spr.h)); }   // buildings and trees cast soft shadows
   }
   // words stay the same size at every zoom
   g.setTransform(DPR, 0, 0, DPR, 0, 0);
   drawCinema(g, W, H, t, dt, { motes: 'pollen' });   // warm light, sun rays, drifting pollen, vignette (like the island)
   for (const b of SPOTS) if (b.name) label(b.name, b.px, b.py - b.spr.h + (b.flat ? 2 : -3), b.go ? '#d4ff1f' : '#fff8e4', undefined, 12);
-  for (const o of people.values()) { const c = wears.get(o.id); label(o.name, o.x, o.y - 26, nameInk(c, t), undefined, 13, FRAME_INK[c?.frame]); }
-  label('You', meP.x, meP.y - 26, '#d4ff1f');
+  const titleLine = c => titleOf(c) ? `« ${titleOf(c)} »` : '';   // a bought title sits above the name tag
+  for (const o of people.values()) { const c = wears.get(o.id); label(o.name, o.x, o.y - 26, nameInk(c, t), undefined, 13, FRAME_INK[c?.frame]); if (titleLine(c)) label(titleLine(c), o.x, o.y - 42, '#ffd84a', 'rgba(29,27,47,.7)', 10); }
+  label('You', meP.x, meP.y - 26, '#d4ff1f', undefined, 13, FRAME_INK[mine?.frame]); if (titleLine(mine)) label(titleLine(mine), meP.x, meP.y - 42, '#ffd84a', 'rgba(29,27,47,.7)', 10);
   // 📣 Megaphone messages stay over a player's head for an hour
   const now = Date.now();
-  for (const o of people.values()) { const m = wears.get(o.id)?.mega; if (m && m.until > now) label(`📣 ${m.text}`, o.x, o.y - 52, '#2b2340', '#ffd84a', 13, '#8a5a00'); }
-  if (myMega && myMega.until > now) label(`📣 ${myMega.text}`, meP.x, meP.y - 52, '#2b2340', '#ffd84a', 13, '#8a5a00');
+  for (const o of people.values()) { const m = wears.get(o.id)?.mega; if (m && m.until > now) label(`📣 ${m.text}`, o.x, o.y - (titleLine(wears.get(o.id)) ? 62 : 52), '#2b2340', '#ffd84a', 13, '#8a5a00'); }
+  if (myMega && myMega.until > now) label(`📣 ${myMega.text}`, meP.x, meP.y - (titleLine(mine) ? 62 : 52), '#2b2340', '#ffd84a', 13, '#8a5a00');
   talkT -= dt;
   if (talkT <= 0) {   // a resident near you says something
     talkT = 2.5 + Math.random() * 3;
