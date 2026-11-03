@@ -4,7 +4,7 @@
 // and presses Start. Every round the server asks the AI for that job's details (which crop, which army, which cards…)
 // and does it by the normal rules (lib/routes/autopilot.js 'work', 'duel_plan', 'duel_think'). It waits while you play.
 // 👁 Follow watches it live; 📜 History has everything. Gems: OFF by default, a typed daily limit + CONFIRM.
-import { JOBS, PACE, TRAINING, cleanTraining } from './island/training.js';
+import { JOBS, PACE, TRAINING, PLAN_MAX, cleanTraining } from './island/training.js';
 import * as HM from './hellominds.js';
 
 let K = null, ap = null, sel = null, busy = false, looping = false, wake = null, follow = null;
@@ -48,16 +48,17 @@ export function initAutopilot(ctx) {
   document.body.append(d);
   d.addEventListener('click', onClick);
   d.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'md-in') talk(); });
-  dragBy($('#md-head'), d); dragBy($('#md-bubble'), d);
+  dragBy($('#md-head'), d);   // the folded bubble always sits in the corner: only the open window moves
   setMin(load(MIN_KEY, false)); d.classList.toggle('big', !!load(BIG_KEY, false)); place(load(POS_KEY, null));
 }
-function setMin(v) { $('#mdock').classList.toggle('min', v); save(MIN_KEY, v); }
+// opening (or growing) the window puts it back fully on screen: it never hangs off an edge
+function setMin(v) { $('#mdock').classList.toggle('min', v); save(MIN_KEY, v); if (!v) requestAnimationFrame(() => place(load(POS_KEY, null))); }
 // move the dock anywhere (remembered on this device); a short tap is still a tap
 function place(p) {
   const d = $('#mdock'); if (!d) return;
   if (!p) { d.style.left = d.style.top = ''; d.classList.remove('moved'); return; }
-  const w = d.offsetWidth || 340, h = Math.min(d.offsetHeight || 200, innerHeight);
-  const x = Math.max(0, Math.min(innerWidth - w - 4, p.x)), y = Math.max(0, Math.min(innerHeight - Math.min(h, 120), p.y));
+  const w = d.offsetWidth || 340, h = Math.min(d.offsetHeight || 200, innerHeight - 8);
+  const x = Math.max(4, Math.min(innerWidth - w - 4, p.x)), y = Math.max(4, Math.min(innerHeight - h - 4, p.y));
   Object.assign(d.style, { left: `${x}px`, top: `${y}px` }); d.classList.add('moved');
 }
 function dragBy(handle, d) {
@@ -164,12 +165,17 @@ function paint() {
   }
   const on = running.has(s), job = jobOf(s), cog = l.cog;
   const warn = cog == null || cog >= LOW_COG ? '' : `<div class="md-cogwarn ${cog <= 0 ? 'out' : ''}"><b>${cog <= 0 ? '⛔ Out of cognition' : `⚠️ Low cognition: ${Math.round(cog).toLocaleString()} left`}</b><span>${cog <= 0 ? 'This AI cannot think, so it cannot play.' : 'It stops playing when it runs out.'}</span><button class="btn small ${cog <= 0 ? 'primary' : 'gem'}" data-a="topup">➕ Add cognition</button></div>`;
-  const status = on ? (l.now || 'starting…') : job ? (ai.last?.text || 'ready: press ▶ Start') : 'pick a job below';
+  const last = ai.last?.kind === job?.kind ? ai.last : null;   // a result of another job is not shown under this one
+  const status = on ? (l.now || 'starting…') : job ? (last?.text || 'ready: press ▶ Start') : 'pick a job below';
+  const plan = mixing(s) ? planOf(s) : null, mix = !!plan;
   body.innerHTML = `${warn}<div class="md-card"><img src="${slotPic(s)}" alt=""><div><b>${K.esc(ai.name || 'AI')}</b><small>Hello Minds AI · plays ${slotName(s)} · <span id="md-cog" class="${cog != null && cog < LOW_COG ? 'low' : ''}">${cog == null ? '🧠 …' : cog <= 0 ? '⛔ no cognition left' : `${Math.round(cog).toLocaleString()} cognition left`}</span> <button class="md-add" data-a="topup" title="Add cognition on Hello Minds">➕</button></small></div></div>
-    <div class="label">Job</div>
-    <div class="md-jobs">${Object.entries(JOBS).map(([k, j]) => `<button class="md-job ${job?.kind === k ? 'on' : ''}" data-job="${k}" title="${K.esc(j.say)}"><i>${j.icon}</i><span>${K.esc(j.name)}</span></button>`).join('')}</div>
-    ${job ? `<div class="md-status ${on ? 'run' : ''}"><b>${JOBS[job.kind].icon} ${K.esc(JOBS[job.kind].name)}</b><span class="md-now">${K.esc(status)}</span>${(l.think || ai.last?.why) ? `<small class="md-think">💭 ${K.esc(l.think || ai.last.why)}</small>` : ''}</div>
-    <div class="md-row"><button class="btn ${on ? 'red' : 'primary'}" data-a="go">${on ? '⏸ Stop' : '▶ Start'}</button><button class="btn small" data-a="follow">👁 Follow</button><button class="btn small" data-a="history">📜 History</button></div>
+    <div class="md-jobhead"><span class="label">${mix ? 'Plan' : 'Job'}</span><button class="btn small ${mix ? 'primary' : ''}" data-a="mix" title="Do several jobs in your order">📋 ${mix ? 'Plan ON' : 'Mix jobs'}</button></div>
+    ${mix ? `<small class="muted md-mixhelp">Tap jobs in the order you want (up to ${PLAN_MAX}). Your AI stays on a job while it can, then moves to the next one, and starts again from the top.</small>` : ''}
+    <div class="md-jobs">${Object.entries(JOBS).map(([k, j]) => { const n = plan ? plan.indexOf(k) + 1 : 0; return `<button class="md-job ${(mix ? n : job?.kind === k) ? 'on' : ''} ${mix && job?.kind === k && job.plan ? 'now' : ''}" data-job="${k}" title="${K.esc(j.say)}">${n ? `<em class="md-n">${n}</em>` : ''}<i>${j.icon}</i><span>${K.esc(j.name)}</span></button>`; }).join('')}</div>
+    ${mix && plan.length ? `<div class="md-order">${plan.map(k => `<span class="${job?.kind === k && job.plan ? 'now' : ''}">${JOBS[k].icon} ${K.esc(JOBS[k].name)}</span>`).join('<b>→</b>')}<b>↺</b></div>` : ''}
+    ${mix && plan.length === 1 ? '<small class="muted">Pick at least one more job for a plan.</small>' : ''}
+    ${job ? `<div class="md-status ${on ? 'run' : ''}"><b>${JOBS[job.kind].icon} ${K.esc(JOBS[job.kind].name)}${job.plan ? ` <small>· job ${job.plan.indexOf(job.kind) + 1} of ${job.plan.length}</small>` : ''}</b><span class="md-now">${K.esc(status)}</span>${(l.think || last?.why) ? `<small class="md-think">💭 ${K.esc(l.think || last.why)}</small>` : ''}</div>
+    <div class="md-row"><button class="btn ${on ? 'red' : 'primary'}" data-a="go">${on ? '⏸ Stop' : '▶ Start'}</button><button class="btn small" data-a="follow">👁 Follow</button><button class="btn small" data-a="history">📜 History</button><button class="btn small" data-a="proof" title="See that a real AI is deciding">🔍 Proof</button></div>
     ${awayBox()}
     <details class="md-set"><summary>⚙️ Settings for this job</summary>
       <label>How often <select id="md-pace">${Object.entries(PACE).map(([k, v]) => `<option value="${k}" ${job.pace === k ? 'selected' : ''}>${v.name}</option>`).join('')}</select></label>
@@ -194,9 +200,9 @@ async function onClick(e) {
   const t = e.target.closest('button'); if (!t || $('#mdock').dataset.dragged) return;
   if (t.id === 'md-bubble') return setMin(false);
   if (t.id === 'md-min') return setMin(true);
-  if (t.id === 'md-big') { const b = !$('#mdock').classList.contains('big'); $('#mdock').classList.toggle('big', b); save(BIG_KEY, b); return; }
+  if (t.id === 'md-big') { const b = !$('#mdock').classList.contains('big'); $('#mdock').classList.toggle('big', b); save(BIG_KEY, b); return requestAnimationFrame(() => place(load(POS_KEY, null))); }
   if (t.dataset.slot) { sel = t.dataset.slot; K.sfx('select'); paint(); return loadChat(sel); }
-  if (t.dataset.job) return pickJob(t.dataset.job);
+  if (t.dataset.job) return mixing(sel) ? planToggle(t.dataset.job) : pickJob(t.dataset.job);
   const a = t.dataset.a;
   if (a === 'connect') return HM.signIn().catch(err => K.toast(err.message, true));
   if (a === 'wallet') return K.connectWallet?.();
@@ -206,6 +212,8 @@ async function onClick(e) {
   if (a === 'send') { L(sel).coach = true; return talk(); }
   if (a === 'follow') return openFollow(sel);
   if (a === 'history') return openHistory();
+  if (a === 'proof') return openProof(sel);
+  if (a === 'mix') return mixToggle();
   if (a === 'gems') return gemsToggle();
   if (a === 'topup') return topUp();
   if (a === 'away') return awayToggle();
@@ -215,14 +223,39 @@ async function onClick(e) {
 }
 async function saveJob(kind, extra = {}) {
   const j = jobOf(sel) || {};
-  try { ap = await K.api('autopilot', { op: 'job', mind: sel, kind, pace: extra.pace ?? j.pace, tip: extra.tip ?? j.tip }); } catch (err) { K.toast(err.message, true); }
+  try { ap = await K.api('autopilot', { op: 'job', mind: sel, kind, pace: extra.pace ?? j.pace, tip: extra.tip ?? j.tip, plan: 'plan' in extra ? extra.plan : j.plan }); } catch (err) { K.toast(err.message, true); }
   paint();
+}
+// a new job starts with a clean status: nothing of the old job's result or reason is shown under it
+const freshStatus = slot => Object.assign(L(slot), { result: '', think: '', now: '', wait: 0, long: 0 });
+// 📋 plans: several jobs in the player's order (a draft of one job stays in this browser until a second is picked)
+const draft = {};
+const mixing = s => !!jobOf(s)?.plan || !!draft[s];
+const planOf = s => jobOf(s)?.plan || draft[s] || [];
+async function mixToggle() {
+  K.sfx('select');
+  const s = sel, j = jobOf(s);
+  if (mixing(s)) { delete draft[s]; if (j?.plan) await saveJob(j.kind, { plan: [] }); return paint(); }
+  draft[s] = j ? [j.kind] : []; paint();
+}
+async function planToggle(kind) {
+  K.sfx('select');
+  const s = sel, now = planOf(s);
+  const plan = now.includes(kind) ? now.filter(k => k !== kind) : [...now, kind].slice(0, PLAN_MAX);
+  if (kind === 'cup' && !now.includes(kind) && !ap?.gems?.on) K.toast('The Siege Cup costs 5 💎 an entry: turn 💎 Gems ON in ⚙️ Settings so your AI can enter.');
+  if (plan.length < 2) { draft[s] = plan; if (jobOf(s)?.plan) await saveJob(plan[0] || jobOf(s).kind, { plan: [] }); return paint(); }
+  delete draft[s];
+  const cur = jobOf(s)?.kind, keep = plan.includes(cur) ? cur : plan[0];
+  if (keep !== cur) freshStatus(s);
+  await saveJob(keep, { plan });
+  if (running.has(s) && keep !== cur) { Object.assign(L(s), { round: (L(s).round || 0) + 1 }); wake?.(); }
 }
 // a job is picked with one tap; a running AI switches to it at once
 async function pickJob(kind) {
   K.sfx('select');
   if (kind === 'cup' && !ap?.gems?.on) K.toast('The Siege Cup costs 5 💎 an entry: turn 💎 Gems ON in ⚙️ Settings so your AI can enter.');
-  await saveJob(kind);
+  if (jobOf(sel)?.kind !== kind) freshStatus(sel);
+  await saveJob(kind, { plan: [] });
   Object.assign(L(sel), { round: (L(sel).round || 0) + 1, wait: 0 }); wake?.();
   if (running.has(sel)) say(sel, `${JOBS[kind].icon} Switching to ${JOBS[kind].name} now.`);
 }
@@ -340,7 +373,12 @@ async function loop() {
       let did = false;
       try { did = job.kind === 'ranked' ? await duel(slot, 1, 1) : await work(slot, job); } catch (e) { await log(slot, `${JOBS[job.kind].icon} ${e.message || 'that did not work'}`); }
       const gap = did ? PACE[job.pace]?.gap || 60e3 : 120e3;
-      l.wait = Math.max(Date.now() + gap, l.long || 0); l.long = 0;   // no energy / cup done: a long wait instead of trying every minute
+      l.wait = Math.max(Date.now() + gap, l.long || 0);   // no energy / cup done: a long wait instead of trying every minute
+      if (job.plan && running.has(slot) && jobOf(slot)?.kind === job.kind) {   // 📋 a plan: nothing done = on to the next job now
+        const r = await K.api('autopilot', { op: 'advance', mind: slot, did }).catch(() => null);
+        if (r?.ai) { ap = { ...ap, ai: r.ai, log: r.log || ap.log }; if (!did && !r.lap) { freshStatus(slot); l.wait = Date.now() + 2000; } else if (!did) l.wait = Math.max(l.wait, Date.now() + 15 * 60e3); }
+      }
+      l.long = 0;
       l.round = (l.round || 0) + 1;
       K.refresh(); paint();
       await sleep(800);
@@ -462,6 +500,25 @@ function paintFollow() {
     <div class="mf-info"><b>${K.esc(ai?.name || 'AI')} · ${slotName(s)}</b><small class="muted">a real Hello Minds AI, thinking every move</small><p class="mf-now">${K.esc(on ? l.now || '…' : 'Not playing right now.')}</p>
       <ol class="mf-log">${lines.map(x => `<li><time>${new Date(x.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>${K.esc(x.text)}</li>`).join('') || '<li class="muted">What it does shows here.</li>'}</ol>
       <div class="md-row">${on ? '<button class="btn red" data-f="stop">⏸ Stop</button>' : '<button class="btn primary" data-f="go">▶ Start</button>'}<button class="btn" data-f="close">Close</button></div></div></div>`;
+}
+// ---------- 🔍 Proof: a real AI decides, not a game bot ----------
+// Two sources side by side: the same conversation read straight from Hello Minds by this browser (with the player's own
+// Hello Minds sign-in, not through our server), and what the game server did with each answer.
+async function openProof(slot) {
+  const ai = aiOf(slot); if (!ai) return;
+  K.toast("Reading your AI's conversation from Hello Minds…");
+  try { ap = await K.api('autopilot', { op: 'get' }); } catch { /* show what we have */ }
+  const mine = aiOf(slot)?.proof || [], hm = await HM.playHistory(ai.hm, 30).catch(() => null);
+  const t = x => new Date(x).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const short = (x, n = 260) => K.esc(String(x || '').slice(0, n)) + (String(x || '').length > n ? '…' : '');
+  const said = (hm || []).filter(r => r.who === 'mind').slice(0, 8);
+  await K.modal(`<h3>🔍 Is it really ${K.esc(ai.name || 'my AI')}?</h3>
+    <p>Every move is a question sent to <b>your own AI on Hello Minds</b> (AI id <code>${K.esc(String(ai.hm).slice(0, 8))}…</code>), and it answers in its own words. Each answer uses your Hello Minds cognition, so you can also watch your cognition go down while it plays.</p>
+    <div class="md-proof"><h4>📡 Straight from Hello Minds <small class="muted">read now by your browser, not by our game server</small></h4>
+    ${hm == null ? '<p class="muted">Could not reach Hello Minds right now. Try again in a moment.</p>' : said.length ? `<ol>${said.map(r => `<li><time>${t(r.at)}</time><b>${K.esc(ai.name || 'AI')}:</b> ${short(r.text)}</li>`).join('')}</ol>` : '<p class="muted">No game answers yet: press ▶ Start and come back after a round.</p>'}
+    <h4>🎮 What the game did with each answer</h4>
+    ${mine.length ? `<ol>${mine.slice(0, 8).map(x => `<li><time>${t(x.at)}</time>${JOBS[x.kind]?.icon || '🧠'} <i>answered in ${x.ms == null ? '?' : Math.round(x.ms / 1000)} s</i><br><b>Its answer:</b> ${short(x.answer)}</li>`).join('')}</ol>` : '<p class="muted">Nothing yet.</p>'}
+    </div><p class="muted">The answers in both lists match. In the Hello Minds app, the conversation of ${K.esc(ai.name || 'your AI')} called <b>mindsclash-play</b> has every game question and answer.</p>`, [['Close', 0, 'primary']]);
 }
 // ---------- 📜 History: everything the AIs did, filtered by Mind ----------
 let histOnly = '';

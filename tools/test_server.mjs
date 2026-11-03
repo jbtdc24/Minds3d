@@ -1599,6 +1599,17 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
       fake.reply = 'ARMY: brawler 3, archer 2, bomber 2 WHY: walls first'; out = await hit(autopilot, M, { op: 'work', mind: 0, round: 4, token: tok });
       ok(/boss fortress|no try|not entered/.test(out.body.text) && T.cup_entries.some(e => e.player_id === M.id && /🧠/.test(e.name)), `siege cup: the AI enters (marked 🧠) and attacks: ${out.body.text}`);
       ok((await hit(autopilot, M, { op: 'job', mind: 0, kind: 'nope' })).body.ai['0'].job.kind === 'farm', 'unknown jobs fall back to farming');
+      ok((out.body.ai?.['0']?.proof || isl(M).state.ap.ai['0'].proof || []).some(p => /walls first/.test(p.answer) && p.kind === 'cup'), '🔍 proof: the AI answer is kept word for word with the job it decided');
+      { // 📋 plans: several jobs in order; a job with nothing to do moves on to the next, a whole empty lap rests
+        out = await hit(autopilot, M, { op: 'job', mind: 0, kind: 'raid', plan: ['raid', 'ranked', 'adventure', 'nope', 'raid'] });
+        ok(out.body.ai['0'].job.plan.join() === 'raid,ranked,adventure' && out.body.ai['0'].job.kind === 'raid', 'a plan keeps the known jobs in the player order');
+        out = await hit(autopilot, M, { op: 'advance', mind: 0, did: true });
+        ok(out.body.ai['0'].job.kind === 'raid' && !out.body.lap, 'a job that did something stays on');
+        out = await hit(autopilot, M, { op: 'advance', mind: 0, did: false });
+        ok(out.body.ai['0'].job.kind === 'ranked', 'nothing to do: on to the next job of the plan');
+        await hit(autopilot, M, { op: 'advance', mind: 0, did: false }); out = await hit(autopilot, M, { op: 'advance', mind: 0, did: false });
+        ok(out.body.ai['0'].job.kind === 'raid' && out.body.lap, 'a whole lap with nothing to do starts again from the top (and rests)');
+        ok(!(await hit(autopilot, M, { op: 'job', mind: 0, kind: 'farm', plan: [] })).body.ai['0'].job.plan, 'one job again: the plan is gone'); }
       fake.reply = null; await hit(autopilot, M, { op: 'job', mind: 0, kind: 'raid' });
       ok((await hit(autopilot, M, { op: 'work', mind: 0, round: 5, token: tok })).body.pending, 'a slow AI makes the job wait (short calls), it never plays for the AI'); }
     { // 🌙 away play: the server keeps doing the jobs for up to 7 days, with its own sealed Hello Minds sign-in

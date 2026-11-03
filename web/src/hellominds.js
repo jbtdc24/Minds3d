@@ -78,6 +78,11 @@ export async function history(mindId, limit = 60) {
   // a player's message carries the game's instructions in front of "Human says:": only their own words are shown
   return rows.map(r => ({ who: r.senderType === 1 ? 'me' : 'mind', text: plain(r.messageText).replace(/^[\s\S]*Human says:\s*/, '').replace(/^\s*PLAN:.*$/im, '').trim(), at: r.createdAt })).filter(r => r.text && !/^\[MINDS CLASH game/.test(r.text) && !/^Write only the PLAN line/.test(r.text)).reverse();
 }
+// 🔍 the game conversation (questions + the AI's answers, newest first), read straight from Hello Minds: proof it is the AI
+export async function playHistory(mindId, limit = 30) {
+  const rows = await hm().client.getHistory(playAlias(mindId), { limit });
+  return rows.map(r => ({ who: r.senderType === 1 ? 'game' : 'mind', text: plain(r.messageText).replace(/^\[MINDS CLASH game[^\]]*\]\s*/, ''), at: r.createdAt })).filter(r => r.text);
+}
 // split a reply into what to say and the plan line ("PLAN: …"; '' when there is none)
 export function splitReply(reply) {
   const m = /^\s*PLAN:\s*(.*)$/im.exec(reply || '');

@@ -160,7 +160,16 @@ export const JOBS = {
 Object.setPrototypeOf(JOBS, null);
 export const PACE = { fast: { name: 'Non-stop', gap: 60e3 }, normal: { name: 'Every 10 min', gap: 600e3 }, slow: { name: 'Every hour', gap: 3600e3 } };
 Object.setPrototypeOf(PACE, null);
-export const cleanJob = j => ({ kind: Object.hasOwn(JOBS, String(j?.kind)) ? String(j.kind) : 'farm', pace: Object.hasOwn(PACE, String(j?.pace)) ? String(j.pace) : 'fast', tip: String(j?.tip || '').replace(/[\u0000-\u001f]/g, ' ').slice(0, 240) });
+// a job, or a plan: several jobs in the player's order (the AI stays on one while it can, then moves to the next)
+export const PLAN_MAX = 7;
+export function cleanJob(j) {
+  const plan = [...new Set((Array.isArray(j?.plan) ? j.plan : []).map(String).filter(k => Object.hasOwn(JOBS, k)))].slice(0, PLAN_MAX);
+  let kind = Object.hasOwn(JOBS, String(j?.kind)) ? String(j.kind) : plan[0] || 'farm';
+  if (plan.length > 1 && !plan.includes(kind)) kind = plan[0];
+  return { kind, pace: Object.hasOwn(PACE, String(j?.pace)) ? String(j.pace) : 'fast', tip: String(j?.tip || '').replace(/[\u0000-\u001f]/g, ' ').slice(0, 240), ...(plan.length > 1 ? { plan } : {}) };
+}
+// the job after this one in the plan (after the last, the first again)
+export const nextJob = j => (j.plan?.length > 1 ? j.plan[(j.plan.indexOf(j.kind) + 1) % j.plan.length] : j.kind);
 // the question for one round of a job (the AI answers in the fixed lines; WHY last)
 export function jobQuestion(kind, { st, tip, crops = {}, spots = [], cupBudget = 9 } = {}) {
   const bag = Object.entries(st?.inv || {}).filter(([k]) => k.startsWith('crop_')).map(([k, n]) => `${k.slice(5)} ${n}`).join(', ') || 'none';
