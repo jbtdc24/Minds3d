@@ -24,7 +24,7 @@ const sleep = ms => new Promise(res => { const t = setTimeout(res, ms); wake = (
 const SCENE = { island: 'assets/sky_island.webp', adventure: 'assets/sky_adventure.webp', duel: 'assets/stage_meadow.webp', town: 'assets/stage_castle.webp', raid: 'assets/sky_storm.webp', rest: 'assets/sky_aurora.webp' };
 const KIND = { farm: 'island', sell: 'island', well: 'island', train: 'island', decorate: 'island', raid: 'raid', adventure: 'adventure', duel: 'duel', town: 'town', wait: 'rest' };
 // cognition: the AI only plays while its Mind has cognition. Low = a warning; empty = it stops (no thinking, no playing)
-const LOW_COG = 100, TOPUP_URL = 'https://hellominds.ai/pricing', COG_EVERY = 60e3;
+const LOW_COG = 100, TOPUP_URL = 'https://hellominds.ai/pricing', COG_EVERY = 45e3;
 const noCog = msg => /cognition|credit|insufficient|balance|quota|402/i.test(String(msg || ''));
 const ACT_ICON = { farm: ['🌱', '🧺', '🥕'], sell: ['💰', '✨'], well: ['⚡'], train: ['🏹', '🪓'], decorate: ['🌷', '🏮'], raid: ['⚔️', '💥', '⭐'], adventure: ['🧭', '🌿', '🪵'], duel: ['🃏', '👑'], town: ['🏘️', '💬'], wait: ['💤'] };
 
@@ -157,7 +157,7 @@ function paint() {
   }
   const on = running.has(s), steps = ai.steps, cog = l.cog;
   const warn = cog == null || cog >= LOW_COG ? '' : `<div class="md-cogwarn ${cog <= 0 ? 'out' : ''}"><b>${cog <= 0 ? '⛔ Out of cognition' : `⚠️ Low cognition: ${Math.round(cog).toLocaleString()} left`}</b><span>${cog <= 0 ? 'This AI cannot think, so it cannot play.' : 'It stops playing when it runs out.'}</span><button class="btn small ${cog <= 0 ? 'primary' : 'gem'}" data-a="topup">➕ Add cognition</button></div>`;
-  body.innerHTML = `${warn}<div class="md-card"><img src="${slotPic(s)}" alt=""><div><b>${K.esc(ai.name || 'AI')}</b><small>Hello Minds AI · plays ${slotName(s)} · <span id="md-cog" class="${cog != null && cog < LOW_COG ? 'low' : ''}">${cog == null ? '🧠 …' : `${Math.round(cog).toLocaleString()} cognition left`}</span> <button class="md-add" data-a="topup" title="Add cognition on Hello Minds">➕</button></small>
+  body.innerHTML = `${warn}<div class="md-card"><img src="${slotPic(s)}" alt=""><div><b>${K.esc(ai.name || 'AI')}</b><small>Hello Minds AI · plays ${slotName(s)} · <span id="md-cog" class="${cog != null && cog < LOW_COG ? 'low' : ''}">${cog == null ? '🧠 …' : cog <= 0 ? '⛔ no cognition left' : `${Math.round(cog).toLocaleString()} cognition left`}</span> <button class="md-add" data-a="topup" title="Add cognition on Hello Minds">➕</button></small>
       <small class="md-now">${K.esc(on ? (l.now || 'starting…') : steps.length ? 'resting' : 'no plan yet')}</small>${l.think && on ? `<small class="md-think">💭 ${K.esc(l.think)}</small>` : ''}</div></div>
     <div class="md-row"><button class="btn ${on ? 'red' : 'primary'}" data-a="go">${on ? '⏸ Stop' : '▶ Start'}</button><button class="btn small" data-a="follow">👁 Follow</button><button class="btn small" data-a="train">🎯 Train</button><button class="btn small" data-a="history">📜</button></div>
     <div class="md-plan">${steps.length ? `<b>Plan</b> ${K.esc(planText(steps))}${ai.loop ? ' · 🔁' : ''}` : 'Pick a plan below, or ask your AI.'}</div>
@@ -171,8 +171,8 @@ function paint() {
   if (ai.hm && Date.now() - l.cogAt > COG_EVERY) checkCog(s).then(c => { if (c != null && s === sel && Math.round(c) !== Math.round(cog ?? -1)) paint(); });
 }
 const say = (slot, text, who = 'mind') => { const l = L(slot); (l.chat ||= []).push({ who, text }); l.chat = l.chat.slice(-200); if (slot === sel) paint(); };
-const setNow = (slot, text, kind) => { const l = L(slot); l.now = text; if (kind) l.kind = kind; if (slot === sel) { const el = $('#mdock .md-now'); if (el) el.textContent = text; } paintFollow(); };
-const think = (slot, why) => { if (!why) return; L(slot).think = why.slice(0, 160); paintFollow(); if (slot === sel) { const el = $('#mdock .md-think'); if (el) el.textContent = `💭 ${L(slot).think}`; } };
+const setNow = (slot, text, kind) => { const l = L(slot); l.now = text; if (kind && kind !== l.kind) { l.kind = kind; followTo(slot); } else if (kind) l.kind = kind; if (slot === sel) { const el = $('#mdock .md-now'); if (el) el.textContent = text; } paintFollow(); };
+const think = (slot, why) => { if (!why) return; L(slot).think = why; paintFollow(); if (slot === sel) { const el = $('#mdock .md-think'); if (el) el.textContent = `💭 ${L(slot).think}`; } };
 
 // ---------- taps ----------
 async function onClick(e) {
@@ -262,6 +262,7 @@ async function start(slot) {
 }
 function stop(slot, msg) {
   const wasDuel = L(slot).kind === 'duel';
+  if (follow === slot && K.watching?.()) K.stopWatch();
   running.delete(slot); keepRunning();
   Object.assign(L(slot), { town: 0, rest: 0, now: '', duel: null });
   if (msg) say(slot, msg); paint(); paintFollow(); wake?.();
@@ -290,6 +291,7 @@ async function loop() {
   try {
     while (running.size) {
       if (!K.idle()) { await sleep(3000); continue; }   // you are playing yourself: the AIs wait
+      for (const s of [...running]) await checkCog(s);   // every AI, every minute, also in Mind Town or resting: no cognition = it stops
       await townBeats();
       const now = Date.now(), ready = [...running].filter(s => L(s).town < now && L(s).rest < now);
       if (!ready.length) { await sleep(2500); continue; }
@@ -345,6 +347,7 @@ async function duel(slot, i, n) {
   while (running.has(slot) && !q.match && Date.now() < until) { setNow(slot, `🃏 duel ${i}/${n}: looking for a rival…`, 'duel'); await sleep(2500); q = await K.api('autopilot', { op: 'duel_poll' }); }
   if (!q.match) { await K.api('autopilot', { op: 'duel_leave' }).catch(() => {}); return false; }
   const id = q.match, l = L(slot);
+  l.match = id; if (follow === slot && K.watching?.()) K.watchDuel(id, ai?.name || 'Your AI');   // following: show this duel
   let v = null, own = 0, total = 0;
   for (let guard = 0; guard < 400; guard++) {
     v = await K.api('autopilot', { op: 'duel_view', id });
@@ -368,15 +371,26 @@ async function duel(slot, i, n) {
     await sleep(1500);
     if (!running.has(slot)) { await K.api('autopilot', { op: 'duel_forfeit', id }).catch(() => {}); return false; }
   }
-  l.duel = null;
+  l.duel = null; l.match = null;
   const won = v?.winner === v?.seat, tie = v?.winner == null;
   await log(slot, `🃏 ${tie ? 'tied' : won ? 'won' : 'lost'} vs ${v?.view.rival.name}${v?.delta ? ` (${v.delta > 0 ? '+' : ''}${v.delta} rating)` : ''}${v?.dustWon ? `, +${v.dustWon} ✨` : ''} · the AI played ${own} of ${total} turns itself${own < total ? ' (no answer = no move)' : ''}`);
   K.babble(slot === '0' ? 49 : +slot, won ? 'happy' : 'sad', 0.6); K.refresh();
   return true;
 }
 
-// ---------- 👁 Follow: watch one Mind play, live (its duel board, what it does, what it thinks) ----------
+// ---------- 👁 Follow: watch one Mind play, live ----------
+// In a duel you watch the real duel screen; on the island you watch your real island; elsewhere (raid, adventure,
+// Mind Town, rest) a live card. It switches by itself as the AI moves on.
+function followTo(slot) {
+  if (follow !== slot || !K.watching?.()) return;
+  const l = L(slot), name = aiOf(slot)?.name || 'Your AI';
+  if (l.kind === 'duel' && l.match) K.watchDuel(l.match, name);
+  else if (l.kind === 'island') K.watchIsland(name);
+}
 function openFollow(slot) {
+  const l = L(slot), name = aiOf(slot)?.name || 'Your AI';
+  if (running.has(slot) && l.kind === 'duel' && l.match) { follow = slot; $('#mfollow')?.classList.remove('on'); return K.watchDuel(l.match, name); }
+  if (running.has(slot) && l.kind === 'island') { follow = slot; $('#mfollow')?.classList.remove('on'); return K.watchIsland(name); }
   follow = slot;
   let f = $('#mfollow');
   if (!f) {

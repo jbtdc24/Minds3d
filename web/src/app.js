@@ -745,7 +745,7 @@ const shopCard = (img, name, desc, have, btns, cls = '') => `<div class="shop-ca
 async function refillEnergy(id) {
   await ensureIsland();
   const inv = isle.state?.inv || {}, shards = inv.shard || 0, price = energyPrice(refillsToday(isle.state || {}, id, new Date().toISOString().slice(0, 10)));
-  const pay = await modal(`<h3>⚡ Refill Mind #${id}</h3><p>This Mind has <b>${energyOf(id)}/${capFor(id)}</b> energy. It refills by itself in ${resetText()}.</p><p>Your ⚡ shards: <b>${shards}</b> <span class="muted">(the Energy Well on your island makes 1 every 4 hours)</span></p><p class="muted">Max ${REFILLS_PER_DAY} refills per Mind per day, each one dearer than the last.</p>`,
+  const pay = await modal(`<h3>⚡ Refill Mind #${id}</h3><p>This Mind has <b>${energyOf(id)}/${capFor(id)}</b> energy. It refills by itself in ${resetText()}.</p><p>Your ⚡ shards: <b>${shards}</b> <span class="muted">(the Energy Well on your island makes 1 every 4 hours)</span></p><p class="muted">Max ${REFILLS_PER_DAY} refills per Mind per day.</p>`,
     [[`${SHARDS_PER_ENERGY} ⚡ shards`, 'shard', shards >= SHARDS_PER_ENERGY ? 'primary' : ''], [`${price.dust.toLocaleString()} ✨`, 'dust'], [`${price.gems} 💎`, 'gems', 'gem'], ['Not now', 0]]);
   if (!pay) return;
   try { const r = await api('energy', { mind: id, pay }); energy[id] = r.energy; sfx('levelup'); toast(`Mind #${id} now has ${r.energy} ⚡`); resetIsland(); await ensureIsland(); refreshEnergy(); if (current === 'prep') renderPrepGrid(); if (current === 'inventory') paintInventory(); }
@@ -1034,7 +1034,7 @@ function duelLayout() {
 // both players see the same arena: it comes from the match id, not a dice roll on each phone
 const arenaFor = id => { let h = 0; for (const c of String(id ?? Math.random())) h = (h * 31 + c.charCodeAt(0)) >>> 0; return BATTLE_STAGES[h % BATTLE_STAGES.length]; };
 function startDuel(local, first = local.view(), opts = {}) {
-  D = { local, id: first.id, v: first, seen: keyOf(first.view.lastEvent), busy: false, sel: { card: null, spell: null }, F: [null, null], mind: [-1, -1], lastCrown: null,
+  D = { local, watch: opts.watch || null, id: first.id, v: first, seen: keyOf(first.view.lastEvent), busy: false, sel: { card: null, spell: null }, F: [null, null], mind: [-1, -1], lastCrown: null,
     chatAt: (first.chat || []).reduce((m, c) => Math.max(m, Date.parse(c.at)), 0), tutorial: opts.tutorial || null };
   D.v.gotAt = Date.now();
   clearStage(); clearTags();
@@ -1042,7 +1042,8 @@ function startDuel(local, first = local.view(), opts = {}) {
   setStage(opts.stage || (BATTLE_STAGES.includes(forced) ? forced : arenaFor(first.id)));
   placeFighters(first.view, true);
   buildTable(); wearMine(); wearRival(first.view.rival.cos);   // card backs and frames on both sides
-  $('#d-chat').style.display = D.tutorial ? 'none' : '';
+  $('#d-chat').style.display = D.tutorial || D.watch ? 'none' : '';
+  $('#s-duel').classList.toggle('watch', !!D.watch);   // 👁 watching your AI: the real duel, but your hand cannot play
   $('#d-chatpick').classList.remove('on');
   show('duel'); music('duel');
   paintDuel();
@@ -1192,18 +1193,20 @@ function paintTimer() {
   if (left <= 0 && D.expiredAt && Date.now() - D.expiredAt > 3000) D.expiredAt = 0;
 }
 $('#d-hand').onclick = e => {
+  if (D?.watch) return toast(`${D.watch} is playing this duel. You are watching.`);
   const b = e.target.closest('[data-card]'); if (!b || !D || D.busy || D.v.view.me.locked || b.classList.contains('lockout')) return;
   const n = +b.dataset.card;
   D.sel.card = D.sel.card === n ? null : n; sfx(D.sel.card ? 'select' : 'deselect'); paintDuel();
 };
 $('#d-spells').onclick = e => {
+  if (D?.watch) return;
   const b = e.target.closest('[data-spell]'); if (!b || !D || D.v.view.me.locked) return;
   if (b.classList.contains('used') || b.classList.contains('lockout')) return sfx('denied');
   const k = b.dataset.spell;
   D.sel.spell = D.sel.spell === k ? null : k; sfx(D.sel.spell ? 'select' : 'deselect'); paintDuel();
 };
 async function lockIn() {
-  if (!D || D.sel.card == null || D.busy || D.v.view.me.locked || $('#d-lock').disabled) return;
+  if (!D || D.watch || D.sel.card == null || D.busy || D.v.view.me.locked || $('#d-lock').disabled) return;
   const action = { id: D.id, card: D.sel.card, spell: D.sel.spell };
   $('#d-lock').disabled = true; sfx('energy');
   D.tutorial?.hide();
@@ -1220,6 +1223,7 @@ addEventListener('keydown', e => {
   else if (e.key === 'Enter') lockIn();
 });
 $('#d-menu').onclick = async () => {
+  if (D?.watch) { stopWatch(); return; }   // watching: the menu just stops watching (the AI keeps playing)
   const r = await modal(`<h3>Match menu</h3><p class="muted">${D?.tutorial ? 'Leave the tutorial?' : 'Leaving counts as a loss.'}</p>`, [['Keep playing', 0, 'primary'], ['Rules', 2], [D?.tutorial ? 'Leave' : 'Forfeit', 1]]);
   if (r === 2) { renderCodex(); show('codex'); }
   if (r === 1) {
@@ -1228,6 +1232,40 @@ $('#d-menu').onclick = async () => {
   }
 };
 
+// ---------- 🧾 purchase history (last 30 days, from the player's own island; Gem packs are real-money purchases) ----------
+async function openPurchases() {
+  if (!(await ensureIsland())) return;
+  const list = (isle.state?.buys || []).filter(b => Date.now() - b.at < 30 * 864e5);
+  const cost = b => b.paid ? Object.entries(b.paid).map(([k, n]) => `${n.toLocaleString()} ${k === 'dust' ? '✨' : k === 'gems' ? '💎' : k}`).join(' + ') : '';
+  const gemsIn = list.filter(b => b.real).reduce((s, b) => s + (b.got?.gems || 0), 0), gemsOut = list.reduce((s, b) => s + (b.paid?.gems || 0), 0);
+  await modal(`<h3>🧾 My purchases</h3><p class="muted">The last 30 days. Older purchases are deleted. Something missing? Use 🐞 Report in Settings and tell us the time.</p>
+    <div class="army-facts"><span>💎 Gems bought: <b>${gemsIn}</b></span><span>💎 Gems spent: <b>${gemsOut}</b></span><span>🧾 Purchases: <b>${list.length}</b></span></div>
+    <ol class="md-hist buys">${list.map(b => `<li class="${b.real ? 'real' : ''}"><time>${new Date(b.at).toLocaleDateString([], { month: 'short', day: 'numeric' })} ${new Date(b.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time><i>${b.real ? '💳' : b.paid?.gems ? '💎' : '✨'}</i><span><b>${esc(b.what)}</b>${b.real ? ` · +${b.got.gems} 💎${b.tx ? ` · <small>tx ${esc(String(b.tx).slice(0, 18))}…</small>` : ''}` : ` · ${esc(cost(b))}`}</span></li>`).join('') || '<li class="muted">No purchases in the last 30 days.</li>'}</ol>`, [['Close', 0, 'primary']]);
+}
+$('#shop-hist').onclick = openPurchases;
+$('#set-hist').onclick = openPurchases;
+// ---------- 👁 watching an AI Mind play (Follow): the real duel screen, or your real island, live ----------
+let watching = null;   // { kind: 'duel' | 'island', name }
+function watchBar() {
+  let b = $('#watchbar');
+  if (!b) { b = document.createElement('div'); b.id = 'watchbar'; b.className = 'watchbar px'; b.onclick = e => { if (e.target.closest('button')) stopWatch(); }; document.body.append(b); }
+  b.classList.toggle('on', !!watching);
+  if (watching) b.innerHTML = `<b>👁 Watching ${esc(watching.name)} play</b><span>${watching.kind === 'duel' ? 'its ranked duel, live: every card is its own choice' : 'your island, live: see what it changes'}</span><button class="btn small">✕ Stop watching</button>`;
+}
+async function watchDuel(id, name) {
+  watching = { kind: 'duel', name }; watchBar();
+  if (D?.id === id && current === 'duel') return;
+  try { startDuel(null, await api(`match/view?id=${id}`), { watch: name }); } catch (e) { toast(e.message, true); }
+}
+async function watchIsland(name) {
+  watching = { kind: 'island', name }; watchBar();
+  if (current !== 'island') await goIsland();
+}
+function stopWatch() {
+  const was = watching; watching = null; watchBar();
+  if (was?.kind === 'duel' && current === 'duel' && D?.watch) leaveDuel();
+  else if (was?.kind === 'island' && current === 'island') enterHub();
+}
 // ---------- quick chat (preset lines only) ----------
 let chatTab = 0, chatCool = 0;
 function paintChatPick() {
@@ -1590,10 +1628,12 @@ $('#pf-save').onclick = async () => {
 const chat = chatSigner(api);
 // 🧠 Mind Autopilot (lobby panel): it plays only while you sit in the lobby, and waits while you play yourself
 let apRefresh = 0;
-initAutopilot({ api, esc, toast, modal, sfx, babble, online: () => online, guest: () => guest, idle: () => current === 'hub' && !document.querySelector('#modal.on'),
+initAutopilot({ api, esc, toast, modal, sfx, babble, online: () => online, guest: () => guest,
+  idle: () => (current === 'hub' || (!!watching && ['duel', 'island', 'result'].includes(current))) && !document.querySelector('#modal.on'),   // the AIs play in the lobby, and while you watch them
+  watchDuel, watchIsland, stopWatch, watching: () => watching?.kind || null,
   mindId: () => me?.pfp || myMinds[0] || 1, mindName: () => me ? `${me.name}'s Mind #${me.pfp}` : 'Your Mind', pfp: () => thumb(me?.pfp || 49),
   myMinds: () => myMinds, energyOf: id => energyOf(id), rankPass: () => rankPass, thumb, island: () => isle.state, home: () => { if (current !== 'hub') enterHub(); },
-  refresh: () => { resetIsland(); if (Date.now() - apRefresh > 20e3) { apRefresh = Date.now(); refreshMe().then(() => { if (current === 'hub') paintHub(); }).catch(() => {}); } } });
+  refresh: () => { if (watching?.kind === 'island' && current === 'island') refreshIsland().catch(() => {}); else resetIsland(); if (Date.now() - apRefresh > 20e3) { apRefresh = Date.now(); refreshMe().then(() => { if (current === 'hub') paintHub(); }).catch(() => {}); } } });
 initTrade({ api, esc, toast, modal, sfx, island: () => isle.state, inTown: () => current === 'town' && online && !guest, inDuel: () => current === 'duel', openMatch: id => openMatch(id), refresh: () => { resetIsland(); ensureIsland(); } });
 initTown({ minds: () => (guest ? [] : myMinds), myCos, api, esc, toast, online: () => online, go: townGo, card: playerCard, mega: megaphone, me: () => me?.id, name: () => me?.name || 'You', canChat: () => online && !guest, chat });
 

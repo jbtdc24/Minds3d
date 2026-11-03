@@ -49,7 +49,8 @@ export function cleanTraining(t) {
 export const trainingText = (t, part) => Object.entries(TRAINING[part]).filter(([k]) => k !== 'label').map(([k, o]) => `${o.label}: ${o.opts[t?.[part]?.[k]] || Object.values(o.opts)[0]}`).join('; ');
 
 // ---- what the AI is asked, and how its answer is read (the server asks; the same text everywhere) ----
-const why = reply => (/WHY:\s*(.+)/i.exec(reply || '') || [])[1]?.trim().slice(0, 160) || '';
+// the AI's reason, whole (cut at a word near 400 characters, never mid-word)
+const why = reply => { const w = ((/WHY:\s*([\s\S]+)/i.exec(reply || '') || [])[1] || '').trim().replace(/\s+/g, ' '); return w.length > 400 ? w.slice(0, 400).replace(/\s+\S*$/, '') + '…' : w; };
 export const STEP_NAMES = { farm: 'Farm', sell: 'Sell crops', well: 'Energy Well', train: 'Train troops', raid: 'Raid', adventure: 'Adventure', duel: 'Ranked duel', town: 'Mind Town', decorate: 'Decorate', wait: 'Rest' };
 export function stepQuestion({ steps, planned, st, energy, train, crops, spots }) {
   const opts = [...new Set(steps.map(s => s.do))];

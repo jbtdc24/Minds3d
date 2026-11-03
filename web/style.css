@@ -1147,3 +1147,20 @@ h3.raid-result { text-align: center; }
 /* the folded dock is only its bubble (no empty frame around it) */
 .mdock.px { box-shadow: none; background: none; }
 .mdock.min, .mdock.fight { width: auto; }
+/* readable text everywhere in the dock and Follow: nothing is cut off, it wraps */
+.md-card div { min-width: 0; flex: 1; } .md-card small { font-size: 12px; overflow-wrap: anywhere; }
+.md-card .md-now { white-space: normal; overflow: visible; text-overflow: clip; font-size: 13px; }
+.md-think { display: block; font-size: 12px !important; line-height: 1.35; max-height: 9em; overflow-y: auto; }
+.md-head small { font-size: 12px; } .md-tab span { font-size: 11px; } .md-tab img { width: 40px; height: 40px; }
+.md-preset { font-size: 13px; line-height: 1.2; } .md-plan { font-size: 13px; line-height: 1.35; }
+.mp-line { overflow-wrap: anywhere; line-height: 1.35; }
+.mf-bubble { max-height: 45%; overflow-y: auto; line-height: 1.35; font-size: 13px; }
+.mf-log li { line-height: 1.35; overflow-wrap: anywhere; } .mf-now { overflow-wrap: anywhere; }
+.md-hist span { overflow-wrap: anywhere; line-height: 1.35; }
+.md-train label { grid-template-columns: minmax(110px, 40%) 1fr; } .md-train select { width: 100%; white-space: normal; }
+/* 👁 watching an AI play: a bar on top, and the duel hand cannot be played */
+.watchbar { position: fixed; top: 8px; left: 50%; transform: translateX(-50%); z-index: 47; display: none; align-items: center; gap: 10px; padding: 6px 10px; background: linear-gradient(135deg, #9b6bff, #5ec8ff); color: #fff; width: min(640px, calc(100vw - 16px)); }
+.watchbar.on { display: flex; } .watchbar span { flex: 1; font-size: 12px; opacity: .95; }
+#s-duel.watch #d-hand, #s-duel.watch #d-spells, #s-duel.watch #d-lock { pointer-events: none; opacity: .8; }
+.md-hist.buys li { grid-template-columns: 96px 22px 1fr; } .md-hist.buys li.real { background: #efe6ff; } .md-hist.buys i { font-style: normal; }
+.adm-tx { font-size: 11px; overflow-wrap: anywhere; }

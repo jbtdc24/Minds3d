@@ -48,9 +48,9 @@ export const BUILD = {
 export const STASH_MAX = 12;
 // the link between the island and Ranked: the Energy Well slowly fills with shards; 3 shards = +1 ranked energy on a Mind
 export const SHARD_MS = 4 * 3600e3, SHARD_CAP = 6, SHARDS_PER_ENERGY = 3;
-export const ENERGY_PRICE = { dust: 1500, gems: 5 }, REFILLS_PER_DAY = 3;   // or buy it: max 3 refills per Mind per day
-// each refill of the same Mind on the same day costs more: 1,500 / 3,000 / 6,000 Dust or 5 / 8 / 12 Gems (n = refills already today)
-export const energyPrice = n => ({ dust: [1500, 3000, 6000][Math.min(2, n | 0)], gems: [5, 8, 12][Math.min(2, n | 0)] });
+export const ENERGY_PRICE = { dust: 3000, gems: 8 }, REFILLS_PER_DAY = 3;   // or buy it: max 3 refills per Mind per day
+// one price for every refill and every Mind (the same everywhere, so nobody is surprised)
+export const energyPrice = () => ({ ...ENERGY_PRICE });
 export const refillsToday = (st, mind, day) => (st.er?.day === day ? st.er.m?.[mind] || 0 : 0);
 export const wellShards = (st, now) => Math.min(SHARD_CAP, Math.floor((now - (st.wellAt ?? now)) / SHARD_MS));
 // anything can be paid with Gems instead: about 1 💎 per 100 Dust of value (wood 5, stone 6 Dust each)
@@ -294,8 +294,33 @@ export function burnVillage(st, now, { by, ids = [], stars = 0 }) {
   const all = new Set([...(st.burn?.ids || []), ...ids.filter(id => keep.has(id))]);
   st.burn = { at: st.burn?.at || now, by, ids: [...all].slice(0, 30) };   // a second raid adds to the fire, it does not restart the clock
 }
+// 🧾 purchase history: everything bought with Dust or Gems (and Gem packs), kept 30 days on the player's own island
+export const BUY_DAYS = 30, BUY_MAX = 300;
+export function logBuy(st, entry, now = Date.now()) {
+  st.buys = [{ at: now, ...entry }, ...(st.buys || [])].filter(b => now - b.at < BUY_DAYS * 864e5).slice(0, BUY_MAX);
+}
+// what an island action bought, in words (null = not a purchase)
+export function buyLabel(a) {
+  const item = String(a?.item || ''), n = Math.max(1, a?.n | 0);
+  switch (a?.type) {
+    case 'shop': return `${SHOP[item]?.name || item}${n > 1 ? ` ×${n}` : ''}`;
+    case 'buy': return item === 'permit' ? 'Land Permit' : `${CROPS[item.replace(/^seed_/, '')]?.name || item} seeds${n > 1 ? ` ×${n}` : ''}`;
+    case 'build': return `Built ${BUILD[item]?.name || item}`;
+    case 'upgrade': return 'Building upgrade';
+    case 'cosmetic': return a.equip ? null : `Look: ${COSMETICS[item]?.name || item}`;
+    case 'rankpass': return '🎟️ Rank Pass (7 days)';
+    case 'troopup': return `Troop upgrade: ${item}`;
+    case 'troopnow': return 'Finished a troop upgrade';
+    case 'rush': return 'Finished a building now';
+    case 'ship': return 'Airship upgrade';
+    case 'restore': return 'Village repair';
+    case 'tplot': case 'plot': return 'Farm plot';
+    default: return null;
+  }
+}
 export function normalize(st, seed, now) {
   migrate(st); migrate3(st, seed);
+  if (st.buys?.length && now - st.buys.at(-1).at > BUY_DAYS * 864e5) st.buys = st.buys.filter(b => now - b.at < BUY_DAYS * 864e5);   // older than 30 days: gone
   if (st.burn?.fix && st.burn.fix <= now) delete st.burn;   // the Minds finished the repairs
   if (burning(st, now) && !st.burn.lost && now - st.burn.at > BURN_CROPS_MS) {   // left burning too long: the crops are gone
     for (const t of Object.values(st.tiles)) if (t.s === 'p' && t.c) { delete t.c; delete t.p; }

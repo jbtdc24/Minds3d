@@ -75,6 +75,8 @@ async function show(pid) {
       <small class="muted">Use negative numbers to take away.</small></div>
     <div class="adm-box"><b>Discipline</b> <input id="adm-reason" placeholder="reason"> <input id="adm-hours" type="number" placeholder="hours" value="24">
       <button class="btn small" data-a="suspend">Suspend</button><button class="btn small red" data-a="ban">Ban</button><button class="btn small" data-a="unban">Unban</button></div>
+    <div class="adm-flags"><b>💳 Real-money Gem payments</b>${(r.payments || []).map(x => `<div><span>${new Date(x.at).toLocaleString()}</span> <b>${x.gems} 💎</b> <small>${K.esc(x.pack)} · tx <code class="adm-tx">${K.esc(x.tx)}</code></small></div>`).join('') || '<p class="muted">None.</p>'}</div>
+    <div class="adm-flags"><b>🧾 Purchases (last 30 days)</b>${(r.buys || []).map(b => `<div><span>${new Date(b.at).toLocaleString()}</span> <b>${K.esc(b.what)}</b> <small>${b.paid ? Object.entries(b.paid).map(([k, n]) => `${n} ${k}`).join(' + ') : ''}${b.got?.gems ? `+${b.got.gems} 💎` : ''}${b.tx ? ` · tx ${K.esc(String(b.tx).slice(0, 14))}…` : ''}</small></div>`).join('') || '<p class="muted">None.</p>'}</div>
     <div class="adm-flags"><b>🚩 Flags</b>${r.flags.map(f => `<div><span>${new Date(f.at).toLocaleString()}</span> <b>${f.kind}</b> <small>${K.esc(JSON.stringify(f.detail))}</small></div>`).join('') || '<p class="muted">None.</p>'}</div>`;
 }
 document.addEventListener('click', async e => {

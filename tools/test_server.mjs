@@ -66,7 +66,7 @@ ok(!(await checkSignature(acct.address, msg.replace('abc123', 'zzz'), sig)), 'ta
 ok(!(await checkSignature('0x0000000000000000000000000000000000000001', msg, sig)), 'wrong wallet rejected');
 const tok = signSession({ id: 'p1', address: acct.address });
 ok(readSession({ headers: { authorization: `Bearer ${tok}` } })?.pid === 'p1', 'session round-trips');
-ok(readSession({ headers: { authorization: `Bearer ${tok.slice(0, -2)}${tok.slice(-2) === 'xx' ? 'yy' : 'xx'}` } }) === null, 'forged session rejected');
+{ const i = tok.lastIndexOf('.') + 3, bad = tok.slice(0, i) + (tok[i] === 'A' ? 'B' : 'A') + tok.slice(i + 1); ok(readSession({ headers: { authorization: `Bearer ${bad}` } }) === null, 'forged session rejected'); }
 const forged = Buffer.from(JSON.stringify({ pid: 'admin', exp: Date.now() + 1e9 })).toString('base64url') + '.' + tok.split('.')[1];
 ok(readSession({ headers: { authorization: `Bearer ${forged}` } }) === null, 'edited session body rejected');
 ok(checkName('ab') && checkName('bad name!') && checkName('fuck_you') && checkName('N1gg3r') && !checkName('Satoshi_42'), 'name filter');
@@ -778,6 +778,7 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
     const { creditGems } = await import('../lib/routes/gems.js'), ib = T.islands.find(x => x.player_id === buyer.id), d0 = ib.state.dust;
     await creditGems(buyer.id, '0xabc', 50); await creditGems(buyer.id, '0xabc', 50);
     ok(ib.state.gems === 50 && ib.state.dust === d0 + 1000 && ib.state.inv.wood === 100 && T.players.find(x => x.id === buyer.id).points === 50, 'buying Gems also gives points, Dust and supplies, once per payment');
+    ok(ib.state.buys?.[0]?.real && ib.state.buys[0].got.gems === 50 && ib.state.buys[0].tx, 'a Gem pack is in the purchase history, with its transaction');
   }
   {   // ranked chests for the island
     const st = R.newIsland(5, now), t0 = Date.parse('2026-11-04T10:00:00Z');
@@ -851,6 +852,11 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   let st = isl(A).state, ctx = { seed: 21, now: now0, minds: 2, instant: true };
   ok(R.BUILD.camp && R.UPGRADABLE.camp, 'the Army Camp is a building you can upgrade');
 
+  { // 🧾 purchase history: kept on the island, 30 days
+    const t = R.newIsland(5, now0); t.dust = 5000;
+    R.logBuy(t, { what: 'old', paid: { dust: 1 } }, now0 - 31 * 864e5); R.logBuy(t, { what: 'new', paid: { dust: 2 } }, now0);
+    ok(t.buys.length === 1 && t.buys[0].what === 'new', 'purchases older than 30 days are deleted');
+    ok(R.buyLabel({ type: 'shop', item: 'potion', n: 2 }) && !R.buyLabel({ type: 'harvest' }) && !R.buyLabel({ type: 'cosmetic', equip: true }), 'only real purchases are named'); }
   // the old game-run Mind jobs are gone: only Hello Minds AIs play
   let r = R.act(st, { type: 'job', mind: 49, job: 'scout' }, ctx);
   ok(r.error && /Hello Minds/.test(r.error) && !st.jobs, 'game-run Mind jobs are gone (Hello Minds AIs only)');
