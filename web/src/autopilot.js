@@ -309,7 +309,9 @@ async function work(slot, job) {
   const l = L(slot);
   let r = null;
   for (let n = 0; n < 15 && running.has(slot); n++) {
-    r = await K.api('autopilot', { op: 'work', mind: slot, round: l.round || 0, token: await HM.token() }).catch(e => ({ error: e }));
+    if (jobOf(slot)?.kind !== job.kind) return false;   // the player picked another job: this round ends here
+    r = await K.api('autopilot', { op: 'work', mind: slot, kind: job.kind, round: l.round || 0, token: await HM.token() }).catch(e => ({ error: e }));
+    if (r.switched) return false;
     if (r.error) { if (r.error.status === 401 || r.error.status === 403) stop(slot, `⚠️ ${r.error.message}`); else await log(slot, `${JOBS[job.kind].icon} ${r.error.message}`); return false; }
     if (r.cog != null) { l.cog = r.cog; l.cogAt = Date.now(); paintCog(); }
     if (r.out) { outOfCog(slot); return false; }
