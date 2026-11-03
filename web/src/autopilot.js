@@ -340,7 +340,8 @@ async function loop() {
       let did = false;
       try { did = job.kind === 'ranked' ? await duel(slot, 1, 1) : await work(slot, job); } catch (e) { await log(slot, `${JOBS[job.kind].icon} ${e.message || 'that did not work'}`); }
       const gap = did ? PACE[job.pace]?.gap || 60e3 : 120e3;
-      l.wait = Math.max(Date.now() + gap, l.long || 0); l.long = 0;   // no energy: a long wait instead of trying every minute l.round = (l.round || 0) + 1;
+      l.wait = Math.max(Date.now() + gap, l.long || 0); l.long = 0;   // no energy / cup done: a long wait instead of trying every minute
+      l.round = (l.round || 0) + 1;
       K.refresh(); paint();
       await sleep(800);
     }
@@ -363,6 +364,7 @@ async function work(slot, job) {
   if (!r || r.pending) return false;
   await missed(slot, r.ai);
   if (r.log) ap = { ...ap, log: r.log, gems: r.gems || ap.gems, ai: r.ai && typeof r.ai === 'object' ? r.ai : ap.ai };
+  if (r.wait) l.long = Date.now() + r.wait;   // e.g. the Siege Cup is done for today
   l.result = r.text; setNow(slot, r.text); if (r.why) think(slot, r.why);
   K.babble(slot === '0' ? 49 : +slot, r.ok ? 'happy' : 'sad', 0.5);
   return !!r.did;
