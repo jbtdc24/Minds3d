@@ -298,7 +298,7 @@ async function loop() {
       let did = false;
       try { did = job.kind === 'ranked' ? await duel(slot, 1, 1) : await work(slot, job); } catch (e) { await log(slot, `${JOBS[job.kind].icon} ${e.message || 'that did not work'}`); }
       const gap = did ? PACE[job.pace]?.gap || 60e3 : 120e3;
-      l.wait = Date.now() + gap; l.round = (l.round || 0) + 1;
+      l.wait = Math.max(Date.now() + gap, l.long || 0); l.long = 0;   // no energy: a long wait instead of trying every minute l.round = (l.round || 0) + 1;
       K.refresh(); paint();
       await sleep(800);
     }
@@ -333,7 +333,7 @@ async function duel(slot, i, n) {
   if (!pass && K.energyOf(+slot) <= 0) {
     if (train.energy.refill === 'stop') { await log(slot, '🃏 out of ranked energy (training: stop dueling)'); return false; }
     const r = await K.api('autopilot', { op: 'refill', mind: +slot, only: train.energy.refill }).catch(() => ({ ok: false }));
-    if (!r.ok) { await log(slot, '🃏 no ranked energy left: skipping duels'); return false; }
+    if (!r.ok) { await log(slot, r.max ? '🃏 no energy and no refills left today: I wait 30 minutes, then look again' : '🃏 no ranked energy left (no shards, Dust or allowed Gems): I wait 30 minutes'); L(slot).long = Date.now() + 30 * 60e3; return false; }
     await log(slot, `⚡ refilled with ${r.pay === 'shard' ? 'shards' : r.pay === 'dust' ? 'Dust' : 'Gems'}`); K.refresh(); minds = [+slot];
   }
   setNow(slot, '🧠 writing its duel strategy…', 'duel');   // the AI's own rules for turns where its live answer is too slow
