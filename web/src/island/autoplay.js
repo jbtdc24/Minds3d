@@ -55,6 +55,7 @@ const numIn = (t, re) => { const m = t.match(re); return m ? +m[1] : 0; };
 const NOT = /\b(?:don'?t|do not|dont|no|never|without|not|stop|skip|avoid)\s+(?:\w+\s+){0,2}?(farm\w*|harvest\w*|plant\w*|crops?|sell\w*|raid\w*|attack\w*|duel\w*|ranked|adventur\w*|explor\w*|town|decor\w*|train\w*|troops?|rest\w*|wait\w*|well)\b/g;
 export function parsePlan(text) {
   let t = String(text || '').toLowerCase().replace(/\u2019/g, "'");
+  t = t.replace(/\b(non-?stop|don'?t stop|do not stop|never stop|without stopping|no stopping|keep going)\b/g, ' continuously ');   // "non-stop" is not "stop"
   const gemsOnly = /\b(diamonds?|gems?)\b/.test(t) && /\b(only|use|using|with|rush|expedite|pay)\b/.test(t);
   const skip = new Set([...t.matchAll(NOT)].map(m => m[1]));
   t = t.replace(NOT, ' ');
