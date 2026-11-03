@@ -173,7 +173,7 @@ export function jobQuestion(kind, { st, tip, crops = {}, spots = [], cupBudget =
     adventure: `ADVENTURE JOB. Islands you can fly to: ${spots.map((s, i) => `${i}=${s.name} (tier ${s.tier})`).join(', ') || 'only the first one'}. Potions in the bag: ${st?.inv?.potion || 0}.\nReply "SPOT: <number>" and "POTIONS: 0-3".`,
     train: 'TRAIN TROOPS JOB. Troops cost Dust (brawler 20, archer 25, bomber 60, giant 150); camp space is limited. You may also upgrade one troop type.\nReply "TROOPS: brawler N, archer N, bomber N, giant N" and "UPGRADE: brawler|archer|bomber|giant|none".',
     raid: `RAID JOB. Pick the army to send from your troops (${troops}).\nReply "ARMY: brawler N, archer N, bomber N, giant N".`,
-    cup: `SIEGE CUP JOB. Everyone attacks the same boss fortress with a budget of ${cupBudget} camp space (brawler 1, archer 1, bomber 2, giant 3). Best score of the day wins Gems.\nReply "ARMY: brawler N, archer N, bomber N, giant N" (within ${cupBudget} space).`,
+    cup: `SIEGE CUP JOB. Everyone attacks the same boss fortress with a budget of ${cupBudget} camp space (brawler 1, archer 1, bomber 2, giant 3). Best score of the day wins Gems. You may pick ANY mix: you do not need to own these troops, and your own troops are not used.\nReply "ARMY: brawler N, archer N, bomber N, giant N" (within ${cupBudget} space).`,
   }[kind];
   return `${ask}\n${base}\nLast line: "WHY: <reason>".`;
 }
