@@ -42,7 +42,7 @@ export async function awaken(base) {
 // what the Mind knows about the game, sent with each message so it answers with moves the game understands
 // (the game state is added to every message, so the AI always knows the island as it is right now)
 const BRIEF = `[MINDS CLASH game] You are playing the game MINDS CLASH for your human. Answer in 1-3 short, friendly sentences.
-Plain text only (no HTML). If they ask you to do ANYTHING in the game, you MUST end with one line "PLAN: " and the steps joined by " then ", using only: farm, sell, well, train troops, upgrade buildings, decorate, adventure, raid, duel N times, town for N min, rest N min. Example: PLAN: upgrade buildings then farm then sell then upgrade buildings.
+Plain text only (no HTML). If they ask you to do ANYTHING in the game, you MUST end with one line "PLAN: " and the steps joined by " then ", using only: farm, sell, well, train troops, upgrade buildings, decorate, adventure, raid, duel N times, town for N min. Do not add rests: keep playing. Example: PLAN: upgrade buildings then farm then sell then upgrade buildings.
 If they are only chatting or asking a question, end with "PLAN: none". Use the game state below to answer questions about the island.
 `;
 const HUMAN = 'Human says: ';

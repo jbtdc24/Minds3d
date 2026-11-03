@@ -277,6 +277,7 @@ async function talk() {
   const asked = parsePlan(text);
   if (r.steps && asked.steps?.some(x => x.gems)) r = { ...r, steps: r.steps.map(x => (x.do === 'build' ? { ...x, gems: 1 } : x)) };
   if (r.steps && /(?:don'?t|do not|dont|no|never|without|not)\s+(?:\w+\s+){0,2}?farm/i.test(text.replace(/’/g, "'"))) r = { ...r, steps: r.steps.filter(x => x.do !== 'farm') };
+  if (r.steps && !/(rest|wait|sleep|break|pause)/i.test(text)) r = { ...r, steps: r.steps.filter(x => x.do !== 'wait') };   // no rests unless the player asked for one
   if (r.steps && !r.steps.length) r = parsePlan('');
   if (r.stop) return stop(slot, 'Okay, I stop. 💤');
   if (r.steps) { say(slot, `📋 ${fromWords ? 'Plan from what you asked' : 'I made a plan'}: ${planText(cleanPlan(r.steps))}. Approve it to use it.`); previewPlan(r.steps, r.preset || null, r.loop, fromWords ? 'The plan from what you asked (your AI agreed).' : `${ai.name || 'Your AI'} suggests this plan for what you asked.`); }
@@ -345,8 +346,12 @@ async function loop() {
       // ask the AI about the step after this one now, while this one runs (Hello Minds answers take a while)
       HM.token().then(token => K.api('autopilot', { op: 'next', mind: slot, at: l.at + 1, token })).catch(() => {});
       setNow(slot, `${STEPS[s.do].icon} ${STEPS[s.do].say}…`, KIND[s.do]); L(slot).acts = ACT_ICON[s.do] || [];
-      try { await run(slot, s); } catch (e) { await log(slot, `${STEPS[s.do].icon} ${e.message || 'that did not work'}`); }
+      let busy = false;
+      try { busy = await run(slot, s); } catch (e) { await log(slot, `${STEPS[s.do].icon} ${e.message || 'that did not work'}`); }
+      l.idle = busy ? 0 : (l.idle || 0) + 1;
       l.at++;
+      // a whole round of the plan found nothing to do (builders busy, crops growing…): wait 2 minutes, then go on
+      if (running.has(slot) && l.idle >= ai.steps.length) { l.idle = 0; l.rest = Date.now() + 120e3; setNow(slot, '⏳ waiting for builds and crops to finish (2 min)', 'rest'); }
       K.refresh(); paint();
       await sleep(1200);
     }
@@ -354,12 +359,13 @@ async function loop() {
 }
 async function run(slot, s) {
   const l = L(slot);
-  if (s.do === 'wait') { l.rest = Date.now() + s.min * 60e3; setNow(slot, `💤 resting ${s.min} min`, 'rest'); return log(slot, `💤 resting ${s.min} min`); }
-  if (s.do === 'town') { l.town = Date.now() + s.min * 60e3; l.beat = 0; l.got = 0; setNow(slot, `🏘️ in Mind Town for ${s.min} min`, 'town'); return log(slot, `🏘️ off to Mind Town for ${s.min} min`); }
-  if (s.do === 'duel') { for (let i = 0; i < s.n && running.has(slot); i++) if (!(await duel(slot, i + 1, s.n))) break; return; }
+  if (s.do === 'wait') { l.rest = Date.now() + s.min * 60e3; setNow(slot, `💤 resting ${s.min} min`, 'rest'); await log(slot, `💤 resting ${s.min} min`); return true; }
+  if (s.do === 'town') { l.town = Date.now() + s.min * 60e3; l.beat = 0; l.got = 0; setNow(slot, `🏘️ in Mind Town for ${s.min} min`, 'town'); await log(slot, `🏘️ off to Mind Town for ${s.min} min`); return true; }
+  if (s.do === 'duel') { let played = 0; for (let i = 0; i < s.n && running.has(slot); i++) { if (!(await duel(slot, i + 1, s.n))) break; played++; } return played > 0; }
   const r = await K.api('autopilot', { op: 'step', do: s.do, mind: slot, at: l.at });
   ap = { ...ap, log: r.log, gems: r.gems }; setNow(slot, r.text); paintFollow();
   K.babble(slot === '0' ? 49 : +slot, r.ok ? 'happy' : 'sad', 0.5);
+  return r.ok && !/nothing|still filling|busy|no crops|kept the crops|no spare|full enough|not go through|Gems are OFF/i.test(r.text || '');   // did it get something done?
 }
 // Mind Town: walk around now and then (standing still earns nothing) and collect the Town Time rewards
 async function townBeats() {

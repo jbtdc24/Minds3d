@@ -19,12 +19,12 @@ export const STEPS = {
   wait: { icon: '💤', name: 'Rest', say: 'rest a little' },
 };
 export const PRESETS = {
-  daily: { icon: '🔁', name: 'Daily Loop', desc: 'A bit of everything: farm, adventure, duel, town, raid.', steps: [{ do: 'farm' }, { do: 'well' }, { do: 'adventure' }, { do: 'duel', n: 1 }, { do: 'town', min: 20 }, { do: 'farm' }, { do: 'raid' }, { do: 'sell' }, { do: 'wait', min: 10 }] },
-  farmer: { icon: '🧺', name: 'Farmer', desc: 'Grows, harvests and sells all day.', steps: [{ do: 'farm' }, { do: 'sell' }, { do: 'well' }, { do: 'wait', min: 8 }] },
-  raider: { icon: '⚔️', name: 'Raider', desc: 'Trains troops and raids, farms between raids.', steps: [{ do: 'train' }, { do: 'raid' }, { do: 'farm' }, { do: 'wait', min: 8 }] },
-  ranked: { icon: '🃏', name: 'Ranked Grinder', desc: 'Plays ranked duels while there is energy.', steps: [{ do: 'well' }, { do: 'duel', n: 3 }, { do: 'farm' }, { do: 'wait', min: 10 }] },
-  explorer: { icon: '🧭', name: 'Explorer', desc: 'Goes on adventures, sells what it finds.', steps: [{ do: 'adventure' }, { do: 'farm' }, { do: 'sell' }, { do: 'wait', min: 8 }] },
-  decorator: { icon: '🌷', name: 'Decorator', desc: 'Makes your island pretty with spare Dust.', steps: [{ do: 'farm' }, { do: 'sell' }, { do: 'decorate' }, { do: 'wait', min: 8 }] },
+  daily: { icon: '🔁', name: 'Daily Loop', desc: 'A bit of everything: farm, adventure, duel, town, raid.', steps: [{ do: 'farm' }, { do: 'well' }, { do: 'adventure' }, { do: 'duel', n: 1 }, { do: 'town', min: 20 }, { do: 'farm' }, { do: 'raid' }, { do: 'sell' }] },
+  farmer: { icon: '🧺', name: 'Farmer', desc: 'Grows, harvests and sells all day.', steps: [{ do: 'farm' }, { do: 'sell' }, { do: 'well' }] },
+  raider: { icon: '⚔️', name: 'Raider', desc: 'Trains troops and raids, farms between raids.', steps: [{ do: 'train' }, { do: 'raid' }, { do: 'farm' }] },
+  ranked: { icon: '🃏', name: 'Ranked Grinder', desc: 'Plays ranked duels while there is energy.', steps: [{ do: 'well' }, { do: 'duel', n: 3 }, { do: 'farm' }] },
+  explorer: { icon: '🧭', name: 'Explorer', desc: 'Goes on adventures, sells what it finds.', steps: [{ do: 'adventure' }, { do: 'farm' }, { do: 'sell' }] },
+  decorator: { icon: '🌷', name: 'Decorator', desc: 'Makes your island pretty with spare Dust.', steps: [{ do: 'farm' }, { do: 'sell' }, { do: 'decorate' }] },
   social: { icon: '🏘️', name: 'Town Social', desc: 'Lives in Mind Town for rewards, farms now and then.', steps: [{ do: 'town', min: 60 }, { do: 'farm' }, { do: 'sell' }] },
 };
 Object.setPrototypeOf(STEPS, null); Object.setPrototypeOf(PRESETS, null);
@@ -41,6 +41,7 @@ export function cleanPlan(steps) {
 }
 export const planText = steps => steps.map(s => `${STEPS[s.do].icon} ${STEPS[s.do].name}${s.gems ? ' with 💎' : ''}${s.n > 1 ? ` ×${s.n}` : ''}${s.min ? ` ${s.min >= 60 && s.min % 60 === 0 ? s.min / 60 + ' h' : s.min + ' min'}` : ''}`).join(' → ');
 
+// (presets have no rest steps: the AI plays on; when a whole round finds nothing to do it waits a little by itself)
 // a typed message → a plan, in the order the player said it. "every day like a farmer" → a preset.
 const WORDS = [
   [/\b(upgrade|build|level ?up|max|rush|town ?hall|base)/, 'build'],
