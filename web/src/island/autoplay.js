@@ -15,6 +15,7 @@ export const STEPS = {
   duel: { icon: '🃏', name: 'Ranked duel', say: 'play ranked duels' },
   town: { icon: '🏘️', name: 'Mind Town', say: 'hang out in Mind Town for the Town Time rewards' },
   decorate: { icon: '🌷', name: 'Decorate', say: 'put decorations around your home with spare Dust' },
+  build: { icon: '🏗️', name: 'Upgrade buildings', say: 'upgrade buildings and the Town Hall (Gem rushes only if you allowed Gems)' },
   wait: { icon: '💤', name: 'Rest', say: 'rest a little' },
 };
 export const PRESETS = {
@@ -41,6 +42,7 @@ export const planText = steps => steps.map(s => `${STEPS[s.do].icon} ${STEPS[s.d
 
 // a typed message → a plan, in the order the player said it. "every day like a farmer" → a preset.
 const WORDS = [
+  [/\b(upgrade|build|level ?up|max|rush|town ?hall|base)/, 'build'],
   [/\b(farm|harvest|plant|crops?|seeds?|grow)/, 'farm'], [/\b(sell|market|cash)/, 'sell'], [/\b(well|shards?)\b/, 'well'],
   [/\b(train|troops?|army|soldiers?)/, 'train'], [/\b(raid|attack|loot|plunder)/, 'raid'], [/\b(adventure|explore|quest|wild)/, 'adventure'],
   [/\b(duel|ranked|rank|cards?|pvp|fight)/, 'duel'], [/\b(town|hang ?out|social|meet)/, 'town'], [/\b(decor|decorate|pretty|flowers?|lamps?)/, 'decorate'],

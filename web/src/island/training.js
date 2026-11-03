@@ -51,7 +51,7 @@ export const trainingText = (t, part) => Object.entries(TRAINING[part]).filter((
 // ---- what the AI is asked, and how its answer is read (the server asks; the same text everywhere) ----
 // the AI's reason, whole (cut at a word near 400 characters, never mid-word)
 const why = reply => { const w = ((/WHY:\s*([\s\S]+)/i.exec(reply || '') || [])[1] || '').trim().replace(/\s+/g, ' '); return w.length > 400 ? w.slice(0, 400).replace(/\s+\S*$/, '') + '…' : w; };
-export const STEP_NAMES = { farm: 'Farm', sell: 'Sell crops', well: 'Energy Well', train: 'Train troops', raid: 'Raid', adventure: 'Adventure', duel: 'Ranked duel', town: 'Mind Town', decorate: 'Decorate', wait: 'Rest' };
+export const STEP_NAMES = { build: 'Upgrade buildings', farm: 'Farm', sell: 'Sell crops', well: 'Energy Well', train: 'Train troops', raid: 'Raid', adventure: 'Adventure', duel: 'Ranked duel', town: 'Mind Town', decorate: 'Decorate', wait: 'Rest' };
 export function stepQuestion({ steps, planned, st, energy, train, crops, spots }) {
   const opts = [...new Set(steps.map(s => s.do))];
   const growing = Object.values(st?.tiles || {}).filter(t => t.s === 'p' && t.c).length, bag = Object.entries(st?.inv || {}).filter(([k]) => k.startsWith('crop_')).reduce((s, [, n]) => s + n, 0);
@@ -61,6 +61,7 @@ Island: ${(st?.dust || 0).toLocaleString()} Dust, ${st?.gems || 0} Gems, ${growi
 Your training: ${trainingText(train, 'farm')}; ${trainingText(train, 'raid')}; ${trainingText(train, 'explore')}.
 Reply "DO: <one of ${opts.join(', ')}>" (keep to the plan unless another step is clearly better now).
 Then the details for that step (you decide them): farm → "CROP: <${Object.keys(crops || {}).join('|') || 'crop'}>"; sell → "SELL: all|half|none"; train → "TROOPS: brawler N, archer N, bomber N, giant N";
+build → "UPGRADE: <home|house|mill|camp|barn|tower|cannon|mortar|spire|wall, … in order> RUSH: yes|no" (rush = finish with Gems, only within the player's Gem limit);
 adventure → "SPOT: <${(spots || []).map((s, i) => `${i}=${s.name}`).join(', ') || 'number'}> POTIONS: 0-3"; raid → "ARMY: brawler N, archer N, bomber N, giant N"; decorate → "DECOR: <flowers|lamp|bench|banner, …>".
 Last line: "WHY: <reason>".`;
 }
@@ -76,6 +77,8 @@ export function readDetails(reply, { crops = {}, spots = [] } = {}) {
   if (Number.isInteger(spot) && spot >= 0 && spot < spots.length) out.spot = spot;
   const pot = Number(get('POTIONS').match(/\d+/)?.[0]); if (pot >= 0 && pot <= 3) out.potions = pot;
   const decor = get('DECOR').toLowerCase().match(/flowers|lamp|bench|banner/g); if (decor) out.decor = decor.slice(0, 6);
+  const up = get('UPGRADE').toLowerCase().replace(/town ?hall/g, 'home').match(/home|house|mill|camp|barn|tower|cannon|mortar|spire|wall/g); if (up) out.upgrade = [...new Set(up)];
+  if (/^y/i.test(get('RUSH'))) out.rush = true;
   return out;
 }
 export function readStep(reply, steps) {

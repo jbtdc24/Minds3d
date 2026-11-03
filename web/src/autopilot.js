@@ -22,11 +22,11 @@ let running = new Set(load(RUN_KEY, []));
 const keepRunning = () => save(RUN_KEY, [...running]);
 const sleep = ms => new Promise(res => { const t = setTimeout(res, ms); wake = () => { clearTimeout(t); res(); }; });
 const SCENE = { island: 'assets/sky_island.webp', adventure: 'assets/sky_adventure.webp', duel: 'assets/stage_meadow.webp', town: 'assets/stage_castle.webp', raid: 'assets/sky_storm.webp', rest: 'assets/sky_aurora.webp' };
-const KIND = { farm: 'island', sell: 'island', well: 'island', train: 'island', decorate: 'island', raid: 'raid', adventure: 'adventure', duel: 'duel', town: 'town', wait: 'rest' };
+const KIND = { build: 'island', farm: 'island', sell: 'island', well: 'island', train: 'island', decorate: 'island', raid: 'raid', adventure: 'adventure', duel: 'duel', town: 'town', wait: 'rest' };
 // cognition: the AI only plays while its Mind has cognition. Low = a warning; empty = it stops (no thinking, no playing)
 const LOW_COG = 100, TOPUP_URL = 'https://hellominds.ai/pricing', COG_EVERY = 45e3;
 const noCog = msg => /cognition|credit|insufficient|balance|quota|402/i.test(String(msg || ''));
-const ACT_ICON = { farm: ['🌱', '🧺', '🥕'], sell: ['💰', '✨'], well: ['⚡'], train: ['🏹', '🪓'], decorate: ['🌷', '🏮'], raid: ['⚔️', '💥', '⭐'], adventure: ['🧭', '🌿', '🪵'], duel: ['🃏', '👑'], town: ['🏘️', '💬'], wait: ['💤'] };
+const ACT_ICON = { build: ['🏗️', '🔨', '⬆️'], farm: ['🌱', '🧺', '🥕'], sell: ['💰', '✨'], well: ['⚡'], train: ['🏹', '🪓'], decorate: ['🌷', '🏮'], raid: ['⚔️', '💥', '⭐'], adventure: ['🧭', '🌿', '🪵'], duel: ['🃏', '👑'], town: ['🏘️', '💬'], wait: ['💤'] };
 
 // the Minds that can have an AI: every NFT held, or one Rank Pass slot ('0') for a wallet without Minds
 const slots = () => (K.myMinds().length ? K.myMinds().map(String) : ['0']);
@@ -160,12 +160,13 @@ function paint() {
   body.innerHTML = `${warn}<div class="md-card"><img src="${slotPic(s)}" alt=""><div><b>${K.esc(ai.name || 'AI')}</b><small>Hello Minds AI · plays ${slotName(s)} · <span id="md-cog" class="${cog != null && cog < LOW_COG ? 'low' : ''}">${cog == null ? '🧠 …' : cog <= 0 ? '⛔ no cognition left' : `${Math.round(cog).toLocaleString()} cognition left`}</span> <button class="md-add" data-a="topup" title="Add cognition on Hello Minds">➕</button></small>
       <small class="md-now">${K.esc(on ? (l.now || 'starting…') : steps.length ? 'resting' : 'no plan yet')}</small>${l.think && on ? `<small class="md-think">💭 ${K.esc(l.think)}</small>` : ''}</div></div>
     <div class="md-row"><button class="btn ${on ? 'red' : 'primary'}" data-a="go">${on ? '⏸ Stop' : '▶ Start'}</button><button class="btn small" data-a="follow">👁 Follow</button><button class="btn small" data-a="train">🎯 Train</button><button class="btn small" data-a="history">📜</button></div>
-    <div class="md-plan">${steps.length ? `<b>Plan</b> ${K.esc(planText(steps))}${ai.loop ? ' · 🔁' : ''}` : 'Pick a plan below, or ask your AI.'}</div>
+    <div class="md-plan">${steps.length ? `<b>${on ? 'Playing now' : 'Current plan (▶ Start runs this)'}</b> ${K.esc(planText(steps))}${ai.loop ? ' · 🔁' : ''}` : 'Pick a plan below, or ask your AI.'}</div>
     <div class="label">Plans · tap to see the steps</div>
     <div class="md-presets">${Object.entries(PRESETS).map(([k, p]) => `<button class="md-preset ${ai.preset === k ? 'on' : ''}" data-preset="${k}"><i>${p.icon}</i>${K.esc(p.name)}</button>`).join('')}</div>
     <div class="label">Talk to ${K.esc(ai.name || 'your AI')}</div>
     <div class="md-chat" id="md-chat">${(l.chat || []).map(c => `<div class="mp-line ${c.who}">${K.esc(c.text)}</div>`).join('') || `<div class="mp-line mind">${l.chat ? 'Hi! Tell me what to play, like "farm, then raid, then duel 3 times".' : 'Loading our chat…'}</div>`}</div>
-    <div class="fr-add"><input id="md-in" maxlength="300" placeholder="Talk to your AI…"><button class="btn small primary" data-a="send">Send</button></div>
+    <div class="fr-add"><input id="md-in" maxlength="300" placeholder="Tell your AI what to do…"><button class="btn small primary" data-a="send">Send</button></div>
+    <small class="muted md-hint">When your AI answers with a plan, you see it first: approve it and it <b>replaces</b> the current plan.</small>
     <div class="md-foot"><button class="btn small ${ap.gems.on ? 'gem' : ''}" data-a="gems">${ap.gems.on ? `💎 ${ap.gems.spent}/${ap.gems.cap} today` : '💎 Gems OFF'}</button></div>`;
   const chat = $('#md-chat'); chat.scrollTop = 1e9;
   if (ai.hm && Date.now() - l.cogAt > COG_EVERY) checkCog(s).then(c => { if (c != null && s === sel && Math.round(c) !== Math.round(cog ?? -1)) paint(); });
@@ -225,12 +226,13 @@ async function previewPlan(steps, preset = null, loop = true, from = '') {
   const p = preset && PRESETS[preset], ai = aiOf(sel);
   const go = await K.modal(`<h3>${p ? `${p.icon} ${K.esc(p.name)}` : '📋 New plan'}</h3>${p ? `<p>${K.esc(p.desc)}</p>` : from ? `<p class="muted">${K.esc(from)}</p>` : ''}
     <ol class="md-steps">${steps.map(s => `<li><i>${STEPS[s.do].icon}</i><b>${STEPS[s.do].name}${s.n > 1 ? ` ×${s.n}` : ''}${s.min ? ` · ${s.min} min` : ''}</b><span>${STEPS[s.do].say}</span></li>`).join('')}</ol>
-    <p class="muted">${loop ? '🔁 Then it starts again from the top, until you stop it.' : 'It plays this once.'} ${K.esc(ai?.name || 'Your AI')} thinks about every step and every duel move itself, the way you trained it (🎯).</p>`,
-    [['▶ Start this plan', 'go', 'primary'], ['Save only', 'save'], ['Cancel', 0]]);
+    <p class="muted">${loop ? '🔁 Then it starts again from the top, until you stop it.' : 'It plays this once.'} ${K.esc(ai?.name || 'Your AI')} thinks about every step and every duel move itself, the way you trained it (🎯).</p>
+    ${ai?.steps?.length ? `<p class="muted">This <b>replaces</b> the current plan: ${K.esc(planText(ai.steps))}.</p>` : ''}${steps.some(s => s.do === 'build') && !ap?.gems?.on ? '<p class="warn">💎 Gem rushes need Gems ON (💎 button below the chat): until then it only upgrades with Dust.</p>' : ''}`,
+    [[running.has(sel) ? '▶ Switch to this plan' : '▶ Start this plan', 'go', 'primary'], ['Save only', 'save'], ['Cancel', 0]]);
   if (!go) return;
   try { ap = await K.api('autopilot', { op: 'save', mind: sel, steps, preset, loop }); L(sel).at = 0; K.sfx('select'); }
   catch (err) { return K.toast(err.message, true); }
-  if (go === 'go') start(sel); else paint();
+  if (go === 'go') { if (running.has(sel)) { say(sel, 'Switching to the new plan now.'); paint(); } else start(sel); } else paint();
 }
 
 // the chat box: the player's own Hello Minds AI answers; a PLAN line in its answer is offered as a plan
@@ -247,7 +249,8 @@ async function talk() {
   if (words) say(slot, words);
   const r = parsePlan(plan || '');
   if (r.stop) return stop(slot, 'Okay, I stop. 💤');
-  if (r.steps) previewPlan(r.steps, r.preset || null, r.loop, `${ai.name || 'Your AI'} suggests this plan.`);
+  if (r.steps) { say(slot, `📋 I made a plan: ${planText(cleanPlan(r.steps))}. Approve it to use it.`); previewPlan(r.steps, r.preset || null, r.loop, `${ai.name || 'Your AI'} suggests this plan for what you asked.`); }
+  else if (plan) say(slot, '(I could not turn that into game steps. Try: farm, sell, upgrade buildings, raid, adventure, duel, town.)');
 }
 
 // ---------- playing: the AI decides ----------
