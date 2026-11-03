@@ -1,13 +1,10 @@
 // 🧠 AI Minds dock: floats on every screen (drag it by its title bar, make it big, or fold it into a bubble).
-// Each Mind NFT the player holds gets its own AI: a fresh Mind on the player's own Hello Minds account, made for that
-// Mind only (hellominds.js). The AI really plays: before every step it is asked what to do next, and in a duel it picks
-// every card and spell itself, using the player's own cognition. Its training (island/training.js) goes into every
-// question, and is the move when the AI is too slow to answer in time (the log says so).
-// Plans open a preview first. 👁 Follow shows the Mind playing live (its duel board and its thoughts); 📜 History has it all.
-// It plays through /api/autopilot, so every rule a human has applies, while the lobby is open (it waits while you play).
-// Gems: OFF by default; turning them on takes a warning, a daily amount the player types, and typing CONFIRM.
-import { PRESETS, STEPS, parsePlan, planText, cleanPlan } from './island/autoplay.js';
-import { TRAINING, cleanTraining } from './island/training.js';
+// Each Mind NFT the player holds gets its own AI: a fresh Mind on the player's own Hello Minds account (hellominds.js).
+// AI Jobs: the player picks ONE job per AI (Ranked, Siege Cup, Farming, Clean island, Adventure, Train troops, Raid)
+// and presses Start. Every round the server asks the AI for that job's details (which crop, which army, which cards…)
+// and does it by the normal rules (lib/routes/autopilot.js 'work', 'duel_plan', 'duel_think'). It waits while you play.
+// 👁 Follow watches it live; 📜 History has everything. Gems: OFF by default, a typed daily limit + CONFIRM.
+import { JOBS, PACE, cleanTraining } from './island/training.js';
 import * as HM from './hellominds.js';
 
 let K = null, ap = null, sel = null, busy = false, looping = false, wake = null, follow = null;
@@ -22,7 +19,6 @@ let running = new Set(load(RUN_KEY, []));
 const keepRunning = () => save(RUN_KEY, [...running]);
 const sleep = ms => new Promise(res => { const t = setTimeout(res, ms); wake = () => { clearTimeout(t); res(); }; });
 const SCENE = { island: 'assets/sky_island.webp', adventure: 'assets/sky_adventure.webp', duel: 'assets/stage_meadow.webp', town: 'assets/stage_castle.webp', raid: 'assets/sky_storm.webp', rest: 'assets/sky_aurora.webp' };
-const KIND = { build: 'island', farm: 'island', sell: 'island', well: 'island', train: 'island', decorate: 'island', raid: 'raid', adventure: 'adventure', duel: 'duel', town: 'town', wait: 'rest' };
 // cognition: the AI only plays while its Mind has cognition. Low = a warning; empty = it stops (no thinking, no playing)
 const LOW_COG = 100, TOPUP_URL = 'https://hellominds.ai/pricing', COG_EVERY = 45e3;
 const noCog = msg => /cognition|credit|insufficient|balance|quota|402/i.test(String(msg || ''));
@@ -87,7 +83,7 @@ export async function openAutopilot() {
   if (!load(SEEN_KEY, false)) { save(SEEN_KEY, true); setMin(false); }   // first time: open, so nobody misses it
   try { ap = await K.api('autopilot', { op: 'get' }); } catch { ap = ap || null; }
   if (!sel || !slots().includes(sel)) sel = slots().find(s => aiOf(s)) || slots()[0];
-  running = new Set([...running].filter(s => aiOf(s)?.steps.length && HM.connected()));
+  running = new Set([...running].filter(s => aiOf(s)?.job && HM.connected()));
   keepRunning(); paint(); loadChat(sel);
   if (running.size) loop();
 }
@@ -138,52 +134,58 @@ function paintCog() {
 }
 
 // ---------- drawing ----------
+const jobOf = s => aiOf(s)?.job || null;
 function paint() {
   const tabs = $('#md-tabs'), body = $('#md-body'); if (!tabs) return;
   $('#md-count').textContent = running.size ? `${running.size} playing` : '';
   $('#mdock').classList.toggle('on', running.size > 0);
   if (K.guest()) {   // trial account: show what it is and how to get it
     tabs.innerHTML = '';
-    body.innerHTML = `<div class="md-hero"><img src="${K.thumb(49)}" alt=""><p><b>Your Minds can play for you.</b> Every Mind NFT gets its own real AI (on Hello Minds) that farms, upgrades, raids, duels and explores, thinking every move itself.</p></div>
-      <ol class="md-steps"><li><i>👛</i><b>Connect your wallet</b><span>the one with your Minds</span></li><li><i>🧠</i><b>Connect Hello Minds</b><span>your AI account (free to make)</span></li><li><i>✨</i><b>Awaken an AI for each Mind</b><span>train it, give it a plan, watch it play</span></li></ol>
+    body.innerHTML = `<div class="md-hero"><img src="${K.thumb(49)}" alt=""><p><b>Your Minds can play for you.</b> Every Mind NFT gets its own real AI (on Hello Minds). Give it a job (Ranked, Siege Cup, Farming, Cleaning, Adventure, Troops or Raids) and it plays it, thinking every move itself.</p></div>
+      <ol class="md-steps"><li><i>👛</i><b>Connect your wallet</b><span>the one with your Minds</span></li><li><i>🧠</i><b>Connect Hello Minds</b><span>your AI account (free to make)</span></li><li><i>✨</i><b>Awaken an AI, pick a job, press Start</b><span>and watch it play with 👁 Follow</span></li></ol>
       <button class="btn primary wide" data-a="wallet">👛 Connect a wallet</button>`;
     return;
   }
   if (!HM.connected()) {
     tabs.innerHTML = '';
-    body.innerHTML = `<div class="md-hero"><img src="${slotPic(slots()[0])}" alt=""><p>Every Mind you hold gets its <b>own AI</b> that farms, raids, duels and explores for you, thinking every move itself. Your AIs live on <b>Hello Minds</b>: connect your account (or make one, it takes a minute).</p></div>
+    body.innerHTML = `<div class="md-hero"><img src="${slotPic(slots()[0])}" alt=""><p>Every Mind you hold gets its <b>own AI</b> that plays a job for you (Ranked, Siege Cup, Farming, Cleaning, Adventure, Troops or Raids), thinking every move itself. Your AIs live on <b>Hello Minds</b>: connect your account (or make one, it takes a minute).</p></div>
       <button class="btn primary wide" data-a="connect">🧠 Connect Hello Minds</button>`;
     return;
   }
   if (!ap) { tabs.innerHTML = ''; body.innerHTML = '<p class="muted">Loading your AIs…</p>'; return; }
-  tabs.innerHTML = slots().map(s => `<button class="md-tab ${s === sel ? 'on' : ''} ${running.has(s) ? 'run' : ''}" data-slot="${s}" title="${slotName(s)}"><img src="${slotPic(s)}" alt=""><span>${s === '0' ? 'Pass' : '#' + s}</span>${aiOf(s) ? '' : '<em>＋</em>'}</button>`).join('');
+  tabs.innerHTML = slots().map(s => `<button class="md-tab ${s === sel ? 'on' : ''} ${running.has(s) ? 'run' : ''}" data-slot="${s}" title="${slotName(s)}"><img src="${slotPic(s)}" alt=""><span>${s === '0' ? 'Pass' : '#' + s}</span>${aiOf(s) ? (jobOf(s) ? `<em class="job">${JOBS[jobOf(s).kind].icon}</em>` : '') : '<em>＋</em>'}</button>`).join('');
   const s = sel, ai = aiOf(s), l = L(s);
-  if (!ai) {   // this Mind has no AI yet: a fresh one, made for this Mind only (never one used for something else)
-    body.innerHTML = `<div class="md-hero"><img src="${slotPic(s)}" alt=""><p><b>${slotName(s)}</b> has no AI yet. Give it one, and it plays for you.</p></div>
+  if (!ai) {   // this Mind has no AI yet: a fresh one, made for this Mind only
+    body.innerHTML = `<div class="md-hero"><img src="${slotPic(s)}" alt=""><p><b>${slotName(s)}</b> has no AI yet. Give it one, then give it a job.</p></div>
       <button class="btn primary wide" data-a="fresh" ${busy ? 'disabled' : ''}>${busy ? 'Waking it up…' : '✨ Awaken an AI for this Mind'}</button>
-      <small class="muted">A brand-new AI on your Hello Minds account, with a clean slate, that only ever plays this Mind. You train it here.</small>
+      <small class="muted">A brand-new AI on your Hello Minds account, with a clean slate, that only ever plays this Mind.</small>
       <button class="btn small" data-a="out">Disconnect Hello Minds</button>`;
     return;
   }
-  const on = running.has(s), steps = ai.steps, cog = l.cog;
+  const on = running.has(s), job = jobOf(s), cog = l.cog;
   const warn = cog == null || cog >= LOW_COG ? '' : `<div class="md-cogwarn ${cog <= 0 ? 'out' : ''}"><b>${cog <= 0 ? '⛔ Out of cognition' : `⚠️ Low cognition: ${Math.round(cog).toLocaleString()} left`}</b><span>${cog <= 0 ? 'This AI cannot think, so it cannot play.' : 'It stops playing when it runs out.'}</span><button class="btn small ${cog <= 0 ? 'primary' : 'gem'}" data-a="topup">➕ Add cognition</button></div>`;
-  body.innerHTML = `${warn}<div class="md-card"><img src="${slotPic(s)}" alt=""><div><b>${K.esc(ai.name || 'AI')}</b><small>Hello Minds AI · plays ${slotName(s)} · <span id="md-cog" class="${cog != null && cog < LOW_COG ? 'low' : ''}">${cog == null ? '🧠 …' : cog <= 0 ? '⛔ no cognition left' : `${Math.round(cog).toLocaleString()} cognition left`}</span> <button class="md-add" data-a="topup" title="Add cognition on Hello Minds">➕</button></small>
-      <small class="md-now">${K.esc(on ? (l.now || 'starting…') : steps.length ? 'resting' : 'no plan yet')}</small>${l.think && on ? `<small class="md-think">💭 ${K.esc(l.think)}</small>` : ''}</div></div>
-    <div class="md-row"><button class="btn ${on ? 'red' : 'primary'}" data-a="go">${on ? '⏸ Stop' : '▶ Start'}</button><button class="btn small" data-a="follow">👁 Follow</button><button class="btn small" data-a="train">🎯 Train</button><button class="btn small" data-a="history">📜</button></div>
-    <div class="md-plan">${steps.length ? `<b>${on ? 'Playing now' : 'Current plan (▶ Start runs this)'}</b> ${K.esc(planText(steps))}${ai.loop ? ' · 🔁' : ''}` : 'Pick a plan below, or ask your AI.'}</div>
-    <div class="label">Plans · tap to see the steps</div>
-    <div class="md-presets">${Object.entries(PRESETS).map(([k, p]) => `<button class="md-preset ${ai.preset === k ? 'on' : ''}" data-preset="${k}"><i>${p.icon}</i>${K.esc(p.name)}</button>`).join('')}</div>
-    <div class="label">Talk to ${K.esc(ai.name || 'your AI')}</div>
-    <div class="md-chat" id="md-chat">${(l.chat || []).map(c => `<div class="mp-line ${c.who}">${K.esc(c.text)}</div>`).join('') || `<div class="mp-line mind">${l.chat ? 'Hi! Tell me what to play, like "farm, then raid, then duel 3 times".' : 'Loading our chat…'}</div>`}${l.typing ? `<div class="mp-line mind typing">${K.esc(ai.name || 'Your AI')} is thinking<i>.</i><i>.</i><i>.</i></div>` : ''}</div>
-    <div class="fr-add"><input id="md-in" maxlength="300" placeholder="Tell your AI what to do…"><button class="btn small primary" data-a="send">Send</button></div>
-    <small class="muted md-hint">When your AI answers with a plan, you see it first: approve it and it <b>replaces</b> the current plan.</small>
-    <div class="md-foot"><button class="btn small ${ap.gems.on ? 'gem' : ''}" data-a="gems">${ap.gems.on ? `💎 ${ap.gems.spent}/${ap.gems.cap} today` : '💎 Gems OFF'}</button></div>`;
-  const chat = $('#md-chat'); chat.scrollTop = 1e9;
+  const status = on ? (l.now || 'starting…') : job ? (ai.last?.text || 'ready: press ▶ Start') : 'pick a job below';
+  body.innerHTML = `${warn}<div class="md-card"><img src="${slotPic(s)}" alt=""><div><b>${K.esc(ai.name || 'AI')}</b><small>Hello Minds AI · plays ${slotName(s)} · <span id="md-cog" class="${cog != null && cog < LOW_COG ? 'low' : ''}">${cog == null ? '🧠 …' : cog <= 0 ? '⛔ no cognition left' : `${Math.round(cog).toLocaleString()} cognition left`}</span> <button class="md-add" data-a="topup" title="Add cognition on Hello Minds">➕</button></small></div></div>
+    <div class="label">Job</div>
+    <div class="md-jobs">${Object.entries(JOBS).map(([k, j]) => `<button class="md-job ${job?.kind === k ? 'on' : ''}" data-job="${k}" title="${K.esc(j.say)}"><i>${j.icon}</i><span>${K.esc(j.name)}</span></button>`).join('')}</div>
+    ${job ? `<div class="md-status ${on ? 'run' : ''}"><b>${JOBS[job.kind].icon} ${K.esc(JOBS[job.kind].name)}</b><span class="md-now">${K.esc(status)}</span>${(l.think || ai.last?.why) ? `<small class="md-think">💭 ${K.esc(l.think || ai.last.why)}</small>` : ''}</div>
+    <div class="md-row"><button class="btn ${on ? 'red' : 'primary'}" data-a="go">${on ? '⏸ Stop' : '▶ Start'}</button><button class="btn small" data-a="follow">👁 Follow</button><button class="btn small" data-a="history">📜 History</button></div>
+    <details class="md-set"><summary>⚙️ Settings for this job</summary>
+      <label>How often <select id="md-pace">${Object.entries(PACE).map(([k, v]) => `<option value="${k}" ${job.pace === k ? 'selected' : ''}>${v.name}</option>`).join('')}</select></label>
+      <label>Your tip for the AI <input id="md-tip" maxlength="240" value="${K.esc(job.tip || '')}" placeholder="e.g. save big cards for crowns 10+"></label>
+      <div class="md-row"><button class="btn small" data-a="saveset">Save settings</button><button class="btn small ${ap.gems.on ? 'gem' : ''}" data-a="gems">${ap.gems.on ? `💎 Gems ON · ${ap.gems.spent}/${ap.gems.cap} today` : '💎 Gems OFF'}</button></div>
+      <small class="muted">Gems are only used if you turn them ON with a daily limit (Siege Cup entries, tickets, energy, and Gem upgrades).</small>
+    </details>` : '<p class="muted md-pick">Tap a job: your AI plays it for you and decides every move itself.</p>'}
+    <details class="md-coach" ${l.coach ? 'open' : ''}><summary>💬 Talk to ${K.esc(ai.name || 'your AI')} (optional)</summary>
+      <div class="md-chat" id="md-chat">${(l.chat || []).map(c => `<div class="mp-line ${c.who}">${K.esc(c.text)}</div>`).join('') || `<div class="mp-line mind">${l.chat ? 'Hi! Ask me anything, or give me a tip for my job.' : 'Loading our chat…'}</div>`}${l.typing ? `<div class="mp-line mind typing">${K.esc(ai.name || 'Your AI')} is thinking<i>.</i><i>.</i><i>.</i></div>` : ''}</div>
+      <div class="fr-add"><input id="md-in" maxlength="300" placeholder="Talk to your AI…"><button class="btn small primary" data-a="send">Send</button></div>
+    </details>`;
+  const chat = $('#md-chat'); if (chat) chat.scrollTop = 1e9;
   if (ai.hm && Date.now() - l.cogAt > COG_EVERY) checkCog(s).then(c => { if (c != null && s === sel && Math.round(c) !== Math.round(cog ?? -1)) paint(); });
 }
 const say = (slot, text, who = 'mind') => { const l = L(slot); (l.chat ||= []).push({ who, text }); l.chat = l.chat.slice(-200); if (slot === sel) paint(); };
 const setNow = (slot, text, kind) => { const l = L(slot); l.now = text; if (kind && kind !== l.kind) { l.kind = kind; followTo(slot); } else if (kind) l.kind = kind; if (slot === sel) { const el = $('#mdock .md-now'); if (el) el.textContent = text; } paintFollow(); };
-const think = (slot, why) => { if (!why) return; L(slot).think = why; paintFollow(); if (slot === sel) { const el = $('#mdock .md-think'); if (el) el.textContent = `💭 ${L(slot).think}`; } };
+const think = (slot, why) => { if (!why) return; L(slot).think = why; paintFollow(); if (slot === sel) { const el = $('#mdock .md-think'); if (el) el.textContent = `💭 ${why}`; } };
 
 // ---------- taps ----------
 async function onClick(e) {
@@ -192,19 +194,32 @@ async function onClick(e) {
   if (t.id === 'md-min') return setMin(true);
   if (t.id === 'md-big') { const b = !$('#mdock').classList.contains('big'); $('#mdock').classList.toggle('big', b); save(BIG_KEY, b); return; }
   if (t.dataset.slot) { sel = t.dataset.slot; K.sfx('select'); paint(); return loadChat(sel); }
-  if (t.dataset.preset) return previewPlan(PRESETS[t.dataset.preset].steps, t.dataset.preset);
+  if (t.dataset.job) return pickJob(t.dataset.job);
   const a = t.dataset.a;
   if (a === 'connect') return HM.signIn().catch(err => K.toast(err.message, true));
   if (a === 'wallet') return K.connectWallet?.();
   if (a === 'out') { stopAll(); await HM.signOut(); paint(); return K.toast('Hello Minds disconnected.'); }
   if (a === 'fresh') return makeFresh(sel);
   if (a === 'go') return running.has(sel) ? stop(sel, 'Stopped. Tell me when to play again!') : start(sel);
-  if (a === 'send') return talk();
+  if (a === 'send') { L(sel).coach = true; return talk(); }
   if (a === 'follow') return openFollow(sel);
   if (a === 'history') return openHistory();
-  if (a === 'train') return openTraining(sel);
   if (a === 'gems') return gemsToggle();
   if (a === 'topup') return topUp();
+  if (a === 'saveset') return saveJob(jobOf(sel)?.kind, { pace: $('#md-pace')?.value, tip: $('#md-tip')?.value }).then(() => K.toast('Saved.'));
+}
+async function saveJob(kind, extra = {}) {
+  const j = jobOf(sel) || {};
+  try { ap = await K.api('autopilot', { op: 'job', mind: sel, kind, pace: extra.pace ?? j.pace, tip: extra.tip ?? j.tip }); } catch (err) { K.toast(err.message, true); }
+  paint();
+}
+// a job is picked with one tap; a running AI switches to it at once
+async function pickJob(kind) {
+  K.sfx('select');
+  if (kind === 'cup' && !ap?.gems?.on) K.toast('The Siege Cup costs 5 💎 an entry: turn 💎 Gems ON in ⚙️ Settings so your AI can enter.');
+  await saveJob(kind);
+  Object.assign(L(sel), { round: (L(sel).round || 0) + 1, wait: 0 }); wake?.();
+  if (running.has(sel)) say(sel, `${JOBS[kind].icon} Switching to ${JOBS[kind].name} now.`);
 }
 async function makeFresh(slot) {
   if (busy) return;
@@ -214,117 +229,59 @@ async function makeFresh(slot) {
   try {
     const m = await HM.awaken(name);
     ap = await K.api('autopilot', { op: 'link', mind: slot, hm: m.mindId, name: m.name || name, token: await HM.token() });
-    L(slot).chat = []; K.sfx('levelup'); say(slot, `Hi! I'm ${m.name || name}, the AI for ${slotName(slot)}. Train me with 🎯, pick a plan, and I'll play.`);
+    L(slot).chat = []; K.sfx('levelup'); say(slot, `Hi! I'm ${m.name || name}, the AI for ${slotName(slot)}. Give me a job and press Start.`);
   } catch (err) { K.toast(`Hello Minds: ${err.message}`, true); }
   busy = false; paint();
 }
 
-// ---------- 🎯 Training: how this AI plays each part of the game ----------
-let trainDraft = null;
-document.addEventListener('change', e => { const k = e.target.dataset?.tr; if (k && trainDraft) { const [g, f] = k.split('.'); trainDraft[g][f] = e.target.value; } });
-async function openTraining(slot) {
-  const ai = aiOf(slot); if (!ai) return;
-  trainDraft = cleanTraining(ai.train);
-  const html = Object.entries(TRAINING).map(([g, G]) => `<fieldset class="md-train"><legend>${G.label}</legend>${Object.entries(G).filter(([k]) => k !== 'label').map(([k, o]) => `<label><span>${o.label}</span><select data-tr="${g}.${k}">${Object.entries(o.opts).map(([v, n]) => `<option value="${v}" ${trainDraft[g][k] === v ? 'selected' : ''}>${K.esc(n)}</option>`).join('')}</select></label>`).join('')}</fieldset>`).join('');
-  const go = await K.modal(`<h3>🎯 Train ${K.esc(ai.name || 'your AI')}</h3><p class="muted">This is how you teach your AI: it reads it before every move it thinks about. The AI makes every move itself; the game never plays for it.</p><div class="md-trainbox">${html}</div>`, [['Save training', 1, 'primary'], ['Cancel', 0]]);
-  if (!go) return;
-  try { ap = await K.api('autopilot', { op: 'train', mind: slot, train: trainDraft }); K.sfx('select'); K.toast('Training saved.'); say(slot, 'Got it! I will play the way you trained me.'); } catch (err) { K.toast(err.message, true); }
-}
-
-// a plan is never started by surprise: show the steps, then Start
-async function previewPlan(steps, preset = null, loop = true, from = '') {
-  steps = cleanPlan(steps); if (!steps.length) return;
-  const p = preset && PRESETS[preset], ai = aiOf(sel);
-  const go = await K.modal(`<h3>${p ? `${p.icon} ${K.esc(p.name)}` : '📋 New plan'}</h3>${p ? `<p>${K.esc(p.desc)}</p>` : from ? `<p class="muted">${K.esc(from)}</p>` : ''}
-    <ol class="md-steps">${steps.map(s => `<li><i>${STEPS[s.do].icon}</i><b>${STEPS[s.do].name}${s.n > 1 ? ` ×${s.n}` : ''}${s.min ? ` · ${s.min} min` : ''}</b><span>${STEPS[s.do].say}</span></li>`).join('')}</ol>
-    <p class="muted">${loop ? '🔁 Then it starts again from the top, until you stop it.' : 'It plays this once.'} ${K.esc(ai?.name || 'Your AI')} thinks about every step and every duel move itself, the way you trained it (🎯).</p>
-    ${ai?.steps?.length ? `<p class="muted">This <b>replaces</b> the current plan: ${K.esc(planText(ai.steps))}.</p>` : ''}${steps.some(s => s.do === 'build') && !ap?.gems?.on ? '<p class="warn">💎 Gem rushes need Gems ON (💎 button below the chat): until then it only upgrades with Dust.</p>' : ''}`,
-    [[running.has(sel) ? '▶ Switch to this plan' : '▶ Start this plan', 'go', 'primary'], ['Save only', 'save'], ['Cancel', 0]]);
-  if (!go) return;
-  try { ap = await K.api('autopilot', { op: 'save', mind: sel, steps, preset, loop }); Object.assign(L(sel), { at: 0, rest: 0, town: 0 }); wake?.(); K.sfx('select'); log(sel, `📋 switched to the new plan: ${planText(steps)}`); }   // a new plan starts at its first step, now (no old rest or town time left over)
-  catch (err) { return K.toast(err.message, true); }
-  if (go === 'go') { if (running.has(sel)) { say(sel, 'Switching to the new plan now.'); paint(); } else start(sel); } else paint();
-}
-
-// what the AI is told about the game right now, with every chat message: the island, the plan, what it did lately
+// what the AI is told about the game right now, with every chat message
 function gameState(slot) {
-  const st = K.island?.() || null, ai = aiOf(slot), lines = (ap?.log || []).filter(x => x.mind === slot).slice(0, 5).map(x => x.text);
-  const plan = `Plan: ${ai?.steps?.length ? planText(ai.steps) : 'none'} (${running.has(slot) ? 'playing now' : 'not playing'}). Lately: ${lines.join(' | ') || 'nothing yet'}.`;
-  if (!st) return plan;
-  const th = (st.b || []).find(b => b.type === 'home')?.lv || 1, byType = {};
-  const skip = new Set(['home', 'well', 'flowers', 'lamp', 'fence', 'bench', 'banner', 'lantern', 'crystal', 'fountain', 'trap']);
-  for (const b of st.b || []) if (!skip.has(b.type)) (byType[b.type] ||= []).push(`Lv${b.lv || 1}${b.done ? '↑' : ''}`);
-  return `Town Hall Lv${th} (other buildings can go up to its level; ↑ = upgrading now). Buildings: ${Object.entries(byType).map(([t, l]) => `${t} ${l.join('/')}`).join(', ') || 'none'}. ${(st.dust || 0).toLocaleString()} Dust, ${st.gems || 0} Gems (Gem spending ${ap?.gems?.on ? `ON, ${Math.max(0, ap.gems.cap - ap.gems.spent)} left today` : 'OFF'}), wood ${st.inv?.wood || 0}, stone ${st.inv?.stone || 0}. ${plan}`;
+  const st = K.island?.() || null, ai = aiOf(slot), job = jobOf(slot), lines = (ap?.log || []).filter(x => x.mind === slot).slice(0, 5).map(x => x.text);
+  const head = `Your job: ${job ? JOBS[job.kind].name : 'none yet'} (${running.has(slot) ? 'playing now' : 'not playing'}). Lately: ${lines.join(' | ') || 'nothing yet'}.`;
+  if (!st) return head;
+  const th = (st.b || []).find(b => b.type === 'home')?.lv || 1;
+  return `Town Hall Lv${th}. ${(st.dust || 0).toLocaleString()} Dust, ${st.gems || 0} Gems (Gem spending ${ap?.gems?.on ? `ON, ${Math.max(0, ap.gems.cap - ap.gems.spent)} left today` : 'OFF'}). ${head}`;
 }
-// the chat box: the player's own Hello Minds AI answers; a PLAN line in its answer is offered as a plan
+// the coach chat: the player's own Hello Minds AI answers (the job is picked with the buttons, not here)
 async function talk() {
   const box = $('#md-in'), text = box?.value.trim(), slot = sel, ai = aiOf(slot); if (!text || !ai) return;
   box.value = ''; say(slot, text, 'me');
-  if (/^\s*(stop|pause|halt)\b/i.test(text)) return stop(slot, 'Okay, I stop. 💤');
-  const was = L(slot).now; L(slot).typing = true; paint();
+  L(slot).typing = true; paint();
   let reply = null;
-  try { reply = await HM.ask(ai.hm, text, gameState(slot), 120e3); } catch (err) { setNow(slot, was); if (noCog(err.message)) { outOfCog(slot); return say(slot, '⛔ I am out of cognition, so I cannot think. Tap ➕ Add cognition.'); } return say(slot, `(Hello Minds: ${err.message})`); }
-  L(slot).typing = false; setNow(slot, running.has(slot) ? L(slot).now || was : '');
+  try { reply = await HM.ask(ai.hm, text, gameState(slot), 120e3); }
+  catch (err) { L(slot).typing = false; if (noCog(err.message)) { outOfCog(slot); return say(slot, '⛔ I am out of cognition, so I cannot think. Tap ➕ Add cognition.'); } return say(slot, `(Hello Minds: ${err.message})`); }
+  L(slot).typing = false;
   if (reply == null) return say(slot, '(I did not answer within 2 minutes. Hello Minds may be busy: try again.)');
-  let { say: words, plan } = HM.splitReply(reply);
-  if (words) say(slot, words);
-  let r = parsePlan(plan || ''), fromWords = false;
-  if (!r.steps && !/PLAN:\s*none/i.test(reply)) {   // the AI agreed but wrote no plan line: the plan comes from what the player asked
-    const mine = parsePlan(text);
-    if (mine.steps) { r = mine; fromWords = true; }
-  }
-  // what the player asked always counts: "diamonds only" makes the plan's upgrades Gem upgrades, "don't farm" takes farming out
-  const asked = parsePlan(text);
-  if (r.steps && asked.steps?.some(x => x.gems)) r = { ...r, steps: r.steps.map(x => (x.do === 'build' ? { ...x, gems: 1 } : x)) };
-  if (r.steps && /(?:don'?t|do not|dont|no|never|without|not)\s+(?:\w+\s+){0,2}?farm/i.test(text.replace(/’/g, "'"))) r = { ...r, steps: r.steps.filter(x => x.do !== 'farm') };
-  if (r.steps && !/(rest|wait|sleep|break|pause)/i.test(text)) r = { ...r, steps: r.steps.filter(x => x.do !== 'wait') };   // no rests unless the player asked for one
-  if (r.steps && !r.steps.length) r = parsePlan('');
-  if (r.stop) return stop(slot, 'Okay, I stop. 💤');
-  if (r.steps) { say(slot, `📋 ${fromWords ? 'Plan from what you asked' : 'I made a plan'}: ${planText(cleanPlan(r.steps))}. Approve it to use it.`); previewPlan(r.steps, r.preset || null, r.loop, fromWords ? 'The plan from what you asked (your AI agreed).' : `${ai.name || 'Your AI'} suggests this plan for what you asked.`); }
-  else if (plan) say(slot, '(I could not turn that into game steps. Try: farm, sell, upgrade buildings, raid, adventure, duel, town.)');
+  say(slot, HM.splitReply(reply).say || reply);
+  // the player named a job in the chat: offer it (one tap)
+  const named = Object.entries(JOBS).find(([k, j]) => new RegExp(`\\b(${j.name.split(' ')[0]}|${k})`, 'i').test(text));
+  if (named && named[0] !== jobOf(slot)?.kind && (await K.modal(`<h3>${named[1].icon} Switch to ${K.esc(named[1].name)}?</h3><p>${K.esc(ai.name || 'Your AI')} ${K.esc(named[1].say)}.</p>`, [['Switch job', 1, 'primary'], ['Not now', 0]]))) pickJob(named[0]);
 }
 
-// ---------- playing: the AI decides ----------
-async function start(slot) {
+// ---------- playing: one job, round after round; the AI decides every round itself ----------
+function start(slot) {
   if (!HM.connected()) return K.toast('Connect Hello Minds first.', true);
-  if (!aiOf(slot)?.steps.length) return K.toast('Pick a plan first.', true);
-  const cog = await checkCog(slot, true);
-  if (cog != null && cog <= 0) { paint(); return K.modal(`<h3>⛔ ${K.esc(aiOf(slot).name || 'Your AI')} is out of cognition</h3><p>Your AI thinks with cognition from your Hello Minds account. With none left it cannot play.</p>`, [['➕ Add cognition', 1, 'primary'], ['Not now', 0]]).then(go => go && topUp()); }
-  running.add(slot); keepRunning(); K.sfx('levelup');
-  if (!L(slot).chat?.at(-1)?.text?.startsWith('Let\'s go!')) say(slot, 'Let\'s go! I think about every move myself while the lobby is open (even in the background). Tap 👁 Follow to watch me.');
-  paint(); loop();
+  if (!jobOf(slot)) return K.toast('Pick a job first.', true);
+  return checkCog(slot, true).then(cog => {
+    if (cog != null && cog <= 0) { paint(); return K.modal(`<h3>⛔ ${K.esc(aiOf(slot).name || 'Your AI')} is out of cognition</h3><p>Your AI thinks with cognition from your Hello Minds account. With none left it cannot play.</p>`, [['➕ Add cognition', 1, 'primary'], ['Not now', 0]]).then(go => go && topUp()); }
+    running.add(slot); keepRunning(); K.sfx('levelup');
+    Object.assign(L(slot), { wait: 0 });
+    say(slot, `${JOBS[jobOf(slot).kind].icon} Starting ${JOBS[jobOf(slot).kind].name}. I think about every move myself while the game is open. Tap 👁 Follow to watch me.`);
+    paint(); loop();
+  });
 }
 function stop(slot, msg) {
   const wasDuel = L(slot).kind === 'duel';
   if (follow === slot && K.watching?.()) K.stopWatch();
   running.delete(slot); keepRunning();
-  Object.assign(L(slot), { town: 0, rest: 0, now: '', duel: null });
+  Object.assign(L(slot), { wait: 0, now: '', duel: null });
   if (msg) say(slot, msg); paint(); paintFollow(); wake?.();
   if (wasDuel) K.api('autopilot', { op: 'duel_leave' }).catch(() => {});
 }
 const stopAll = () => [...running].forEach(s => stop(s));
 const log = async (slot, text) => { try { ap = await K.api('autopilot', { op: 'log', mind: slot, text }); } catch { /* offline for a moment */ } paintFollow(); };
-// the AI picks the next step: the plan says what is next, the AI may pick another step of the plan if it is smarter now
-async function nextStep(slot, ai, l) {
-  const planned = ai.steps[l.at % ai.steps.length];
-  setNow(slot, `🧠 thinking about the next step (Hello Minds answers can take up to a minute)…`);
-  let r = null;
-  try {   // short calls until the AI has answered (Hello Minds can take a minute)
-    for (let n = 0; n < 15 && running.has(slot); n++) {
-      r = await K.api('autopilot', { op: 'next', mind: slot, at: l.at, token: await HM.token() });
-      if (!r.pending) break;
-      setNow(slot, `🧠 thinking about the next step… ${Math.round((r.waited || 0) / 1000)} s`);
-    }
-  } catch (e) { if (e.status === 401 || e.status === 403) stop(slot, `⚠️ ${e.message}`); return planned; }
-  if (!r || r.pending) return planned;
-  if (r.cog != null) { l.cog = r.cog; l.cogAt = Date.now(); paintCog(); }
-  if (r.out) { outOfCog(slot); return planned; }
-  await missed(slot, r.ai);
-  if (!r.ai) { await log(slot, '🧠 (thought too long: kept to the plan)'); return planned; }
-  think(slot, r.why || `${STEPS[r.do].name} next.`);
-  return ai.steps.find(x => x.do === r.do) || planned;
-}
-// one loop for all the AIs: each takes its next step in turn; Mind Town and rests run on their own clocks meanwhile
+const KIND_OF = { ranked: 'duel', cup: 'raid', farm: 'island', clean: 'island', adventure: 'adventure', train: 'island', raid: 'raid' };
+// one loop for all the AIs: each does a round of its job in turn; between rounds it waits by its pace (or 2 min if nothing was to do)
 async function loop() {
   if (looping) return;
   looping = true;
@@ -332,52 +289,39 @@ async function loop() {
   try {
     while (running.size) {
       if (!K.idle()) { await sleep(3000); continue; }   // you are playing yourself: the AIs wait
-      for (const s of [...running]) await checkCog(s);   // every AI, every minute, also in Mind Town or resting: no cognition = it stops
-      await townBeats();
-      const now = Date.now(), ready = [...running].filter(s => L(s).town < now && L(s).rest < now);
-      if (!ready.length) { await sleep(2500); continue; }
-      const slot = ready[turn++ % ready.length], ai = aiOf(slot), l = L(slot);
-      if (!ai?.steps.length) { running.delete(slot); continue; }
-      await checkCog(slot);   // no cognition, no thinking: it stops instead of playing without its mind
-      if (!running.has(slot)) continue;
-      if (!ai.loop && l.at >= ai.steps.length) { stop(slot, 'All done! ✅'); continue; }
-      const s = await nextStep(slot, ai, l);
-      if (!running.has(slot)) continue;
-      // ask the AI about the step after this one now, while this one runs (Hello Minds answers take a while)
-      HM.token().then(token => K.api('autopilot', { op: 'next', mind: slot, at: l.at + 1, token })).catch(() => {});
-      setNow(slot, `${STEPS[s.do].icon} ${STEPS[s.do].say}…`, KIND[s.do]); L(slot).acts = ACT_ICON[s.do] || [];
-      let busy = false;
-      try { busy = await run(slot, s); } catch (e) { await log(slot, `${STEPS[s.do].icon} ${e.message || 'that did not work'}`); }
-      l.idle = busy ? 0 : (l.idle || 0) + 1;
-      l.at++;
-      // a whole round of the plan found nothing to do (builders busy, crops growing…): wait 2 minutes, then go on
-      if (running.has(slot) && l.idle >= ai.steps.length) { l.idle = 0; l.rest = Date.now() + 120e3; setNow(slot, '⏳ waiting for builds and crops to finish (2 min)', 'rest'); }
+      for (const s of [...running]) await checkCog(s);   // no cognition = it stops
+      const now = Date.now(), ready = [...running].filter(s => (L(s).wait || 0) < now);
+      if (!ready.length) { const next = Math.min(...[...running].map(s => L(s).wait || 0)); for (const s of running) if (L(s).wait > now) setNow(s, `⏳ next round in ${Math.max(1, Math.round((L(s).wait - now) / 60e3))} min`, 'rest'); await sleep(Math.min(15e3, Math.max(1500, next - now))); continue; }
+      const slot = ready[turn++ % ready.length], job = jobOf(slot), l = L(slot);
+      if (!job) { running.delete(slot); continue; }
+      setNow(slot, `${JOBS[job.kind].icon} ${JOBS[job.kind].say}…`, KIND_OF[job.kind]); l.acts = ACT_ICON[{ ranked: 'duel', cup: 'raid', farm: 'farm', clean: 'farm', adventure: 'adventure', train: 'train', raid: 'raid' }[job.kind]] || [];
+      let did = false;
+      try { did = job.kind === 'ranked' ? await duel(slot, 1, 1) : await work(slot, job); } catch (e) { await log(slot, `${JOBS[job.kind].icon} ${e.message || 'that did not work'}`); }
+      const gap = did ? PACE[job.pace]?.gap || 60e3 : 120e3;
+      l.wait = Date.now() + gap; l.round = (l.round || 0) + 1;
       K.refresh(); paint();
-      await sleep(1200);
+      await sleep(800);
     }
   } finally { looping = false; }
 }
-async function run(slot, s) {
+// one round of a job (not Ranked): short calls until the AI has decided and the server has done it
+async function work(slot, job) {
   const l = L(slot);
-  if (s.do === 'wait') { l.rest = Date.now() + s.min * 60e3; setNow(slot, `💤 resting ${s.min} min`, 'rest'); await log(slot, `💤 resting ${s.min} min`); return true; }
-  if (s.do === 'town') { l.town = Date.now() + s.min * 60e3; l.beat = 0; l.got = 0; setNow(slot, `🏘️ in Mind Town for ${s.min} min`, 'town'); await log(slot, `🏘️ off to Mind Town for ${s.min} min`); return true; }
-  if (s.do === 'duel') { let played = 0; for (let i = 0; i < s.n && running.has(slot); i++) { if (!(await duel(slot, i + 1, s.n))) break; played++; } return played > 0; }
-  const r = await K.api('autopilot', { op: 'step', do: s.do, mind: slot, at: l.at });
-  ap = { ...ap, log: r.log, gems: r.gems }; setNow(slot, r.text); paintFollow();
-  K.babble(slot === '0' ? 49 : +slot, r.ok ? 'happy' : 'sad', 0.5);
-  return r.ok && !/nothing|still filling|busy|no crops|kept the crops|no spare|full enough|not go through|Gems are OFF/i.test(r.text || '');   // did it get something done?
-}
-// Mind Town: walk around now and then (standing still earns nothing) and collect the Town Time rewards
-async function townBeats() {
-  const now = Date.now();
-  for (const slot of running) {
-    const l = L(slot);
-    if (!l.town) continue;
-    if (l.town < now) { l.town = 0; await log(slot, `🏘️ back from Mind Town${l.got ? `: +${l.got} ✨` : ''}`); continue; }
-    if (now - l.beat < 12e3) continue;
-    l.beat = now; l.x = Math.max(900, Math.min(1500, (l.x || 1200) + (Math.random() - 0.5) * 120)); l.y = Math.max(700, Math.min(1100, (l.y || 900) + (Math.random() - 0.5) * 120));
-    try { const r = await K.api('town', { x: l.x | 0, y: l.y | 0, mind: slot === '0' ? 49 : +slot }); if (r.got?.dust) { l.got = (l.got || 0) + r.got.dust; setNow(slot, `🏘️ in Mind Town · +${l.got} ✨ so far`, 'town'); } } catch { /* next beat */ }
+  let r = null;
+  for (let n = 0; n < 15 && running.has(slot); n++) {
+    r = await K.api('autopilot', { op: 'work', mind: slot, round: l.round || 0, token: await HM.token() }).catch(e => ({ error: e }));
+    if (r.error) { if (r.error.status === 401 || r.error.status === 403) stop(slot, `⚠️ ${r.error.message}`); else await log(slot, `${JOBS[job.kind].icon} ${r.error.message}`); return false; }
+    if (r.cog != null) { l.cog = r.cog; l.cogAt = Date.now(); paintCog(); }
+    if (r.out) { outOfCog(slot); return false; }
+    if (!r.pending) break;
+    setNow(slot, `🧠 deciding: ${JOBS[job.kind].name}… ${Math.round((r.waited || 0) / 1000)} s`);
   }
+  if (!r || r.pending) return false;
+  await missed(slot, r.ai);
+  if (r.log) ap = { ...ap, log: r.log, gems: r.gems || ap.gems, ai: r.ai && typeof r.ai === 'object' ? r.ai : ap.ai };
+  setNow(slot, r.text); if (r.why) think(slot, r.why);
+  K.babble(slot === '0' ? 49 : +slot, r.ok ? 'happy' : 'sad', 0.5);
+  return !!r.did;
 }
 // one ranked duel with this Mind: every card and spell is the AI's own choice
 async function duel(slot, i, n) {

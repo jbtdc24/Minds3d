@@ -146,3 +146,43 @@ export function readStrategy(reply) {
   }
   return Object.keys(out).length >= 3 ? out : null;
 }
+
+// ---- AI Jobs: one job per Mind's AI; the AI decides the details of that job each round ----
+export const JOBS = {
+  ranked: { icon: '🃏', name: 'Ranked', say: 'plays ranked duels: every card and spell is its own choice' },
+  cup: { icon: '🏆', name: 'Siege Cup', say: 'enters the daily Siege Cup (Gems) and attacks the boss fortress with its own army mix' },
+  farm: { icon: '🧺', name: 'Farming', say: 'picks the crops, plants, harvests and sells' },
+  clean: { icon: '🪓', name: 'Clean island', say: 'clears weeds, bushes, rocks and trees for Dust, wood and stone' },
+  adventure: { icon: '🧭', name: 'Adventure', say: 'picks an island and how many potions, then explores' },
+  train: { icon: '🏹', name: 'Train troops', say: 'trains the troops it wants and upgrades them' },
+  raid: { icon: '⚔️', name: 'Raid', say: 'picks its army and raids another island' },
+};
+Object.setPrototypeOf(JOBS, null);
+export const PACE = { fast: { name: 'Non-stop', gap: 60e3 }, normal: { name: 'Every 10 min', gap: 600e3 }, slow: { name: 'Every hour', gap: 3600e3 } };
+Object.setPrototypeOf(PACE, null);
+export const cleanJob = j => ({ kind: Object.hasOwn(JOBS, String(j?.kind)) ? String(j.kind) : 'farm', pace: Object.hasOwn(PACE, String(j?.pace)) ? String(j.pace) : 'fast', tip: String(j?.tip || '').replace(/[\u0000-\u001f]/g, ' ').slice(0, 240) });
+// the question for one round of a job (the AI answers in the fixed lines; WHY last)
+export function jobQuestion(kind, { st, tip, crops = {}, spots = [], cupBudget = 9 } = {}) {
+  const bag = Object.entries(st?.inv || {}).filter(([k]) => k.startsWith('crop_')).map(([k, n]) => `${k.slice(5)} ${n}`).join(', ') || 'none';
+  const troops = Object.entries(st?.inv || {}).filter(([k]) => k.startsWith('troop_')).map(([k, n]) => `${k.slice(6)} ${n}`).join(', ') || 'none';
+  const plots = Object.values(st?.tiles || {}).filter(t => t.s === 'p'), growing = plots.filter(t => t.c).length;
+  const base = `Island now: ${(st?.dust || 0).toLocaleString()} Dust, ${st?.gems || 0} Gems, wood ${st?.inv?.wood || 0}, stone ${st?.inv?.stone || 0}, ${plots.length} farm plots (${growing} growing), crops in the bag: ${bag}, troops: ${troops}.${tip ? `\nYour human's tip: ${tip}` : ''}`;
+  const ask = {
+    farm: `FARMING JOB. Pick the crop to plant in the empty plots and what to do with the crops in the bag.\nCrops (seed price → sells for, grow time): ${Object.entries(crops).map(([k, c]) => `${k} ${c.seed}→${c.sell}`).join(', ')}.\nReply "CROP: <crop>" and "SELL: all|half|none".`,
+    clean: 'CLEAN ISLAND JOB. Clearing wild ground gives Dust (weeds), wood (bushes, trees) and stone (rocks); each tile takes your Minds a few seconds.\nReply "CLEAR: weeds|bushes|rocks|trees|all" and "COUNT: 1-40".',
+    adventure: `ADVENTURE JOB. Islands you can fly to: ${spots.map((s, i) => `${i}=${s.name} (tier ${s.tier})`).join(', ') || 'only the first one'}. Potions in the bag: ${st?.inv?.potion || 0}.\nReply "SPOT: <number>" and "POTIONS: 0-3".`,
+    train: 'TRAIN TROOPS JOB. Troops cost Dust (brawler 20, archer 25, bomber 60, giant 150); camp space is limited. You may also upgrade one troop type.\nReply "TROOPS: brawler N, archer N, bomber N, giant N" and "UPGRADE: brawler|archer|bomber|giant|none".',
+    raid: `RAID JOB. Pick the army to send from your troops (${troops}).\nReply "ARMY: brawler N, archer N, bomber N, giant N".`,
+    cup: `SIEGE CUP JOB. Everyone attacks the same boss fortress with a budget of ${cupBudget} camp space (brawler 1, archer 1, bomber 2, giant 3). Best score of the day wins Gems.\nReply "ARMY: brawler N, archer N, bomber N, giant N" (within ${cupBudget} space).`,
+  }[kind];
+  return `${ask}\n${base}\nLast line: "WHY: <reason>".`;
+}
+export function readJob(kind, reply, opts) {
+  const d = readDetails(reply, opts), r = String(reply || '');
+  const clear = (/CLEAR:\s*([a-z]+)/i.exec(r) || [])[1]?.toLowerCase(), count = Number((/COUNT:\s*(\d+)/i.exec(r) || [])[1]);
+  if (['weeds', 'bushes', 'rocks', 'trees', 'all'].includes(clear)) d.clear = clear;
+  if (count >= 1) d.count = Math.min(40, count);
+  const up = (/UPGRADE:\s*([a-z]+)/i.exec(r) || [])[1]?.toLowerCase();
+  if (kind === 'train' && ['brawler', 'archer', 'bomber', 'giant'].includes(up)) d.troopUp = up;
+  return { ...d, why: (/WHY:\s*([\s\S]+)/i.exec(r) || [])[1]?.trim().replace(/\s+/g, ' ').slice(0, 400) || '' };
+}

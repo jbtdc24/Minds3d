@@ -1193,3 +1193,14 @@ h3.raid-result { text-align: center; }
 .troop-up { display: grid; grid-template-columns: 1fr; gap: 5px; }
 .troop-up .btn { width: 100%; font-size: 13px; white-space: normal; padding: 5px 8px; }
 .troop-lv { line-height: 1.35; }
+/* 🧠 AI Jobs: one big tap per job, a clear status, settings folded away */
+.md-jobs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.md-job { display: grid; justify-items: center; gap: 2px; padding: 8px 4px; border: 0; cursor: pointer; background: #fff8e4; box-shadow: 0 0 0 2px var(--ink); font: 800 12px var(--font); line-height: 1.15; text-align: center; }
+.md-job i { font-style: normal; font-size: 24px; } .md-job:hover { background: #fff1b8; } .md-job.on { background: var(--lime); box-shadow: 0 0 0 3px var(--ink); }
+.md-status { display: grid; gap: 3px; padding: 8px 10px; background: #fff; box-shadow: 0 0 0 2px var(--ink); } .md-status.run { background: #f1ffe0; }
+.md-status b { font-size: 15px; } .md-status .md-now { font-weight: 800; font-size: 13px; line-height: 1.35; overflow-wrap: anywhere; }
+.md-set, .md-coach { background: #fff; box-shadow: 0 0 0 2px var(--ink); padding: 6px 8px; } .md-set summary, .md-coach summary { cursor: pointer; font-weight: 900; font-size: 13px; }
+.md-set label { display: grid; gap: 3px; font-size: 12px; font-weight: 800; margin-top: 6px; } .md-set select, .md-set input { font: 700 13px var(--font); padding: 4px; width: 100%; }
+.md-coach .md-chat { margin-top: 6px; } .md-pick { margin: 0; }
+.md-tab em.job { background: var(--lime); color: var(--ink); width: auto; padding: 0 2px; font-size: 12px; }
+@media (max-width: 420px) { .md-jobs { grid-template-columns: repeat(3, 1fr); } }

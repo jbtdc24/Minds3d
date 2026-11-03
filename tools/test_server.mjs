@@ -1582,6 +1582,25 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
       T.matches.find(x => x.id === m2.id).deadline = new Date(Date.now() + 2000).toISOString();
       out = await hit(autopilot, M, { op: 'duel_think', mind: 0, id: m2.id, token: tok });
       ok(out.body.think?.plan && !out.body.think.ai && out.body.view.me.locked, 'a turn where the AI is too slow plays its own strategy (and says so)'); }
+    { // 🧠 AI Jobs: one job per AI, the AI decides the details, the server does it by the rules
+      ok((await hit(autopilot, M, { op: 'job', mind: 0, kind: 'farm', pace: 'fast', tip: 'carrots pay best' })).body.ai['0'].job.kind === 'farm', 'a Mind AI gets a job');
+      isl(M).state.dust += 2000; isl(M).state.inv.crop_bean = 6;
+      fake.reply = 'CROP: carrot SELL: all WHY: carrots pay'; out = await hit(autopilot, M, { op: 'work', mind: 0, round: 1, token: tok });
+      ok(out.body.ai && /🧺/.test(out.body.text) && !isl(M).state.inv.crop_bean, `farming: the AI picks the crop and sells: ${out.body.text}`);
+      await hit(autopilot, M, { op: 'job', mind: 0, kind: 'clean' });
+      fake.reply = 'CLEAR: weeds COUNT: 5 WHY: dust'; out = await hit(autopilot, M, { op: 'work', mind: 0, round: 2, token: tok });
+      ok(/clear/.test(out.body.text) && (isl(M).state.q || []).length >= 1, `clean island: Minds go to clear what the AI chose: ${out.body.text}`);
+      await hit(autopilot, M, { op: 'job', mind: 0, kind: 'train' });
+      fake.reply = 'TROOPS: brawler 3, archer 2 UPGRADE: none WHY: army'; const b0 = isl(M).state.inv.troop_brawler || 0;
+      out = await hit(autopilot, M, { op: 'work', mind: 0, round: 3, token: tok });
+      ok((isl(M).state.inv.troop_brawler || 0) >= b0, `train troops: the AI's troops are trained: ${out.body.text}`);
+      await hit(autopilot, M, { op: 'job', mind: 0, kind: 'cup' });
+      isl(M).state.ap.gems = { on: true, cap: 50, spent: 0, day: new Date().toISOString().slice(0, 10) }; isl(M).state.gems = 100;
+      fake.reply = 'ARMY: brawler 3, archer 2, bomber 2 WHY: walls first'; out = await hit(autopilot, M, { op: 'work', mind: 0, round: 4, token: tok });
+      ok(/boss fortress|no try|not entered/.test(out.body.text) && T.cup_entries.some(e => e.player_id === M.id && /🧠/.test(e.name)), `siege cup: the AI enters (marked 🧠) and attacks: ${out.body.text}`);
+      ok((await hit(autopilot, M, { op: 'job', mind: 0, kind: 'nope' })).body.ai['0'].job.kind === 'farm', 'unknown jobs fall back to farming');
+      fake.reply = null; await hit(autopilot, M, { op: 'job', mind: 0, kind: 'raid' });
+      ok((await hit(autopilot, M, { op: 'work', mind: 0, round: 5, token: tok })).body.pending, 'a slow AI makes the job wait (short calls), it never plays for the AI'); }
   }
 
   const P = await mk('Racer');
