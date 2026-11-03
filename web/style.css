@@ -1135,3 +1135,12 @@ h3.raid-result { text-align: center; }
 #town-feed[data-show="chat"] .news, #town-feed[data-show="news"] .chat { display: none; }
 .town-side.folded #town-feed, .town-side.folded .fr-add, .town-side.folded .seg { display: none; }
 .town-side.folded { max-height: none; width: auto; }
+/* cognition warnings: a big banner on every screen, and one inside the dock */
+.mcog { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 48; display: none; align-items: center; gap: 10px; width: min(620px, calc(100vw - 16px)); padding: 10px 12px; background: #ffb02e; color: var(--ink); box-shadow: 0 0 0 3px var(--ink), 0 6px 0 var(--ink); animation: drop .3s; }
+.mcog.on { display: flex; } .mcog.out { background: #ff5263; color: #fff; animation: mcogpulse 1.4s ease-in-out infinite; }
+.mcog > b { font-size: 28px; } .mcog > div { flex: 1; display: grid; } .mcog strong { font-size: 16px; } .mcog span { font-size: 13px; }
+@keyframes mcogpulse { 50% { box-shadow: 0 0 0 3px var(--ink), 0 6px 0 var(--ink), 0 0 22px 8px rgba(255, 82, 99, .8); } }
+.md-cogwarn { display: grid; gap: 4px; padding: 8px; background: #ffb02e; box-shadow: 0 0 0 2px var(--ink); } .md-cogwarn.out { background: #ff5263; color: #fff; }
+.md-cogwarn b { font-size: 15px; } .md-cogwarn span { font-size: 12px; }
+#md-cog.low { color: #d62839; font-weight: 900; }
+.md-add { border: 0; background: var(--lime); font: 900 11px var(--font); padding: 0 5px; cursor: pointer; box-shadow: 0 0 0 1px var(--ink); }

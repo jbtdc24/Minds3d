@@ -15,7 +15,7 @@ const $ = s => document.querySelector(s);
 const RUN_KEY = 'mc_ai_run', MIN_KEY = 'mc_ai_min', SEEN_KEY = 'mc_ai_seen', POS_KEY = 'mc_ai_pos', BIG_KEY = 'mc_ai_big';
 // per Mind slot: step index, what it does now, where it is, Mind Town / rest clocks, chat, last thought, duel board
 const live = {};
-const L = slot => (live[slot] ||= { at: 0, now: '', kind: 'rest', town: 0, rest: 0, beat: 0, chat: null, think: '', duel: null, acts: [] });
+const L = slot => (live[slot] ||= { at: 0, now: '', kind: 'rest', town: 0, rest: 0, beat: 0, chat: null, think: '', duel: null, acts: [], cog: null, cogAt: 0 });
 const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? d; } catch { return d; } };
 const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* private mode */ } };
 let running = new Set(load(RUN_KEY, []));
@@ -23,6 +23,9 @@ const keepRunning = () => save(RUN_KEY, [...running]);
 const sleep = ms => new Promise(res => { const t = setTimeout(res, ms); wake = () => { clearTimeout(t); res(); }; });
 const SCENE = { island: 'assets/sky_island.webp', adventure: 'assets/sky_adventure.webp', duel: 'assets/stage_meadow.webp', town: 'assets/stage_castle.webp', raid: 'assets/sky_storm.webp', rest: 'assets/sky_aurora.webp' };
 const KIND = { farm: 'island', sell: 'island', well: 'island', train: 'island', decorate: 'island', raid: 'raid', adventure: 'adventure', duel: 'duel', town: 'town', wait: 'rest' };
+// cognition: the AI only plays while its Mind has cognition. Low = a warning; empty = it stops (no thinking, no playing)
+const LOW_COG = 100, TOPUP_URL = 'https://hellominds.ai/pricing', COG_EVERY = 60e3;
+const noCog = msg => /cognition|credit|insufficient|balance|quota|402/i.test(String(msg || ''));
 const ACT_ICON = { farm: ['🌱', '🧺', '🥕'], sell: ['💰', '✨'], well: ['⚡'], train: ['🏹', '🪓'], decorate: ['🌷', '🏮'], raid: ['⚔️', '💥', '⭐'], adventure: ['🧭', '🌿', '🪵'], duel: ['🃏', '👑'], town: ['🏘️', '💬'], wait: ['💤'] };
 
 // the Minds that can have an AI: every NFT held, or one Rank Pass slot ('0') for a wallet without Minds
@@ -36,6 +39,9 @@ export const stopAi = id => stop(String(id), 'Stopped: you are playing me yourse
 
 export function initAutopilot(ctx) {
   K = ctx;
+  // the big cognition warning: on every screen, above everything but the dialogs
+  const w = document.createElement('div'); w.id = 'mcog'; w.className = 'mcog px'; document.body.append(w);
+  w.addEventListener('click', e => { if (e.target.closest('[data-cog="add"]')) topUp(); else if (e.target.closest('[data-cog="x"]')) { w.classList.remove('on'); w.dataset.hide = w.dataset.key || ''; } });
   const d = document.createElement('div');
   d.id = 'mdock'; d.className = 'mdock px hide';
   d.innerHTML = `<button class="md-bubble" id="md-bubble"><b>🧠</b><span>AI Minds</span><i id="md-count"></i></button>
@@ -90,6 +96,42 @@ async function loadChat(slot) {
   if (slot === sel) paint();
 }
 
+// ---------- cognition ----------
+const topUp = () => { K.sfx('click'); window.open(TOPUP_URL, '_blank', 'noopener'); K.toast('Top up your Mind on Hello Minds, then come back: tap ▶ Start again.'); };
+async function checkCog(slot, force) {
+  const ai = aiOf(slot), l = L(slot);
+  if (!ai?.hm || (!force && Date.now() - l.cogAt < COG_EVERY)) return l.cog;
+  l.cogAt = Date.now();
+  const c = await HM.balance(ai.hm);
+  if (c != null) l.cog = c;
+  if (l.cog != null && l.cog <= 0) outOfCog(slot); else paintCog();
+  return l.cog;
+}
+// an AI that stops answering is not thinking: after 3 misses check its cognition; after 4 it stops, whatever the reason
+async function missed(slot, ok) {
+  const l = L(slot);
+  if (ok) { l.miss = 0; return; }
+  l.miss = (l.miss || 0) + 1;
+  if (l.miss >= 3) await checkCog(slot, true);
+  if (l.miss >= 4 && running.has(slot)) { stop(slot, '⚠️ I stopped: I am not getting any thinking done (no cognition left, or Hello Minds is not answering). Check my cognition and tap ▶ Start again.'); log(slot, '⚠️ the AI stopped answering: stopped playing'); }
+}
+function outOfCog(slot) {
+  const l = L(slot); l.cog = Math.min(0, l.cog ?? 0);
+  if (running.has(slot)) { stop(slot, '⚠️ I ran out of cognition, so I stopped. Add cognition on Hello Minds and I can play again.'); log(slot, '⚠️ out of cognition: stopped playing'); K.sfx('denied'); }
+  paintCog(); paint();
+}
+// the warning for the Mind that needs it most: empty first, then low
+function paintCog() {
+  const w = $('#mcog'); if (!w || !ap) return;
+  const list = slots().filter(s => aiOf(s) && L(s).cog != null).map(s => ({ s, c: L(s).cog })).sort((a, b) => a.c - b.c), worst = list[0];
+  const bad = worst && worst.c < LOW_COG ? worst : null, key = bad ? `${bad.s}:${bad.c <= 0 ? 'out' : 'low'}` : '';
+  w.dataset.key = key;
+  if (!bad || w.dataset.hide === key) { w.classList.remove('on'); return; }
+  const name = K.esc(aiOf(bad.s).name || 'Your AI'), out = bad.c <= 0;
+  w.classList.toggle('out', out); w.classList.add('on');
+  w.innerHTML = `<b>${out ? '⛔' : '⚠️'}</b><div><strong>${out ? `${name} is OUT of cognition` : `${name} is almost out of cognition`}</strong><span>${out ? `It stopped playing ${slotName(bad.s)}. Add cognition on Hello Minds to wake it up.` : `Only ${Math.round(bad.c).toLocaleString()} cognition left. When it runs out, the AI stops playing.`}</span></div><button class="btn ${out ? 'primary' : 'gem'}" data-cog="add">➕ Add cognition</button><button class="iconbtn px small" data-cog="x" title="Hide">✕</button>`;
+}
+
 // ---------- drawing ----------
 function paint() {
   const tabs = $('#md-tabs'), body = $('#md-body'); if (!tabs) return;
@@ -111,8 +153,9 @@ function paint() {
       <button class="btn small" data-a="out">Disconnect Hello Minds</button>`;
     return;
   }
-  const on = running.has(s), steps = ai.steps;
-  body.innerHTML = `<div class="md-card"><img src="${slotPic(s)}" alt=""><div><b>${K.esc(ai.name || 'AI')}</b><small>Hello Minds AI · plays ${slotName(s)} · <span id="md-cog">🧠 …</span></small>
+  const on = running.has(s), steps = ai.steps, cog = l.cog;
+  const warn = cog == null || cog >= LOW_COG ? '' : `<div class="md-cogwarn ${cog <= 0 ? 'out' : ''}"><b>${cog <= 0 ? '⛔ Out of cognition' : `⚠️ Low cognition: ${Math.round(cog).toLocaleString()} left`}</b><span>${cog <= 0 ? 'This AI cannot think, so it cannot play.' : 'It stops playing when it runs out.'}</span><button class="btn small ${cog <= 0 ? 'primary' : 'gem'}" data-a="topup">➕ Add cognition</button></div>`;
+  body.innerHTML = `${warn}<div class="md-card"><img src="${slotPic(s)}" alt=""><div><b>${K.esc(ai.name || 'AI')}</b><small>Hello Minds AI · plays ${slotName(s)} · <span id="md-cog" class="${cog != null && cog < LOW_COG ? 'low' : ''}">${cog == null ? '🧠 …' : `${Math.round(cog).toLocaleString()} cognition left`}</span> <button class="md-add" data-a="topup" title="Add cognition on Hello Minds">➕</button></small>
       <small class="md-now">${K.esc(on ? (l.now || 'starting…') : steps.length ? 'resting' : 'no plan yet')}</small>${l.think && on ? `<small class="md-think">💭 ${K.esc(l.think)}</small>` : ''}</div></div>
     <div class="md-row"><button class="btn ${on ? 'red' : 'primary'}" data-a="go">${on ? '⏸ Stop' : '▶ Start'}</button><button class="btn small" data-a="follow">👁 Follow</button><button class="btn small" data-a="train">🎯 Train</button><button class="btn small" data-a="history">📜</button></div>
     <div class="md-plan">${steps.length ? `<b>Plan</b> ${K.esc(planText(steps))}${ai.loop ? ' · 🔁' : ''}` : 'Pick a plan below, or ask your AI.'}</div>
@@ -123,7 +166,7 @@ function paint() {
     <div class="fr-add"><input id="md-in" maxlength="300" placeholder="Talk to your AI…"><button class="btn small primary" data-a="send">Send</button></div>
     <div class="md-foot"><button class="btn small ${ap.gems.on ? 'gem' : ''}" data-a="gems">${ap.gems.on ? `💎 ${ap.gems.spent}/${ap.gems.cap} today` : '💎 Gems OFF'}</button></div>`;
   const chat = $('#md-chat'); chat.scrollTop = 1e9;
-  if (ai.hm) HM.balance(ai.hm).then(c => { const el = $('#md-cog'); if (el) el.textContent = c == null ? '' : `${Math.round(c).toLocaleString()} cognition left`; });
+  if (ai.hm && Date.now() - l.cogAt > COG_EVERY) checkCog(s).then(c => { if (c != null && s === sel && Math.round(c) !== Math.round(cog ?? -1)) paint(); });
 }
 const say = (slot, text, who = 'mind') => { const l = L(slot); (l.chat ||= []).push({ who, text }); l.chat = l.chat.slice(-200); if (slot === sel) paint(); };
 const setNow = (slot, text, kind) => { const l = L(slot); l.now = text; if (kind) l.kind = kind; if (slot === sel) { const el = $('#mdock .md-now'); if (el) el.textContent = text; } paintFollow(); };
@@ -147,6 +190,7 @@ async function onClick(e) {
   if (a === 'history') return openHistory();
   if (a === 'train') return openTraining(sel);
   if (a === 'gems') return gemsToggle();
+  if (a === 'topup') return topUp();
 }
 async function makeFresh(slot) {
   if (busy) return;
@@ -194,7 +238,7 @@ async function talk() {
   if (/^\s*(stop|pause|halt)\b/i.test(text)) return stop(slot, 'Okay, I stop. 💤');
   const was = L(slot).now; setNow(slot, '🧠 thinking…');
   let reply = null;
-  try { reply = await HM.ask(ai.hm, text); } catch (err) { setNow(slot, was); return say(slot, `(Hello Minds: ${err.message})`); }
+  try { reply = await HM.ask(ai.hm, text); } catch (err) { setNow(slot, was); if (noCog(err.message)) { outOfCog(slot); return say(slot, '⛔ I am out of cognition, so I cannot think. Tap ➕ Add cognition.'); } return say(slot, `(Hello Minds: ${err.message})`); }
   setNow(slot, running.has(slot) ? was : '');
   if (reply == null) return say(slot, '(I took too long to think. Try again.)');
   const { say: words, plan } = HM.splitReply(reply);
@@ -205,9 +249,11 @@ async function talk() {
 }
 
 // ---------- playing: the AI decides ----------
-function start(slot) {
+async function start(slot) {
   if (!HM.connected()) return K.toast('Connect Hello Minds first.', true);
   if (!aiOf(slot)?.steps.length) return K.toast('Pick a plan first.', true);
+  const cog = await checkCog(slot, true);
+  if (cog != null && cog <= 0) { paint(); return K.modal(`<h3>⛔ ${K.esc(aiOf(slot).name || 'Your AI')} is out of cognition</h3><p>Your AI thinks with cognition from your Hello Minds account. With none left it cannot play.</p>`, [['➕ Add cognition', 1, 'primary'], ['Not now', 0]]).then(go => go && topUp()); }
   running.add(slot); keepRunning(); K.sfx('levelup');
   say(slot, 'Let\'s go! I think about every move myself while the lobby is open (even in the background). Tap 👁 Follow to watch me.');
   paint(); loop();
@@ -232,7 +278,9 @@ async function nextStep(slot, ai, l) {
 Your training: ${trainingText(ai.train, 'farm')}; ${trainingText(ai.train, 'raid')}; ${trainingText(ai.train, 'explore')}.
 Reply "DO: <one of ${opts.join(', ')}>" (keep to the plan unless another step is clearly better now), then "WHY: <reason>".`;
   setNow(slot, `🧠 thinking about the next step…`);
-  const reply = await HM.decide(ai.hm, q, 20e3).catch(() => null);
+  const reply = await HM.decide(ai.hm, q, 20e3).catch(e => { if (noCog(e.message)) outOfCog(slot); return null; });
+  await missed(slot, reply != null);
+  if (!running.has(slot)) return planned;
   const pick = (/DO:\s*([a-z]+)/i.exec(reply || '') || [])[1]?.toLowerCase();
   const s = pick && pick !== planned.do ? ai.steps.find(x => x.do === pick) : null;
   if (reply == null) { await log(slot, '🧠 (thought too long: kept to the plan)'); return planned; }
@@ -253,6 +301,8 @@ async function loop() {
       if (!ready.length) { await sleep(2500); continue; }
       const slot = ready[turn++ % ready.length], ai = aiOf(slot), l = L(slot);
       if (!ai?.steps.length) { running.delete(slot); continue; }
+      await checkCog(slot);   // no cognition, no thinking: it stops instead of playing without its mind
+      if (!running.has(slot)) continue;
       if (!ai.loop && l.at >= ai.steps.length) { stop(slot, 'All done! ✅'); continue; }
       const s = await nextStep(slot, ai, l);
       if (!running.has(slot)) continue;
@@ -296,7 +346,8 @@ Rival cards left: ${[...v.rival.cards].sort((a, b) => a - b).join(', ')}. Rival 
 Spells: boost +2 to your card, double = crown x2, trap = if the rival plays 7+ you win, reverse = the lower card wins (once per match).
 Your training: ${trainingText(ai.train, 'duel')}.
 Reply "CARD: <a card you have> SPELL: <${spells.join('|') || 'none'}|none>" then "WHY: <reason>".`;
-  const reply = await HM.decide(ai.hm, q, 13e3).catch(() => null);
+  const reply = await HM.decide(ai.hm, q, 13e3).catch(e => { if (noCog(e.message)) outOfCog(slot); return null; });
+  await missed(slot, reply != null);
   const card = Number((/CARD:\s*(\d+)/i.exec(reply || '') || [])[1]), sp = ((/SPELL:\s*([a-z]+)/i.exec(reply || '') || [])[1] || '').toLowerCase();
   if (reply != null && v.me.cards.includes(card)) return { card, spell: spells.includes(sp) ? sp : null, why: why(reply), ai: true };
   return { ...trainedMove(v, ai.train), why: reply == null ? 'thought too long: played its training' : 'answer did not fit: played its training', ai: false };
@@ -321,6 +372,7 @@ async function duel(slot, i, n) {
   for (let guard = 0; guard < 400; guard++) {
     v = await K.api('autopilot', { op: 'duel_view', id });
     if (v.status !== 'live' || v.view.over) break;
+    if (guard % 8 === 7) await checkCog(slot);   // a long duel: still has cognition?
     const last = v.view.lastEvent;
     l.duel = { rival: v.view.rival.name, me: v.view.me.score, them: v.view.rival.score, round: v.view.round, crown: v.view.crown, pot: v.view.pot, next: v.view.next, cards: [...v.view.me.cards].sort((a, b) => a - b), rivalLeft: v.view.rival.cards.length, spells: [...v.view.me.spells, ...(v.view.me.reverse ? ['reverse'] : [])], played: l.duel?.played || null, last: last && last.cards?.[0] != null ? { mine: last.cards[v.seat], theirs: last.cards[1 - v.seat], win: last.win == null ? null : last.win === v.seat } : l.duel?.last || null };
     setNow(slot, `🃏 dueling ${v.view.rival.name} · ${v.view.me.score}–${v.view.rival.score}`, 'duel');
