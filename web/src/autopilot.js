@@ -164,7 +164,7 @@ function paint() {
     <div class="label">Plans · tap to see the steps</div>
     <div class="md-presets">${Object.entries(PRESETS).map(([k, p]) => `<button class="md-preset ${ai.preset === k ? 'on' : ''}" data-preset="${k}"><i>${p.icon}</i>${K.esc(p.name)}</button>`).join('')}</div>
     <div class="label">Talk to ${K.esc(ai.name || 'your AI')}</div>
-    <div class="md-chat" id="md-chat">${(l.chat || []).map(c => `<div class="mp-line ${c.who}">${K.esc(c.text)}</div>`).join('') || `<div class="mp-line mind">${l.chat ? 'Hi! Tell me what to play, like "farm, then raid, then duel 3 times".' : 'Loading our chat…'}</div>`}</div>
+    <div class="md-chat" id="md-chat">${(l.chat || []).map(c => `<div class="mp-line ${c.who}">${K.esc(c.text)}</div>`).join('') || `<div class="mp-line mind">${l.chat ? 'Hi! Tell me what to play, like "farm, then raid, then duel 3 times".' : 'Loading our chat…'}</div>`}${l.typing ? `<div class="mp-line mind typing">${K.esc(ai.name || 'Your AI')} is thinking<i>.</i><i>.</i><i>.</i></div>` : ''}</div>
     <div class="fr-add"><input id="md-in" maxlength="300" placeholder="Tell your AI what to do…"><button class="btn small primary" data-a="send">Send</button></div>
     <small class="muted md-hint">When your AI answers with a plan, you see it first: approve it and it <b>replaces</b> the current plan.</small>
     <div class="md-foot"><button class="btn small ${ap.gems.on ? 'gem' : ''}" data-a="gems">${ap.gems.on ? `💎 ${ap.gems.spent}/${ap.gems.cap} today` : '💎 Gems OFF'}</button></div>`;
@@ -235,18 +235,33 @@ async function previewPlan(steps, preset = null, loop = true, from = '') {
   if (go === 'go') { if (running.has(sel)) { say(sel, 'Switching to the new plan now.'); paint(); } else start(sel); } else paint();
 }
 
+// what the AI is told about the game right now, with every chat message: the island, the plan, what it did lately
+function gameState(slot) {
+  const st = K.island?.() || null, ai = aiOf(slot), lines = (ap?.log || []).filter(x => x.mind === slot).slice(0, 5).map(x => x.text);
+  const plan = `Plan: ${ai?.steps?.length ? planText(ai.steps) : 'none'} (${running.has(slot) ? 'playing now' : 'not playing'}). Lately: ${lines.join(' | ') || 'nothing yet'}.`;
+  if (!st) return plan;
+  const th = (st.b || []).find(b => b.type === 'home')?.lv || 1, byType = {};
+  const skip = new Set(['home', 'well', 'flowers', 'lamp', 'fence', 'bench', 'banner', 'lantern', 'crystal', 'fountain', 'trap']);
+  for (const b of st.b || []) if (!skip.has(b.type)) (byType[b.type] ||= []).push(`Lv${b.lv || 1}${b.done ? '↑' : ''}`);
+  return `Town Hall Lv${th} (other buildings can go up to its level; ↑ = upgrading now). Buildings: ${Object.entries(byType).map(([t, l]) => `${t} ${l.join('/')}`).join(', ') || 'none'}. ${(st.dust || 0).toLocaleString()} Dust, ${st.gems || 0} Gems (Gem spending ${ap?.gems?.on ? `ON, ${Math.max(0, ap.gems.cap - ap.gems.spent)} left today` : 'OFF'}), wood ${st.inv?.wood || 0}, stone ${st.inv?.stone || 0}. ${plan}`;
+}
 // the chat box: the player's own Hello Minds AI answers; a PLAN line in its answer is offered as a plan
 async function talk() {
   const box = $('#md-in'), text = box?.value.trim(), slot = sel, ai = aiOf(slot); if (!text || !ai) return;
   box.value = ''; say(slot, text, 'me');
   if (/^\s*(stop|pause|halt)\b/i.test(text)) return stop(slot, 'Okay, I stop. 💤');
-  const was = L(slot).now; setNow(slot, '🧠 thinking…');
+  const was = L(slot).now; L(slot).typing = true; paint();
   let reply = null;
-  try { reply = await HM.ask(ai.hm, text); } catch (err) { setNow(slot, was); if (noCog(err.message)) { outOfCog(slot); return say(slot, '⛔ I am out of cognition, so I cannot think. Tap ➕ Add cognition.'); } return say(slot, `(Hello Minds: ${err.message})`); }
-  setNow(slot, running.has(slot) ? was : '');
-  if (reply == null) return say(slot, '(I took too long to think. Try again.)');
-  const { say: words, plan } = HM.splitReply(reply);
+  try { reply = await HM.ask(ai.hm, text, gameState(slot), 120e3); } catch (err) { setNow(slot, was); if (noCog(err.message)) { outOfCog(slot); return say(slot, '⛔ I am out of cognition, so I cannot think. Tap ➕ Add cognition.'); } return say(slot, `(Hello Minds: ${err.message})`); }
+  L(slot).typing = false; setNow(slot, running.has(slot) ? L(slot).now || was : '');
+  if (reply == null) return say(slot, '(I did not answer within 2 minutes. Hello Minds may be busy: try again.)');
+  let { say: words, plan } = HM.splitReply(reply);
   if (words) say(slot, words);
+  if (!plan && !/PLAN:\s*none/i.test(reply) && /\b(do|play|max|upgrade|farm|raid|duel|go|start|build|rush|use)\b/i.test(text)) {   // it forgot the plan line: ask once more
+    L(slot).typing = true; paint();
+    const again = await HM.ask(ai.hm, 'Write only the PLAN line for what I just asked (or PLAN: none).', gameState(slot), 90e3).catch(() => null);
+    L(slot).typing = false; plan = HM.splitReply(again || '').plan; paint();
+  }
   const r = parsePlan(plan || '');
   if (r.stop) return stop(slot, 'Okay, I stop. 💤');
   if (r.steps) { say(slot, `📋 I made a plan: ${planText(cleanPlan(r.steps))}. Approve it to use it.`); previewPlan(r.steps, r.preset || null, r.loop, `${ai.name || 'Your AI'} suggests this plan for what you asked.`); }
@@ -276,7 +291,7 @@ const log = async (slot, text) => { try { ap = await K.api('autopilot', { op: 'l
 // the AI picks the next step: the plan says what is next, the AI may pick another step of the plan if it is smarter now
 async function nextStep(slot, ai, l) {
   const planned = ai.steps[l.at % ai.steps.length];
-  setNow(slot, `🧠 thinking about the next step…`);
+  setNow(slot, `🧠 thinking about the next step (Hello Minds answers can take up to a minute)…`);
   let r = null;
   try { r = await K.api('autopilot', { op: 'next', mind: slot, at: l.at, token: await HM.token() }); } catch (e) { if (e.status === 401 || e.status === 403) stop(slot, `⚠️ ${e.message}`); return planned; }
   if (r.cog != null) { l.cog = r.cog; l.cogAt = Date.now(); paintCog(); }
@@ -345,13 +360,17 @@ async function duel(slot, i, n) {
     if (!r.ok) { await log(slot, '🃏 no ranked energy left: skipping duels'); return false; }
     await log(slot, `⚡ refilled with ${r.pay === 'shard' ? 'shards' : r.pay === 'dust' ? 'Dust' : 'Gems'}`); K.refresh(); minds = [+slot];
   }
+  setNow(slot, '🧠 writing its duel strategy…', 'duel');   // the AI's own rules for turns where its live answer is too slow
+  const sp = await K.api('autopilot', { op: 'duel_plan', mind: slot, token: await HM.token() }).catch(() => ({}));
+  if (sp.out) { outOfCog(slot); return false; }
+  if (sp.plan) think(slot, `My duel plan: ${Object.entries(sp.plan).map(([k, v]) => `${k} ${v}`).join(', ')}`);
   let q = await K.api('autopilot', { op: 'duel_join', mind: slot, mode: 'ranked', minds, ...(pass ? { pass: true } : {}) });
   const until = Date.now() + 90e3;
   while (running.has(slot) && !q.match && Date.now() < until) { setNow(slot, `🃏 duel ${i}/${n}: looking for a rival…`, 'duel'); await sleep(2500); q = await K.api('autopilot', { op: 'duel_poll' }); }
   if (!q.match) { await K.api('autopilot', { op: 'duel_leave' }).catch(() => {}); return false; }
   const id = q.match, l = L(slot);
   l.match = id; if (follow === slot && K.watching?.()) K.watchDuel(id, ai?.name || 'Your AI');   // following: show this duel
-  let v = null, own = 0, total = 0;
+  let v = null, own = 0, planned = 0, total = 0;
   for (let guard = 0; guard < 400; guard++) {
     v = await K.api('autopilot', { op: 'duel_view', id });
     if (v.status !== 'live' || v.view.over) break;
@@ -365,9 +384,9 @@ async function duel(slot, i, n) {
       if (r.out) { outOfCog(slot); continue; }
       if (r.error) { if (r.error.status === 401 || r.error.status === 403) { stop(slot, `⚠️ ${r.error.message}`); continue; } }
       else if (r.think) {
-        const d = r.think; total++; if (d.ai) own++;
-        await missed(slot, d.ai);
-        if (d.ai) l.duel.played = { card: d.card, spell: d.spell, crown: d.crown };
+        const d = r.think; total++; if (d.ai) own++; if (d.plan) planned++;
+        await missed(slot, d.ai || d.plan);
+        if (d.card) l.duel.played = { card: d.card, spell: d.spell, crown: d.crown };
         think(slot, d.ai ? `Crown ${d.crown}: ${d.card}${d.spell ? ` + ${d.spell}` : ''}. ${d.why}` : `Crown ${d.crown}: ${d.why}`);
       }
     }
@@ -376,7 +395,7 @@ async function duel(slot, i, n) {
   }
   l.duel = null; l.match = null;
   const won = v?.winner === v?.seat, tie = v?.winner == null;
-  await log(slot, `🃏 ${tie ? 'tied' : won ? 'won' : 'lost'} vs ${v?.view.rival.name}${v?.delta ? ` (${v.delta > 0 ? '+' : ''}${v.delta} rating)` : ''}${v?.dustWon ? `, +${v.dustWon} ✨` : ''} · the AI played ${own} of ${total} turns itself${own < total ? ' (no answer = no move)' : ''}`);
+  await log(slot, `🃏 ${tie ? 'tied' : won ? 'won' : 'lost'} vs ${v?.view.rival.name}${v?.delta ? ` (${v.delta > 0 ? '+' : ''}${v.delta} rating)` : ''}${v?.dustWon ? `, +${v.dustWon} ✨` : ''} · the AI chose ${own} of ${total} cards live${planned ? `, ${planned} by its own duel strategy` : ''}${own + planned < total ? `, ${total - own - planned} not played (no answer)` : ''}`);
   K.babble(slot === '0' ? 49 : +slot, won ? 'happy' : 'sad', 0.6); K.refresh();
   return true;
 }

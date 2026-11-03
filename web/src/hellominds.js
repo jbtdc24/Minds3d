@@ -40,10 +40,12 @@ export async function awaken(base) {
 }
 
 // what the Mind knows about the game, sent with each message so it answers with moves the game understands
+// (the game state is added to every message, so the AI always knows the island as it is right now)
 const BRIEF = `[MINDS CLASH game] You are playing the game MINDS CLASH for your human. Answer in 1-3 short, friendly sentences.
-Plain text only (no HTML). If they ask you to play, end with one line "PLAN: " and the steps joined by " then ", using only: farm, sell, well, train troops, upgrade buildings, decorate, adventure, raid, duel N times, town for N min, rest N min. Example: PLAN: farm then adventure then duel 3 times then town for 60 min then raid.
-If they are only chatting, end with "PLAN: none".
-Human says: `;
+Plain text only (no HTML). If they ask you to do ANYTHING in the game, you MUST end with one line "PLAN: " and the steps joined by " then ", using only: farm, sell, well, train troops, upgrade buildings, decorate, adventure, raid, duel N times, town for N min, rest N min. Example: PLAN: upgrade buildings then farm then sell then upgrade buildings.
+If they are only chatting or asking a question, end with "PLAN: none". Use the game state below to answer questions about the island.
+`;
+const HUMAN = 'Human says: ';
 // send a message and wait for the reply (null if it takes too long). Chat with the player and the game's questions
 // use two conversations, so the chat history the player sees stays a real chat
 // replies can come as web text: paragraphs and line breaks become new lines, tags go, &amp; and friends are decoded
@@ -58,13 +60,15 @@ async function send(alias, mindId, messageText, timeoutMs) {
   const r = await c.waitForReply({ alias, timeoutMs, sentMessageText: messageText, ...(before ? { afterFingerprint: before } : {}) });
   return r.timedOut ? null : plain(r.reply?.messageText);
 }
-export const ask = (mindId, text, timeoutMs = 60e3) => send(chatAlias(mindId), mindId, BRIEF + text, timeoutMs);
+export const ask = (mindId, text, state = '', timeoutMs = 75e3) => send(chatAlias(mindId), mindId, `${BRIEF}${state ? `[Game now] ${state}
+` : ''}${HUMAN}${text}`, timeoutMs);
 // a game decision: the AI gets the situation and its training, and answers in a fixed format (parsed by the caller)
 export const decide = (mindId, question, timeoutMs = 14e3) => send(playAlias(mindId), mindId, `[MINDS CLASH game: you are playing for your human. Answer ONLY in the format asked, then one short WHY line.]\n${question}`, timeoutMs);
 // the chat so far (newest last), from Hello Minds itself; the game's own instructions are hidden
 export async function history(mindId, limit = 60) {
   const rows = await hm().client.getHistory(chatAlias(mindId), { limit }).catch(() => []);
-  return rows.map(r => ({ who: r.senderType === 1 ? 'me' : 'mind', text: plain(r.messageText).replace(BRIEF, '').replace(/^\s*PLAN:.*$/im, '').trim(), at: r.createdAt })).filter(r => r.text).reverse();
+  // a player's message carries the game's instructions in front of "Human says:": only their own words are shown
+  return rows.map(r => ({ who: r.senderType === 1 ? 'me' : 'mind', text: plain(r.messageText).replace(/^[\s\S]*Human says:\s*/, '').replace(/^\s*PLAN:.*$/im, '').trim(), at: r.createdAt })).filter(r => r.text && !/^\[MINDS CLASH game/.test(r.text)).reverse();
 }
 // split a reply into what to say and the plan line ("PLAN: …"; '' when there is none)
 export function splitReply(reply) {

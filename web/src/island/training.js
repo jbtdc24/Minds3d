@@ -102,3 +102,47 @@ export function readCard(reply, v) {
   const card = Number((/CARD:\s*(\d+)/i.exec(reply || '') || [])[1]), sp = ((/SPELL:\s*([a-z]+)/i.exec(reply || '') || [])[1] || '').toLowerCase();
   return v.me.cards.includes(card) ? { card, spell: spells.includes(sp) ? sp : null, why: why(reply) } : null;
 }
+
+// a move from the duel strategy the AI wrote itself before the duel (strategyQuestion / readStrategy): used on a turn where
+// its live answer does not come in time (turns are only 20 s). The rules are the AI's own, never the game's.
+export function strategyMove(v, plan) {
+  const d = cleanTraining({ duel: plan }).duel, mine = [...v.me.cards].sort((a, b) => a - b), theirs = [...v.rival.cards].sort((a, b) => a - b);
+  const spells = [...v.me.spells, ...(v.me.reverse ? ['reverse'] : [])], can = k => spells.includes(k);
+  const crown = v.pot || v.crown, top = mine.at(-1), low = mine[0];
+  let card, spell = null;
+  if (crown >= 10) {
+    if (d.big === 'trap' && can('trap') && (theirs.at(-1) || 0) >= 7) { card = low; spell = 'trap'; }
+    else card = d.big === 'second' && mine.length > 1 ? mine.at(-2) : top;
+  } else if (crown <= 3) card = d.small === 'mid' ? mine[mine.length >> 1] : d.small === 'steal' && mine.length > 1 ? mine[1] : low;
+  else {
+    const rank = Math.round((crown - 1) / 14 * (mine.length - 1));
+    card = mine[Math.max(0, Math.min(mine.length - 1, rank - (d.style === 'careful' ? 1 : 0) + (d.style === 'bold' ? 1 : 0)))];
+  }
+  if (v.next === 'high' && d.next === 'save' && crown < 10 && card === top && mine.length > 1) card = mine.at(-2);
+  if (d.style === 'bluff' && (v.turn || 0) % 3 === 2 && mine.length > 2) card = mine[1];
+  if (!spell) {
+    if (can('double') && d.double !== 'never' && ((d.double === 'big' && crown >= 10) || (d.double === 'sure' && card > (theirs.at(-1) || 0)))) spell = 'double';
+    else if (can('trap') && ((d.trap === 'high' && (theirs.at(-1) || 0) >= 13) || (d.trap === 'big' && crown >= 10))) { spell = 'trap'; card = low; }
+    else if (can('reverse') && ((d.reverse === 'low' && top <= 6) || (d.reverse === 'last' && v.round === 3 && crown >= 8))) { spell = 'reverse'; card = low; }
+    else if (can('boost') && ((d.boost === 'close' && Math.abs(card - (theirs.at(-1) || 0)) <= 2) || (d.boost === 'late' && mine.length <= 2))) spell = 'boost';
+  }
+  return { card, spell };
+}
+
+// before a duel the AI writes its strategy, using the same choices as the training (so the game can read it)
+export function strategyQuestion(train) {
+  const D = TRAINING.duel;
+  return `DUEL STRATEGY. You are about to play a Prize Duel (both play a card 1-15 at once, higher card wins the crown; 3 rounds).
+Write your strategy for this duel, one line each, choosing one option per line. Your human's training: ${trainingText(train, 'duel')}.
+${Object.entries(D).filter(([k]) => k !== 'label').map(([k, o]) => `${k.toUpperCase()}: ${Object.keys(o.opts).join('|')}   (${o.label}: ${Object.values(o.opts).join(' / ')})`).join('\n')}
+Last line: "WHY: <reason>".`;
+}
+export function readStrategy(reply) {
+  const out = {}, r = String(reply || '');
+  for (const [k, o] of Object.entries(TRAINING.duel)) {
+    if (k === 'label') continue;
+    const m = new RegExp(`${k}:\\s*([a-z0-9]+)`, 'i').exec(r);
+    if (m && Object.hasOwn(o.opts, m[1].toLowerCase())) out[k] = m[1].toLowerCase();
+  }
+  return Object.keys(out).length >= 3 ? out : null;
+}

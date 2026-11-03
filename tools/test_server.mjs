@@ -1550,7 +1550,13 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
       fake.reply = 'CARD: 99';
       const m2 = await startMatch({ player: M, minds: [1] }, { player: rival, minds: [5] }, { ranked: false });
       out = await hit(autopilot, M, { op: 'duel_think', mind: 0, id: m2.id, token: tok });
-      ok(out.body.think && !out.body.think.ai && !out.body.view.me.locked, 'an answer that does not fit plays nothing: only the AI plays'); }
+      ok(out.body.think && !out.body.think.ai && !out.body.view.me.locked, 'an answer that does not fit plays nothing: only the AI plays');
+      fake.reply = 'STYLE: bold BIG: top SMALL: lowest DOUBLE: big WHY: go big';
+      out = await hit(autopilot, M, { op: 'duel_plan', mind: 0, token: tok });
+      ok(out.body.ok && out.body.plan.style === 'bold' && isl(M).state.ap.ai['0'].duelPlan.big === 'top', 'before a duel the AI writes its own strategy');
+      fake.reply = null;
+      out = await hit(autopilot, M, { op: 'duel_think', mind: 0, id: m2.id, token: tok });
+      ok(out.body.think?.plan && !out.body.think.ai && out.body.view.me.locked, 'a turn where the AI is too slow plays its own strategy (and says so)'); }
   }
 
   const P = await mk('Racer');

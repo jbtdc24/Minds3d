@@ -1164,3 +1164,4 @@ h3.raid-result { text-align: center; }
 #s-duel.watch #d-hand, #s-duel.watch #d-spells, #s-duel.watch #d-lock { pointer-events: none; opacity: .8; }
 .md-hist.buys li { grid-template-columns: 96px 22px 1fr; } .md-hist.buys li.real { background: #efe6ff; } .md-hist.buys i { font-style: normal; }
 .adm-tx { font-size: 11px; overflow-wrap: anywhere; }
+.mp-line.typing { font-style: italic; color: var(--muted); } .mp-line.typing i { animation: mdpulse 1s infinite; font-style: normal; } .mp-line.typing i:nth-child(2) { animation-delay: .2s; } .mp-line.typing i:nth-child(3) { animation-delay: .4s; }
