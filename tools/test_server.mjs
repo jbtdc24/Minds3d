@@ -595,6 +595,9 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
     ok((await call(adminRoute, joe.id, { op: 'restore', pid: joe.id, day: '2000-01-01' }, '/api/admin')).code === 403, 'only an admin can restore an island');
     const rr = await call(adminRoute, boss.id, { op: 'restore', pid: joe.id, day: '2000-01-01' }, '/api/admin');
     ok(rr.code === 200 && T.islands.find(x => x.player_id === joe.id).state.dust === 4242 && T.island_snaps.length >= 2, 'an admin restores an island to an earlier day (today is kept as a copy first)'); }
+  { const lp = await call(adminRoute, boss.id, { op: 'players', sort: 'new' }, '/api/admin');
+    ok(lp.code === 200 && lp.body.players.some(x => x.id === joe.id && 'gems' in x && 'th' in x), 'the admin sees the list of all players with their status');
+    ok((await call(adminRoute, joe.id, { op: 'players' }, '/api/admin')).code === 403, 'players cannot list everyone'); }
   out = await call(adminRoute, boss.id, { op: 'find', q: 'jo' }, '/api/admin');
   ok(out.body.players.some(p => p.id === joe.id), 'admin finds players by name');
   out = await call(adminRoute, boss.id, { op: 'ban', pid: joe.id, hours: 2, reason: 'testing' }, '/api/admin');

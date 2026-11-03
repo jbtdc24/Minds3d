@@ -83,7 +83,7 @@ function show(id) {
   if (id === 'login') music('lofi');
   if (base !== 'hub' && base !== 'duel') clearTags();
   $('#tags').classList.toggle('dim', WINDOWS.has(id));
-  dockScreen(base);
+  dockScreen(base, WINDOWS.has(id));
 }
 // close a window: back to the screen underneath (the lobby keeps its Minds, no reload)
 function closeWindow() {

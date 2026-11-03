@@ -46,7 +46,7 @@ export function initAutopilot(ctx) {
   w.addEventListener('click', e => { if (e.target.closest('[data-cog="add"]')) topUp(); else if (e.target.closest('[data-cog="x"]')) { w.classList.remove('on'); w.dataset.hide = w.dataset.key || ''; } });
   const d = document.createElement('div');
   d.id = 'mdock'; d.className = 'mdock px hide';
-  d.innerHTML = `<button class="md-bubble" id="md-bubble"><b>🧠</b><span>AI Minds</span><i id="md-count"></i></button>
+  d.innerHTML = `<button class="md-bubble" id="md-bubble"><b>🧠</b><span><strong>AI Minds</strong><small>let your AI play for you</small></span><i id="md-count"></i></button>
     <div class="md-win"><div class="md-head" id="md-head" title="Drag to move"><b>🧠 Your AI Minds</b><small>real Hello Minds AIs playing for you</small><button class="iconbtn px small" id="md-big" title="Bigger / smaller">⤢</button><button class="iconbtn px small" id="md-min" title="Minimize">—</button></div>
     <div class="md-tabs" id="md-tabs"></div><div class="md-body" id="md-body"></div></div>`;
   document.body.append(d);
@@ -71,8 +71,9 @@ function dragBy(handle, d) {
 }
 addEventListener('resize', () => place(load(POS_KEY, null)));
 // the screen changed: show the dock (folded in fights, so it never covers the controls)
-export function dockScreen(id) {
+export function dockScreen(id, inWindow = false) {
   const d = $('#mdock'); if (!d || !K) return;
+  d.classList.toggle('win', inWindow);   // a window (shop, profile…) is open: just the bubble, in its corner
   d.classList.toggle('hide', !K.online() || K.guest() || ['login', 'boot', 'setup'].includes(id));
   d.classList.toggle('fight', ['duel', 'raid', 'adventure'].includes(id));
   d.classList.toggle('isl', id === 'island');
@@ -113,9 +114,9 @@ async function checkCog(slot, force) {
 async function missed(slot, ok) {
   const l = L(slot);
   if (ok) { l.miss = 0; return; }
-  l.miss = (l.miss || 0) + 1;
+  l.miss = (l.miss || 0) + 1;   // a slow answer is not a reason to stop (Hello Minds can be slow): say so once, keep going
   if (l.miss >= 3) await checkCog(slot, true);
-  if (l.miss >= 4 && running.has(slot)) { stop(slot, '⚠️ I stopped: I am not getting any thinking done (no cognition left, or Hello Minds is not answering). Check my cognition and tap ▶ Start again.'); log(slot, '⚠️ the AI stopped answering: stopped playing'); }
+  if (l.miss === 3 && running.has(slot)) say(slot, '⏳ Hello Minds is slow right now, so some of my answers come late. I keep playing my plan and my duel strategy meanwhile.');
 }
 function outOfCog(slot) {
   const l = L(slot); l.cog = Math.min(0, l.cog ?? 0);
@@ -275,7 +276,7 @@ async function start(slot) {
   const cog = await checkCog(slot, true);
   if (cog != null && cog <= 0) { paint(); return K.modal(`<h3>⛔ ${K.esc(aiOf(slot).name || 'Your AI')} is out of cognition</h3><p>Your AI thinks with cognition from your Hello Minds account. With none left it cannot play.</p>`, [['➕ Add cognition', 1, 'primary'], ['Not now', 0]]).then(go => go && topUp()); }
   running.add(slot); keepRunning(); K.sfx('levelup');
-  say(slot, 'Let\'s go! I think about every move myself while the lobby is open (even in the background). Tap 👁 Follow to watch me.');
+  if (!L(slot).chat?.at(-1)?.text?.startsWith('Let\'s go!')) say(slot, 'Let\'s go! I think about every move myself while the lobby is open (even in the background). Tap 👁 Follow to watch me.');
   paint(); loop();
 }
 function stop(slot, msg) {
@@ -369,9 +370,10 @@ async function duel(slot, i, n) {
   }
   setNow(slot, '🧠 writing its duel strategy…', 'duel');   // the AI's own rules for turns where its live answer is too slow
   let sp = {};
-  for (let n = 0; n < 15 && running.has(slot); n++) { sp = await K.api('autopilot', { op: 'duel_plan', mind: slot, token: await HM.token() }).catch(() => ({})); if (!sp.pending) break; }
+  for (let n = 0; n < 18 && running.has(slot); n++) { sp = await K.api('autopilot', { op: 'duel_plan', mind: slot, token: await HM.token() }).catch(() => ({})); if (!sp.pending) break; setNow(slot, `🧠 writing its duel strategy… ${n * 8} s`, 'duel'); }
   if (sp.out) { outOfCog(slot); return false; }
-  if (sp.plan) think(slot, `My duel plan: ${Object.entries(sp.plan).map(([k, v]) => `${k} ${v}`).join(', ')}`);
+  if (!sp.plan && !aiOf(slot)?.duelPlan) { await log(slot, '🃏 my duel strategy did not come in time: skipping this duel (I never duel without my own plan)'); return false; }
+  if (sp.plan) { ap.ai[slot] = { ...ap.ai[slot], duelPlan: sp.plan }; think(slot, `My duel plan: ${Object.entries(sp.plan).map(([k, v]) => `${k} ${v}`).join(', ')}`); }
   let q = await K.api('autopilot', { op: 'duel_join', mind: slot, mode: 'ranked', minds, ...(pass ? { pass: true } : {}) });
   const until = Date.now() + 90e3;
   while (running.has(slot) && !q.match && Date.now() < until) { setNow(slot, `🃏 duel ${i}/${n}: looking for a rival…`, 'duel'); await sleep(2500); q = await K.api('autopilot', { op: 'duel_poll' }); }

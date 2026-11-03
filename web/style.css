@@ -1166,3 +1166,22 @@ h3.raid-result { text-align: center; }
 .adm-tx { font-size: 11px; overflow-wrap: anywhere; }
 .mp-line.typing { font-style: italic; color: var(--muted); } .mp-line.typing i { animation: mdpulse 1s infinite; font-style: normal; } .mp-line.typing i:nth-child(2) { animation-delay: .2s; } .mp-line.typing i:nth-child(3) { animation-delay: .4s; }
 .tos-ok { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; margin: 8px 0; text-align: left; } .tos-ok input { margin-top: 3px; }
+
+/* Shop header: title, purchases, tabs, close (the close button never wraps away) */
+#s-shop .pagehead { grid-template-columns: auto auto minmax(0, 1fr) auto; }
+#s-shop .pagehead #shop-tabs { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; }
+#s-shop .pagehead #shop-hist { white-space: nowrap; }
+@media (max-width: 760px) { #s-shop .pagehead { grid-template-columns: 1fr auto auto; } #s-shop .pagehead #shop-tabs { grid-column: 1 / -1; grid-row: 2; } }
+/* the AI Minds bubble: big, bright, always in its corner when folded; in windows and fights it stays out of the way */
+.mdock .md-bubble { padding: 10px 16px; gap: 10px; animation: mdpulse 2.2s ease-in-out infinite; }
+.mdock .md-bubble b { font-size: 26px; } .mdock .md-bubble span { display: grid; text-align: left; line-height: 1.1; }
+.mdock .md-bubble strong { font-size: 16px; } .mdock .md-bubble small { font-size: 11px; font-weight: 800; opacity: .95; }
+.mdock.win .md-bubble, .mdock.fight .md-bubble { padding: 6px 10px; } .mdock.win .md-bubble small, .mdock.fight .md-bubble small { display: none; }
+.mdock.win .md-bubble { display: flex; } .mdock.win .md-win { display: none; }
+.mdock.win, .mdock.fight, .mdock.min { left: auto !important; top: auto !important; right: 12px; bottom: 12px; width: auto; }
+.mdock.isl.min, .mdock.isl.win { bottom: 84px; }
+
+/* admin: the list of all players */
+.adm-table { overflow: auto; max-height: 62vh; } .adm-table table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.adm-table th, .adm-table td { padding: 4px 6px; border-bottom: 1px solid rgba(0, 0, 0, .1); text-align: left; white-space: nowrap; }
+.adm-table th { position: sticky; top: 0; background: var(--paper-2); } .adm-table tr[data-pid] { cursor: pointer; } .adm-table tr[data-pid]:hover { background: #fff3c4; }

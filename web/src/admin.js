@@ -33,6 +33,25 @@ async function stats() {
   $('#adm-open').textContent = r.open || ''; $('#adm-payn').textContent = r.payOpen || ''; $('#adm-errn').textContent = r.errOpen || '';
   $('#adm-detail').innerHTML = `<h3>📊 Players</h3><div class="adm-stats">${box.map(([k, v]) => `<div><b>${(v ?? 0).toLocaleString()}</b><span>${k}</span></div>`).join('')}</div>`;
 }
+// 👥 every player: status, wallet, rating, progress, Gems and Dust; tap a row for the full page
+let list = { page: 0, sort: 'seen', filter: '' };
+async function allPlayers() {
+  const r = await K.api('admin', { op: 'players', ...list });
+  const ago = t => { if (!t) return '—'; const m = (Date.now() - Date.parse(t)) / 60e3; return m < 2 ? 'now' : m < 60 ? `${m | 0} min` : m < 1440 ? `${(m / 60) | 0} h` : `${(m / 1440) | 0} d`; };
+  const chip = (k, v, n) => `<button class="btn small ${list[k] === v ? 'primary' : ''}" data-list="${k}:${v}">${n}</button>`;
+  $('#adm-detail').innerHTML = `<h3>👥 All players</h3>
+    <div class="adm-box">${chip('filter', '', 'All')}${chip('filter', 'online', '🟢 Online')}${chip('filter', 'wallets', '👛 Wallets')}${chip('filter', 'trial', '🧪 Trial')}${chip('filter', 'banned', '⛔ Banned')}
+      · sort ${chip('sort', 'seen', 'last seen')}${chip('sort', 'new', 'newest')}${chip('sort', 'rating', 'rating')}${chip('sort', 'points', 'points')}</div>
+    <div class="adm-table"><table><thead><tr><th></th><th>Name</th><th>Wallet</th><th>Seen</th><th>Joined</th><th>Rating</th><th>W/L</th><th>⭐</th><th>TH</th><th>Minds</th><th>✨</th><th>💎</th><th>Status</th></tr></thead><tbody>
+    ${r.players.map(p => `<tr data-pid="${K.esc(p.id)}"><td>${p.online ? '🟢' : '⚪'}</td><td><b>${K.esc(p.name)}</b></td><td><small>${p.guest ? 'trial' : K.esc(p.address || '')}</small></td><td>${ago(p.last_seen)}</td><td>${p.created_at ? new Date(p.created_at).toLocaleDateString() : '—'}</td><td>${p.rating}</td><td>${p.wins}/${p.losses}</td><td>${p.points}</td><td>${p.th || '—'}</td><td>${p.minds}</td><td>${p.dust ?? '—'}</td><td>${p.gems ?? '—'}</td><td>${p.banned_until ? `<em class="adm-ban">${p.banned_until.startsWith('2999') ? 'BANNED' : 'suspended'}</em>` : 'ok'}</td></tr>`).join('') || '<tr><td colspan="13" class="muted">Nobody here.</td></tr>'}
+    </tbody></table></div>
+    <div class="adm-box">${list.page ? '<button class="btn small" data-list="page:-1">← Newer</button>' : ''} page ${list.page + 1} ${r.players.length === r.per ? '<button class="btn small" data-list="page:1">More →</button>' : ''}</div>`;
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-list]');
+  if (b) { const [k, v] = b.dataset.list.split(':'); if (k === 'page') list.page = Math.max(0, list.page + +v); else { list[k] = v; list.page = 0; } allPlayers().catch(err => K.toast(err.message, true)); return; }
+  const row = e.target.closest('.adm-table tr[data-pid]'); if (row) show(row.dataset.pid).catch(err => K.toast(err.message, true));
+});
 async function mailForm() {
   const r = await K.api('admin', { op: 'mails' }).catch(() => ({ mail: [] }));
   $('#adm-detail').innerHTML = `<h3>✉️ Mail to every player</h3>
@@ -89,6 +108,7 @@ document.addEventListener('click', async e => {
     if (e.target.closest('#adm-refresh')) return await meter();
     if (e.target.closest('#adm-stats')) return await stats();
     if (e.target.closest('#adm-mail')) return await mailForm();
+    if (e.target.closest('#adm-all')) return await allPlayers();
     if (e.target.closest('#adm-reports')) return await reports();
     if (e.target.closest('#adm-pay')) return await payments();
     if (e.target.closest('#adm-err')) return await errorsList();
