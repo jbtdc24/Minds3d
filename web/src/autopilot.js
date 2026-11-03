@@ -230,7 +230,7 @@ async function previewPlan(steps, preset = null, loop = true, from = '') {
     ${ai?.steps?.length ? `<p class="muted">This <b>replaces</b> the current plan: ${K.esc(planText(ai.steps))}.</p>` : ''}${steps.some(s => s.do === 'build') && !ap?.gems?.on ? '<p class="warn">💎 Gem rushes need Gems ON (💎 button below the chat): until then it only upgrades with Dust.</p>' : ''}`,
     [[running.has(sel) ? '▶ Switch to this plan' : '▶ Start this plan', 'go', 'primary'], ['Save only', 'save'], ['Cancel', 0]]);
   if (!go) return;
-  try { ap = await K.api('autopilot', { op: 'save', mind: sel, steps, preset, loop }); L(sel).at = 0; K.sfx('select'); }
+  try { ap = await K.api('autopilot', { op: 'save', mind: sel, steps, preset, loop }); Object.assign(L(sel), { at: 0, rest: 0, town: 0 }); wake?.(); K.sfx('select'); log(sel, `📋 switched to the new plan: ${planText(steps)}`); }   // a new plan starts at its first step, now (no old rest or town time left over)
   catch (err) { return K.toast(err.message, true); }
   if (go === 'go') { if (running.has(sel)) { say(sel, 'Switching to the new plan now.'); paint(); } else start(sel); } else paint();
 }
