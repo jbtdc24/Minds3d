@@ -31,7 +31,7 @@ export async function finish() {
     await hm().handleRedirect(); return 'ok';
   }
   catch (e) { return e.errorDescription || e.error || e.message || 'Hello Minds sign-in failed.'; }
-  finally { for (const k of ['code', 'state', 'error', 'error_description']) q.delete(k); history.replaceState(null, '', location.pathname + (q.toString() ? `?${q}` : '')); }
+  finally { for (const k of ['code', 'state', 'error', 'error_description']) q.delete(k); window.history.replaceState(null, '', location.pathname + (q.toString() ? `?${q}` : '')); }
 }
 
 // the player's Minds on Hello Minds, and which one plays MINDS CLASH for them (remembered on this device)
