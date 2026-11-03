@@ -373,8 +373,8 @@ export function autoPlan(snap, army) {
 }
 
 // loot: share of the defender's unprotected Dust (barns keep some safe), capped
-export const LOOT_SHARE = 0.25, LOOT_MAX = 2000, BARN_SAFE = 1000, SHIELD_MS = 8 * 3600e3;
-// th: the defender's Town Hall; the most one raid can take grows with it (2,000 at Lv1 … 11,000 at Lv10)
+export const LOOT_SHARE = 0.12, LOOT_MAX = 800, BARN_SAFE = 1000, SHIELD_MS = 8 * 3600e3;
+// th: the defender's Town Hall; the most one raid can take grows with it (800 at Lv1 … 4,400 at Lv10)
 export const lootCap = th => Math.round(LOOT_MAX * (1 + 0.5 * (Math.max(1, Math.min(10, th | 0 || 1)) - 1)));
 export function lootOf(dust, barns, pct, share = LOOT_SHARE, th = 1) {
   const open = Math.max(0, dust - barns * BARN_SAFE);
@@ -390,8 +390,8 @@ export function resLootOf(inv, barns, pct, th = 1) {
 export const botRes = (level, th = 1) => ({ wood: 20 * level * Math.max(1, th), stone: 20 * level * Math.max(1, th) });
 // raids per day: 6 for everyone, +1 per Mind owned (max +3)
 export const raidsPerDay = (minds, camps = 0) => 6 + Math.min(3, minds | 0) + Math.min(3, camps | 0);
-// full loot of a game village by level (you get the % you destroy): 500 / 800 / 1,100
-export const botLoot = (level, th = 1) => Math.round((200 + 300 * level) * (1 + 0.4 * (Math.max(1, th) - 1)));
+// full loot of a game village by level (you get the % you destroy): 250 / 400 / 550 at Town Hall 1, +30% per Town Hall level
+export const botLoot = (level, th = 1) => Math.round((100 + 150 * level) * (1 + 0.3 * (Math.max(1, th) - 1)));
 export const RAID_FEE_PER_SPACE = 5;                                   // supplies: 5 Dust per camp space you bring
 export const raidFee = troops => RAID_FEE_PER_SPACE * armyUsed(troops || {});
 

@@ -11,7 +11,7 @@ import { PHRASES, MATCH_CHAT, FRIEND_CHAT, BOT_REPLIES } from './chat.js';
 import { initMindTalk, openMinds } from './mindtalk.js';
 import { chatSigner } from './chatsign.js';
 import { initTown, openTown, closeTown, setMega } from './town.js';
-import { initAutopilot, openAutopilot, dockScreen } from './autopilot.js';
+import { initAutopilot, openAutopilot, dockScreen, autopilotRunning } from './autopilot.js';
 import { initTrade, openTrade, giftTo } from './trade.js';
 import { capOf, ENERGY_CAP } from './energy.js';
 import { loading } from './loader.js';
@@ -27,7 +27,7 @@ import { AREAS, POTIONS_MAX, SPOTS, SHIPS, spotLevel } from './island/adventure.
 import { openMap, updateMap, closeMap } from './island/worldmap.js';
 import { initAdmin, tryCode } from './admin.js';
 import { isle, loadIsland, doAct, flush as flushIsland, resetIsland, refreshIsland, now as islandNow } from './island/store.js';
-import { CROPS, RAW, growMs, permitCost, MAX_PERMITS, ripe, campLevels, campCount, SHOP, RECIPES, troopMax, thLv, troopCount, costText, canAfford, BUILD, STASH_MAX, gemPrice, ENERGY_PRICE, SHARDS_PER_ENERGY, REFILLS_PER_DAY, wellShards, troopLv, troopUpCost, troopLevels, MAX_TL, troopUpSecs, troopRush, COSMETICS, RANK_PASS, passActive, passLeft } from './island/rules.js';
+import { CROPS, RAW, growMs, permitCost, MAX_PERMITS, ripe, campLevels, campCount, SHOP, RECIPES, troopMax, thLv, troopCount, costText, canAfford, BUILD, STASH_MAX, gemPrice, energyPrice, refillsToday, SHARDS_PER_ENERGY, REFILLS_PER_DAY, wellShards, troopLv, troopUpCost, troopLevels, MAX_TL, troopUpSecs, troopRush, COSMETICS, RANK_PASS, passActive, passLeft } from './island/rules.js';
 import { buildIcon } from './island/buildings.js';
 import { islandThumb } from './island/art.js';
 import { hashStr } from './island/gen.js';
@@ -745,9 +745,9 @@ const shopCard = (img, name, desc, have, btns, cls = '') => `<div class="shop-ca
 // +1 ranked energy on a Mind: island shards, Dust or Gems
 async function refillEnergy(id) {
   await ensureIsland();
-  const inv = isle.state?.inv || {}, shards = inv.shard || 0;
-  const pay = await modal(`<h3>⚡ Refill Mind #${id}</h3><p>This Mind has <b>${energyOf(id)}/${capFor(id)}</b> energy. It refills by itself in ${resetText()}.</p><p>Your ⚡ shards: <b>${shards}</b> <span class="muted">(the Energy Well on your island makes 1 every 4 hours)</span></p><p class="muted">Max ${REFILLS_PER_DAY} refills per Mind per day.</p>`,
-    [[`${SHARDS_PER_ENERGY} ⚡ shards`, 'shard', shards >= SHARDS_PER_ENERGY ? 'primary' : ''], [`${ENERGY_PRICE.dust} ✨`, 'dust'], [`${ENERGY_PRICE.gems} 💎`, 'gems', 'gem'], ['Not now', 0]]);
+  const inv = isle.state?.inv || {}, shards = inv.shard || 0, price = energyPrice(refillsToday(isle.state || {}, id, new Date().toISOString().slice(0, 10)));
+  const pay = await modal(`<h3>⚡ Refill Mind #${id}</h3><p>This Mind has <b>${energyOf(id)}/${capFor(id)}</b> energy. It refills by itself in ${resetText()}.</p><p>Your ⚡ shards: <b>${shards}</b> <span class="muted">(the Energy Well on your island makes 1 every 4 hours)</span></p><p class="muted">Max ${REFILLS_PER_DAY} refills per Mind per day, each one dearer than the last.</p>`,
+    [[`${SHARDS_PER_ENERGY} ⚡ shards`, 'shard', shards >= SHARDS_PER_ENERGY ? 'primary' : ''], [`${price.dust.toLocaleString()} ✨`, 'dust'], [`${price.gems} 💎`, 'gems', 'gem'], ['Not now', 0]]);
   if (!pay) return;
   try { const r = await api('energy', { mind: id, pay }); energy[id] = r.energy; sfx('levelup'); toast(`Mind #${id} now has ${r.energy} ⚡`); resetIsland(); await ensureIsland(); refreshEnergy(); if (current === 'prep') renderPrepGrid(); if (current === 'inventory') paintInventory(); }
   catch (e) { sfx('denied'); toast(e.message, true); }
@@ -1811,6 +1811,13 @@ $('#set-logout').onclick = async () => {
   if (await modal('<h3>Sign out?</h3>', [['Cancel', 0], ['Sign out', 1, 'primary']])) { logout(); me = null; frUnwatch?.(); frUnwatch = null; show('login'); lobbyScene(legendIds()); }
 };
 
+// back in the game with a duel still running: ask (never drop the player straight in). An AI Mind's own duel is left to it
+async function rejoin(id) {
+  if (autopilotRunning()) return;
+  const go = await modal('<h3>⚔️ You left a duel</h3><p>It is still running. Go back in, or leave it (leaving counts as a loss).</p>', [['Go back in', 1, 'primary'], ['Leave the duel', 2]]);
+  if (go === 1) return openMatch(id);
+  if (go === 2) { try { await api('match/forfeit', { id }); toast('You left the duel.'); } catch (e) { toast(e.message, true); } }
+}
 // ---------- boot ----------
 const legendIds = () => { const l = tokenIds().filter(i => rarityOf(i) === 'Legendary').sort(() => Math.random() - 0.5).slice(0, 3); return l.length ? l : tokenIds().slice(0, 3); };
 const bootBar = p => { $('#boot-bar').style.width = `${p}%`; };
@@ -1849,13 +1856,13 @@ function tapToStart() {
       const shownBefore = showcaseIds().join();
       refreshMe().then(r => {
         if (current === 'hub') { paintHub(); if (showcaseIds().join() !== shownBefore) lobbyScene(showcaseIds()); }
-        if (r.liveMatch && current === 'hub') openMatch(r.liveMatch);
+        if (r.liveMatch && current === 'hub') rejoin(r.liveMatch);
       }).catch(e => { if (e.status === 401) { logout(); localStorage.removeItem(ACC_KEY); show('login'); } });
       return;
     }
     try {
       const r = await refreshMe();
-      if (r.liveMatch) { await enterHub(); return openMatch(r.liveMatch); }
+      if (r.liveMatch) { await enterHub(); return rejoin(r.liveMatch); }
       return enterHub();
     } catch { logout(); }
   }

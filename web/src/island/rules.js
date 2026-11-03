@@ -49,7 +49,10 @@ export const BUILD = {
 export const STASH_MAX = 12;
 // the link between the island and Ranked: the Energy Well slowly fills with shards; 3 shards = +1 ranked energy on a Mind
 export const SHARD_MS = 4 * 3600e3, SHARD_CAP = 6, SHARDS_PER_ENERGY = 3;
-export const ENERGY_PRICE = { dust: 300, gems: 3 }, REFILLS_PER_DAY = 3;   // or buy it: max 3 refills per Mind per day
+export const ENERGY_PRICE = { dust: 1500, gems: 5 }, REFILLS_PER_DAY = 3;   // or buy it: max 3 refills per Mind per day
+// each refill of the same Mind on the same day costs more: 1,500 / 3,000 / 6,000 Dust or 5 / 8 / 12 Gems (n = refills already today)
+export const energyPrice = n => ({ dust: [1500, 3000, 6000][Math.min(2, n | 0)], gems: [5, 8, 12][Math.min(2, n | 0)] });
+export const refillsToday = (st, mind, day) => (st.er?.day === day ? st.er.m?.[mind] || 0 : 0);
 export const wellShards = (st, now) => Math.min(SHARD_CAP, Math.floor((now - (st.wellAt ?? now)) / SHARD_MS));
 // anything can be paid with Gems instead: about 1 💎 per 100 Dust of value (wood 5, stone 6 Dust each)
 export const gemPrice = cost => cost.gems ? cost.gems : Math.max(1, Math.ceil(((cost.dust || 0) + (cost.wood || 0) * 5 + (cost.stone || 0) * 6) / 100));

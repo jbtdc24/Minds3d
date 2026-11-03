@@ -143,6 +143,16 @@ await act(m.id, B.id, { card: 4 }).catch(() => {});
 T.matches.find(x => x.id === m.id).deadline = new Date(Date.now() - 1000).toISOString();
 v = await getView(m.id, A.id);
 ok(v.status === 'done' && v.winner === 1, 'idle player loses the match after 2 timed-out rounds');
+// leaving: both gone for a while = an abandoned tie; one gone = they forfeit
+m = await startMatch({ player: A, minds: [1] }, { player: B, minds: [5] }, { ranked: false });
+T.matches.find(x => x.id === m.id).deadline = new Date(Date.now() - 60e3).toISOString();
+v = await getView(m.id, A.id);
+ok(v.status === 'abandoned' && v.winner == null, 'both players left: the match ends as an abandoned tie');
+m = await startMatch({ player: A, minds: [1] }, { player: B, minds: [5] }, { ranked: false });
+await act(m.id, B.id, { card: 4 });
+T.matches.find(x => x.id === m.id).deadline = new Date(Date.now() - 60e3).toISOString();
+v = await getView(m.id, B.id);
+ok(v.status === 'abandoned' && v.winner === 1, 'one player left: they forfeit, the other wins');
 // forfeit
 m = await startMatch({ player: A, minds: [1] }, null, { ranked: false, botLevel: 'easy' });
 v = await forfeit(m.id, A.id);
@@ -430,7 +440,7 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   ok(!RD.input(S2, { t: 0, drop: 'brawler', k: spots[0] }) && RD.input(S2, { t: 0, drop: 'brawler', k: spots[0] }), 'you can only drop the troops you brought');
   ok(RD.armyUsed(RD.cleanArmy({ brawler: 9, giant: 9 }, RD.armyCap(0))) <= 10 && RD.armyCap(9) === 13 && RD.guardsFor(0) === 2 && RD.guardsFor(9) === 4, 'army cap 10 (+1 per Mind, max 13); guards 2-4');
   ok(RD.villageName(1) !== RD.villageName(2) && !/bot/i.test(RD.villageName(5)), 'game villages get player-style names');
-  ok(RD.lootOf(5000, 2, 1) === 750 && RD.lootOf(1500, 2, 1) === 0 && RD.lootOf(1e6, 0, 1) === RD.LOOT_MAX, 'barns protect Dust, loot is capped');
+  ok(RD.lootOf(5000, 2, 1) === 360 && RD.lootOf(1500, 2, 1) === 0 && RD.lootOf(1e6, 0, 1) === RD.LOOT_MAX, 'barns protect Dust, loot is capped');
   // raid route: loot moves, defender gets a shield and a log entry
   const raidRoute = (await import('../lib/routes/raid.js')).default;
   const atk = await db.insert('players', { name: 'Raider', address: '0x0000000000000000000000000000000000000abc' });
@@ -630,7 +640,7 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
 {
   const R = await import('../web/src/island/rules.js'), RD = await import('../web/src/island/raid.js'), AD = await import('../web/src/island/adventure.js');
   const { gen, TW, TH } = await import('../web/src/island/gen.js');
-  ok(RD.botLoot(1) === 500 && RD.botLoot(3) === 1100, 'game village loot grows with level');
+  ok(RD.botLoot(1) === 250 && RD.botLoot(3) === 550, 'game village loot grows with level');
   const v = RD.botVillage(777, 3);
   ok(v.b.filter(b => b.type === 'tower').length >= 3, 'game villages are finished (towers ready to shoot)');
   const seed = 66, now = Date.now(), st = R.newIsland(seed, now), w = gen(seed);
@@ -658,7 +668,7 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
     ok(R.troopMax(st) === 60 && RD.armyCap(3, 30, 1) === 20 && RD.armyCap(3, 30, 10) === 60, 'troops kept and raid army size grow with the Town Hall');
     const c2 = R.upgradeCost({ type: 'mill', lv: 2 }).dust, c9 = R.upgradeCost({ type: 'mill', lv: 9 }).dust;
     ok(c9 > c2 * 10 && R.upgradeSecs({ type: 'mill', lv: 9 }) === 24 * 3600 && R.upgradeSecs({ type: 'mill', lv: 1 }) === 300, 'costs and times grow: minutes early, a day at the top');
-    ok(RD.lootCap(1) === 2000 && RD.lootCap(10) === 11000, 'the most a raid can take grows with the Town Hall of the defender');
+    ok(RD.lootCap(1) === 800 && RD.lootCap(10) === 4400, 'the most a raid can take grows with the Town Hall of the defender');
     const res = RD.resLootOf({ wood: 1100, stone: 50 }, 1, 1, 1);
     ok(res.wood === 150 && !res.stone, 'raiders also carry off wood and stone that Barns do not protect, capped per raid');
   }
