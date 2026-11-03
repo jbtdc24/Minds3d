@@ -2,6 +2,13 @@
 # HANDOFF — read this first (next AI session: continue from the top of "NEXT TASKS")
 
 ## >>> START AT "NEXT" BELOW <<<
+ROUND 23 (owner 2026-11-04) DONE:
+- AI dock: opening/growing it puts it fully on screen (place() clamps the whole window; the bubble no longer saves a position). Job status shows only the current job's own result (ai.last.kind), switching clears the old text.
+- 📋 Job plans: "Mix jobs" in the dock, tap jobs in order (PLAN_MAX 7, training.js cleanJob plan + nextJob). Server op 'advance' {did}: a round that did nothing moves to the next job; a whole empty lap rests 15 min. Away play does the same (planOn in autopilot.js).
+- 🔍 Proof: ap.ai[slot].proof (last 12: question, the AI's raw answer, seconds) from work/duel_plan/duel_think/away; dock button 🔍 Proof reads the mindsclash-play conversation straight from Hello Minds in the browser (HM.playHistory) next to the server's list.
+- Website: /home /arena /island /ai /cup (web/<page>/index.html, web/site/site.css + site.js, vercel.json rewrites; /play = the game). Hero art web/assets/site_hero.webp (OpenArt Kling 3 Omni 1k). Code demos: live duel with the real rules, island Minds farming, AI chat, Minds parade, boss embers. The game stays at / (Hello Minds redirect is registered for /). When the domain is bought: point it at Vercel; to make /home the root, first add the new redirect in Hello Minds console.
+- tools/mutation_check.mjs: one stablecoin mutant flakes ("Stablecoin payments are not switched on yet") before and after this round; not caused by it.
+NEXT: buy domain (owner), Ranked AI job live test, phone check of the new dock planner, link to /home from the game's boot screen.
 ## CURRENT STATUS (2026-11-03, late night)
 EVERYTHING IS LIVE on main: Round 12, Rank Pass, trading + gifts, Round 13, chat retention, and round 14 below. Tests, fuzz, mutation check, economy audit and raid sims pass.
 ROUND 14 (owner 2026-11-03) DONE:

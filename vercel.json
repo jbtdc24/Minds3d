@@ -8,6 +8,14 @@
     {
       "source": "/api/:path*",
       "destination": "/api/router?route=:path*"
+    },
+    {
+      "source": "/:page(home|arena|island|ai|cup)",
+      "destination": "/:page/index.html"
+    },
+    {
+      "source": "/play",
+      "destination": "/index.html"
     }
   ],
   "headers": [
