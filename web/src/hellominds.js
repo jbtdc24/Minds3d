@@ -14,6 +14,8 @@ export const connected = () => { try { return !!hm().tokens; } catch { return fa
 export const signIn = () => hm().signIn();
 export const signOut = () => hm().signOut().catch(() => {});
 export const onChange = f => hm().onTokensChanged(f);
+// a fresh access token for our server, which talks to the player's AI itself (it checks the AI and asks it each move)
+export const token = () => hm().getAccessToken().catch(() => null);
 
 // back from Hello Minds: finish the sign-in and clean the address bar. Returns null (nothing to do), 'ok' or an error text
 export async function finish() {

@@ -7,7 +7,7 @@
 // It plays through /api/autopilot, so every rule a human has applies, while the lobby is open (it waits while you play).
 // Gems: OFF by default; turning them on takes a warning, a daily amount the player types, and typing CONFIRM.
 import { PRESETS, STEPS, parsePlan, planText, cleanPlan } from './island/autoplay.js';
-import { TRAINING, cleanTraining, trainingText, trainedMove } from './island/training.js';
+import { TRAINING, cleanTraining } from './island/training.js';
 import * as HM from './hellominds.js';
 
 let K = null, ap = null, sel = null, busy = false, looping = false, wake = null, follow = null;
@@ -36,6 +36,8 @@ const aiOf = s => ap?.ai?.[s] || null;
 // a Mind its AI is playing right now (the Ranked screen warns before you take it): the AI's name, or null
 export const aiPlaying = id => (running.has(String(id)) ? aiOf(String(id))?.name || 'its AI' : null);
 export const stopAi = id => stop(String(id), 'Stopped: you are playing me yourself now.');
+// open the dock on one Mind (tapping a Mind on the island, or the 🧠 button there)
+export function openDock(id) { if (id != null && slots().includes(String(id))) sel = String(id); setMin(false); paint(); loadChat(sel); }
 
 export function initAutopilot(ctx) {
   K = ctx;
@@ -199,7 +201,7 @@ async function makeFresh(slot) {
   busy = true; paint();
   try {
     const m = await HM.awaken(name);
-    ap = await K.api('autopilot', { op: 'link', mind: slot, hm: m.mindId, name: m.name || name });
+    ap = await K.api('autopilot', { op: 'link', mind: slot, hm: m.mindId, name: m.name || name, token: await HM.token() });
     L(slot).chat = []; K.sfx('levelup'); say(slot, `Hi! I'm ${m.name || name}, the AI for ${slotName(slot)}. Train me with 🎯, pick a plan, and I'll play.`);
   } catch (err) { K.toast(`Hello Minds: ${err.message}`, true); }
   busy = false; paint();
@@ -212,7 +214,7 @@ async function openTraining(slot) {
   const ai = aiOf(slot); if (!ai) return;
   trainDraft = cleanTraining(ai.train);
   const html = Object.entries(TRAINING).map(([g, G]) => `<fieldset class="md-train"><legend>${G.label}</legend>${Object.entries(G).filter(([k]) => k !== 'label').map(([k, o]) => `<label><span>${o.label}</span><select data-tr="${g}.${k}">${Object.entries(o.opts).map(([v, n]) => `<option value="${v}" ${trainDraft[g][k] === v ? 'selected' : ''}>${K.esc(n)}</option>`).join('')}</select></label>`).join('')}</fieldset>`).join('');
-  const go = await K.modal(`<h3>🎯 Train ${K.esc(ai.name || 'your AI')}</h3><p class="muted">Your AI reads this before every move it thinks about. If it ever takes too long to answer, it plays exactly this.</p><div class="md-trainbox">${html}</div>`, [['Save training', 1, 'primary'], ['Cancel', 0]]);
+  const go = await K.modal(`<h3>🎯 Train ${K.esc(ai.name || 'your AI')}</h3><p class="muted">This is how you teach your AI: it reads it before every move it thinks about. The AI makes every move itself; the game never plays for it.</p><div class="md-trainbox">${html}</div>`, [['Save training', 1, 'primary'], ['Cancel', 0]]);
   if (!go) return;
   try { ap = await K.api('autopilot', { op: 'train', mind: slot, train: trainDraft }); K.sfx('select'); K.toast('Training saved.'); say(slot, 'Got it! I will play the way you trained me.'); } catch (err) { K.toast(err.message, true); }
 }
@@ -267,26 +269,18 @@ function stop(slot, msg) {
 }
 const stopAll = () => [...running].forEach(s => stop(s));
 const log = async (slot, text) => { try { ap = await K.api('autopilot', { op: 'log', mind: slot, text }); } catch { /* offline for a moment */ } paintFollow(); };
-const why = reply => (/WHY:\s*(.+)/i.exec(reply || '') || [])[1]?.trim() || '';
 // the AI picks the next step: the plan says what is next, the AI may pick another step of the plan if it is smarter now
 async function nextStep(slot, ai, l) {
-  const planned = ai.steps[l.at % ai.steps.length], st = K.island?.() || null;
-  const opts = [...new Set(ai.steps.map(s => s.do))];
-  const facts = st ? `Island: ${(st.dust || 0).toLocaleString()} Dust, ${st.gems || 0} Gems, ${Object.values(st.tiles || {}).filter(t => t.s === 'p' && t.c).length} crops growing, ${Object.entries(st.inv || {}).filter(([k]) => k.startsWith('crop_')).reduce((s, [, n]) => s + n, 0)} crops in the bag, ${Object.entries(st.inv || {}).filter(([k]) => k.startsWith('troop_')).reduce((s, [, n]) => s + n, 0)} troops.` : '';
-  const energy = slot !== '0' ? ` Ranked energy of this Mind: ${K.energyOf(+slot)}.` : '';
-  const q = `NEXT STEP. Your plan: ${planText(ai.steps)}. The plan says next: ${STEPS[planned.do].name}. ${facts}${energy}
-Your training: ${trainingText(ai.train, 'farm')}; ${trainingText(ai.train, 'raid')}; ${trainingText(ai.train, 'explore')}.
-Reply "DO: <one of ${opts.join(', ')}>" (keep to the plan unless another step is clearly better now), then "WHY: <reason>".`;
+  const planned = ai.steps[l.at % ai.steps.length];
   setNow(slot, `🧠 thinking about the next step…`);
-  const reply = await HM.decide(ai.hm, q, 20e3).catch(e => { if (noCog(e.message)) outOfCog(slot); return null; });
-  await missed(slot, reply != null);
-  if (!running.has(slot)) return planned;
-  const pick = (/DO:\s*([a-z]+)/i.exec(reply || '') || [])[1]?.toLowerCase();
-  const s = pick && pick !== planned.do ? ai.steps.find(x => x.do === pick) : null;
-  if (reply == null) { await log(slot, '🧠 (thought too long: kept to the plan)'); return planned; }
-  think(slot, why(reply) || `${STEPS[(s || planned).do].name} next.`);
-  if (s) await log(slot, `🧠 chose ${STEPS[s.do].name} instead of ${STEPS[planned.do].name}: ${why(reply).slice(0, 80)}`);
-  return s || planned;
+  let r = null;
+  try { r = await K.api('autopilot', { op: 'next', mind: slot, at: l.at, token: await HM.token() }); } catch (e) { if (e.status === 401 || e.status === 403) stop(slot, `⚠️ ${e.message}`); return planned; }
+  if (r.cog != null) { l.cog = r.cog; l.cogAt = Date.now(); paintCog(); }
+  if (r.out) { outOfCog(slot); return planned; }
+  await missed(slot, r.ai);
+  if (!r.ai) { await log(slot, '🧠 (thought too long: kept to the plan)'); return planned; }
+  think(slot, r.why || `${STEPS[r.do].name} next.`);
+  return ai.steps.find(x => x.do === r.do) || planned;
 }
 // one loop for all the AIs: each takes its next step in turn; Mind Town and rests run on their own clocks meanwhile
 async function loop() {
@@ -335,23 +329,6 @@ async function townBeats() {
     try { const r = await K.api('town', { x: l.x | 0, y: l.y | 0, mind: slot === '0' ? 49 : +slot }); if (r.got?.dust) { l.got = (l.got || 0) + r.got.dust; setNow(slot, `🏘️ in Mind Town · +${l.got} ✨ so far`, 'town'); } } catch { /* next beat */ }
   }
 }
-// the AI's card for this turn: it sees what a player sees and its training, and answers CARD / SPELL / WHY
-async function aiCard(slot, ai, v) {
-  const spells = [...v.me.spells, ...(v.me.reverse ? ['reverse'] : [])];
-  const q = `DUEL TURN (Prize Duel: both play a card 1-15 at the same time, the higher card wins the crown; each card once per round).
-Crown now: ${v.crown} (pot ${v.pot}). Next crown will be ${v.next || 'none'}. Crowns already played this round: ${v.seen.join(', ') || 'none'}.
-Round ${v.round} of 3. Score: you ${v.me.score} – rival ${v.rival.score}. Rounds won: you ${v.me.rounds} – rival ${v.rival.rounds}.
-Your cards: ${[...v.me.cards].sort((a, b) => a - b).join(', ')}. Your spells: ${spells.join(', ') || 'none'}.
-Rival cards left: ${[...v.rival.cards].sort((a, b) => a - b).join(', ')}. Rival spells: ${[...v.rival.spells, ...(v.rival.reverse ? ['reverse'] : [])].join(', ') || 'none'}.
-Spells: boost +2 to your card, double = crown x2, trap = if the rival plays 7+ you win, reverse = the lower card wins (once per match).
-Your training: ${trainingText(ai.train, 'duel')}.
-Reply "CARD: <a card you have> SPELL: <${spells.join('|') || 'none'}|none>" then "WHY: <reason>".`;
-  const reply = await HM.decide(ai.hm, q, 13e3).catch(e => { if (noCog(e.message)) outOfCog(slot); return null; });
-  await missed(slot, reply != null);
-  const card = Number((/CARD:\s*(\d+)/i.exec(reply || '') || [])[1]), sp = ((/SPELL:\s*([a-z]+)/i.exec(reply || '') || [])[1] || '').toLowerCase();
-  if (reply != null && v.me.cards.includes(card)) return { card, spell: spells.includes(sp) ? sp : null, why: why(reply), ai: true };
-  return { ...trainedMove(v, ai.train), why: reply == null ? 'thought too long: played its training' : 'answer did not fit: played its training', ai: false };
-}
 // one ranked duel with this Mind: every card and spell is the AI's own choice
 async function duel(slot, i, n) {
   const ai = aiOf(slot), train = cleanTraining(ai?.train), pass = slot === '0' && K.rankPass();
@@ -363,7 +340,7 @@ async function duel(slot, i, n) {
     if (!r.ok) { await log(slot, '🃏 no ranked energy left: skipping duels'); return false; }
     await log(slot, `⚡ refilled with ${r.pay === 'shard' ? 'shards' : r.pay === 'dust' ? 'Dust' : 'Gems'}`); K.refresh(); minds = [+slot];
   }
-  let q = await K.api('autopilot', { op: 'duel_join', mode: 'ranked', minds, ...(pass ? { pass: true } : {}) });
+  let q = await K.api('autopilot', { op: 'duel_join', mind: slot, mode: 'ranked', minds, ...(pass ? { pass: true } : {}) });
   const until = Date.now() + 90e3;
   while (running.has(slot) && !q.match && Date.now() < until) { setNow(slot, `🃏 duel ${i}/${n}: looking for a rival…`, 'duel'); await sleep(2500); q = await K.api('autopilot', { op: 'duel_poll' }); }
   if (!q.match) { await K.api('autopilot', { op: 'duel_leave' }).catch(() => {}); return false; }
@@ -376,20 +353,24 @@ async function duel(slot, i, n) {
     const last = v.view.lastEvent;
     l.duel = { rival: v.view.rival.name, me: v.view.me.score, them: v.view.rival.score, round: v.view.round, crown: v.view.crown, pot: v.view.pot, next: v.view.next, cards: [...v.view.me.cards].sort((a, b) => a - b), rivalLeft: v.view.rival.cards.length, spells: [...v.view.me.spells, ...(v.view.me.reverse ? ['reverse'] : [])], played: l.duel?.played || null, last: last && last.cards?.[0] != null ? { mine: last.cards[v.seat], theirs: last.cards[1 - v.seat], win: last.win == null ? null : last.win === v.seat } : l.duel?.last || null };
     setNow(slot, `🃏 dueling ${v.view.rival.name} · ${v.view.me.score}–${v.view.rival.score}`, 'duel');
-    if (!v.view.me.locked && v.view.crown) {
+    if (!v.view.me.locked && v.view.crown) {   // the server asks the AI and plays its card (nobody else can)
       setNow(slot, `🧠 thinking about crown ${v.view.crown}…`, 'duel');
-      const d = await aiCard(slot, ai, v.view);
-      total++; if (d.ai) own++;
-      l.duel.played = { card: d.card, spell: d.spell, crown: v.view.crown };
-      think(slot, `Crown ${v.view.crown}: ${d.card}${d.spell ? ` + ${d.spell}` : ''}. ${d.why}`);
-      await K.api('autopilot', { op: 'duel_act', id, card: d.card, spell: d.spell }).catch(() => {});
+      const r = await K.api('autopilot', { op: 'duel_think', mind: slot, id, token: await HM.token() }).catch(e => ({ error: e }));
+      if (r.out) { outOfCog(slot); continue; }
+      if (r.error) { if (r.error.status === 401 || r.error.status === 403) { stop(slot, `⚠️ ${r.error.message}`); continue; } }
+      else if (r.think) {
+        const d = r.think; total++; if (d.ai) own++;
+        await missed(slot, d.ai);
+        if (d.ai) l.duel.played = { card: d.card, spell: d.spell, crown: d.crown };
+        think(slot, d.ai ? `Crown ${d.crown}: ${d.card}${d.spell ? ` + ${d.spell}` : ''}. ${d.why}` : `Crown ${d.crown}: ${d.why}`);
+      }
     }
     await sleep(1500);
     if (!running.has(slot)) { await K.api('autopilot', { op: 'duel_forfeit', id }).catch(() => {}); return false; }
   }
   l.duel = null;
   const won = v?.winner === v?.seat, tie = v?.winner == null;
-  await log(slot, `🃏 ${tie ? 'tied' : won ? 'won' : 'lost'} vs ${v?.view.rival.name}${v?.delta ? ` (${v.delta > 0 ? '+' : ''}${v.delta} rating)` : ''}${v?.dustWon ? `, +${v.dustWon} ✨` : ''} · the AI chose ${own} of ${total} moves itself`);
+  await log(slot, `🃏 ${tie ? 'tied' : won ? 'won' : 'lost'} vs ${v?.view.rival.name}${v?.delta ? ` (${v.delta > 0 ? '+' : ''}${v.delta} rating)` : ''}${v?.dustWon ? `, +${v.dustWon} ✨` : ''} · the AI played ${own} of ${total} turns itself${own < total ? ' (no answer = no move)' : ''}`);
   K.babble(slot === '0' ? 49 : +slot, won ? 'happy' : 'sad', 0.6); K.refresh();
   return true;
 }

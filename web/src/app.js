@@ -8,10 +8,9 @@ import { DATA_VERSION } from './config.js';
 import { api, session, walletLogin, guestLogin, logout, hasWallet, watch, serverOnline, LocalMatch, setTokenIds, ping } from './net.js';
 import { initAudio, sfx, music, setVolume, babble } from './audio.js';
 import { PHRASES, MATCH_CHAT, FRIEND_CHAT, BOT_REPLIES } from './chat.js';
-import { initMindTalk, openMinds } from './mindtalk.js';
 import { chatSigner } from './chatsign.js';
 import { initTown, openTown, closeTown, setMega } from './town.js';
-import { initAutopilot, openAutopilot, dockScreen, autopilotRunning, aiPlaying, stopAi } from './autopilot.js';
+import { initAutopilot, openAutopilot, dockScreen, autopilotRunning, aiPlaying, stopAi, openDock } from './autopilot.js';
 import { initTrade, openTrade, giftTo } from './trade.js';
 import { capOf, ENERGY_CAP } from './energy.js';
 import { loading } from './loader.js';
@@ -509,7 +508,7 @@ async function ensureIsland() {
 async function goIsland() {
   if (!(await ensureIsland())) return;
   show('island'); stage.paused = true; music('cozy');
-  openIsland({ minds: myMinds, toast: (m, bad) => toast(m, bad), shop: tab => openShop(tab), bag: () => { invTab = 'items'; openInventory(); }, mind: id => openMinds(id), restore: openRestoreModal });
+  openIsland({ minds: myMinds, toast: (m, bad) => toast(m, bad), shop: tab => openShop(tab), bag: () => { invTab = 'items'; openInventory(); }, mind: id => openDock(id), restore: openRestoreModal });   // a Mind on the island: its Hello Minds AI
   const worked = (isle.state?.jobLog || []).filter(e => e.at > (settings.jobSeen || 0)).slice(0, 6);
   if (worked.length) { settings.jobSeen = worked[0].at; saveSettings(); }
   // raided while you were away?
@@ -641,7 +640,7 @@ async function openRaidLog(pid = null, tab = 'on') {
   $('#modal').classList.add('on');
 }
 const rlBtn = $('#isl-raidlog'); if (rlBtn) rlBtn.onclick = () => openRaidLog();   // missing on an old cached page: no crash
-$('#isl-minds').onclick = () => openMinds();
+$('#isl-minds').onclick = () => openDock();
 $('#isl-raid').addEventListener('contextmenu', e => e.preventDefault());
 // ---------- adventure: explore a wild island ----------
 // the world map screen: pick an island your airship can reach, bring potions, fly
@@ -1589,7 +1588,6 @@ $('#pf-save').onclick = async () => {
 };
 
 const chat = chatSigner(api);
-initMindTalk({ minds: () => (guest ? [] : myMinds), esc });
 // 🧠 Mind Autopilot (lobby panel): it plays only while you sit in the lobby, and waits while you play yourself
 let apRefresh = 0;
 initAutopilot({ api, esc, toast, modal, sfx, babble, online: () => online, guest: () => guest, idle: () => current === 'hub' && !document.querySelector('#modal.on'),

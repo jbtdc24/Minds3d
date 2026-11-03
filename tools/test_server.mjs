@@ -346,9 +346,7 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   R.burnVillage(st, now, { by: 'Ash', ids: [hid, 99999], stars: 2 });
   ok(st.burn && st.burn.ids.join() === String(hid), 'a starred raid sets the broken buildings on fire (only real ones)');
   ok(/burning/.test(R.act(st, { type: 'harvest', tiles: [+plot] }, ctx).error || '') && /burning/.test(R.act(st, { type: 'sell', item: 'wood', n: 1 }, ctx).error || ''), 'a burning village cannot harvest or sell');
-  st.jobs = { 1: { job: 'scout', at: now - 3 * 3600e3 } }; const d0 = st.dust; J.runJobs(st, { seed, now, minds: 1 });
-  ok(st.dust === d0 && st.jobs[1].at === now, 'Mind jobs stand still while it burns');
-  R.normalize(st, seed, now + R.BURN_CROPS_MS + 1000);
+  const d0 = st.dust; R.normalize(st, seed, now + R.BURN_CROPS_MS + 1000);
   ok(!st.tiles[plot].c && st.burn.lost, 'left burning too long, the crops are lost');
   ok(R.act(st, { type: 'restore' }, ctx).done === 1 && !st.burn && st.dust === d0 - 80 && st.inv.wood === 94, 'restoring costs 80 Dust + 6 wood per building and puts the fire out');
   R.burnVillage(st, now, { by: 'Ash', ids: [hid], stars: 1 });
@@ -853,17 +851,9 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   let st = isl(A).state, ctx = { seed: 21, now: now0, minds: 2, instant: true };
   ok(R.BUILD.camp && R.UPGRADABLE.camp, 'the Army Camp is a building you can upgrade');
 
-  // Mind jobs
+  // the old game-run Mind jobs are gone: only Hello Minds AIs play
   let r = R.act(st, { type: 'job', mind: 49, job: 'scout' }, ctx);
-  ok(r.done === 1 && st.jobs[49].job === 'scout', 'a Mind takes a job');
-  ok(R.act(st, { type: 'job', mind: 50, job: 'farmer', crop: 'carrot' }, ctx).done === 1, 'a second Mind takes another job');
-  ok(R.act(st, { type: 'job', mind: 51, job: 'scout' }, ctx).error, 'work slots follow Minds owned');
-  ok(R.act(st, { type: 'job', mind: 49, job: 'nope' }, ctx).error, 'unknown jobs are refused');
-  const d0 = st.dust; st.jobs[49].at = now0 - 100 * J.JOB_MS;
-  ok(J.runJobs(st, { seed: 21, now: now0, minds: 2 }) === J.JOB_SHIFT && st.dust > d0 && st.jobLog[0].id === 49, 'a Mind works up to 8 hours away, then stops');
-  ok(J.runJobs(st, { seed: 21, now: now0, minds: 2 }) === 0, 'finished rounds are not paid twice');
-  ok(J.parseTask('please go chop some trees').job === 'woodcutter' && J.parseTask('plant melons').crop === 'melon' && J.parseTask('hello').talk === 'hello' && J.parseTask('zzz').talk === 'confused', 'Minds understand plain words');
-  delete st.jobs;
+  ok(r.error && /Hello Minds/.test(r.error) && !st.jobs, 'game-run Mind jobs are gone (Hello Minds AIs only)');
 
   // sky raiders
   const s2 = R.newIsland(5, now0); s2.dust = 2000; s2.npcAt = now0 - 30 * 3600e3;
@@ -923,7 +913,7 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   out = await ai({ op: 'do', actions: [{ type: 'buy', item: 'seed_bean', n: 2 }] });
   ok(out.code === 200 && out.body.results[0].done === 2, 'an AI can act on the island');
   ok((await ai({ op: 'do', actions: [{ type: 'shop', item: 'gem_dust' }] })).code === 403 && (await ai({ op: 'do', actions: [{ type: 'buy', item: 'seed_bean', n: 1, gems: true }] })).code === 403, 'an AI cannot spend Gems unless allowed');
-  ok((await ai({ op: 'job', mind: 49, job: 'woodcutter' })).code === 200, 'an AI can give a Mind a job');
+  ok((await ai({ op: 'job', mind: 49, job: 'woodcutter' })).code === 400, 'Mind jobs are gone for AI keys too');
   const mc = chain.client.multicall;
   chain.client.multicall = async ({ contracts }) => contracts.map(() => ({ status: 'success', result: addr }));
   out = await ai({ op: 'adventure', spot: 0, mind: 49 });
@@ -1069,6 +1059,10 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
     Object.assign(T.matches.find(m => m.id === out.body.trade.match), { status: 'done', winner: null });
     out = await hit(trade, B, { op: 'see', id: d2 });
     ok(out.body.trade.result === 'tie' && isl(A).state.gems === 50 && isl(B).state.gems === 150, 'a tie gives each their own stake back');
+    { const ipHit = async (p, body, ip) => { let o = null; const res = { setHeader() {}, end(t) { o = { code: this.statusCode, body: JSON.parse(t) }; }, headersSent: false }; await trade({ method: 'POST', url: '/api/x', headers: { authorization: 'Bearer ' + signSession({ id: p.id, address: p.address }), 'x-forwarded-for': ip }, body, query: {} }, res); return o; };
+      await ipHit(B, { op: 'get' }, '5.5.5.5'); await ipHit(B, { op: 'open', with: A.id, kind: 'duel' }, '5.5.5.5').then(r => r.body.trade && hit(trade, B, { op: 'cancel', id: r.body.trade.id }));
+      ok((await ipHit(A, { op: 'open', with: B.id, kind: 'duel' }, '5.5.5.5')).code === 403 && T.flags.some(f => f.kind === 'duel_same_connection'), 'no stake duels between two accounts on one connection (flagged)');
+      ok((await ipHit(A, { op: 'open', with: B.id, kind: 'duel' }, '6.6.6.6')).code === 200, 'different connections can stake-duel'); }
   }
   T.town_now.find(x => x.player_id === A.id).since = new Date(Date.now() - 11 * 60e3).toISOString();
   out = await hit(town, A, { x: 100, y: 100, mind: 49, say: 'hi all' });
@@ -1485,28 +1479,43 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
     ok(AP.parsePlan('stop now').stop && AP.parsePlan('be a farmer').preset === 'farmer' && AP.parsePlan('blah blah').talk, 'stop, presets and unknown words are understood');
     ok(AP.cleanPlan([{ do: 'hack' }, { do: 'wait', min: 99999 }, { do: 'duel', n: 50 }]).every(x => x.do !== 'hack') && AP.cleanPlan([{ do: 'wait', min: 99999 }])[0].min === 240 && AP.cleanPlan([{ do: 'duel', n: 50 }])[0].n === 10, 'plans keep known steps and sane numbers only');
     ok((await hit(autopilot, M, { op: 'save', steps: [] })).code === 400, 'an empty plan is refused');
+    // a pretend Hello Minds account: the server checks the AI with the player's token and asks it every decision
+    const HMS = await import('../lib/hmserver.js'), fake = { cog: 500, reply: 'DO: farm WHY: crops first', minds: [{ mindId: 'hm-1', name: 'Clash-1', createdAt: new Date().toISOString() }, { mindId: 'hm-old', name: 'Old', createdAt: '2024-01-01T00:00:00Z' }] };
+    HMS.hm.client = token => ({ listMinds: async () => { if (token !== 'tok-good-0123456789abcdef') throw new Error('bad token'); return fake.minds; }, getCognitionBalance: async id => ({ mindId: id, cognition: fake.cog }),
+      ensureConversation: async () => ({}), getLatestHistoryFingerprint: async () => undefined, sendMessage: async () => ({}), waitForReply: async () => (fake.reply == null ? { timedOut: true } : { timedOut: false, reply: { messageText: fake.reply } }) });
+    const tok = 'tok-good-0123456789abcdef';
     ok((await hit(autopilot, M, { op: 'save', mind: 0, steps: AP.PRESETS.daily.steps })).code === 403, 'a Mind needs its AI before it gets a plan');
-    let out = await hit(autopilot, M, { op: 'link', mind: 0, hm: 'hm-1', name: 'Clash-1' });
-    ok(out.code === 200 && out.body.ai['0'].hm === 'hm-1', 'a Mind gets its own Hello Minds AI');
-    ok((await hit(autopilot, M, { op: 'link', mind: 7, hm: 'hm-2', name: 'Two' })).code === 403, 'one AI per Mind held');
+    ok((await hit(autopilot, M, { op: 'link', mind: 0, hm: 'hm-1', token: 'tok-bad-0123456789abcdef' })).code === 401, 'linking needs a real Hello Minds login');
+    ok((await hit(autopilot, M, { op: 'link', mind: 0, hm: 'hm-fake', token: tok })).code === 403, 'an AI that is not on your Hello Minds account is refused');
+    ok((await hit(autopilot, M, { op: 'link', mind: 0, hm: 'hm-old', token: tok })).code === 403, 'an old AI (used for other things) is refused: each Mind gets a new one');
+    let out = await hit(autopilot, M, { op: 'link', mind: 0, hm: 'hm-1', token: tok });
+    ok(out.code === 200 && out.body.ai['0'].hm === 'hm-1' && out.body.ai['0'].name === 'Clash-1', 'a Mind gets its own new Hello Minds AI (checked by the server)');
+    ok((await hit(autopilot, M, { op: 'link', mind: 7, hm: 'hm-1', token: tok })).code === 403, 'one AI per Mind held');
     out = await hit(autopilot, M, { op: 'save', mind: 0, steps: AP.PRESETS.daily.steps, preset: 'daily' });
     ok(out.code === 200 && out.body.ai['0'].steps.length === AP.PRESETS.daily.steps.length && !out.body.gems.on, 'a preset plan is saved for that Mind, Gems start OFF');
     ok((await hit(autopilot, M, { op: 'gems', on: true, cap: 10 })).code === 400, 'Gems need the typed CONFIRM');
     ok((await hit(autopilot, M, { op: 'gems', on: true, cap: 5000, confirm: 'CONFIRM' })).code === 400 && (await hit(autopilot, M, { op: 'gems', on: true, cap: 0, confirm: 'CONFIRM' })).code === 400, 'the daily Gem limit the player types has a range');
     out = await hit(autopilot, M, { op: 'gems', on: true, cap: 4, confirm: 'CONFIRM' });
     ok(out.code === 200 && out.body.gems.on && out.body.gems.cap === 4, 'Gems turn on with a limit and CONFIRM');
+    ok((await hit(autopilot, M, { op: 'step', do: 'farm', mind: 0 })).code === 403, 'no step without a real AI answer first (no Hello Minds = no autopilot)');
+    fake.cog = 0;
+    ok((await hit(autopilot, M, { op: 'next', mind: 0, at: 0, token: tok })).body.out === true, 'no cognition: the server says the AI is out (and it does not play)');
+    fake.cog = 500;
+    out = await hit(autopilot, M, { op: 'next', mind: 0, at: 0, token: tok });
+    ok(out.body.ai === true && out.body.do === 'farm' && out.body.why === 'crops first', 'the server asks the AI for the next step itself');
+    ok((await hit(autopilot, M, { op: 'next', mind: 0, at: 0, token: 'tok-bad-0123456789abcdef' })).code === 401, 'a wrong Hello Minds login cannot drive the AI');
     const st = isl(M).state, plots = Object.keys(st.tiles).filter(k => st.tiles[k].s === 'p');
-    out = await hit(autopilot, M, { op: 'step', do: 'farm' });
+    out = await hit(autopilot, M, { op: 'step', do: 'farm', mind: 0 });
     ok(out.code === 200 && (!plots.length || out.body.ok), `the farm step plays through the island rules: ${out.body.text}`);
-    out = await hit(autopilot, M, { op: 'step', do: 'decorate' });
+    out = await hit(autopilot, M, { op: 'step', do: 'decorate', mind: 0 });
     ok(out.body.ok && (isl(M).state.b || []).some(b => ['flowers', 'lamp', 'bench', 'banner'].includes(b.type)) && isl(M).state.dust >= 400, `the Mind decorates with spare Dust and keeps some: ${out.body.text}`);
     ok(!(isl(M).state.b || []).some(b => R.BUILD[b.type]?.gem), 'the Mind never buys Gem decorations');
     isl(M).state.rd = { day: new Date().toISOString().slice(0, 10), n: 99 }; isl(M).state.inv.troop_brawler = 10;
     const g0 = isl(M).state.gems;
-    out = await hit(autopilot, M, { op: 'step', do: 'raid' });
+    out = await hit(autopilot, M, { op: 'step', do: 'raid', mind: 0 });
     ok(isl(M).state.gems === g0 - 4 && isl(M).state.ap.gems.spent === 4, `out of raids, the Mind buys one Raid Ticket within the limit: ${out.body.text}`);
     isl(M).state.rd = { day: new Date().toISOString().slice(0, 10), n: 99 }; delete isl(M).state.inv.raid_ticket;
-    out = await hit(autopilot, M, { op: 'step', do: 'raid' });
+    out = await hit(autopilot, M, { op: 'step', do: 'raid', mind: 0 });
     ok(!out.body.ok && isl(M).state.gems === g0 - 4, 'over the daily limit the Mind spends no more Gems');
     ok((await hit(autopilot, M, { op: 'gems', on: false })).body.gems.on === false, 'one tap turns Gem spending off');
     ok(isl(M).state.ap.log.some(l => /spent 4 Gems/.test(l.text)), 'every Gem spent is in the log');
@@ -1516,8 +1525,22 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
     ok(out.body.ai['0'].train.duel.style === 'bold' && out.body.ai['0'].train.duel.big === 'top', 'training keeps known choices only');
     isl(M).state.inv.crop_bean = 9;
     out = await hit(autopilot, M, { op: 'step', do: 'sell', mind: 0 });
-    ok(/never sell/.test(out.body.text) && isl(M).state.inv.crop_bean === 9, 'the steps follow the training (never sell)');
-    ok((await hit(autopilot, M, { op: 'step', do: 'nope' })).code === 400, 'unknown steps are refused');
+    ok(/not to sell/.test(out.body.text) && isl(M).state.inv.crop_bean === 9, 'with no AI detail, the step follows the training (never sell)');
+    fake.reply = 'DO: sell SELL: half WHY: keep some'; await hit(autopilot, M, { op: 'next', mind: 0, at: 1, token: tok });
+    out = await hit(autopilot, M, { op: 'step', do: 'sell', mind: 0 });
+    ok(isl(M).state.inv.crop_bean === 4, `the step does exactly what the AI chose (sold half): ${out.body.text}`);
+    ok((await hit(autopilot, M, { op: 'step', do: 'nope', mind: 0 })).code === 400, 'unknown steps are refused');
+    ok((await hit(autopilot, M, { op: 'duel_act', id: '00000000-0000-0000-0000-000000000000', card: 3 })).code === 400, 'the browser cannot play cards for the AI (only the server does, from the AI answer)');
+    { const rival = await mk('DuelRival'), m = await startMatch({ player: M, minds: [1] }, { player: rival, minds: [5] }, { ranked: false });
+      isl(M).state.ap.aiDuel = m.id;
+      ok((await hit(await rt('match_act'), M, { id: m.id, card: 3 })).code === 403, 'nobody can play a hand move in a duel the AI is playing');
+      fake.reply = 'CARD: 7 SPELL: none WHY: middle card';
+      out = await hit(autopilot, M, { op: 'duel_think', mind: 0, id: m.id, token: tok });
+      ok(out.code === 200 && out.body.think?.card === 7 && out.body.think.ai && out.body.view.me.locked, 'the server asks the AI for the card and plays it');
+      fake.reply = 'CARD: 99';
+      const m2 = await startMatch({ player: M, minds: [1] }, { player: rival, minds: [5] }, { ranked: false });
+      out = await hit(autopilot, M, { op: 'duel_think', mind: 0, id: m2.id, token: tok });
+      ok(out.body.think && !out.body.think.ai && !out.body.view.me.locked, 'an answer that does not fit plays nothing: only the AI plays'); }
   }
 
   const P = await mk('Racer');

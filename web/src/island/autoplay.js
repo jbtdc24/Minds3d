@@ -66,8 +66,8 @@ export function parsePlan(text) {
 }
 
 // ---- moves the Mind makes on the island (pure: state in, actions out) ----
-// harvest everything ripe, then plant the empty plots with the seed it has most of (buying the cheapest seed if none)
-export function farmActs(st, now, minds) {
+// harvest everything ripe, then plant the empty plots: with the crop the AI chose (buying its seeds), else the seed it has most of
+export function farmActs(st, now, minds, choice = null) {
   const plots = Object.entries(st.tiles || {}).filter(([, t]) => t.s === 'p').map(([k, t]) => [+k, t]), busy = new Set((st.q || []).map(j => j.k));
   const ripeK = plots.filter(([k, t]) => t.c && ripe(t, now, minds) && !busy.has(k)).map(([k]) => k).slice(0, 40);
   const empty = plots.filter(([k, t]) => !t.c && !busy.has(k)).map(([k]) => k).slice(0, 40);
@@ -75,8 +75,11 @@ export function farmActs(st, now, minds) {
   if (ripeK.length) acts.push({ type: 'harvest', tiles: ripeK });
   if (empty.length) {
     const seeds = Object.keys(CROPS).map(c => [c, st.inv?.['seed_' + c] || 0]).sort((a, b) => b[1] - a[1]);
-    let [crop, have] = seeds[0] || [];
-    if (!have) {   // buy seeds: the best crop it can afford for every empty plot, keeping 200 Dust
+    let [crop, have] = Object.hasOwn(CROPS, choice || '') ? [choice, st.inv?.['seed_' + choice] || 0] : seeds[0] || [];
+    if (!have && Object.hasOwn(CROPS, choice || '')) {   // the AI's crop: buy its seeds (keeps 100 Dust)
+      const n = Math.max(0, Math.min(empty.length, Math.floor(((st.dust || 0) - 100) / CROPS[crop].seed)));
+      if (n) { acts.push({ type: 'buy', item: 'seed_' + crop, n }); have = n; }
+    } else if (!have) {   // buy seeds: the best crop it can afford for every empty plot, keeping 200 Dust
       const pick = Object.entries(CROPS).filter(([, c]) => c.seed * empty.length <= (st.dust || 0) - 200).sort((a, b) => (b[1].sell - b[1].seed) - (a[1].sell - a[1].seed))[0]
         || Object.entries(CROPS).sort((a, b) => a[1].seed - b[1].seed)[0];
       crop = pick[0]; const n = Math.max(0, Math.min(empty.length, Math.floor(((st.dust || 0) - 100) / CROPS[crop].seed)));
@@ -90,9 +93,18 @@ export function farmActs(st, now, minds) {
 export const sellActs = st => Object.entries(st.inv || {}).filter(([k, n]) => k.startsWith('crop_') && n > 0).map(([item, n]) => ({ type: 'sell', item, n }));
 export const wellActs = (st, now) => wellShards(st, now) > 0 ? [{ type: 'well' }] : [];
 // train troops with spare Dust: brawlers and archers, keeps 600 Dust, stops at 3/4 of the camp
-export function trainActs(st) {
+export function trainActs(st, mix = null) {
   const room = Math.floor(troopMax(st) * 0.75) - troopCount(st), spare = (st.dust || 0) - 600;
   if (room <= 0 || spare <= 0) return [];
+  if (mix && Object.keys(mix).length) {   // the troops the AI asked for, as far as room and Dust go
+    const out = []; let left = room, dust = spare;
+    for (const [k, want] of Object.entries(mix)) {
+      const it = SHOP['troop_' + k]; if (!it) continue;
+      const n = Math.max(0, Math.min(want | 0, left, Math.floor(dust / (it.price.dust || 1e9))));
+      if (n) { out.push({ type: 'shop', item: 'troop_' + k, n }); left -= n; dust -= n * it.price.dust; }
+    }
+    return out;
+  }
   const per = SHOP.troop_brawler.price.dust + 5, n = Math.max(0, Math.min(room, Math.floor(spare / per), 10));
   return n ? [{ type: 'shop', item: 'troop_brawler', n: Math.ceil(n / 2) }, { type: 'shop', item: 'troop_archer', n: Math.floor(n / 2) }].filter(a => a.n > 0) : [];
 }
@@ -103,7 +115,7 @@ export function advSpot(st, spots, n = 0) {
   return best.length ? best[n % best.length][1] : 0;
 }
 // decorations in a ring around the home: flowers, lamps, benches, banners; never Gem decorations, keeps 400 Dust
-export function decorActs(st, w) {
+export function decorActs(st, w, kinds0 = null) {
   const home = homeOf(st, w); if (!home) return [];
   const acts = [], taken = new Set();
   let budget = { ...(st.inv || {}), dust: (st.dust || 0) - 400 };
@@ -114,7 +126,7 @@ export function decorActs(st, w) {
     for (const [i, n] of Object.entries(d.cost)) budget[i] = (budget[i] || 0) - n;
     taken.add(k); acts.push({ type: 'build', item: type, tiles: [k] }); return true;
   };
-  const kinds = ['flowers', 'flowers', 'lamp', 'flowers', 'bench', 'banner'];
+  const kinds = kinds0?.length ? kinds0 : ['flowers', 'flowers', 'lamp', 'flowers', 'bench', 'banner'];   // what the AI chose, or a mix
   let i = 0;
   for (let r = 3; r <= 6 && acts.length < 6; r++) for (let a = 0; a < 16 && acts.length < 6; a++) {
     const x = Math.round(home.x + 1 + Math.cos(a / 16 * Math.PI * 2) * r), y = Math.round(home.y + 1 + Math.sin(a / 16 * Math.PI * 2) * r);

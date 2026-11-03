@@ -2,7 +2,6 @@
 // State: { dust, inv: { seed_bean: 3, crop_bean: 1, wood: 4, stone: 2, permit: 0 }, tiles: { k: tile } }
 // tile: { s: 'c' cleared | 'p' plot | 'w' weeds grew back | 'b' under a building, t: last touched (ms), c: crop, p: planted at (ms) }
 // buildings: st.b = [{ id, type, k }] (k = top-left tile), st.nb = next id
-import { JOBS, jobSlots } from './jobs.js';
 import { gen, COVER, TW, TH, hash, oldKey } from './gen.js';
 
 const H = 3600e3;
@@ -622,16 +621,7 @@ export function act(st, a, { seed, now, minds = 0, instant = false, queue = fals
       if (!a.skip) { pay('dust', 200); pay('gems', 3); pay('seed_carrot', 4); }
       break;
     }
-    case 'job': {   // give a Mind a job (jobs.js); rest frees its slot
-      const id = Number(a.mind);
-      if (!Number.isInteger(id) || id < 0 || id > 3333 || !JOBS[a.job]) return { error: 'unknown job' };
-      st.jobs ||= {};
-      if (a.job === 'rest') { delete st.jobs[id]; done = 1; break; }
-      if (!st.jobs[id] && Object.keys(st.jobs).length >= jobSlots(minds)) return { error: `All ${jobSlots(minds)} work slots are in use. Own more Minds for more slots, or rest one.` };
-      st.jobs[id] = { job: a.job, at: now, ...(CROPS[a.crop] ? { crop: a.crop } : {}) };
-      done = 1;
-      break;
-    }
+    case 'job': return { error: 'Mind jobs are gone: give this Mind its own Hello Minds AI in 🧠 AI Minds.' };
     case 'well': {   // collect the shards the Energy Well has made
       const n = wellShards(st, now);
       if (n < 1) return { error: `The well is still filling: 1 ⚡ shard every 4 hours.` };

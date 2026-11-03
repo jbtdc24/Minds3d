@@ -57,7 +57,7 @@ const M = [
 ];
 const only = process.argv[2];
 rmSync(TMP, { recursive: true, force: true }); mkdirSync(TMP);
-for (const d of ['lib', 'api', 'web/src', 'tools', 'supabase']) cpSync(d, `${TMP}/${d}`, { recursive: true, filter: f => !f.includes('assets') });
+for (const d of ['lib', 'api', 'web/src', 'web/vendor', 'tools', 'supabase']) cpSync(d, `${TMP}/${d}`, { recursive: true, filter: f => !f.includes('assets') });
 cpSync('package.json', `${TMP}/package.json`); cpSync('vercel.json', `${TMP}/vercel.json`); for (const f of ['terms.html', 'privacy.html', 'index.html']) cpSync(`web/${f}`, `${TMP}/web/${f}`);
 const run = () => { const r = spawnSync('node', ['tools/test_server.mjs'], { cwd: TMP, encoding: 'utf8', timeout: 60000 }); const m = /(\d+) passed, (\d+) failed/.exec(r.stdout || ''); return { fails: m ? +m[2] : -1, crashed: !m, first: (r.stdout || '').split('\n').find(l => l.startsWith('FAIL')) || (r.stderr || '').split('\n').find(l => /Error/.test(l)) || '' }; };
 const base = run();

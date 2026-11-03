@@ -1144,3 +1144,6 @@ h3.raid-result { text-align: center; }
 .md-cogwarn b { font-size: 15px; } .md-cogwarn span { font-size: 12px; }
 #md-cog.low { color: #d62839; font-weight: 900; }
 .md-add { border: 0; background: var(--lime); font: 900 11px var(--font); padding: 0 5px; cursor: pointer; box-shadow: 0 0 0 1px var(--ink); }
+/* the folded dock is only its bubble (no empty frame around it) */
+.mdock.px { box-shadow: none; background: none; }
+.mdock.min, .mdock.fight { width: auto; }
