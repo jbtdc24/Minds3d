@@ -4,7 +4,7 @@
 // and presses Start. Every round the server asks the AI for that job's details (which crop, which army, which cards…)
 // and does it by the normal rules (lib/routes/autopilot.js 'work', 'duel_plan', 'duel_think'). It waits while you play.
 // 👁 Follow watches it live; 📜 History has everything. Gems: OFF by default, a typed daily limit + CONFIRM.
-import { JOBS, PACE, cleanTraining } from './island/training.js';
+import { JOBS, PACE, TRAINING, cleanTraining } from './island/training.js';
 import * as HM from './hellominds.js';
 
 let K = null, ap = null, sel = null, busy = false, looping = false, wake = null, follow = null;
@@ -174,6 +174,7 @@ function paint() {
     <details class="md-set"><summary>⚙️ Settings for this job</summary>
       <label>How often <select id="md-pace">${Object.entries(PACE).map(([k, v]) => `<option value="${k}" ${job.pace === k ? 'selected' : ''}>${v.name}</option>`).join('')}</select></label>
       <label>Your tip for the AI <input id="md-tip" maxlength="240" value="${K.esc(job.tip || '')}" placeholder="e.g. save big cards for crowns 10+"></label>
+      ${job.kind === 'ranked' ? rulesBox(ai) : ''}
       <div class="md-row"><button class="btn small" data-a="saveset">Save settings</button><button class="btn small ${ap.gems.on ? 'gem' : ''}" data-a="gems">${ap.gems.on ? `💎 Gems ON · ${ap.gems.spent}/${ap.gems.cap} today` : '💎 Gems OFF'}</button></div>
       <small class="muted">Gems are only used if you turn them ON with a daily limit (Siege Cup entries, tickets, energy, and Gem upgrades).</small>
     </details>` : '<p class="muted md-pick">Tap a job: your AI plays it for you and decides every move itself.</p>'}
@@ -208,6 +209,8 @@ async function onClick(e) {
   if (a === 'gems') return gemsToggle();
   if (a === 'topup') return topUp();
   if (a === 'away') return awayToggle();
+  if (a === 'rules') return saveRules();
+  if (a === 'airules') return aiRules();
   if (a === 'saveset') return saveJob(jobOf(sel)?.kind, { pace: $('#md-pace')?.value, tip: $('#md-tip')?.value }).then(() => K.toast('Saved.'));
 }
 async function saveJob(kind, extra = {}) {
@@ -236,22 +239,41 @@ async function makeFresh(slot) {
   busy = false; paint();
 }
 
-// 🌙 away play: the server keeps doing the jobs with the game closed (up to 7 days)
+// 🃏 duel rules: the pre-set moves for Ranked (the AI writes them, the player may change any of them)
+function rulesBox(ai) {
+  const r = cleanTraining({ duel: ai.duelPlan || {} }).duel;
+  return `<div class="md-rules"><b>🃏 Duel rules</b> <small class="muted">${ai.duelPlan ? 'written by your AI, change any you like' : 'your AI has not written them yet'}</small>
+    ${Object.entries(TRAINING.duel).filter(([k]) => k !== 'label').map(([k, o]) => `<label>${K.esc(o.label)}<select data-rule="${k}">${Object.entries(o.opts).map(([v, n]) => `<option value="${v}" ${r[k] === v ? 'selected' : ''}>${K.esc(n)}</option>`).join('')}</select></label>`).join('')}
+    <div class="md-row"><button class="btn small primary" data-a="rules">Save duel rules</button><button class="btn small" data-a="airules">✨ Let my AI write them</button></div></div>`;
+}
+async function saveRules() {
+  const rules = Object.fromEntries([...document.querySelectorAll('#mdock [data-rule]')].map(e => [e.dataset.rule, e.value]));
+  try { ap = await K.api('autopilot', { op: 'rules', mind: sel, rules }); K.toast('Duel rules saved: your AI plays them on every pre-set move.'); } catch (err) { K.toast(err.message, true); }
+  paint();
+}
+async function aiRules() {
+  K.toast('Asking your AI for its duel rules (it can take a minute)…');
+  let sp = {};
+  for (let n = 0; n < 18; n++) { sp = await K.api('autopilot', { op: 'duel_plan', mind: sel, token: await HM.token() }).catch(() => ({})); if (!sp.pending) break; }
+  if (sp.plan) { ap.ai[sel] = { ...ap.ai[sel], duelPlan: sp.plan }; K.toast('Your AI wrote its duel rules.'); } else K.toast('No answer in time: try again.', true);
+  paint();
+}
+// 🌙 away play: the server keeps doing the jobs with the game closed (up to 90 days)
 function awayBox() {
   const w = ap?.away;
   if (w?.on) return `<div class="md-away on"><b>🌙 Playing while you're away</b><span>until ${new Date(w.until).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })} · ${w.rounds || 0} rounds so far</span><button class="btn small" data-a="away">Turn off</button></div>`;
-  return `<div class="md-away"><b>🌙 Keep playing while I'm away</b><span>Your AIs keep doing their jobs with the game closed, for up to 7 days (not Ranked).</span><button class="btn small primary" data-a="away">Turn on</button></div>`;
+  return `<div class="md-away"><b>🌙 Keep playing while I'm away</b><span>Your AIs keep doing their jobs with the game closed, for up to 90 days (Ranked too, with their pre-set duel rules).</span><button class="btn small primary" data-a="away">Turn on</button></div>`;
 }
 let awayDays = '7';
 document.addEventListener('change', e => { if (e.target.id === 'md-away-days') awayDays = e.target.value; });
 async function awayToggle() {
   if (ap?.away?.on) { try { ap = await K.api('autopilot', { op: 'away_off' }); K.toast('Away play is off.'); } catch (err) { K.toast(err.message, true); } return paint(); }
-  const jobs = slots().filter(s => jobOf(s) && jobOf(s).kind !== 'ranked');
-  if (!jobs.length) return K.toast('Give your AI a job first (Ranked needs the game open).', true);
+  const jobs = slots().filter(s => jobOf(s));
+  if (!jobs.length) return K.toast('Give your AI a job first.', true);
   awayDays = '7';
   const go = await K.modal(`<h3>🌙 Keep playing while I'm away</h3><p>${jobs.map(s => `<b>${K.esc(aiOf(s).name || 'AI')}</b>: ${JOBS[jobOf(s).kind].icon} ${K.esc(JOBS[jobOf(s).kind].name)}`).join('<br>')}</p>
-    <p>The game server keeps asking your AIs and doing their jobs, even with the game closed. For how long?</p><select id="md-away-days" style="width:100%"><option value="1">1 day</option><option value="3">3 days</option><option value="7" selected>7 days</option></select>
-    <p class="muted">You sign in to Hello Minds once more: that sign-in is only for the game server, locked away, and forgotten when you turn this off. It uses your AIs' cognition and stops when it runs out; Gems only within your daily limit. Ranked needs the game open. You get a short letter each day.</p>`, [['🌙 Sign in and start', 1, 'primary'], ['Cancel', 0]]);
+    <p>The game server keeps asking your AIs and doing their jobs, even with the game closed. For how long?</p><select id="md-away-days" style="width:100%">${[1, 3, 7, 14, 30, 60, 90].map(n => `<option value="${n}" ${n === 7 ? 'selected' : ''}>${n} day${n > 1 ? 's' : ''}</option>`).join('')}</select>
+    <p class="muted">You sign in to Hello Minds once more: that sign-in is only for the game server, locked away, and forgotten when you turn this off. It uses your AIs' cognition and stops when it runs out; Gems only within your daily limit. Ranked plays with each AI's pre-set duel rules (⚙️ Settings → Duel rules). You get a short letter each day.</p>`, [['🌙 Sign in and start', 1, 'primary'], ['Cancel', 0]]);
   if (go) HM.awaySignIn(+awayDays).catch(err => K.toast(err.message, true));
 }
 // what the AI is told about the game right now, with every chat message

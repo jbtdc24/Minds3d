@@ -7,7 +7,7 @@ const TMP = '.mutants';
 const M = [
   ['build timer skip', 'web/src/island/rules.js', "      if (b.done) return { error: 'Finish building it before you store it.' };\n", ''],
   ['AI spends Gems on decorations', 'lib/routes/agent.js', " || (a?.type === 'build' && BUILD[a.item]?.cost?.gems)", ''],
-  ['raid snapshot in island data', 'lib/routes/island.js', 'const { raid: _secret, ...shown } = st;', 'const shown = st;'],
+  ['raid snapshot in island data', 'lib/routes/island.js', 'const { raid: _secret, aiAuth: _auth, ...shown } = st;', 'const shown = st;'],
   ['traps sent to the raider', 'lib/routes/raid.js', 'snap: publicSnap(raid.snap), loot:', 'snap: raid.snap, loot:'],
   ['traps sent in the cup', 'lib/routes/cup.js', 'snap: publicSnap(village(cup, mine.tries))', 'snap: village(cup, mine.tries)'],
   ['one cup try scored twice', 'lib/routes/cup.js', "    if (!open.length) fail(400, 'That try has ended.');\n", ''],

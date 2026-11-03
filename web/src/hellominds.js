@@ -13,7 +13,7 @@ const hm = () => (oauth ||= new MindsOAuth({ clientId: CLIENT_ID, redirectUri: `
 // 🌙 away play gets its OWN sign-in: kept in memory only, then handed to the server (so the browser's login stays as it is)
 class MemStore extends TokenStore { constructor() { super(); this.v = null; } get() { return this.v; } set(v) { this.v = v; } clear() { this.v = null; } }
 const awayAuth = () => new MindsOAuth({ clientId: CLIENT_ID, redirectUri: `${location.origin}/`, scopes: SCOPES, storage: new MemStore() });
-export const awaySignIn = days => awayAuth().signIn({ state: { away: Math.max(1, Math.min(7, days | 0 || 7)) } });
+export const awaySignIn = days => awayAuth().signIn({ state: { away: Math.max(1, Math.min(90, days | 0 || 7)) } });
 export const connected = () => { try { return !!hm().tokens; } catch { return false; } };
 export const signIn = () => hm().signIn();
 export const signOut = () => hm().signOut().catch(() => {});
