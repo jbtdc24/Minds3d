@@ -2,10 +2,12 @@
 // you while the game is open: farming, adventures, raids, ranked duels, Mind Town. It plays through /api/autopilot,
 // so every rule a human has applies. It pauses while you play something yourself, and stops with one tap.
 // Gems: OFF by default; turning them on takes two warnings, a daily limit and typing CONFIRM.
+// The Mind is the player's own AI Mind on Hello Minds (hellominds.js): no Hello Minds, no Autopilot.
 import { PRESETS, STEPS, parsePlan, planText, cleanPlan } from './island/autoplay.js';
 import { Bot } from './duel/bot.js';
+import * as HM from './hellominds.js';
 
-let K = null, ap = null, running = false, stepAt = 0, wake = null, lastDuelMind = 0;
+let K = null, ap = null, running = false, stepAt = 0, wake = null, lastDuelMind = 0, hmMinds = null, hmBusy = false;
 const $ = s => document.querySelector(s);
 const RUN_KEY = 'mc_autopilot_on';
 const sleep = ms => new Promise(res => { const t = setTimeout(res, ms); wake = () => { clearTimeout(t); res(); }; });
@@ -23,6 +25,8 @@ export function initAutopilot(ctx) {
   $('#mp-send').onclick = talk;
   $('#mp-in').addEventListener('keydown', e => { if (e.key === 'Enter') talk(); });
   $('#mp-gems').onclick = gemsToggle;
+  $('#mp-hm').onclick = onHm;
+  $('#mp-hm').onchange = e => { if (e.target.id === 'mp-hm-pick') { HM.pick(e.target.value); paintHm(); say(`${mindLabel()} will play for you now.`); } };
   $('#mp-fold').onclick = () => { $('#mindp').classList.toggle('folded'); try { localStorage.setItem('mc_mp_fold', $('#mindp').classList.contains('folded') ? '1' : ''); } catch { /* private mode */ } };
   try { if (localStorage.getItem('mc_mp_fold')) $('#mindp').classList.add('folded'); } catch { /* private mode */ }
 }
@@ -33,7 +37,9 @@ export async function openAutopilot() {
   box.classList.toggle('locked', !can);
   $('#mp-name').textContent = K.mindName();
   $('#mp-pfp').src = K.pfp();
-  if (!can) { $('#mp-plan').textContent = K.online() ? 'Connect a wallet and your Mind can play for you.' : 'Autopilot needs the game server.'; return; }
+  if (!can) { $('#mp-plan').textContent = K.online() ? 'Connect a wallet and your Mind can play for you.' : 'Autopilot needs the game server.'; $('#mp-hm').innerHTML = ''; return; }
+  await loadHm();
+  if (!HM.connected() || !HM.picked()) { if (running) stop(); return; }
   if (!ap) {
     try { ap = await K.api('autopilot', { op: 'get' }); } catch { ap = null; }
     if (ap && !$('#mp-chat').children.length) say(ap.steps.length ? `Hi! My plan: ${planText(ap.steps)}. Press ▶ Start and I play for you.` : 'Hi! Pick a plan below, or tell me what to do, like "farm, then raid, then town for 1 hour".');
@@ -56,18 +62,62 @@ async function choose(steps, preset = null, loop = true) {
   try { ap = await K.api('autopilot', { op: 'save', steps: cleanPlan(steps), preset, loop }); K.sfx('select'); paint(); say(`Okay! ${preset ? PRESETS[preset].name + ': ' : ''}${planText(ap.steps)}.${running ? ' I switch to it now.' : ' Press ▶ Start.'}`); stepAt = 0; }
   catch (e) { K.toast(e.message, true); }
 }
-// the chat box: a message becomes a plan (real Minds AI talk plugs in here once Minds Connect is set up)
+// ---- Hello Minds: connect, pick or awaken the AI Mind that plays ----
+const mindLabel = () => hmMinds?.find(m => m.mindId === HM.picked())?.name || 'Your Mind';
+async function loadHm() {
+  if (HM.connected() && !hmMinds) { try { hmMinds = await HM.listMinds(); } catch (e) { hmMinds = null; K.toast(`Hello Minds: ${e.message}`, true); } }
+  if (hmMinds?.length && !hmMinds.some(m => m.mindId === HM.picked())) HM.pick(hmMinds[0].mindId);
+  paintHm();
+}
+function paintHm() {
+  const box = $('#mp-hm'), on = HM.connected(), id = HM.picked();
+  $('#mindp').classList.toggle('locked', !on || !id);
+  if (!on) {
+    box.innerHTML = '<p>Your Mind is a real AI from <b>Hello Minds</b>. Connect your Hello Minds account (or make one, it takes a minute) and it plays MINDS CLASH for you.</p><button class="btn primary wide" data-hm="connect">🧠 Connect Hello Minds</button>';
+    $('#mp-plan').textContent = 'Connect Hello Minds to start.'; return;
+  }
+  if (!hmMinds) { box.innerHTML = '<p class="muted">Loading your Hello Minds…</p>'; return; }
+  if (!hmMinds.length) {
+    box.innerHTML = `<p>You have no AI Mind on Hello Minds yet. Awaken one and it plays for you.</p><button class="btn primary wide" data-hm="awaken" ${hmBusy ? 'disabled' : ''}>${hmBusy ? 'Awakening…' : '✨ Awaken my Mind'}</button><button class="btn small" data-hm="out">Disconnect</button>`;
+    $('#mp-plan').textContent = 'Awaken your Mind to start.'; return;
+  }
+  $('#mp-name').textContent = mindLabel();
+  box.innerHTML = `<div class="mp-hm-row"><select id="mp-hm-pick">${hmMinds.map(m => `<option value="${K.esc(m.mindId)}" ${m.mindId === id ? 'selected' : ''}>${K.esc(m.name || 'Mind')}</option>`).join('')}</select><span class="mp-cog" id="mp-cog"></span><button class="btn small" data-hm="awaken" ${hmBusy ? 'disabled' : ''} title="Awaken another AI Mind">＋</button><button class="btn small" data-hm="out" title="Disconnect Hello Minds">⏏</button></div>`;
+  HM.balance(id).then(c => { const el = $('#mp-cog'); if (el && c != null) el.textContent = `🧠 ${Math.round(c).toLocaleString()} cognition`; });
+}
+async function onHm(e) {
+  const what = e.target.closest('[data-hm]')?.dataset.hm; if (!what) return;
+  if (what === 'connect') { K.sfx('click'); return HM.signIn().catch(err => K.toast(err.message, true)); }
+  if (what === 'out') { if (running) stop(); await HM.signOut(); hmMinds = null; paintHm(); return K.toast('Hello Minds disconnected.'); }
+  if (what === 'awaken') {
+    if (hmBusy) return;
+    if (!(await K.modal(`<h3>✨ Awaken a Mind</h3><p>This makes a new AI Mind on <b>your</b> Hello Minds account, named <b>Clash-${K.mindId()}</b>. It uses your own cognition when it thinks.</p>`, [['Awaken', 1, 'primary'], ['Cancel', 0]]))) return;
+    hmBusy = true; paintHm();
+    try { const m = await HM.awaken(`Clash-${K.mindId()}`); hmMinds = [...(hmMinds || []), m]; HM.pick(m.mindId); K.sfx('levelup'); K.toast(`${m.name || 'Your Mind'} is awake!`); }
+    catch (err) { K.toast(`Hello Minds: ${err.message}`, true); }
+    hmBusy = false; openAutopilot();
+  }
+}
+// the chat box: the player's own Hello Minds AI answers, and its PLAN line becomes the plan
 async function talk() {
   const box = $('#mp-in'), text = box.value.trim(); if (!text) return;
+  if (!HM.connected() || !HM.picked()) return K.toast('Connect Hello Minds first.', true);
   box.value = ''; say(text, 'me');
-  const r = parsePlan(text);
+  if (/^\s*(stop|pause|halt)\b/i.test(text)) return stop('Okay, I stop. 💤');
+  $('#mp-send').disabled = true; $('#mp-now').textContent = '🧠 thinking…';
+  let reply = null;
+  try { reply = await HM.ask(HM.picked(), text); } catch (e) { $('#mp-send').disabled = false; $('#mp-now').textContent = ''; return say(`(Hello Minds: ${e.message})`); }
+  $('#mp-send').disabled = false; $('#mp-now').textContent = '';
+  if (reply == null) return say('(I took too long to think. Try again.)');
+  const { say: words, plan } = HM.splitReply(reply);
+  if (words) say(words);
+  const r = parsePlan(plan || '');
   K.babble(K.mindId(), r.talk ? 'chat' : 'happy');
   if (r.stop) return stop('Okay, I stop. 💤');
   if (r.steps) return choose(r.steps, r.preset || null, r.loop);
-  if (/\b(status|doing|what|how)\b/i.test(text)) return say(running ? `I'm playing: ${planText(ap.steps)}. Step ${stepAt + 1} of ${ap.steps.length}.` : 'I\'m resting. Press ▶ Start and I play for you!');
-  say('Hmm? Tell me what to do: farm, sell, raid, adventure, duel 3 times, town for 1 hour, decorate… Say "then" between steps.');
 }
 function start(resume) {
+  if (!HM.connected() || !HM.picked()) return K.toast('Connect Hello Minds first.', true);
   if (!ap?.steps.length) return K.toast('Pick a plan first.', true);
   running = true; try { localStorage.setItem(RUN_KEY, '1'); } catch { /* private mode */ }
   paint(); if (!resume) { K.sfx('levelup'); say('Let\'s go! I\'ll play while the game is open. Leave the lobby open (even in the background).'); }

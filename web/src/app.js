@@ -15,6 +15,7 @@ import { initAutopilot, openAutopilot } from './autopilot.js';
 import { initTrade, openTrade, giftTo } from './trade.js';
 import { capOf, ENERGY_CAP } from './energy.js';
 import { loading } from './loader.js';
+import * as HM from './hellominds.js';
 import { wear, nameLook, frameCls, nameCls, titleTag, BACK_IMG, FRAME_CLASS, AURA_CLASS, SKY_IMG, NAME_CLASS, TRAIL_ICON } from './cosmetics.js';
 import { openIsland, closeIsland, refreshHud, cropImg, fmtTime, restore } from './island/island.js';
 import { chibi } from './island/chibi.js';
@@ -261,7 +262,13 @@ async function afterLogin(out) {
   }
   if (out.isNew && !guest) return openSetup();
   enterHub();
-  if (!guest && online) refreshEnergy();
+  if (!guest && online) { refreshEnergy(); askHelloMinds(); }
+}
+// after a wallet login: your Mind AI is your own Hello Minds Mind (it plays for you only when connected)
+async function askHelloMinds() {
+  if (HM.connected()) return;
+  const go = await modal(`<h3>🧠 Connect Hello Minds</h3><p>Your Mind in MINDS CLASH is a <b>real AI</b>: your own Mind on <b>Hello Minds</b>. Connect your account (or make one, it takes a minute) and it can farm, raid, duel and explore for you.</p><p class="muted">It uses your own Hello Minds account and cognition.</p>`, [['Connect Hello Minds', 1, 'primary'], ['Later', 0]]);
+  if (go) HM.signIn().catch(e => toast(e.message, true));
 }
 async function startGuest() {
   try { afterLogin(await guestLogin()); }
@@ -1817,6 +1824,7 @@ function tapToStart() {
   });
 }
 (async () => {
+  const hmBack = HM.finish();   // back from the Hello Minds sign-in: finish it before anything else reads the address
   bootBar(10);
   preload(['lobby', ...BATTLE_STAGES]);
   const [, isOnline] = await Promise.all([loadData(), serverOnline()]);
@@ -1828,6 +1836,8 @@ function tapToStart() {
   bootBar(100);
   music('lofi');
   await tapToStart();
+  const hmRes = await hmBack;
+  if (hmRes) setTimeout(() => (hmRes === 'ok' ? toast('🧠 Hello Minds connected! Your Mind is ready.') : toast(`Hello Minds: ${hmRes}`, true)), 600);
   if (online && session.token) {
     const cached = loadAccount();
     if (cached) {

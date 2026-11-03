@@ -1031,6 +1031,10 @@ h3.raid-result { text-align: center; }
 .mp-log { list-style: none; margin: 0; padding: 0; font-size: 12px; display: grid; gap: 3px; max-height: 160px; overflow-y: auto; }
 .mp-log time { color: var(--muted); margin-right: 6px; font-weight: 800; }
 .col-mind.locked .mp-row, .col-mind.locked .mp-presets, .col-mind.locked .fr-add, .col-mind.locked .label, .col-mind.locked .mp-chat, .col-mind.locked .mp-log { display: none; }
+.mp-hm { display: grid; gap: 6px; padding: 6px 8px 0; font-size: 12px; } .mp-hm:empty { display: none; } .mp-hm p { margin: 0; }
+.mp-hm-row { display: flex; gap: 4px; align-items: center; } .mp-hm-row select { flex: 1; min-width: 0; font: 800 12px var(--font); padding: 3px; }
+.mp-cog { font-size: 11px; white-space: nowrap; }
+.col-mind.folded .mp-hm { display: none; }
 @media (max-width: 900px) { .col-mind, #s-hub.board-closed .col-mind { width: auto; margin: 0; max-height: none; overflow: visible; } }
 /* 🤝 trade drawer */
 #trade { z-index: 55; overflow-y: auto; } .tr-ico { font-size: 30px; }
