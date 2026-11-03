@@ -1,0 +1,13 @@
+# 🌙 Away play: every 5 minutes, ask the game to run the AI rounds that are due (lib/routes/cron_ai.js).
+# The endpoint needs no secret (it only runs work that is already due, at most twice a minute).
+name: ai-tick
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch: {}
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: curl -fsS -m 70 https://minds3d.vercel.app/api/cron/ai-tick || true

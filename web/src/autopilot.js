@@ -170,6 +170,7 @@ function paint() {
     <div class="md-jobs">${Object.entries(JOBS).map(([k, j]) => `<button class="md-job ${job?.kind === k ? 'on' : ''}" data-job="${k}" title="${K.esc(j.say)}"><i>${j.icon}</i><span>${K.esc(j.name)}</span></button>`).join('')}</div>
     ${job ? `<div class="md-status ${on ? 'run' : ''}"><b>${JOBS[job.kind].icon} ${K.esc(JOBS[job.kind].name)}</b><span class="md-now">${K.esc(status)}</span>${(l.think || ai.last?.why) ? `<small class="md-think">💭 ${K.esc(l.think || ai.last.why)}</small>` : ''}</div>
     <div class="md-row"><button class="btn ${on ? 'red' : 'primary'}" data-a="go">${on ? '⏸ Stop' : '▶ Start'}</button><button class="btn small" data-a="follow">👁 Follow</button><button class="btn small" data-a="history">📜 History</button></div>
+    ${awayBox()}
     <details class="md-set"><summary>⚙️ Settings for this job</summary>
       <label>How often <select id="md-pace">${Object.entries(PACE).map(([k, v]) => `<option value="${k}" ${job.pace === k ? 'selected' : ''}>${v.name}</option>`).join('')}</select></label>
       <label>Your tip for the AI <input id="md-tip" maxlength="240" value="${K.esc(job.tip || '')}" placeholder="e.g. save big cards for crowns 10+"></label>
@@ -206,6 +207,7 @@ async function onClick(e) {
   if (a === 'history') return openHistory();
   if (a === 'gems') return gemsToggle();
   if (a === 'topup') return topUp();
+  if (a === 'away') return awayToggle();
   if (a === 'saveset') return saveJob(jobOf(sel)?.kind, { pace: $('#md-pace')?.value, tip: $('#md-tip')?.value }).then(() => K.toast('Saved.'));
 }
 async function saveJob(kind, extra = {}) {
@@ -234,6 +236,24 @@ async function makeFresh(slot) {
   busy = false; paint();
 }
 
+// 🌙 away play: the server keeps doing the jobs with the game closed (up to 7 days)
+function awayBox() {
+  const w = ap?.away;
+  if (w?.on) return `<div class="md-away on"><b>🌙 Playing while you're away</b><span>until ${new Date(w.until).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })} · ${w.rounds || 0} rounds so far</span><button class="btn small" data-a="away">Turn off</button></div>`;
+  return `<div class="md-away"><b>🌙 Keep playing while I'm away</b><span>Your AIs keep doing their jobs with the game closed, for up to 7 days (not Ranked).</span><button class="btn small primary" data-a="away">Turn on</button></div>`;
+}
+let awayDays = '7';
+document.addEventListener('change', e => { if (e.target.id === 'md-away-days') awayDays = e.target.value; });
+async function awayToggle() {
+  if (ap?.away?.on) { try { ap = await K.api('autopilot', { op: 'away_off' }); K.toast('Away play is off.'); } catch (err) { K.toast(err.message, true); } return paint(); }
+  const jobs = slots().filter(s => jobOf(s) && jobOf(s).kind !== 'ranked');
+  if (!jobs.length) return K.toast('Give your AI a job first (Ranked needs the game open).', true);
+  awayDays = '7';
+  const go = await K.modal(`<h3>🌙 Keep playing while I'm away</h3><p>${jobs.map(s => `<b>${K.esc(aiOf(s).name || 'AI')}</b>: ${JOBS[jobOf(s).kind].icon} ${K.esc(JOBS[jobOf(s).kind].name)}`).join('<br>')}</p>
+    <p>The game server keeps asking your AIs and doing their jobs, even with the game closed. For how long?</p><select id="md-away-days" style="width:100%"><option value="1">1 day</option><option value="3">3 days</option><option value="7" selected>7 days</option></select>
+    <p class="muted">You sign in to Hello Minds once more: that sign-in is only for the game server, locked away, and forgotten when you turn this off. It uses your AIs' cognition and stops when it runs out; Gems only within your daily limit. Ranked needs the game open. You get a short letter each day.</p>`, [['🌙 Sign in and start', 1, 'primary'], ['Cancel', 0]]);
+  if (go) HM.awaySignIn(+awayDays).catch(err => K.toast(err.message, true));
+}
 // what the AI is told about the game right now, with every chat message
 function gameState(slot) {
   const st = K.island?.() || null, ai = aiOf(slot), job = jobOf(slot), lines = (ap?.log || []).filter(x => x.mind === slot).slice(0, 5).map(x => x.text);

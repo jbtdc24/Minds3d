@@ -1905,7 +1905,13 @@ function tapToStart() {
   music('lofi');
   await tapToStart();
   const hmRes = await hmBack;
-  if (hmRes) setTimeout(() => (hmRes === 'ok' ? toast('🧠 Hello Minds connected! Your Mind is ready.') : toast(`Hello Minds: ${hmRes}`, true)), 600);
+  if (hmRes?.away) setTimeout(async () => {   // 🌙 back from the away sign-in: hand it to the server for the Minds that have a job
+    try {
+      const r = await api('autopilot', { op: 'away_on', slots: (myMinds.length ? myMinds.map(String) : ['0']), refreshToken: hmRes.away.refreshToken, accessToken: hmRes.away.accessToken, expiresIn: hmRes.away.expiresIn, days: hmRes.away.days });
+      toast(`🌙 Your AIs keep playing until ${new Date(r.away.until).toLocaleDateString()}, even with the game closed.`); openAutopilot();
+    } catch (e) { toast(`Away play: ${e.message}`, true); }
+  }, 2500);
+  else if (hmRes) setTimeout(() => (hmRes === 'ok' ? toast('🧠 Hello Minds connected! Your Mind is ready.') : toast(`Hello Minds: ${hmRes}`, true)), 600);
   if (online && session.token) {
     const cached = loadAccount();
     if (cached) {

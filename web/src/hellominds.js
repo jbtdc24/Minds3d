@@ -1,7 +1,7 @@
 // Hello Minds (Minds Connect): the player signs in to their own Hello Minds account (or makes one there), and their
 // own AI Mind talks and plans for them. It uses their account and their cognition, never ours.
 // Sign-in leaves for Hello Minds and comes back to this page in the same tab with ?code=…&state=… (see finish()).
-import { MindsOAuth, MindsScope } from '../vendor/minds-connect.js';
+import { MindsOAuth, MindsScope, TokenStore } from '../vendor/minds-connect.js';
 
 export const CLIENT_ID = 'dcae7792-2a81-416b-aa96-0137b29191d7';   // public, no secret
 const SCOPES = [MindsScope.MindsList, MindsScope.MindsStatus, MindsScope.MindsCognition, MindsScope.MindsAwaken,
@@ -10,6 +10,10 @@ const PICK_KEY = 'mc_hm_mind';
 let oauth = null;
 const hm = () => (oauth ||= new MindsOAuth({ clientId: CLIENT_ID, redirectUri: `${location.origin}/`, scopes: SCOPES }));
 
+// 🌙 away play gets its OWN sign-in: kept in memory only, then handed to the server (so the browser's login stays as it is)
+class MemStore extends TokenStore { constructor() { super(); this.v = null; } get() { return this.v; } set(v) { this.v = v; } clear() { this.v = null; } }
+const awayAuth = () => new MindsOAuth({ clientId: CLIENT_ID, redirectUri: `${location.origin}/`, scopes: SCOPES, storage: new MemStore() });
+export const awaySignIn = days => awayAuth().signIn({ state: { away: Math.max(1, Math.min(7, days | 0 || 7)) } });
 export const connected = () => { try { return !!hm().tokens; } catch { return false; } };
 export const signIn = () => hm().signIn();
 export const signOut = () => hm().signOut().catch(() => {});
@@ -21,7 +25,11 @@ export const token = () => hm().getAccessToken().catch(() => null);
 export async function finish() {
   const q = new URLSearchParams(location.search);
   if (!q.has('state') || !(q.has('code') || q.has('error'))) return null;
-  try { await hm().handleRedirect(); return 'ok'; }
+  let st = {}; try { st = JSON.parse(q.get('state') || '{}') || {}; } catch { /* not ours */ }
+  try {
+    if (st.away) { const r = await awayAuth().handleRedirect(); return { away: { ...r.tokens, days: st.away } }; }   // the away sign-in: for the server only
+    await hm().handleRedirect(); return 'ok';
+  }
   catch (e) { return e.errorDescription || e.error || e.message || 'Hello Minds sign-in failed.'; }
   finally { for (const k of ['code', 'state', 'error', 'error_description']) q.delete(k); history.replaceState(null, '', location.pathname + (q.toString() ? `?${q}` : '')); }
 }

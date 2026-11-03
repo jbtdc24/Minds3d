@@ -1601,6 +1601,28 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
       ok((await hit(autopilot, M, { op: 'job', mind: 0, kind: 'nope' })).body.ai['0'].job.kind === 'farm', 'unknown jobs fall back to farming');
       fake.reply = null; await hit(autopilot, M, { op: 'job', mind: 0, kind: 'raid' });
       ok((await hit(autopilot, M, { op: 'work', mind: 0, round: 5, token: tok })).body.pending, 'a slow AI makes the job wait (short calls), it never plays for the AI'); }
+    { // 🌙 away play: the server keeps doing the jobs for up to 7 days, with its own sealed Hello Minds sign-in
+      const AW = await import('../lib/aiaway.js'), { awayTick } = await import('../lib/routes/autopilot.js');
+      ok(AW.unseal(AW.seal({ a: 1 })).a === 1 && AW.unseal('v1.bad.bad.bad') === null, 'the away sign-in is sealed (and a broken one is refused)');
+      await hit(autopilot, M, { op: 'job', mind: 0, kind: 'clean', pace: 'fast' });
+      ok((await hit(autopilot, M, { op: 'away_on', mind: 0, refreshToken: 'r'.repeat(30), accessToken: 'tok-bad-0123456789abcdef', days: 7 })).code === 401, 'away play needs a real Hello Minds sign-in');
+      out = await hit(autopilot, M, { op: 'away_on', mind: 0, refreshToken: 'r'.repeat(30), accessToken: tok, expiresIn: 3600, days: 30 });
+      ok(out.code === 200 && out.body.away.on && out.body.away.until - Date.now() <= 7 * 864e5 + 1000, 'away play turns on, for at most 7 days');
+      ok(!JSON.stringify((await hit(await rt('island'), M, {})).body.island.state).includes('aiAuth'), 'the sealed sign-in is never sent to the browser');
+      isl(M).state.ap.ai['0'].liveAt = 0;
+      fake.reply = 'CLEAR: rocks COUNT: 3 WHY: stone'; const q0 = (isl(M).state.q || []).length;
+      await awayTick(M.id);
+      ok(isl(M).state.ap.ai['0'].q?.kind === 'away', 'tick 1: the question goes to the AI');
+      await awayTick(M.id);
+      ok(isl(M).state.ap.log[0].text.startsWith('🌙') && isl(M).state.ap.away.rounds === 1 && (isl(M).state.q || []).length >= q0, `tick 2: the answer is read and the job is done: ${isl(M).state.ap.log[0].text}`);
+      { const old = AW.unseal(isl(M).state.aiAuth); isl(M).state.aiAuth = AW.seal({ ...old, exp: Date.now() - 1 }); let sent = null;
+        AW.auth.fetch = async (u, o) => { sent = JSON.parse(o.body); return { ok: true, json: async () => ({ accessToken: 'tok-good-0123456789abcdef', refreshToken: 'n'.repeat(30), expiresIn: 3600 }) }; };
+        const t2 = await AW.accessFor(M.id, fn => { const st = isl(M).state; fn(st); return Promise.resolve(true); });
+        ok(t2 === 'tok-good-0123456789abcdef' && sent.grant_type === 'refresh_token' && AW.unseal(isl(M).state.aiAuth).refresh === 'n'.repeat(30), 'an expired away sign-in is renewed, and the new refresh token is kept'); }
+      isl(M).state.ap.away.until = Date.now() - 1; await awayTick(M.id);
+      ok(!isl(M).state.ap.away.on && T.mail.some(m => m.to_id === M.id && /away play/.test(m.title)), 'away play ends on time, with a letter');
+      out = await hit(autopilot, M, { op: 'away_off' });
+      ok(!out.body.away.on && !isl(M).state.aiAuth, 'turning it off forgets the sign-in'); }
   }
 
   const P = await mk('Racer');

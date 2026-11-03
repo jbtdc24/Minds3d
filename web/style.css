@@ -1204,3 +1204,5 @@ h3.raid-result { text-align: center; }
 .md-coach .md-chat { margin-top: 6px; } .md-pick { margin: 0; }
 .md-tab em.job { background: var(--lime); color: var(--ink); width: auto; padding: 0 2px; font-size: 12px; }
 @media (max-width: 420px) { .md-jobs { grid-template-columns: repeat(3, 1fr); } }
+.md-away { display: grid; gap: 3px; padding: 8px 10px; background: #2b2340; color: #fff; box-shadow: 0 0 0 2px var(--ink); } .md-away.on { background: linear-gradient(135deg, #2b2340, #4b3a8a); }
+.md-away span { font-size: 12px; opacity: .9; } .md-away .btn { justify-self: start; }
