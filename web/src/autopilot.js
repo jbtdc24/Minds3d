@@ -293,7 +293,14 @@ async function nextStep(slot, ai, l) {
   const planned = ai.steps[l.at % ai.steps.length];
   setNow(slot, `🧠 thinking about the next step (Hello Minds answers can take up to a minute)…`);
   let r = null;
-  try { r = await K.api('autopilot', { op: 'next', mind: slot, at: l.at, token: await HM.token() }); } catch (e) { if (e.status === 401 || e.status === 403) stop(slot, `⚠️ ${e.message}`); return planned; }
+  try {   // short calls until the AI has answered (Hello Minds can take a minute)
+    for (let n = 0; n < 15 && running.has(slot); n++) {
+      r = await K.api('autopilot', { op: 'next', mind: slot, at: l.at, token: await HM.token() });
+      if (!r.pending) break;
+      setNow(slot, `🧠 thinking about the next step… ${Math.round((r.waited || 0) / 1000)} s`);
+    }
+  } catch (e) { if (e.status === 401 || e.status === 403) stop(slot, `⚠️ ${e.message}`); return planned; }
+  if (!r || r.pending) return planned;
   if (r.cog != null) { l.cog = r.cog; l.cogAt = Date.now(); paintCog(); }
   if (r.out) { outOfCog(slot); return planned; }
   await missed(slot, r.ai);
@@ -361,7 +368,8 @@ async function duel(slot, i, n) {
     await log(slot, `⚡ refilled with ${r.pay === 'shard' ? 'shards' : r.pay === 'dust' ? 'Dust' : 'Gems'}`); K.refresh(); minds = [+slot];
   }
   setNow(slot, '🧠 writing its duel strategy…', 'duel');   // the AI's own rules for turns where its live answer is too slow
-  const sp = await K.api('autopilot', { op: 'duel_plan', mind: slot, token: await HM.token() }).catch(() => ({}));
+  let sp = {};
+  for (let n = 0; n < 15 && running.has(slot); n++) { sp = await K.api('autopilot', { op: 'duel_plan', mind: slot, token: await HM.token() }).catch(() => ({})); if (!sp.pending) break; }
   if (sp.out) { outOfCog(slot); return false; }
   if (sp.plan) think(slot, `My duel plan: ${Object.entries(sp.plan).map(([k, v]) => `${k} ${v}`).join(', ')}`);
   let q = await K.api('autopilot', { op: 'duel_join', mind: slot, mode: 'ranked', minds, ...(pass ? { pass: true } : {}) });
@@ -381,6 +389,7 @@ async function duel(slot, i, n) {
     if (!v.view.me.locked && v.view.crown) {   // the server asks the AI and plays its card (nobody else can)
       setNow(slot, `🧠 thinking about crown ${v.view.crown}…`, 'duel');
       const r = await K.api('autopilot', { op: 'duel_think', mind: slot, id, token: await HM.token() }).catch(e => ({ error: e }));
+      if (r.pending) { await sleep(300); continue; }   // still thinking: look again right away
       if (r.out) { outOfCog(slot); continue; }
       if (r.error) { if (r.error.status === 401 || r.error.status === 403) { stop(slot, `⚠️ ${r.error.message}`); continue; } }
       else if (r.think) {

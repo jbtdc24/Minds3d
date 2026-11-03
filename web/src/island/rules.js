@@ -69,6 +69,7 @@ export const wellOf = (st, w) => { const b = (st.b || []).find(x => x.type === '
 export const SHOP = {
   potion: { name: 'Health Potion', icon: '🧪', price: { dust: 40 }, gives: { potion: 1 }, desc: 'Heals your hero 120 HP on an adventure (bring up to 5)' },
   fuel: { name: 'Sky Fuel', icon: '⛽', price: { dust: 60 }, gives: { fuel: 1 }, desc: 'Fly to far areas on the world map' },
+  res_crate: { name: 'Builder Crate', icon: '📦', price: { dust: 4000 }, gives: { wood: 300, stone: 300 }, desc: '300 wood + 300 stone for big upgrades' },
   troop_brawler: { name: 'Brawler', icon: '🪓', price: { dust: 20 }, gives: { troop_brawler: 1 }, desc: 'Train a tough fighter for raids' },
   troop_archer: { name: 'Archer', icon: '🏹', price: { dust: 25 }, gives: { troop_archer: 1 }, desc: 'Train a ranged fighter for raids' },
   troop_bomber: { name: 'Bomber', icon: '💣', price: { dust: 60 }, gives: { troop_bomber: 1 }, desc: 'Train a wall-breaker for raids' },
@@ -119,8 +120,9 @@ const UP_MULT = [1.6, 2.6, 4, 6, 9, 13, 18, 25, 34], TH_DUST = [1500, 3000, 5500
 const UP_SECS = [300, 1200, 3600, 7200, 4 * 3600, 7 * 3600, 11 * 3600, 16 * 3600, 24 * 3600];
 export const upgradeCost = b => {
   const i = Math.min(UP_MULT.length, lvOf(b)) - 1;
-  if (b.type === 'home') return { dust: TH_DUST[i], wood: TH_DUST[i] / 20, stone: TH_DUST[i] / 20 };
-  return Object.fromEntries(Object.entries(BUILD[b.type].cost).map(([k, n]) => [k, Math.ceil(n * UP_MULT[i])]));
+  // wood and stone grow slower than Dust (they are harder to get): Town Hall = Dust / 40, others half from Lv5 on
+  if (b.type === 'home') return { dust: TH_DUST[i], wood: TH_DUST[i] / 40, stone: TH_DUST[i] / 40 };
+  return Object.fromEntries(Object.entries(BUILD[b.type].cost).map(([k, n]) => [k, Math.ceil(n * UP_MULT[i] * (k !== 'dust' && i >= 4 ? 0.5 : 1))]));
 };
 export const upgradeSecs = b => b.type === 'wall' ? 0 : Math.round(UP_SECS[Math.min(UP_SECS.length, lvOf(b)) - 1] * (b.type === 'home' ? 1.2 : 1));
 // what stops an upgrade: the Town Hall (for other buildings), or key buildings behind (for the Town Hall); null = fine
@@ -638,6 +640,10 @@ export function act(st, a, { seed, now, minds = 0, instant = false, queue = fals
       for (const [k, m] of Object.entries(price)) pay(k, -m);
       if (secs) { b.uplv = lvOf(b) + 1; b.done = now + secs * 1000; b.start = now; } else b.lv = lvOf(b) + 1;
       done = 1;
+      break;
+    }
+    case 'tos': {   // the player confirmed they are 18+ and accept the Terms and Privacy notice (kept with the time and version)
+      st.tos = { at: now, v: Number(a.v) | 0 || 1 }; done = 1;
       break;
     }
     case 'tutorial': {   // finished the island tour: a one-time welcome gift (skipping gives none)

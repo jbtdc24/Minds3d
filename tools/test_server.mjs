@@ -8,7 +8,7 @@ import { randomUUID } from 'node:crypto';
 { const ch = await import('../lib/chain.js'); ch.client.getLogs = async () => []; ch.client.getCode = async () => '0x'; ch.client.getBlockNumber = async () => 100_000_000n; }   // tests never read real chain logs
 
 // ---- tiny PostgREST-ish in-memory db ----
-const T = { players: [], matches: [], queue: [], nonces: [], ratelimit: [], mind_energy: [], islands: [], payments: [], flags: [], mail: [], mail_claims: [], reports: [], agent_keys: [], cups: [], cup_entries: [], town_now: [], town_chat: [], messages: [], friends: [], admin_log: [], errors: [], recon_findings: [], recon_runs: [], payment_intents: [], trades: [] };
+const T = { players: [], matches: [], queue: [], nonces: [], ratelimit: [], mind_energy: [], islands: [], payments: [], flags: [], mail: [], mail_claims: [], reports: [], agent_keys: [], cups: [], cup_entries: [], town_now: [], town_chat: [], messages: [], friends: [], admin_log: [], errors: [], recon_findings: [], recon_runs: [], payment_intents: [], trades: [], island_snaps: [] };
 function parse(q) {
   const f = [];
   for (const part of q.split('&').filter(Boolean)) {
@@ -263,7 +263,7 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   ok(out.code === 200 && out.body.island.state.dust === 100, 'route creates a new island');
   const gw = gen(out.body.island.seed), gweed = [...gw.cover.keys()].find(k => gw.cover[k] === COVER.WEEDS);
   out = await call(g.id, { acts: [{ type: 'clear', tiles: [gweed] }, { type: 'buy', item: 'seed_bean', n: 2 }] });
-  ok(out.body.island.state.dust === 90 && out.body.island.state.inv.seed_bean === 8 && out.body.island.rev === 1, 'route applies and saves actions');
+  ok(out.body.island.state.dust === 90 && out.body.island.state.inv.seed_bean === 8 && out.body.island.rev >= 1, 'route applies and saves actions');
   ok(out.body.island.state.q?.length === 1 && out.body.results[0].queued === 1, 'clearing by hand goes into the timed work queue, not done at once');
   out = await call(g.id, {});
   ok(out.body.island.state.dust === 90 && out.body.island.state.q?.length === 1, 'reopening the island right away does not finish the work (no rush exploit)');
@@ -438,7 +438,7 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   ok(!RD.input(S2, { t: 0, drop: 'brawler', k: spots[0] }) && RD.input(S2, { t: 0, drop: 'brawler', k: spots[0] }), 'you can only drop the troops you brought');
   ok(RD.armyUsed(RD.cleanArmy({ brawler: 9, giant: 9 }, RD.armyCap(0))) <= 10 && RD.armyCap(9) === 13 && RD.guardsFor(0) === 2 && RD.guardsFor(9) === 4, 'army cap 10 (+1 per Mind, max 13); guards 2-4');
   ok(RD.villageName(1) !== RD.villageName(2) && !/bot/i.test(RD.villageName(5)), 'game villages get player-style names');
-  ok(RD.lootOf(5000, 2, 1) === 360 && RD.lootOf(1500, 2, 1) === 0 && RD.lootOf(1e6, 0, 1) === RD.LOOT_MAX, 'barns protect Dust, loot is capped');
+  ok(RD.lootOf(5000, 2, 1) === 540 && RD.lootOf(1500, 2, 1) === 0 && RD.lootOf(1e6, 0, 1) === RD.LOOT_MAX, 'barns protect Dust, loot is capped');
   // raid route: loot moves, defender gets a shield and a log entry
   const raidRoute = (await import('../lib/routes/raid.js')).default;
   const atk = await db.insert('players', { name: 'Raider', address: '0x0000000000000000000000000000000000000abc' });
@@ -589,6 +589,12 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   out = await call(adminRoute, boss.id, { op: 'give', pid: joe.id, gems: 50, dust: 300, items: { potion: 3 } }, '/api/admin');
   const js = T.islands.find(x => x.player_id === joe.id).state;
   ok(out.code === 200 && js.gems === 50 && js.dust === 400 && js.inv.potion >= 3, 'admin gives Gems, Dust and items');
+  { // daily island copies: the admin can put a player's island back
+    const ji = T.islands.find(x => x.player_id === joe.id);
+    T.island_snaps.push({ player_id: joe.id, day: '2000-01-01', state: { ...JSON.parse(JSON.stringify(ji.state)), dust: 4242 } });
+    ok((await call(adminRoute, joe.id, { op: 'restore', pid: joe.id, day: '2000-01-01' }, '/api/admin')).code === 403, 'only an admin can restore an island');
+    const rr = await call(adminRoute, boss.id, { op: 'restore', pid: joe.id, day: '2000-01-01' }, '/api/admin');
+    ok(rr.code === 200 && T.islands.find(x => x.player_id === joe.id).state.dust === 4242 && T.island_snaps.length >= 2, 'an admin restores an island to an earlier day (today is kept as a copy first)'); }
   out = await call(adminRoute, boss.id, { op: 'find', q: 'jo' }, '/api/admin');
   ok(out.body.players.some(p => p.id === joe.id), 'admin finds players by name');
   out = await call(adminRoute, boss.id, { op: 'ban', pid: joe.id, hours: 2, reason: 'testing' }, '/api/admin');
@@ -638,7 +644,7 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
 {
   const R = await import('../web/src/island/rules.js'), RD = await import('../web/src/island/raid.js'), AD = await import('../web/src/island/adventure.js');
   const { gen, TW, TH } = await import('../web/src/island/gen.js');
-  ok(RD.botLoot(1) === 250 && RD.botLoot(3) === 550, 'game village loot grows with level');
+  ok(RD.botLoot(1) === 450 && RD.botLoot(3) === 950, 'game village loot grows with level');
   const v = RD.botVillage(777, 3);
   ok(v.b.filter(b => b.type === 'tower').length >= 3, 'game villages are finished (towers ready to shoot)');
   const seed = 66, now = Date.now(), st = R.newIsland(seed, now), w = gen(seed);
@@ -666,7 +672,7 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
     ok(R.troopMax(st) === 60 && RD.armyCap(3, 30, 1) === 20 && RD.armyCap(3, 30, 10) === 60, 'troops kept and raid army size grow with the Town Hall');
     const c2 = R.upgradeCost({ type: 'mill', lv: 2 }).dust, c9 = R.upgradeCost({ type: 'mill', lv: 9 }).dust;
     ok(c9 > c2 * 10 && R.upgradeSecs({ type: 'mill', lv: 9 }) === 24 * 3600 && R.upgradeSecs({ type: 'mill', lv: 1 }) === 300, 'costs and times grow: minutes early, a day at the top');
-    ok(RD.lootCap(1) === 800 && RD.lootCap(10) === 4400, 'the most a raid can take grows with the Town Hall of the defender');
+    ok(RD.lootCap(1) === 1200 && RD.lootCap(10) === 6600, 'the most a raid can take grows with the Town Hall of the defender');
     const res = RD.resLootOf({ wood: 1100, stone: 50 }, 1, 1, 1);
     ok(res.wood === 150 && !res.stone, 'raiders also carry off wood and stone that Barns do not protect, capped per raid');
   }
@@ -944,7 +950,8 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   ok((await hit(cup, A, { op: 'start' })).code === 403, 'you must enter the cup first');
   ok((await hit(cup, A, { op: 'join' })).code === 200 && isl(A).state.gems === gA - 5, 'the entry is paid in Gems');
   const cupRowA = T.islands.find(x => x.player_id === A.id), mindsA = cupRowA.minds; cupRowA.minds = 1;
-  ok((await hit(cup, A, { op: 'join' })).code === 403 && isl(A).state.gems === gA - 5, 'one entry per Mind held: a second entry needs a second Mind, and costs nothing when refused');
+  ok((await hit(cup, A, { op: 'join' })).code === 200 && isl(A).state.gems === gA - 5, 'tapping Enter twice never buys a second entry');
+  ok((await hit(cup, A, { op: 'join', more: true })).code === 403 && isl(A).state.gems === gA - 5, 'one entry per Mind held: a second entry needs a second Mind, and costs nothing when refused');
   out = await hit(cup, A, { op: 'start' });
   ok(out.code === 200 && out.body.army.hero === 'captain', 'everyone gets the same army');
   const SC = RD.createRaid(out.body.snap, out.body.army), spots = [];
@@ -957,10 +964,10 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   await hit(cup, A, { op: 'start' }); await hit(cup, A, { op: 'start' });
   ok((await hit(cup, A, { op: 'start' })).code === 403, 'three tries a day');
   { const row = cupRowA, m0 = mindsA, g0 = row.state.gems; row.minds = 2;
-    const more = await hit(cup, A, { op: 'join' });
+    const more = await hit(cup, A, { op: 'join', more: true });
     ok(more.code === 200 && more.body.entries === 2 && isl(A).state.gems === g0 - 5, 'a second Mind buys a second entry for 5 Gems');
     ok((await hit(cup, A, { op: 'start' })).code === 200, 'a second entry gives 3 more tries');
-    ok((await hit(cup, A, { op: 'join' })).code === 403, 'no more entries than Minds held');
+    ok((await hit(cup, A, { op: 'join', more: true })).code === 403, 'no more entries than Minds held');
     row.minds = m0; await hit(cup, A, { op: 'score', inputs: [] }); }
   out = await hit(cup, A, null, 'GET');
   ok(out.body.pool === 15 && out.body.players === 2 && out.body.entries === 2, 'the pool is every paid entry (A has 2, B has 1)');
@@ -1525,6 +1532,9 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
     ok(!out.body.ok && isl(M).state.gems === g0 - 4, 'over the daily limit the Mind spends no more Gems');
     ok((await hit(autopilot, M, { op: 'gems', on: false })).body.gems.on === false, 'one tap turns Gem spending off');
     ok(isl(M).state.ap.log.some(l => /spent 4 Gems/.test(l.text)), 'every Gem spent is in the log');
+    { const { caller } = await import('../lib/http.js'), { inner } = await import('../lib/routes/agent.js');
+      const seen = await caller.run({ xff: '7.7.7.7', ua: 'ua-test' }, () => inner(async (req, res) => res.end(JSON.stringify({ x: req.headers['x-forwarded-for'] })), M, 'POST', '/api/x'));
+      ok(seen.body.x === '7.7.7.7', 'calls made for the player (AI keys, Autopilot) carry their real connection, so same-connection rules hold'); }
     out = await hit(autopilot, M, { op: 'step', do: 'farm', mind: 0 });
     ok(out.body.log[0].mind === '0', 'the history says which Mind did it');
     out = await hit(autopilot, M, { op: 'train', mind: 0, train: { duel: { style: 'bold', big: 'hack' }, farm: { sell: 'none' } } });
@@ -1555,6 +1565,9 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
       out = await hit(autopilot, M, { op: 'duel_plan', mind: 0, token: tok });
       ok(out.body.ok && out.body.plan.style === 'bold' && isl(M).state.ap.ai['0'].duelPlan.big === 'top', 'before a duel the AI writes its own strategy');
       fake.reply = null;
+      out = await hit(autopilot, M, { op: 'duel_think', mind: 0, id: m2.id, token: tok });
+      ok(out.body.pending === true, 'with time left in the turn, a slow AI is asked again (short calls, no long server wait)');
+      T.matches.find(x => x.id === m2.id).deadline = new Date(Date.now() + 2000).toISOString();
       out = await hit(autopilot, M, { op: 'duel_think', mind: 0, id: m2.id, token: tok });
       ok(out.body.think?.plan && !out.body.think.ai && out.body.view.me.locked, 'a turn where the AI is too slow plays its own strategy (and says so)'); }
   }

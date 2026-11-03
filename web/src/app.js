@@ -303,8 +303,22 @@ function openSetup() {
   show('setup');
 }
 $('#setup-pfp').onclick = e => { const m = e.target.closest('[data-id]'); if (!m) return; setupPfp = +m.dataset.id; $$('#setup-pfp .mind').forEach(x => x.classList.toggle('on', x === m)); };
+// 18+ and the Terms: asked once at sign-up and before the first payment; the island keeps when it was accepted
+const TOS_V = 1;
+const tosOk = () => (isle.state?.tos?.v || 0) >= TOS_V || settings.tos >= TOS_V;
+async function acceptTos() {
+  settings.tos = TOS_V; saveSettings();
+  if (await ensureIsland()) { doAct({ type: 'tos', v: TOS_V }); flushIsland().catch(() => {}); }
+}
+async function askTos() {
+  if (tosOk()) return true;
+  const go = await modal('<h3>Before you buy</h3><p>Please confirm you are <b>18 or older</b> and accept the <a href="terms.html" target="_blank" rel="noopener">Terms</a> and the <a href="privacy.html" target="_blank" rel="noopener">Privacy notice</a>.</p>', [['I am 18+ and I accept', 1, 'primary'], ['Cancel', 0]]);
+  if (go) await acceptTos();
+  return !!go;
+}
 $('#setup-save').onclick = async () => {
-  try { const r = await api('profile', { name: $('#setup-name').value, pfp: setupPfp }); me = r.player; enterHub(); }
+  if (!$('#setup-tos').checked) { $('#setup-err').textContent = 'Please confirm you are 18 or older and accept the Terms.'; return; }
+  try { const r = await api('profile', { name: $('#setup-name').value, pfp: setupPfp }); me = r.player; acceptTos(); enterHub(); }
   catch (e) { $('#setup-err').textContent = e.message; }
 };
 
@@ -404,7 +418,7 @@ async function openCup() {
     c.me ? [...(left > 0 ? [[`Play (${left} left)`, 'play', 'primary']] : []), ...(n < most ? [[`+1 entry · ${c.entry} 💎 (+${c.tries} tries)`, 'more', left > 0 ? 'gem' : 'primary']] : []), ['Close', 0]] : [[`Enter for ${c.entry} 💎`, 'join', 'primary'], ['Close', 0]]);
   if (!go) return;
   try {
-    if (go === 'join' || go === 'more') { const r = await api('cup', { op: 'join' }); sfx('coins'); resetIsland(); toast(go === 'more' ? `Entry ${r.entries} bought: ${c.tries} more tries!` : 'You are in! Good luck.'); }
+    if (go === 'join' || go === 'more') { const r = await api('cup', { op: 'join', ...(go === 'more' ? { more: true } : {}) }); sfx('coins'); resetIsland(); toast(go === 'more' ? `Entry ${r.entries} bought: ${c.tries} more tries!` : 'You are in! Good luck.'); }
     const s = await api('cup', { op: 'start' });
     const troops = await pickCupArmy(s.budget || 9, s.army.troops) || s.army.troops;   // closing the picker = the standard army (the try has started)
     closeIsland(); show('raid');
@@ -745,7 +759,7 @@ const shopCard = (img, name, desc, have, btns, cls = '') => `<div class="shop-ca
 async function refillEnergy(id) {
   await ensureIsland();
   const inv = isle.state?.inv || {}, shards = inv.shard || 0, price = energyPrice(refillsToday(isle.state || {}, id, new Date().toISOString().slice(0, 10)));
-  const pay = await modal(`<h3>⚡ Refill Mind #${id}</h3><p>This Mind has <b>${energyOf(id)}/${capFor(id)}</b> energy. It refills by itself in ${resetText()}.</p><p>Your ⚡ shards: <b>${shards}</b> <span class="muted">(the Energy Well on your island makes 1 every 4 hours)</span></p><p class="muted">Max ${REFILLS_PER_DAY} refills per Mind per day.</p>`,
+  const pay = await modal(`<h3>⚡ Refill Mind #${id}</h3><p>This Mind has <b>${energyOf(id)}/${capFor(id)}</b> energy. It refills by itself in ${resetText()}.</p><p>Your ⚡ shards: <b>${shards}</b> <span class="muted">(the Energy Well on your island makes 1 every 4 hours)</span></p><p class="muted">Max ${REFILLS_PER_DAY} refills per Mind per day. A refill is for rating and ranked chests: one ranked win pays about 60 ✨ a Mind.</p>`,
     [[`${SHARDS_PER_ENERGY} ⚡ shards`, 'shard', shards >= SHARDS_PER_ENERGY ? 'primary' : ''], [`${price.dust.toLocaleString()} ✨`, 'dust'], [`${price.gems} 💎`, 'gems', 'gem'], ['Not now', 0]]);
   if (!pay) return;
   try { const r = await api('energy', { mind: id, pay }); energy[id] = r.energy; sfx('levelup'); toast(`Mind #${id} now has ${r.energy} ⚡`); resetIsland(); await ensureIsland(); refreshEnergy(); if (current === 'prep') renderPrepGrid(); if (current === 'inventory') paintInventory(); }
@@ -816,6 +830,7 @@ const ethToWei = eth => { const [i, f = ''] = String(eth).split('.'); return Big
 async function buyGems() {
   sfx('click');
   if (guest || !online) return toast('Connect a wallet to buy Gems.', true);
+  if (!(await askTos())) return;
   let info;
   try { info = await api('gems', { op: 'info' }); } catch (e) { return toast(e.message, true); }
   if (!info.enabled) return modal(`<h3>💎 Gems</h3><p>Gem packs are coming very soon.</p><p class="muted">Until then you find Gems by beating bosses on adventures.</p>`, [['OK', true, 'primary']]);

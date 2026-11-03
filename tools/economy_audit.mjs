@@ -49,7 +49,7 @@ console.log('\nraid on a game village (full army of 10 space, all lost, 70% dest
 const armyCost = 6 * 20 + 4 * 25, fee = raidFee({ brawler: 6, archer: 4 });
 for (const lv of [1, 2, 3]) console.log(`level ${lv}: loot ${Math.floor(botLoot(lv) * 0.7)}, cost ${armyCost + fee}, net ${Math.floor(botLoot(lv) * 0.7) - armyCost - fee}`);
 // 7. daily caps, in Dust
-const caps = { 'Town Time': 240, 'meeting players': 100, 'raids on real players (ceiling)': 3000, 'Scout job, per Mind': 480 };
+const caps = { 'Town Time': 240, 'meeting players': 100, 'raids on real players (ceiling)': 4000 };
 console.log('\ndaily ceilings', caps);
 const pack = GEM_PACKS[0]; console.log('cheapest Gem pack:', pack.gems, 'Gems for', pack.eth, 'ETH');
 console.log('energy refill', ENERGY_PRICE, 'airships', SHIP_COSTS.slice(1).map(s => s.cost.dust));

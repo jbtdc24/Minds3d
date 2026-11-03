@@ -73,6 +73,7 @@ async function show(pid) {
     <div class="adm-box"><b>Give</b> <input id="adm-dust" type="number" placeholder="✨ Dust"> <input id="adm-gems" type="number" placeholder="💎 Gems"> <input id="adm-pts" type="number" placeholder="⭐ Points">
       <input id="adm-item" placeholder="item (potion, fuel, troop_giant…)"> <input id="adm-qty" type="number" placeholder="qty"> <button class="btn small primary" data-a="give">Send</button>
       <small class="muted">Use negative numbers to take away.</small></div>
+    <div class="adm-box"><b>Island copies</b> <button class="btn small" data-a="snaps">Show the last 7 days</button><span id="adm-snaps"></span></div>
     <div class="adm-box"><b>Discipline</b> <input id="adm-reason" placeholder="reason"> <input id="adm-hours" type="number" placeholder="hours" value="24">
       <button class="btn small" data-a="suspend">Suspend</button><button class="btn small red" data-a="ban">Ban</button><button class="btn small" data-a="unban">Unban</button></div>
     <div class="adm-flags"><b>💳 Real-money Gem payments</b>${(r.payments || []).map(x => `<div><span>${new Date(x.at).toLocaleString()}</span> <b>${x.gems} 💎</b> <small>${K.esc(x.pack)} · tx <code class="adm-tx">${K.esc(x.tx)}</code></small></div>`).join('') || '<p class="muted">None.</p>'}</div>
@@ -123,7 +124,17 @@ document.addEventListener('click', async e => {
       await K.api('admin', { op: 'ban', pid: cur.id, hours: a === 'ban' ? 0 : +$('#adm-hours').value || 24, reason: $('#adm-reason').value });
       K.toast(a === 'ban' ? 'Banned.' : 'Suspended.');
     } else if (a === 'unban') { await K.api('admin', { op: 'unban', pid: cur.id }); K.toast('Unbanned.'); }
+    else if (a === 'snaps') {   // put a player's island back to an earlier day (support: lost progress, bad trade, a bug)
+      const r = await K.api('admin', { op: 'snaps', pid: cur.id });
+      $('#adm-snaps').innerHTML = r.setup ? ` <small class="muted">${K.esc(r.setup)}</small>` : r.snaps.map(x => ` <button class="btn small" data-restore="${K.esc(x.day)}">${K.esc(x.day)} · ✨${x.dust ?? '?'} · 💎${x.gems ?? 0}</button>`).join('') || ' <small class="muted">No copies yet.</small>';
+      return;
+    }
     await show(cur.id);
   } catch (err) { K.toast(err.message, true); }
+});
+document.addEventListener('click', async e => {
+  const b = e.target.closest('[data-restore]'); if (!b || !cur) return;
+  if (!(await K.modal(`<h3>Restore ${K.esc(cur.name)}'s island to ${K.esc(b.dataset.restore)}?</h3><p>Their island goes back to that day. Today's island is kept as a copy first.</p>`, [['Restore', 1, 'primary'], ['Cancel', 0]]))) return;
+  try { await K.api('admin', { op: 'restore', pid: cur.id, day: b.dataset.restore }); K.toast('Island restored.'); await show(cur.id); } catch (err) { K.toast(err.message, true); }
 });
 document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'adm-q') search().catch(err => K.toast(err.message, true)); });

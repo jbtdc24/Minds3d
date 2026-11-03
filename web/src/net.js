@@ -48,7 +48,7 @@ let rt = null;
 async function realtime() {
   if (rt !== null) return rt;
   try {
-    const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm');
+    const { createClient } = await import('../vendor/supabase.js')   // bundled here (supabase-js 2.45.4), so no outside script host is needed;
     rt = createClient(SUPABASE.url, SUPABASE.publishableKey, { auth: { persistSession: false } });
   } catch { rt = false; }
   return rt;
