@@ -1044,3 +1044,57 @@ h3.raid-result { text-align: center; }
 .tr-state { display: grid; gap: 4px; font-weight: 800; font-size: 14px; } .tr-state .ok { color: #2f9e44; }
 .tr-sum { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: left; } .tr-sum ul { list-style: none; padding: 0; margin: 4px 0; } .warn { color: #c0392b; font-weight: 800; }
 .isl-bmenu .bm-lock { font-size: 12px; font-weight: 800; color: #8a5a00; background: #fff3b0; padding: 4px 8px; box-shadow: 0 0 0 2px var(--ink); max-width: 220px; }
+
+/* 🧠 AI Minds dock: floats on every screen, folds into a bubble */
+.mdock { position: fixed; right: 12px; bottom: 12px; z-index: 45; width: 340px; max-width: calc(100vw - 24px); }
+.mdock.hide { display: none; }
+.mdock .md-bubble { display: none; align-items: center; gap: 6px; margin-left: auto; padding: 8px 12px; border: 0; cursor: pointer; background: linear-gradient(135deg, #9b6bff, #5ec8ff); color: #fff; font: 900 14px var(--font); box-shadow: 0 0 0 3px var(--ink), 0 6px 0 var(--ink); }
+.mdock .md-bubble b { font-size: 20px; } .mdock .md-bubble i { font-style: normal; background: var(--lime); color: var(--ink); padding: 0 6px; font-size: 11px; } .mdock .md-bubble i:empty { display: none; }
+.mdock.on .md-bubble { animation: mdpulse 1.6s ease-in-out infinite; }
+@keyframes mdpulse { 50% { box-shadow: 0 0 0 3px var(--ink), 0 6px 0 var(--ink), 0 0 18px 6px rgba(155, 107, 255, .7); } }
+.mdock.min .md-bubble, .mdock.fight .md-bubble { display: flex; } .mdock.min .md-win, .mdock.fight .md-win { display: none; }
+.mdock.isl { bottom: 84px; }
+.md-win { background: var(--paper); box-shadow: 0 0 0 3px var(--ink), 0 8px 0 var(--ink); max-height: min(78vh, 640px); display: flex; flex-direction: column; }
+.md-head { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: linear-gradient(135deg, #9b6bff, #5ec8ff); color: #fff; }
+.md-head b { font-size: 15px; } .md-head small { flex: 1; opacity: .9; font-size: 11px; }
+.md-tabs { display: flex; gap: 4px; padding: 6px 8px; overflow-x: auto; background: var(--paper-2); } .md-tabs:empty { display: none; }
+.md-tab { position: relative; flex: none; display: grid; justify-items: center; gap: 1px; padding: 3px; border: 0; cursor: pointer; background: #fff; box-shadow: 0 0 0 2px var(--ink); font: 800 10px var(--font); }
+.md-tab img { width: 34px; height: 34px; image-rendering: pixelated; } .md-tab.on { background: var(--lime); } .md-tab em { position: absolute; top: -4px; right: -4px; font-style: normal; background: #9b6bff; color: #fff; width: 14px; height: 14px; line-height: 14px; font-size: 11px; }
+.md-tab.run::after { content: ''; position: absolute; top: 2px; left: 2px; width: 7px; height: 7px; background: #3ddc5a; box-shadow: 0 0 0 1px var(--ink); animation: mdpulse 1.2s infinite; }
+.md-body { padding: 8px 10px 10px; overflow-y: auto; display: grid; gap: 7px; font-size: 13px; }
+.md-hero { display: flex; gap: 8px; align-items: center; } .md-hero img { width: 64px; height: 64px; image-rendering: pixelated; box-shadow: 0 0 0 2px var(--ink); flex: none; } .md-hero p { margin: 0; }
+.md-or { display: grid; gap: 3px; font-size: 12px; font-weight: 800; } .md-or select { font: 800 13px var(--font); padding: 4px; }
+.md-card { display: flex; gap: 8px; align-items: center; } .md-card img { width: 52px; height: 52px; image-rendering: pixelated; box-shadow: 0 0 0 2px var(--ink); }
+.md-card div { display: grid; min-width: 0; } .md-card b { font-size: 15px; } .md-card small { font-size: 11px; color: var(--muted); }
+.md-card .md-now { color: var(--ink); font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.md-row { display: flex; gap: 6px; flex-wrap: wrap; } .md-row .btn:first-child { flex: 1; }
+.md-plan { background: #fff; padding: 6px 8px; box-shadow: 0 0 0 2px var(--ink); font-size: 12px; }
+.md-presets { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 5px; }
+.md-preset { display: flex; align-items: center; gap: 4px; padding: 5px; border: 0; cursor: pointer; background: #fff8e4; box-shadow: 0 0 0 2px var(--ink); font: 800 12px var(--font); text-align: left; }
+.md-preset i { font-style: normal; font-size: 16px; } .md-preset.on { background: var(--lime); } .md-preset:hover { background: #fff1b8; }
+.md-chat { display: flex; flex-direction: column; gap: 4px; max-height: 150px; overflow-y: auto; background: #fff; padding: 5px; box-shadow: 0 0 0 2px var(--ink); }
+.md-foot { display: flex; gap: 6px; justify-content: space-between; }
+.md-steps { margin: 6px 0; padding: 0; list-style: none; display: grid; gap: 4px; counter-reset: st; }
+.md-steps li { display: grid; grid-template-columns: 26px 1fr; column-gap: 6px; background: #fff; padding: 5px 7px; box-shadow: 0 0 0 2px var(--ink); }
+.md-steps i { grid-row: span 2; font-style: normal; font-size: 20px; align-self: center; } .md-steps span { font-size: 12px; color: var(--muted); }
+.md-hist { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; max-height: 52vh; overflow-y: auto; font-size: 12px; }
+.md-hist li { display: grid; grid-template-columns: 92px 22px 1fr; gap: 6px; align-items: center; background: #fff; padding: 3px 6px; }
+.md-hist time { color: var(--muted); font-weight: 800; } .md-hist img { width: 22px; height: 22px; image-rendering: pixelated; }
+/* 👁 Follow: watch a Mind play */
+.mfollow { position: fixed; inset: 0; z-index: 46; display: none; place-items: center; background: rgba(29, 27, 47, .55); padding: 16px; }
+.mfollow.on { display: grid; }
+.mf-card { width: min(720px, 100%); display: grid; grid-template-columns: 1.1fr 1fr; background: var(--paper); box-shadow: 0 0 0 3px var(--ink), 0 10px 0 var(--ink); }
+.mf-scene { position: relative; min-height: 280px; background: var(--scene) center / cover; image-rendering: pixelated; display: grid; place-items: end center; overflow: hidden; }
+.mf-mind { width: 150px; height: 150px; image-rendering: pixelated; margin-bottom: 26px; filter: drop-shadow(0 6px 0 rgba(0, 0, 0, .35)); }
+.mf-mind.walk { animation: mfwalk 1.2s ease-in-out infinite; }
+@keyframes mfwalk { 0%, 100% { transform: translate(-30px, 0); } 25% { transform: translate(-10px, -6px); } 50% { transform: translate(30px, 0) scaleX(-1); } 75% { transform: translate(10px, -6px) scaleX(-1); } }
+.mf-where { position: absolute; top: 8px; left: 8px; background: rgba(29, 27, 47, .8); color: #fff; padding: 3px 8px; font-weight: 800; font-size: 13px; }
+.mf-info { padding: 10px 12px; display: grid; gap: 6px; align-content: start; } .mf-info b { font-size: 15px; }
+.mf-now { margin: 0; font-weight: 800; background: #fff; padding: 6px 8px; box-shadow: 0 0 0 2px var(--ink); }
+.mf-duel { display: flex; gap: 8px; align-items: center; justify-content: space-between; background: #2b2340; color: #fff; padding: 6px 8px; } .mf-duel b { font-size: 18px; color: var(--lime); }
+.mf-log { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font-size: 12px; max-height: 180px; overflow-y: auto; } .mf-log time { color: var(--muted); font-weight: 800; margin-right: 6px; }
+@media (max-width: 640px) {
+  .mdock { right: 8px; left: 8px; bottom: 8px; width: auto; } .mdock.min, .mdock.fight { left: auto; }
+  .mf-card { grid-template-columns: 1fr; } .mf-scene { min-height: 190px; } .mf-mind { width: 110px; height: 110px; }
+}
+.md-head .iconbtn { color: var(--ink); }

@@ -11,7 +11,7 @@ import { PHRASES, MATCH_CHAT, FRIEND_CHAT, BOT_REPLIES } from './chat.js';
 import { initMindTalk, openMinds } from './mindtalk.js';
 import { chatSigner } from './chatsign.js';
 import { initTown, openTown, closeTown, setMega } from './town.js';
-import { initAutopilot, openAutopilot } from './autopilot.js';
+import { initAutopilot, openAutopilot, dockScreen } from './autopilot.js';
 import { initTrade, openTrade, giftTo } from './trade.js';
 import { capOf, ENERGY_CAP } from './energy.js';
 import { loading } from './loader.js';
@@ -84,6 +84,7 @@ function show(id) {
   if (id === 'login') music('lofi');
   if (base !== 'hub' && base !== 'duel') clearTags();
   $('#tags').classList.toggle('dim', WINDOWS.has(id));
+  dockScreen(base);
 }
 // close a window: back to the screen underneath (the lobby keeps its Minds, no reload)
 function closeWindow() {
@@ -1587,9 +1588,9 @@ initMindTalk({ minds: () => (guest ? [] : myMinds), esc });
 let apRefresh = 0;
 initAutopilot({ api, esc, toast, modal, sfx, babble, online: () => online, guest: () => guest, idle: () => current === 'hub' && !document.querySelector('#modal.on'),
   mindId: () => me?.pfp || myMinds[0] || 1, mindName: () => me ? `${me.name}'s Mind #${me.pfp}` : 'Your Mind', pfp: () => thumb(me?.pfp || 49),
-  myMinds: () => myMinds, energyOf: id => energyOf(id), rankPass: () => rankPass,
+  myMinds: () => myMinds, energyOf: id => energyOf(id), rankPass: () => rankPass, thumb, home: () => { if (current !== 'hub') enterHub(); },
   refresh: () => { resetIsland(); if (Date.now() - apRefresh > 20e3) { apRefresh = Date.now(); refreshMe().then(() => { if (current === 'hub') paintHub(); }).catch(() => {}); } } });
-initTrade({ api, esc, toast, modal, sfx, island: () => isle.state, inTown: () => current === 'town' && online && !guest, refresh: () => { resetIsland(); ensureIsland(); } });
+initTrade({ api, esc, toast, modal, sfx, island: () => isle.state, inTown: () => current === 'town' && online && !guest, inDuel: () => current === 'duel', openMatch: id => openMatch(id), refresh: () => { resetIsland(); ensureIsland(); } });
 initTown({ minds: () => (guest ? [] : myMinds), myCos, api, esc, toast, online: () => online, go: townGo, card: playerCard, mega: megaphone, me: () => me?.id, name: () => me?.name || 'You', canChat: () => online && !guest, chat });
 
 // ---------- friends + friend chat (preset lines) ----------
@@ -1689,11 +1690,12 @@ async function playerCard(o) {
   const W = p.wins + (p.botWins || 0), L = p.losses + (p.botLosses || 0), cos = p.cos || o.cos;
   const status = f?.status === 'accepted' ? '✔ Friends' : f?.incoming ? 'Wants to be your friend' : f?.status === 'pending' ? 'Friend request sent' : '';
   const btns = guest ? [['Profile', 'profile'], ['Close', 0, 'primary']]
-    : [...(current === 'town' ? [['🤝 Trade', 'trade', 'primary']] : []), ...(f?.status === 'accepted' ? [] : [[f?.incoming ? 'Accept friend' : '➕ Add friend', 'add', current === 'town' ? '' : 'primary']]), ['💬 Message', 'chat', f?.status === 'accepted' && current !== 'town' ? 'primary' : ''],
+    : [...(current === 'town' ? [['⚔️ Duel', 'duel', 'primary'], ['🤝 Trade', 'trade']] : []), ...(f?.status === 'accepted' ? [] : [[f?.incoming ? 'Accept friend' : '➕ Add friend', 'add', current === 'town' ? '' : 'primary']]), ['💬 Message', 'chat', f?.status === 'accepted' && current !== 'town' ? 'primary' : ''],
       ...(f?.status === 'accepted' ? [['🎁 Gift', 'gift']] : []), ['Profile', 'profile'], ['🚩 Report', 'report'], ['⛔ Block', 'block'], ['Close', 0]];
   const go = await modal(`<div class="pcard"><img class="${frameCls(cos)}" src="${thumb(p.pfp)}" alt=""><div><h3 class="${nameCls(cos)}">${esc(p.name)}</h3>${titleTag(cos)}<p class="muted">${p.online ? '🟢 online' : 'offline'}${status ? ' · ' + status : ''}</p></div></div>
     <div class="army-facts"><span>${valIcon('rating')} Rating <b>${p.rating}</b></span><span>${valIcon('points')} Points <b>${p.points}</b></span><span>🏆 Wins <b>${W}</b></span><span>📈 Win rate <b>${W + L ? Math.round(W / (W + L) * 100) + '%' : '—'}</b></span><span>🔥 Best streak <b>${p.bestStreak || 0}</b></span></div>`, btns);
   if (go === 'trade') { if (await ensureIsland()) openTrade(p.id); }
+  else if (go === 'duel') { if (await ensureIsland()) openTrade(p.id, 'duel'); }
   else if (go === 'gift') { if (await ensureIsland()) giftTo(p); }
   else if (go === 'add') addFriend({ id: p.id });
   else if (go === 'chat') { openFriends(); openChat(f || { player: p, status: 'chat' }); }
