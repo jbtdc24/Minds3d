@@ -1295,7 +1295,7 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
     const a = await hit(raid, Main, { op: 'attack', id: f.body.id, inputs: RD.autoPlan(isl(Main).state.raid.snap, { troops: f.body.army, hero: f.body.hero }) }, { ip: '9.9.9.1' });
     if (a.code === 200) { got += a.body.loot; raids++; }
   }
-  ok(raids === 6 && got <= 4000, 'one player can only take Dust from one island twice a day');
+  ok(raids === 6 && got <= 2 * RD.lootCap(1), 'one player can only take Dust from one island twice a day');
   const Rich = await mk('RichTarget', { dust: 90000 });
   isl(Main).state.pl = { day: new Date().toISOString().slice(0, 10), got: 5900, m: {} }; isl(Main).state.raidLog = [{ at: 1500, by: 'RichTarget', pid: Rich.id, stars: 1, pct: 30, loot: 0 }]; Object.assign(isl(Main).state.inv, { troop_brawler: 10, troop_archer: 10 });
   const ceiling = await hit(raid, Main, { op: 'find', revenge: 1500, army: { brawler: 6, archer: 4 } }, { ip: '9.9.9.2' });
@@ -1512,6 +1512,11 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
     ok(isl(M).state.ap.log.some(l => /spent 4 Gems/.test(l.text)), 'every Gem spent is in the log');
     out = await hit(autopilot, M, { op: 'step', do: 'farm', mind: 0 });
     ok(out.body.log[0].mind === '0', 'the history says which Mind did it');
+    out = await hit(autopilot, M, { op: 'train', mind: 0, train: { duel: { style: 'bold', big: 'hack' }, farm: { sell: 'none' } } });
+    ok(out.body.ai['0'].train.duel.style === 'bold' && out.body.ai['0'].train.duel.big === 'top', 'training keeps known choices only');
+    isl(M).state.inv.crop_bean = 9;
+    out = await hit(autopilot, M, { op: 'step', do: 'sell', mind: 0 });
+    ok(/never sell/.test(out.body.text) && isl(M).state.inv.crop_bean === 9, 'the steps follow the training (never sell)');
     ok((await hit(autopilot, M, { op: 'step', do: 'nope' })).code === 400, 'unknown steps are refused');
   }
 

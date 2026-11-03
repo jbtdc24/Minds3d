@@ -332,7 +332,7 @@
 <section id="s-town" class="screen">
   <canvas id="town-cv"></canvas>
   <div class="town-top px"><button class="btn small" id="town-back">← Lobby</button><b>🏘️ Mind Town</b><span id="town-stay"></span><span class="town-zoom"><button class="btn small" id="town-out-z" title="Zoom out">−</button><button class="btn small" id="town-in-z" title="Zoom in">+</button><button class="btn small" id="town-all">🗺️ Whole town</button><button class="btn small" id="town-me">🧍 Me</button><button class="btn small gem" id="town-mega" title="Megaphone: a message over your head for 1 hour (1 Gem)">📣</button></span></div>
-  <div class="town-side px"><h4>📜 Town Board</h4><div id="town-feed"></div><div class="fr-add"><input id="town-in" maxlength="120" placeholder="Say something…"><button class="btn small primary" id="town-send">Send</button></div></div>
+  <div class="town-side px"><div class="town-side-head"><h4>💬 Town Chat</h4><span class="seg px" id="town-filter"><button data-v="all" class="on">All</button><button data-v="chat">💬 Chat</button><button data-v="news">📜 News</button></span><button class="iconbtn px small" id="town-fold" title="Fold">▾</button></div><div id="town-feed" data-show="all"></div><div class="fr-add"><input id="town-in" maxlength="120" placeholder="Say something…"><button class="btn small primary" id="town-send">Send</button></div></div>
 </section>
 
 <!-- ADVENTURE -->

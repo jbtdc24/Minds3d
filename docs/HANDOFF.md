@@ -12,6 +12,16 @@ ROUND 14 (owner 2026-11-03) DONE:
 - Edit mode: ⬆ Upgrade N · X 💎 button (Gems pay the cost, builders/time same as the building menu).
 - Giants only go for a defence within 4 tiles, else the nearest building (other troops already hit the nearest).
 - New defences (rules DEFENSE + defMult, raid.js shared loop): 💥 Cannon (TH2, heavy, close), 🎇 Mortar (TH3, long range splash, not up close), ⚡ Spark Spire (TH4, chain lightning x3). Code sprites in buildings.js, Lv1-10 looks via leveled(); raidview shots per kind; game villages build half their TH allowance. Not in TH_KEY (do not block old players' Town Hall).
+ROUND 16 (owner 2026-11-03 late) DONE:
+- The Hello Minds AI now DECIDES: before every step it is asked "DO: <step> WHY:" (hellominds.js decide(), own conversation alias mindsclash-play-<id>), and in duels it picks every card + spell ("CARD: n SPELL: x WHY:", 13 s). Too slow / bad answer = the player's training move (island/training.js trainedMove), logged ("the AI chose N of M moves itself").
+- 🎯 Train per AI (training.js TRAINING: duel style/big/small crowns/each spell/next-high, raid target/army/spells, farm crop/sell, adventure spot/potions, energy refill). Server op 'train' (cleanTraining); sell + potions + refill follow it on the server.
+- No "use an existing AI" / "Change AI": every Mind gets a fresh awakened AI only.
+- Dock: drag by the title (position saved), ⤢ bigger mode, chat loaded from Hello Minds history (getHistory), the AI's latest thought shown.
+- Follow: duel board (crown, score, hand with the picked card, last turn win/lose, spells), animated actions, thought bubble.
+- Ranked prep: a Mind its AI is playing shows a notice (stop the AI to use it) and is never picked by default.
+- Mind Town chat moved to the LEFT, bigger, times, All/Chat/News filter, fold.
+- Leaving a duel: 3 missed turns or 45 s unseen = gone; one gone forfeits, both gone = abandoned tie (lib/game.js applyTimeouts); reload asks "Go back in / Leave" (never auto-joins; an AI's own duel is left alone).
+- Balance: energy refills 1,500/3,000/6,000 Dust or 5/8/12 Gems per Mind per day (rules energyPrice); raid loot LOOT_SHARE 0.12, cap 800 (TH1) to 4,400 (TH10), game villages 250/400/550 at TH1, real-player loot 3,000 a day.
 ROUND 15 (owner 2026-11-03 night) DONE:
 - Hello Minds sign-in LIVE (client dcae7792-2a81-416b-aa96-0137b29191d7, SDK vendored in web/vendor/, web/src/hellominds.js; CSP allows api.build/api.oauth.hellominds.ai). The built-in Claude browser cannot pass Hello Minds' Cloudflare check: test in real Chrome.
 - 🧠 AI Minds dock (web/src/autopilot.js): floats on every screen, minimizes to a bubble (auto-min in duel/raid/adventure), opens itself the first time. One AI per Mind NFT (slot = NFT id, '0' = Rank Pass Mind): player picks "✨ New AI" (clean slate, awaken Clash-<id>) or an existing Hello Minds AI. Each AI has its own plan + chat; all running AIs take steps in turn (town/rest on their own clocks). Plans and AI-suggested plans open a preview with the steps → "▶ Start this plan". 👁 Follow = live card (scene by activity, duel score, log). 📜 History = all lines, filter per Mind (server log 200, each line has mind). Gems: player types the daily amount (1-1000) + CONFIRM. Server st.ap.ai[slot] {hm,name,steps,preset,loop}; ops link/unlink/save(mind)/step(mind).

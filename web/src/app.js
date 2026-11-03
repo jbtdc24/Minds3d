@@ -11,7 +11,7 @@ import { PHRASES, MATCH_CHAT, FRIEND_CHAT, BOT_REPLIES } from './chat.js';
 import { initMindTalk, openMinds } from './mindtalk.js';
 import { chatSigner } from './chatsign.js';
 import { initTown, openTown, closeTown, setMega } from './town.js';
-import { initAutopilot, openAutopilot, dockScreen, autopilotRunning } from './autopilot.js';
+import { initAutopilot, openAutopilot, dockScreen, autopilotRunning, aiPlaying, stopAi } from './autopilot.js';
 import { initTrade, openTrade, giftTo } from './trade.js';
 import { capOf, ENERGY_CAP } from './energy.js';
 import { loading } from './loader.js';
@@ -935,11 +935,16 @@ $('#board-by').onclick = e => { const v = e.target.dataset.v; if (!v) return; bo
 $('#board').onclick = e => { const p = e.target.closest('[data-pid]'); if (p) openProfile(p.dataset.pid); };
 
 // ---------- prep: pick minds ----------
+// a Mind its Hello Minds AI is playing right now: say so (instead of a confusing error), and offer to take it back
+async function aiBusy(id) {
+  const go = await modal(`<h3>🧠 Mind #${id} is playing</h3><p>Its Hello Minds AI <b>${esc(aiPlaying(id))}</b> is playing this Mind right now (it may be in a duel or a raid).</p><p>Stop the AI to play Mind #${id} yourself.</p>`, [['Stop the AI and use it', 1, 'primary'], ['Keep the AI playing', 0]]);
+  if (go) { stopAi(id); toast(`Mind #${id} is yours to play now.`); }
+}
 let prep = { mode: 'ranked', minds: [], level: 'normal' };
 function openPrep(mode) {
   prep.mode = mode;
   prep.pass = mode === 'ranked' && !guest && !myMinds.length && !!rankPass;   // Rank Pass: the loaner Minds, the pass pays instead of energy
-  prep.minds = prep.pass ? [...rankPass.minds] : picked().filter(id => mode !== 'ranked' || energyOf(id) > 0).slice(0, 3);
+  prep.minds = prep.pass ? [...rankPass.minds] : picked().filter(id => (mode !== 'ranked' || energyOf(id) > 0) && !aiPlaying(id)).slice(0, 3);   // never a Mind its AI is playing
   prep.level = settings.picks.level || 'normal';
   $('#prep-title').textContent = { ranked: 'Ranked Duel', classic: 'Classic Duel', practice: 'Practice vs bot' }[mode];
   $('#prep-go').textContent = mode === 'practice' ? 'Start practice' : 'Find match';
@@ -977,6 +982,7 @@ $('#prep-minds').onclick = e => {
   const m = e.target.closest('[data-id]'); if (!m) return;
   const id = +m.dataset.id, i = prep.minds.indexOf(id);
   if (prep.pass && i < 0 && !rankPass.minds.includes(id)) return;
+  if (i < 0 && aiPlaying(id)) return aiBusy(id);
   if (i < 0 && m.classList.contains('tired')) return refillEnergy(id);
   if (i >= 0) prep.minds.splice(i, 1); else if (prep.minds.length < 3) prep.minds.push(id); else return toast('Max 3 Minds. Tap one to remove it first.');
   sfx('select'); paintPrep();
@@ -1588,7 +1594,7 @@ initMindTalk({ minds: () => (guest ? [] : myMinds), esc });
 let apRefresh = 0;
 initAutopilot({ api, esc, toast, modal, sfx, babble, online: () => online, guest: () => guest, idle: () => current === 'hub' && !document.querySelector('#modal.on'),
   mindId: () => me?.pfp || myMinds[0] || 1, mindName: () => me ? `${me.name}'s Mind #${me.pfp}` : 'Your Mind', pfp: () => thumb(me?.pfp || 49),
-  myMinds: () => myMinds, energyOf: id => energyOf(id), rankPass: () => rankPass, thumb, home: () => { if (current !== 'hub') enterHub(); },
+  myMinds: () => myMinds, energyOf: id => energyOf(id), rankPass: () => rankPass, thumb, island: () => isle.state, home: () => { if (current !== 'hub') enterHub(); },
   refresh: () => { resetIsland(); if (Date.now() - apRefresh > 20e3) { apRefresh = Date.now(); refreshMe().then(() => { if (current === 'hub') paintHub(); }).catch(() => {}); } } });
 initTrade({ api, esc, toast, modal, sfx, island: () => isle.state, inTown: () => current === 'town' && online && !guest, inDuel: () => current === 'duel', openMatch: id => openMatch(id), refresh: () => { resetIsland(); ensureIsland(); } });
 initTown({ minds: () => (guest ? [] : myMinds), myCos, api, esc, toast, online: () => online, go: townGo, card: playerCard, mega: megaphone, me: () => me?.id, name: () => me?.name || 'You', canChat: () => online && !guest, chat });

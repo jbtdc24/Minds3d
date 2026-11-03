@@ -886,7 +886,7 @@ h3.raid-result { text-align: center; }
 .town-top { position: absolute; top: 8px; left: 8px; right: 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; background: var(--paper); padding: 6px 10px; font-weight: 800; font-size: 14px; }
 #town-stay { color: var(--muted); font-size: 13px; }
 .town-zoom { margin-left: auto; display: flex; gap: 5px; }
-.town-side { position: absolute; right: 8px; bottom: 8px; width: min(320px, calc(100vw - 16px)); max-height: 42vh; display: flex; flex-direction: column; gap: 6px; background: var(--paper); padding: 8px; }
+.town-side { position: absolute; left: 8px; bottom: 8px; width: min(400px, calc(100vw - 16px)); max-height: 56vh; display: flex; flex-direction: column; gap: 6px; background: var(--paper); padding: 8px; }
 .town-side h4 { margin: 0; font-size: 15px; }
 #town-feed { flex: 1; min-height: 60px; overflow: auto; font-size: 14px; overflow-wrap: anywhere; }
 #town-feed .news { color: #8a5a00; font-weight: 800; }
@@ -1098,3 +1098,40 @@ h3.raid-result { text-align: center; }
   .mf-card { grid-template-columns: 1fr; } .mf-scene { min-height: 190px; } .mf-mind { width: 110px; height: 110px; }
 }
 .md-head .iconbtn { color: var(--ink); }
+/* dock: bigger, movable, the AI's thought */
+.mdock.big { width: 480px; } .mdock.big .md-win { max-height: 90vh; } .mdock.big .md-chat { max-height: 340px; min-height: 200px; }
+.mdock.moved { right: auto; bottom: auto; }
+.md-head { cursor: grab; touch-action: none; user-select: none; } .md-head:active { cursor: grabbing; }
+.md-bubble { touch-action: none; }
+.md-chat { max-height: 240px; min-height: 120px; }
+.md-think { color: #6a3cff !important; font-style: italic; white-space: normal !important; }
+.md-trainbox { display: grid; gap: 8px; max-height: 60vh; overflow-y: auto; }
+.md-train { border: 0; margin: 0; padding: 6px 8px; background: #fff; box-shadow: 0 0 0 2px var(--ink); display: grid; gap: 4px; }
+.md-train legend { font-weight: 900; padding: 0 4px; background: var(--paper); }
+.md-train label { display: grid; grid-template-columns: 120px 1fr; gap: 6px; align-items: center; font-size: 12px; font-weight: 800; }
+.md-train select { font: 700 12px var(--font); padding: 3px; min-width: 0; }
+/* Follow: the duel board and the AI's thought */
+.mf-scene { flex-direction: column; }
+.mf-bubble { position: absolute; top: 34px; left: 8px; right: 8px; background: #fff; color: var(--ink); padding: 5px 8px; font-size: 12px; font-weight: 800; box-shadow: 0 0 0 2px var(--ink); animation: drop .3s; }
+.mf-card.duel .mf-mind { width: 90px; height: 90px; margin-bottom: 4px; }
+.mf-board { position: relative; width: calc(100% - 16px); margin: 0 8px 8px; background: rgba(29, 27, 47, .88); color: #fff; padding: 6px 8px; display: grid; gap: 5px; font-size: 12px; }
+.mf-crown { display: flex; align-items: center; gap: 8px; } .mf-crown b { font-size: 26px; color: #ffd84a; line-height: 1; } .mf-crown em { margin-left: auto; font-style: normal; color: var(--lime); }
+.mf-vs { display: flex; justify-content: space-between; } .mf-vs b { color: var(--lime); font-size: 15px; }
+.mf-hand { display: flex; flex-wrap: wrap; gap: 3px; }
+.mf-c { display: inline-grid; place-items: center; width: 22px; height: 28px; background: #fff8e4; color: var(--ink); font-weight: 900; box-shadow: 0 0 0 2px #000; }
+.mf-c.pick { background: var(--lime); transform: translateY(-4px); animation: mfpick 1s ease-in-out infinite; } .mf-c.win { background: #3ddc5a; } .mf-c.lose { background: #ff6b6b; }
+@keyframes mfpick { 50% { transform: translateY(-7px); } }
+.mf-spells i { font-style: normal; background: #9b6bff; padding: 0 5px; margin-right: 3px; }
+.mf-acts { position: absolute; inset: 40% 0 auto; display: flex; justify-content: center; gap: 18px; font-size: 30px; pointer-events: none; }
+.mf-acts i { font-style: normal; animation: mfpop 1.6s ease-in-out infinite; animation-delay: var(--d); }
+@keyframes mfpop { 0%, 100% { transform: translateY(0) scale(.9); opacity: .6; } 50% { transform: translateY(-14px) scale(1.15); opacity: 1; } }
+
+/* Mind Town chat: left side, bigger, with times and a filter */
+.town-side-head { display: flex; align-items: center; gap: 6px; } .town-side-head h4 { flex: 1; }
+.town-side-head .seg button { font-size: 11px; padding: 2px 6px; }
+#town-feed { min-height: 160px; display: flex; flex-direction: column; gap: 2px; }
+#town-feed > div { padding: 2px 4px; } #town-feed > div:nth-child(odd) { background: rgba(255, 255, 255, .5); }
+#town-feed time { color: var(--muted); font-size: 11px; font-weight: 800; margin-right: 5px; }
+#town-feed[data-show="chat"] .news, #town-feed[data-show="news"] .chat { display: none; }
+.town-side.folded #town-feed, .town-side.folded .fr-add, .town-side.folded .seg { display: none; }
+.town-side.folded { max-height: none; width: auto; }

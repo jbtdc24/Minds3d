@@ -304,10 +304,10 @@ async function beat() {
 let pendingLines = [], actedAt = 0;
 function addLine(name, text, news) {
   const f = $('#town-feed'), el = document.createElement('div');
-  if (news) el.className = 'news';
-  el.innerHTML = `${news ? '' : `<b>${K.esc(name)}</b> `}${K.esc(text)}`;
+  el.className = news ? 'news' : 'chat';
+  el.innerHTML = `<time>${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>${news ? '' : `<b>${K.esc(name)}</b> `}${K.esc(text)}`;
   f.append(el);
-  while (f.children.length > 40) f.firstChild.remove();
+  while (f.children.length > 120) f.firstChild.remove();
   f.scrollTop = 1e9;
   return el;
 }
@@ -397,7 +397,12 @@ function send() {
 $('#town-send').onclick = send;
 $('#town-in').addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') send(); });
 addEventListener('resize', () => { if (running) resize(); });
-export function initTown(ctx) { K = ctx; }
+export function initTown(ctx) {
+  K = ctx;
+  // the chat panel (left side): All / Chat / News, and fold it out of the way
+  $('#town-filter').onclick = e => { const v = e.target.closest('button')?.dataset.v; if (!v) return; $('#town-feed').dataset.show = v; document.querySelectorAll('#town-filter button').forEach(b => b.classList.toggle('on', b.dataset.v === v)); $('#town-feed').scrollTop = 1e9; };
+  $('#town-fold').onclick = () => $('.town-side').classList.toggle('folded');
+}
 export function openTown() {
   if (!map) { map = buildMap(); frames = [paintGround(0), paintGround(1)]; buildLoop(); }
   meP ||= { x: 50 * T, y: 38 * T, mind: 49, dir: 1, path: [] };
