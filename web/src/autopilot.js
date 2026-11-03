@@ -192,7 +192,11 @@ function paint() {
   if (ai.hm && Date.now() - l.cogAt > COG_EVERY) checkCog(s).then(c => { if (c != null && s === sel && Math.round(c) !== Math.round(cog ?? -1)) paint(); });
 }
 const say = (slot, text, who = 'mind') => { const l = L(slot); (l.chat ||= []).push({ who, text }); l.chat = l.chat.slice(-200); if (slot === sel) paint(); };
-const setNow = (slot, text, kind) => { const l = L(slot); l.now = text; if (kind && kind !== l.kind) { l.kind = kind; followTo(slot); } else if (kind) l.kind = kind; if (slot === sel) { const el = $('#mdock .md-now'); if (el) el.textContent = text; } paintFollow(); };
+const setNow = (slot, text, kind) => { const l = L(slot); l.now = text; feed(l, text); if (kind) l.kind = kind; if (slot === sel) { const el = $('#mdock .md-now'); if (el) el.textContent = text; } paintFollow(); };
+// 👁 Follow shows the newest few moments (the same line only once) and which step of the round the AI is on
+const feed = (l, text) => { const key = String(text).replace(/\d+/g, '#'); if (l.feed?.[0]?.key === key) { l.feed[0].text = text; return; } (l.feed ||= []).unshift({ at: Date.now(), text, key }); l.feed.length = Math.min(l.feed.length, 5); };
+const STEPS = { ranked: [['energy', '⚡ Energy'], ['plan', '🧠 Strategy'], ['find', '🔎 Rival'], ['play', '🃏 Duel'], ['done', '🏁 Result']], job: [['ask', '📨 Asked'], ['think', '🧠 Thinking'], ['do', '🛠️ Doing'], ['done', '🏁 Result']] };
+const stage = (slot, k) => { L(slot).stage = k; paintFollow(); };
 const think = (slot, why) => { if (!why) return; L(slot).think = why; paintFollow(); if (slot === sel) { const el = $('#mdock .md-think'); if (el) el.textContent = `💭 ${why}`; } };
 
 // ---------- taps ----------
@@ -347,7 +351,6 @@ function start(slot) {
 }
 function stop(slot, msg) {
   const wasDuel = L(slot).kind === 'duel';
-  if (follow === slot && K.watching?.()) K.stopWatch();
   running.delete(slot); keepRunning();
   Object.assign(L(slot), { wait: 0, now: '', duel: null });
   if (msg) say(slot, msg); paint(); paintFollow(); wake?.();
@@ -369,6 +372,7 @@ async function loop() {
       if (!ready.length) { const next = Math.min(...[...running].map(s => L(s).wait || 0)); for (const s of running) if (L(s).wait > now) setNow(s, `${L(s).result ? `${L(s).result} · ` : ''}⏳ next round in ${Math.max(1, Math.round((L(s).wait - now) / 60e3))} min`, 'rest'); await sleep(Math.min(15e3, Math.max(1500, next - now))); continue; }
       const slot = ready[turn++ % ready.length], job = jobOf(slot), l = L(slot);
       if (!job) { running.delete(slot); continue; }
+      stage(slot, job.kind === 'ranked' ? 'energy' : 'ask');
       setNow(slot, `${JOBS[job.kind].icon} ${JOBS[job.kind].say}…`, KIND_OF[job.kind]); l.acts = ACT_ICON[{ ranked: 'duel', cup: 'raid', farm: 'farm', clean: 'farm', adventure: 'adventure', train: 'train', raid: 'raid' }[job.kind]] || [];
       let did = false;
       try { did = job.kind === 'ranked' ? await duel(slot, 1, 1) : await work(slot, job); } catch (e) { await log(slot, `${JOBS[job.kind].icon} ${e.message || 'that did not work'}`); }
@@ -397,13 +401,13 @@ async function work(slot, job) {
     if (r.cog != null) { l.cog = r.cog; l.cogAt = Date.now(); paintCog(); }
     if (r.out) { outOfCog(slot); return false; }
     if (!r.pending) break;
-    setNow(slot, `🧠 deciding: ${JOBS[job.kind].name}… ${Math.round((r.waited || 0) / 1000)} s`);
+    L(slot).stage = 'think'; setNow(slot, `🧠 deciding: ${JOBS[job.kind].name}… ${Math.round((r.waited || 0) / 1000)} s`);
   }
   if (!r || r.pending) return false;
   await missed(slot, r.ai);
   if (r.log) ap = { ...ap, log: r.log, gems: r.gems || ap.gems, ai: r.ai && typeof r.ai === 'object' ? r.ai : ap.ai };
   if (r.wait) l.long = Date.now() + r.wait;   // e.g. the Siege Cup is done for today
-  l.result = r.text; setNow(slot, r.text); if (r.why) think(slot, r.why);
+  l.result = r.text; l.stage = 'done'; setNow(slot, r.text); if (r.why) think(slot, r.why);
   K.babble(slot === '0' ? 49 : +slot, r.ok ? 'happy' : 'sad', 0.5);
   return !!r.did;
 }
@@ -421,7 +425,7 @@ async function duel(slot, i, n) {
     await log(slot, `⚡ refilled with ${r.pay === 'shard' ? 'shards' : r.pay === 'dust' ? 'Dust' : 'Gems'}`); K.refresh(); minds = [+slot];
   }
   if (!pass && (minds.length > 1 || minds[0] !== +slot)) think(slot, `My team: ${minds.map(id => `#${id}`).join(' + ')}${minds.length > 1 ? ` (Team ×${minds.length} points)` : ''}`);
-  setNow(slot, '🧠 writing its duel strategy…', 'duel');   // the AI's own rules for turns where its live answer is too slow
+  L(slot).stage = 'plan'; setNow(slot, '🧠 writing its duel strategy…', 'duel');   // the AI's own rules for turns where its live answer is too slow
   let sp = {};
   for (let n = 0; n < 18 && running.has(slot); n++) { sp = await K.api('autopilot', { op: 'duel_plan', mind: slot, token: await HM.token() }).catch(() => ({})); if (!sp.pending) break; setNow(slot, `🧠 writing its duel strategy… ${n * 8} s`, 'duel'); }
   if (sp.out) { outOfCog(slot); return false; }
@@ -429,10 +433,10 @@ async function duel(slot, i, n) {
   if (sp.plan) { ap.ai[slot] = { ...ap.ai[slot], duelPlan: sp.plan }; think(slot, `My duel plan: ${Object.entries(sp.plan).map(([k, v]) => `${k} ${v}`).join(', ')}`); }
   let q = await K.api('autopilot', { op: 'duel_join', mind: slot, mode: 'ranked', minds, ...(pass ? { pass: true } : {}) });
   const until = Date.now() + 90e3;
-  while (running.has(slot) && !q.match && Date.now() < until) { setNow(slot, `🃏 duel ${i}/${n}: looking for a rival…`, 'duel'); await sleep(2500); q = await K.api('autopilot', { op: 'duel_poll' }); }
+  while (running.has(slot) && !q.match && Date.now() < until) { L(slot).stage = 'find'; setNow(slot, `🃏 duel ${i}/${n}: looking for a rival…`, 'duel'); await sleep(2500); q = await K.api('autopilot', { op: 'duel_poll' }); }
   if (!q.match) { await K.api('autopilot', { op: 'duel_leave' }).catch(() => {}); return false; }
   const id = q.match, l = L(slot);
-  l.match = id; if (follow === slot && K.watching?.()) K.watchDuel(id, ai?.name || 'Your AI');   // following: show this duel
+  l.match = id; l.stage = 'play';
   let v = null, own = 0, planned = 0, total = 0;
   for (let guard = 0; guard < 400; guard++) {
     v = await K.api('autopilot', { op: 'duel_view', id });
@@ -460,49 +464,52 @@ async function duel(slot, i, n) {
   l.duel = null; l.match = null;
   const won = v?.winner === v?.seat, tie = v?.winner == null;
   await log(slot, `🃏 ${tie ? 'tied' : won ? 'won' : 'lost'} vs ${v?.view.rival.name}${v?.delta ? ` (${v.delta > 0 ? '+' : ''}${v.delta} rating)` : ''}${v?.dustWon ? `, +${v.dustWon} ✨` : ''} · the AI chose ${own} of ${total} cards live${planned ? `, ${planned} by its own duel strategy` : ''}${own + planned < total ? `, ${total - own - planned} not played (no answer)` : ''}`);
-  L(slot).result = ap?.log?.[0]?.text || '';
+  L(slot).result = ap?.log?.[0]?.text || ''; L(slot).stage = 'done';
   K.babble(slot === '0' ? 49 : +slot, won ? 'happy' : 'sad', 0.6); K.refresh();
   return true;
 }
 
-// ---------- 👁 Follow: watch one Mind play, live ----------
-// In a duel you watch the real duel screen; on the island you watch your real island; elsewhere (raid, adventure,
-// Mind Town, rest) a live card. It switches by itself as the AI moves on.
-function followTo(slot) {
-  if (follow !== slot || !K.watching?.()) return;
-  const l = L(slot), name = aiOf(slot)?.name || 'Your AI';
-  if (l.kind === 'duel' && l.match) K.watchDuel(l.match, name);
-  else if (l.kind === 'island') K.watchIsland(name);
-}
+// ---------- 👁 Follow: a live card of what the AI is doing (it never opens the real game screens) ----------
+// An animated scene for the activity, the steps of this round, its thought, the next round countdown and the newest
+// few moments. 📜 History is the full log; this is the "right now" view. It refreshes every second while open.
+let followTick = null;
 function openFollow(slot) {
-  const l = L(slot), name = aiOf(slot)?.name || 'Your AI';
-  if (running.has(slot) && l.kind === 'duel' && l.match) { follow = slot; $('#mfollow')?.classList.remove('on'); return K.watchDuel(l.match, name); }
-  if (running.has(slot) && l.kind === 'island') { follow = slot; $('#mfollow')?.classList.remove('on'); return K.watchIsland(name); }
   follow = slot;
   let f = $('#mfollow');
   if (!f) {
     f = document.createElement('div'); f.id = 'mfollow'; f.className = 'mfollow';
-    f.addEventListener('click', e => { if (e.target.closest('[data-f="close"]') || e.target === f) { f.classList.remove('on'); follow = null; } else if (e.target.closest('[data-f="stop"]')) stop(follow, 'Stopped.'); else if (e.target.closest('[data-f="go"]')) start(follow); });
+    f.addEventListener('click', e => { if (e.target.closest('[data-f="close"]') || e.target === f) { f.classList.remove('on'); follow = null; clearInterval(followTick); } else if (e.target.closest('[data-f="stop"]')) stop(follow, 'Stopped.'); else if (e.target.closest('[data-f="go"]')) start(follow); });
     document.body.append(f);
   }
-  K.home(); f.classList.add('on'); paintFollow();
+  f.classList.add('on'); paintFollow();
+  clearInterval(followTick); followTick = setInterval(paintFollow, 1000);
 }
+const ago = t => { const s = Math.max(0, Math.round((Date.now() - t) / 1000)); return s < 5 ? 'now' : s < 60 ? `${s}s` : `${Math.round(s / 60)}m`; };
 function paintFollow() {
   const f = $('#mfollow'); if (!f || !follow || !f.classList.contains('on')) return;
-  const s = follow, l = L(s), ai = aiOf(s), on = running.has(s), kind = on ? l.kind : 'rest', D = on && kind === 'duel' ? l.duel : null;
-  const lines = (ap?.log || []).filter(x => x.mind === s).slice(0, 12);
-  const card = (n, cls = '') => `<span class="mf-c ${cls}">${n}</span>`;
-  const board = D ? `<div class="mf-board"><div class="mf-crown"><small>CROWN</small><b>${D.crown ?? '–'}</b>${D.pot && D.pot !== D.crown ? `<small>pot ${D.pot}</small>` : ''}${D.next ? `<em>next: ${D.next}</em>` : ''}</div>
-      <div class="mf-vs"><span>${K.esc(ai?.name || 'AI')} <b>${D.me}</b></span><span>round ${D.round}</span><span><b>${D.them}</b> ${K.esc(D.rival)}</span></div>
-      ${D.last ? `<div class="mf-last">last turn: ${card(D.last.mine, D.last.win === true ? 'win' : D.last.win === false ? 'lose' : '')} vs ${card(D.last.theirs, D.last.win === false ? 'win' : D.last.win === true ? 'lose' : '')}</div>` : ''}
-      <div class="mf-hand">${D.cards.map(n => card(n, D.played?.card === n ? 'pick' : '')).join('')}</div>
-      <div class="mf-spells">${D.spells.map(x => `<i>${x}</i>`).join('') || '<i class="muted">no spells left</i>'} · rival has ${D.rivalLeft} cards</div></div>`
-    : `<div class="mf-acts">${(on ? l.acts : ['💤']).map((x, i) => `<i style="--d:${i * 0.35}s">${x}</i>`).join('')}</div>`;
-  f.innerHTML = `<div class="mf-card px ${D ? 'duel' : ''}" style="--scene:url(${SCENE[kind] || SCENE.rest})">
-    <div class="mf-scene"><img class="mf-mind ${on ? 'walk' : ''}" src="${slotPic(s)}" alt="">${on && l.think ? `<div class="mf-bubble">💭 ${K.esc(l.think)}</div>` : ''}<span class="mf-where">${{ island: '🏝️ on your island', adventure: '🧭 on an adventure', duel: '🃏 in a ranked duel', town: '🏘️ in Mind Town', raid: '⚔️ raiding', rest: '💤 resting' }[kind]}</span>${board}</div>
-    <div class="mf-info"><b>${K.esc(ai?.name || 'AI')} · ${slotName(s)}</b><small class="muted">a real Hello Minds AI, thinking every move</small><p class="mf-now">${K.esc(on ? l.now || '…' : 'Not playing right now.')}</p>
-      <ol class="mf-log">${lines.map(x => `<li><time>${new Date(x.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>${K.esc(x.text)}</li>`).join('') || '<li class="muted">What it does shows here.</li>'}</ol>
-      <div class="md-row">${on ? '<button class="btn red" data-f="stop">⏸ Stop</button>' : '<button class="btn primary" data-f="go">▶ Start</button>'}<button class="btn" data-f="close">Close</button></div></div></div>`;
+  const s = follow, l = L(s), ai = aiOf(s), on = running.has(s), job = jobOf(s), kind = on ? l.kind || 'rest' : 'rest', D = on && kind === 'duel' ? l.duel : null;
+  const waiting = on && (l.wait || 0) > Date.now(), left = waiting ? Math.max(0, l.wait - Date.now()) : 0, gap = (PACE[job?.pace]?.gap || 60e3);
+  const steps = STEPS[job?.kind === 'ranked' ? 'ranked' : 'job'], at = steps.findIndex(([k]) => k === l.stage);
+  const scene = waiting || !on ? 'rest' : kind;
+  const fx = { duel: ['🃏', '👑', '✨'], island: ['🌱', '🪓', '🧺'], raid: ['⚔️', '💥', '⭐'], adventure: ['🧭', '🌿', '🪵'], town: ['💬', '🏘️'], rest: ['💤'] }[scene] || ['✨'];
+  const where = { island: '🏝️ working the island', adventure: '🧭 on an adventure', duel: '🃏 in a ranked duel', town: '🏘️ in Mind Town', raid: '⚔️ on a raid', rest: on ? '⏳ between rounds' : '💤 resting' }[scene];
+  f.innerHTML = `<div class="mf-card2 px">
+    <div class="mf-stage s-${scene}" style="--scene:url(${SCENE[scene] || SCENE.rest})">
+      <span class="mf-where">${where}</span>${on ? '<span class="mf-live">● LIVE</span>' : ''}
+      <div class="mf-fx">${fx.map((x, i) => `<i style="--d:${i * 0.5}s;--x:${20 + i * 30}%">${x}</i>`).join('')}</div>
+      ${scene === 'duel' ? `<img class="mf-rival" src="${slotPic(String(((+s || 49) * 7) % 3333 + 1))}" alt="">` : ''}
+      <img class="mf-hero a-${scene}" src="${slotPic(s)}" alt="">
+      ${on && l.think ? `<div class="mf-thought">💭 ${K.esc(l.think)}</div>` : ''}
+      ${D ? `<div class="mf-score"><span>${K.esc(ai?.name || 'AI')}<b>${D.me}</b></span><em>👑 ${D.crown ?? '–'}<small>round ${D.round}</small></em><span><b>${D.them}</b>${K.esc(D.rival)}</span></div>` : ''}
+    </div>
+    <div class="mf-side">
+      <div class="mf-who"><img src="${slotPic(s)}" alt=""><div><b>${K.esc(ai?.name || 'AI')}</b><small>${job ? `${JOBS[job.kind].icon} ${K.esc(JOBS[job.kind].name)}${job.plan ? ` · job ${job.plan.indexOf(job.kind) + 1} of ${job.plan.length}` : ''}` : 'no job yet'}</small></div></div>
+      ${on ? `<ol class="mf-steps">${steps.map(([k, n], i) => `<li class="${waiting ? 'ok' : i < at ? 'ok' : i === at ? 'now' : ''}">${n}</li>`).join('')}</ol>` : ''}
+      <div class="mf-nowbox"><small>${waiting ? 'NEXT ROUND' : on ? 'RIGHT NOW' : 'STATUS'}</small><p>${K.esc(on ? (waiting ? l.result || 'Resting' : l.now || '…') : 'Not playing. Press ▶ Start.')}</p>
+        ${waiting ? `<div class="mf-bar"><i style="width:${Math.max(2, 100 - (left / Math.max(gap, left)) * 100)}%"></i></div><small>in ${left > 60e3 ? `${Math.ceil(left / 60e3)} min` : `${Math.ceil(left / 1000)} s`}</small>` : ''}</div>
+      <ul class="mf-feed">${(l.feed || []).slice(0, 4).map((x, i) => `<li class="${i ? '' : 'new'}"><time>${ago(x.at)}</time>${K.esc(x.text)}</li>`).join('') || '<li class="muted">Moments show up here as it plays.</li>'}</ul>
+      <div class="md-row">${on ? '<button class="btn red" data-f="stop">⏸ Stop</button>' : '<button class="btn primary" data-f="go">▶ Start</button>'}<button class="btn small" data-f="close">Close</button></div>
+    </div></div>`;
 }
 // ---------- 🔍 Proof: a real AI decides, not a game bot ----------
 // Two sources side by side: the same conversation read straight from Hello Minds by this browser (with the player's own

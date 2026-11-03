@@ -1219,3 +1219,39 @@ h3.raid-result { text-align: center; }
 .md-away { display: grid; gap: 3px; padding: 8px 10px; background: #2b2340; color: #fff; box-shadow: 0 0 0 2px var(--ink); } .md-away.on { background: linear-gradient(135deg, #2b2340, #4b3a8a); }
 .md-away span { font-size: 12px; opacity: .9; } .md-away .btn { justify-self: start; }
 .md-rules { display: grid; gap: 4px; margin-top: 6px; padding-top: 6px; border-top: 2px dashed rgba(0,0,0,.15); } .md-rules label { display: grid; grid-template-columns: minmax(100px, 40%) 1fr; gap: 6px; align-items: center; font-size: 12px; font-weight: 800; } .md-rules select { width: 100%; font: 700 12px var(--font); padding: 3px; }
+/* 👁 Follow: a live card (animated scene, steps of the round, thought, countdown, newest moments) */
+.mf-card2 { width: min(860px, 100%); display: grid; grid-template-columns: 1.25fr 1fr; background: var(--paper); box-shadow: 0 0 0 3px var(--ink), 0 10px 0 var(--ink); max-height: calc(100vh - 32px); overflow: hidden; }
+.mf-stage { position: relative; min-height: 360px; background: var(--scene) center / cover; image-rendering: pixelated; overflow: hidden; }
+.mf-stage::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(20, 14, 40, .35), rgba(20, 14, 40, 0) 35%, rgba(20, 14, 40, .55)); pointer-events: none; }
+.mf-stage > * { position: absolute; z-index: 1; }
+.mf-where { top: 10px; left: 10px; background: rgba(20, 14, 40, .85); color: #fff; padding: 4px 10px; font-weight: 900; font-size: 13px; box-shadow: 0 0 0 2px #000; }
+.mf-live { top: 10px; right: 10px; background: #000; color: #ff5a5f; font: 900 12px var(--font); padding: 3px 8px; letter-spacing: 1px; animation: mflive 1.2s steps(2) infinite; }
+@keyframes mflive { 50% { opacity: .35; } }
+.mf-hero { width: 128px; height: 128px; left: calc(50% - 64px); bottom: 26px; image-rendering: pixelated; filter: drop-shadow(0 8px 0 rgba(0, 0, 0, .4)); }
+.mf-rival { width: 104px; height: 104px; right: 12%; bottom: 30px; image-rendering: pixelated; transform: scaleX(-1); filter: drop-shadow(0 8px 0 rgba(0, 0, 0, .4)); animation: mfbob 1.8s ease-in-out infinite reverse; }
+.s-duel .mf-hero { left: 14%; }
+.a-rest { animation: mfbreathe 3s ease-in-out infinite; } .a-island { animation: mfwork 0.9s ease-in-out infinite; } .a-duel { animation: mfbob 1.6s ease-in-out infinite; }
+.a-raid { animation: mfmarch 0.7s steps(2) infinite; } .a-adventure { animation: mfwalk2 4s linear infinite; } .a-town { animation: mfbob 2.2s ease-in-out infinite; }
+@keyframes mfbob { 50% { transform: translateY(-10px); } }
+@keyframes mfbreathe { 50% { transform: scale(1.04, .96) translateY(3px); } }
+@keyframes mfwork { 0%, 100% { transform: rotate(0); } 30% { transform: rotate(-8deg) translateY(-6px); } 60% { transform: rotate(6deg); } }
+@keyframes mfmarch { 50% { transform: translateY(-6px) rotate(-3deg); } }
+@keyframes mfwalk2 { 0% { transform: translateX(-110px); } 50% { transform: translateX(110px); } 50.01% { transform: translateX(110px) scaleX(-1); } 100% { transform: translateX(-110px) scaleX(-1); } }
+.mf-fx { inset: 0; pointer-events: none; } .mf-fx i { position: absolute; left: var(--x); bottom: 40%; font-style: normal; font-size: 28px; animation: mffloat 2.4s ease-in-out infinite; animation-delay: var(--d); opacity: 0; }
+@keyframes mffloat { 0% { transform: translateY(20px) scale(.6); opacity: 0; } 30% { opacity: 1; } 100% { transform: translateY(-70px) scale(1.1); opacity: 0; } }
+.mf-thought { left: 10px; right: 10px; top: 46px; background: #fff; color: var(--ink); padding: 8px 10px; font: 800 13px/1.35 var(--font); box-shadow: 0 0 0 2px #000, 0 4px 0 #000; max-height: 38%; overflow-y: auto; animation: drop .3s; }
+.mf-score { left: 10px; right: 10px; bottom: 8px; display: flex; justify-content: space-between; align-items: center; background: rgba(20, 14, 40, .88); color: #fff; padding: 4px 10px; font-weight: 800; font-size: 12px; }
+.mf-score b { color: var(--lime); font-size: 20px; margin: 0 6px; } .mf-score em { font-style: normal; color: #ffd84a; font-weight: 900; text-align: center; display: grid; } .mf-score small { color: #cfc6ea; font-size: 10px; }
+.mf-side { padding: 12px; display: grid; gap: 10px; align-content: start; overflow-y: auto; }
+.mf-who { display: flex; gap: 8px; align-items: center; } .mf-who img { width: 40px; height: 40px; image-rendering: pixelated; box-shadow: 0 0 0 2px var(--ink); background: #fff; } .mf-who b { display: block; font-size: 16px; } .mf-who small { color: var(--muted); font-weight: 800; }
+.mf-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; }
+.mf-steps li { flex: 1 1 auto; text-align: center; padding: 4px 6px; font: 900 11px var(--font); background: #ece4cc; color: #8a8199; box-shadow: 0 0 0 2px rgba(0, 0, 0, .15); }
+.mf-steps li.ok { background: #d7f5a6; color: var(--ink); } .mf-steps li.now { background: var(--lime); color: var(--ink); box-shadow: 0 0 0 2px var(--ink); animation: mfpulse 1s ease-in-out infinite; }
+@keyframes mfpulse { 50% { transform: translateY(-2px); } }
+.mf-nowbox { background: var(--ink); color: #fff; padding: 8px 10px; box-shadow: 0 4px 0 #000; } .mf-nowbox small { color: var(--lime); font-weight: 900; font-size: 11px; letter-spacing: 1px; }
+.mf-nowbox p { margin: 3px 0 0; font-weight: 800; line-height: 1.35; overflow-wrap: anywhere; }
+.mf-bar { height: 8px; background: rgba(255, 255, 255, .15); margin: 6px 0 2px; } .mf-bar i { display: block; height: 100%; background: var(--lime); transition: width 1s linear; }
+.mf-feed { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 12px; }
+.mf-feed li { display: grid; grid-template-columns: 34px 1fr; gap: 6px; padding: 4px 6px; background: #fff; box-shadow: 0 0 0 2px rgba(0, 0, 0, .12); line-height: 1.3; overflow-wrap: anywhere; }
+.mf-feed li.new { box-shadow: 0 0 0 2px var(--ink); animation: drop .3s; } .mf-feed time { font-weight: 900; color: var(--muted); }
+@media (max-width: 700px) { .mf-card2 { grid-template-columns: 1fr; overflow-y: auto; } .mf-stage { min-height: 230px; } .mf-hero { width: 96px; height: 96px; left: calc(50% - 48px); } .mf-rival { width: 80px; height: 80px; } }
