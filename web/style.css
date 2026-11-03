@@ -1185,3 +1185,11 @@ h3.raid-result { text-align: center; }
 .adm-table { overflow: auto; max-height: 62vh; } .adm-table table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .adm-table th, .adm-table td { padding: 4px 6px; border-bottom: 1px solid rgba(0, 0, 0, .1); text-align: left; white-space: nowrap; }
 .adm-table th { position: sticky; top: 0; background: var(--paper-2); } .adm-table tr[data-pid] { cursor: pointer; } .adm-table tr[data-pid]:hover { background: #fff3c4; }
+/* no more cut-off button text: small buttons may wrap to two lines, and shop buttons share the row fairly */
+.btn.small { white-space: normal; overflow: visible; text-overflow: clip; text-align: center; padding: 5px 10px; line-height: 1.15; }
+.shop-grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+.shop-btns { display: grid; grid-template-columns: repeat(auto-fit, minmax(78px, 1fr)); gap: 6px; }
+.shop-btns .btn { min-width: 0; white-space: normal; font-size: 15px; padding: 6px 6px; }
+.troop-up { display: grid; grid-template-columns: 1fr; gap: 5px; }
+.troop-up .btn { width: 100%; font-size: 13px; white-space: normal; padding: 5px 8px; }
+.troop-lv { line-height: 1.35; }
