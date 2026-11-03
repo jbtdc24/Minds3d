@@ -106,7 +106,8 @@ export const sellActs = st => Object.entries(st.inv || {}).filter(([k, n]) => k.
 export const wellActs = (st, now) => wellShards(st, now) > 0 ? [{ type: 'well' }] : [];
 // train troops with spare Dust: brawlers and archers, keeps 600 Dust, stops at 3/4 of the camp
 export function trainActs(st, mix = null) {
-  const room = Math.floor(troopMax(st) * 0.75) - troopCount(st), spare = (st.dust || 0) - 600;
+  const chosen = mix && Object.keys(mix).length;   // the AI chose its troops: it may use the camp and Dust (keeps 50)
+  const room = Math.floor(troopMax(st) * (chosen ? 1 : 0.75)) - troopCount(st), spare = (st.dust || 0) - (chosen ? 50 : 600);
   if (room <= 0 || spare <= 0) return [];
   if (mix && Object.keys(mix).length) {   // the troops the AI asked for, as far as room and Dust go
     const out = []; let left = room, dust = spare;
