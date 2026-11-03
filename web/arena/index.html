@@ -8,7 +8,7 @@
 <link rel="icon" href="/assets/crown.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;700;800;900&family=Pixelify+Sans:wght@500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/site/site.css">
+<link rel="stylesheet" href="/site/site.css?v=3">
 </head>
 <body>
 <header class="hero video alt">
@@ -33,7 +33,7 @@
         <li><b>Reveal</b>The higher card takes the crown. A tie rolls it into the next crown, so the next one is worth both.</li>
       </ol>
     </div>
-    <div class="duel reveal" id="duel-demo"></div>
+    <div class="clip reveal"><video data-src="/assets/video/duel.mp4" muted loop playsinline preload="none" poster="/assets/video/duel.jpg"></video><span class="label">REAL DUEL</span></div>
   </div>
 </section>
 
@@ -42,10 +42,10 @@
     <h2 class="title reveal">Four spells</h2>
     <p class="sub muted reveal">Spells are shown after the cards, in this order. The same spell on both sides cancels out (except Double + Double = crown ×3).</p>
     <div class="grid">
-      <div class="card reveal"><img class="ic" src="/assets/spell_boost.png" alt="" width="48"><h3>Boost</h3><p>Your card counts as 2 higher this turn.</p><small class="muted">Once per round</small></div>
-      <div class="card reveal"><img class="ic" src="/assets/spell_reverse.png" alt="" width="48"><h3>Reverse</h3><p>This turn the LOWER card wins.</p><small class="muted">Once per match</small></div>
-      <div class="card reveal"><img class="ic" src="/assets/spell_trap.png" alt="" width="48"><h3>Trap</h3><p>If your rival wins this crown with a 7, you steal it.</p><small class="muted">Once per round</small></div>
-      <div class="card reveal"><img class="ic" src="/assets/spell_double.png" alt="" width="48"><h3>Double</h3><p>Win this crown and it counts double, and you also win ties.</p><small class="muted">Once per round</small></div>
+      <div class="card reveal"><img class="pxi" src="/assets/spell_boost.png" alt=""><h3>Boost</h3><p>Your card counts as 2 higher this turn.</p><small class="muted">Once per round</small></div>
+      <div class="card reveal"><img class="pxi" src="/assets/spell_reverse.png" alt=""><h3>Reverse</h3><p>This turn the LOWER card wins.</p><small class="muted">Once per match</small></div>
+      <div class="card reveal"><img class="pxi" src="/assets/spell_trap.png" alt=""><h3>Trap</h3><p>If your rival wins this crown with a 7, you steal it.</p><small class="muted">Once per round</small></div>
+      <div class="card reveal"><img class="pxi" src="/assets/spell_double.png" alt=""><h3>Double</h3><p>Win this crown and it counts double, and you also win ties.</p><small class="muted">Once per round</small></div>
     </div>
   </div>
 </section>
@@ -54,14 +54,14 @@
   <div class="wrap">
     <h2 class="title reveal">Ways to duel</h2>
     <div class="grid">
-      <div class="card pic reveal"><img src="/assets/mode_ranked.webp" alt=""><div class="in"><h3>🏅 Ranked</h3><p>Your rating on the line, with your own Minds (or a Rank Pass). Energy refills every day; your island's Energy Well makes more. Win streaks open chests.</p></div></div>
-      <div class="card pic reveal"><img src="/assets/mode_practice.webp" alt=""><div class="in"><h3>🎯 Practice and Classic</h3><p>Play bots or anyone, for free, with no rating on the line. The best way to learn when to spend your 7.</p></div></div>
-      <div class="card pic reveal"><img src="/assets/mode_auto.webp" alt=""><div class="in"><h3>⚔️ Pot duels</h3><p>In Mind Town, challenge a player: both put items in the pot, the winner takes it. A tie or walk-off gives everyone their own items back.</p></div></div>
+      <div class="card pic reveal"><img src="/assets/mode_ranked.webp" alt=""><div class="in"><h3><img class="pxi sm" src="/assets/crown.png" alt="">Ranked</h3><p>Your rating on the line, with your own Minds (or a Rank Pass). Energy refills every day; your island's Energy Well makes more. Win streaks open chests.</p></div></div>
+      <div class="card pic reveal"><img src="/assets/mode_practice.webp" alt=""><div class="in"><h3><img class="pxi sm" src="/assets/icon_bolt.png" alt="">Practice and Classic</h3><p>Play bots or anyone, for free, with no rating on the line. The best way to learn when to spend your 7.</p></div></div>
+      <div class="card pic reveal"><img src="/assets/mode_auto.webp" alt=""><div class="in"><h3><img class="pxi sm" src="/assets/icon_coin.png" alt="">Pot duels</h3><p>In Mind Town, challenge a player: both put items in the pot, the winner takes it. A tie or walk-off gives everyone their own items back.</p></div></div>
     </div>
   </div>
 </section>
 
 <section class="bigcta"><div class="wrap"><h2 class="title">Think you can read them?</h2><p class="sub" style="margin:0 auto 26px">Your first duel takes two minutes.</p><a class="btn gold" href="/">▶ Play now</a></div></section>
-<script src="/site/site.js" type="module"></script>
+<script src="/site/site.js?v=3" type="module"></script>
 </body>
 </html>

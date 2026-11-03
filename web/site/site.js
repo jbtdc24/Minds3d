@@ -1,5 +1,5 @@
 // MINDS CLASH website: shared top bar and footer, moving pixel clouds, Minds in the hero, scroll reveal,
-// and small live "gameplay" demos drawn in code (a duel, an island, an AI deciding, a boss fortress).
+// filmed gameplay clips, a Mind to play with in the hero, and a chat of what the game asks your AI.
 const $ = (s, el = document) => el.querySelector(s);
 const PLAY = '/';   // the game
 const PAGES = [['/home', 'Home'], ['/arena', 'Ranked Arena'], ['/island', 'Mind Island'], ['/ai', 'AI Minds'], ['/cup', 'Siege Cup']];
@@ -21,15 +21,32 @@ document.body.insertAdjacentHTML('beforeend', `<footer><div class="wrap">
   <nav>${PAGES.map(([h, n]) => `<a href="${h}">${n}</a>`).join('')}<a href="/terms.html">Terms</a><a href="/privacy.html">Privacy</a></nav>
 </div></footer>`);
 
-// ---------- hero: clouds + a squad of random Minds ----------
+// ---------- hero: sparkles + a Mind to play with ----------
 const clouds = $('.clouds');
-if (clouds) for (let i = 0; i < 18; i++) {
+if (clouds) for (let i = 0; i < 10; i++) {
   const c = document.createElement('i');
   Object.assign(c.style, { left: `${Math.random() * 100}%`, top: `${Math.random() * 60}%`, animationDuration: `${2 + Math.random() * 3}s`, animationDelay: `${-Math.random() * 5}s`, scale: String(0.4 + Math.random() * 0.6) });
   clouds.append(c);
 }
-const squad = $('.squad');
-if (squad) squad.innerHTML = pick(5).map(id => `<img class="px-img" src="${thumb(id)}" alt="">`).join('');
+// 🧠 a Mind to play with in the hero: it leans toward the pointer, hops and talks when tapped, 🎲 swaps it for another
+const pal = $('#pal');
+if (pal) {
+  const LINES = ['Crown 15? I am saving my 7.', 'Reverse spell incoming…', 'Our island needs more carrots.', 'Raid time! Brawlers first.', 'Did you see that Trap? Mine.', 'I play while you sleep.', 'Town Hall 10 or bust.', 'Tap me again, I dare you.', 'Archers behind the giants. Trust me.', 'Siege Cup today. Three stars.'];
+  let mind = pick(1)[0], said = -1;
+  const img = $('img', pal), tag = $('.pal-tag', pal), bub = $('.pal-say', pal);
+  const set = id => { mind = id; img.src = thumb(id); tag.textContent = `Mind #${id}`; };
+  const say = t => { bub.textContent = t; bub.classList.remove('on'); void bub.offsetWidth; bub.classList.add('on'); };
+  set(mind);
+  setTimeout(() => say('Hi! Tap me.'), 1600);
+  pal.addEventListener('pointermove', e => { const r = pal.getBoundingClientRect(), x = (e.clientX - r.left) / r.width - 0.5; img.style.setProperty('--lean', `${x * 14}deg`); });
+  pal.addEventListener('pointerleave', () => img.style.setProperty('--lean', '0deg'));
+  img.addEventListener('click', () => {
+    img.classList.remove('hop'); void img.offsetWidth; img.classList.add('hop');
+    said = (said + 1 + Math.floor(Math.random() * (LINES.length - 1))) % LINES.length; say(LINES[said]);
+    for (let i = 0; i < 10; i++) { const p = document.createElement('i'); p.className = 'pal-px'; p.style.setProperty('--a', `${i * 36}deg`); p.style.background = i % 2 ? '#c6f432' : '#ffc93c'; pal.append(p); setTimeout(() => p.remove(), 700); }
+  });
+  $('.pal-dice', pal).addEventListener('click', () => { pal.classList.add('swap'); setTimeout(() => { set(pick(1)[0]); pal.classList.remove('swap'); say('New Mind, who dis?'); }, 280); });
+}
 
 // ---------- scroll reveal ----------
 const io = 'IntersectionObserver' in window ? new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: 0.15 }) : null;
@@ -46,76 +63,6 @@ const whenSeen = (el, fn) => {
 document.querySelectorAll('.parade .row').forEach(row => {
   const ids = pick(18);
   row.innerHTML = [...ids, ...ids].map(id => `<img src="${thumb(id)}" alt="" loading="lazy">`).join('');
-});
-
-// ---------- 🃏 duel demo: the real rules (cards 1-7, crowns 1-15, higher card wins, ties roll over) ----------
-whenSeen($('#duel-demo'), async el => {
-  const [a, b] = pick(2);
-  el.innerHTML = `<div class="score"><span>YOU<b id="d-me">0</b></span><span style="text-align:right">RIVAL<b id="d-them">0</b></span></div>
-    <div class="crown"><b id="d-crown">?</b></div><div class="hint" id="d-hint">NEXT: …</div>
-    <div class="table"><div class="side"><div class="pcard" id="d-c1"><div class="f"><div class="a"></div><div class="b"></div></div></div><img class="px-img" src="${thumb(a)}" alt=""><span class="name">Your Mind</span></div>
-    <div class="side r"><div class="pcard" id="d-c2"><div class="f"><div class="a"></div><div class="b"></div></div></div><img class="px-img" src="${thumb(b)}" alt=""><span class="name">Rival</span></div></div>
-    <div class="say" id="d-say">A new round: 7 crowns, 7 cards each.</div><div class="spell" id="d-spell"></div>`;
-  const tier = c => (c <= 5 ? 'LOW' : c <= 10 ? 'MID' : 'HIGH');
-  for (;;) {
-    const crowns = Array.from({ length: 15 }, (_, i) => i + 1).sort(() => Math.random() - 0.5).slice(0, 7), mine = [1, 2, 3, 4, 5, 6, 7], theirs = [1, 2, 3, 4, 5, 6, 7];
-    let me = 0, them = 0, pot = 0, trap = true;
-    $('#d-me').textContent = '0'; $('#d-them').textContent = '0';
-    for (let t = 0; t < 7; t++) {
-      const crown = crowns[t]; pot += crown;
-      $('#d-crown').textContent = pot; $('#d-hint').textContent = t < 6 ? `NEXT: ${tier(crowns[t + 1])}` : 'LAST CROWN';
-      const c1 = $('#d-c1'), c2 = $('#d-c2'); c1.className = c2.className = 'pcard';
-      $('#d-say').textContent = `Crown worth ${pot}. Both pick a secret card…`;
-      await wait(calm ? 400 : 1400);
-      // simple sensible players: big crowns get big cards
-      const want = arr => { const s = [...arr].sort((x, y) => x - y), i = Math.min(s.length - 1, Math.round(((pot - 1) / 15) * (s.length - 1) + (Math.random() - 0.5) * 2)); return s[Math.max(0, i)]; };
-      const x = want(mine), y = want(theirs);
-      mine.splice(mine.indexOf(x), 1); theirs.splice(theirs.indexOf(y), 1);
-      $('.b', c1).textContent = x; $('.b', c2).textContent = y;
-      c1.classList.add('show'); c2.classList.add('show');
-      await wait(calm ? 300 : 700);
-      let win = x > y ? 1 : y > x ? 2 : 0;
-      if (trap && win === 2 && y === 7) {   // the Trap spell steals a crown won with a 7
-        trap = false; const sp = $('#d-spell'); sp.textContent = '🪤 TRAP!'; sp.classList.add('on'); await wait(900); sp.classList.remove('on'); win = 1;
-      }
-      if (!win) { $('#d-say').textContent = `${x} vs ${y}: a tie! The crown rolls into the next one.`; c1.classList.add('lose'); c2.classList.add('lose'); await wait(calm ? 400 : 1300); continue; }
-      (win === 1 ? c1 : c2).classList.add('win'); (win === 1 ? c2 : c1).classList.add('lose');
-      if (win === 1) me += pot; else them += pot;
-      $('#d-say').textContent = win === 1 ? `${x} beats ${y}: you take ${pot} points!` : `${y} beats ${x}: the rival takes ${pot}.`;
-      $('#d-me').textContent = me; $('#d-them').textContent = them; pot = 0;
-      await wait(calm ? 500 : 1500);
-    }
-    $('#d-say').textContent = me === them ? 'Round tied!' : me > them ? `🏆 You win the round ${me}–${them}!` : `The rival wins the round ${them}–${me}. Next round!`;
-    await wait(2600);
-  }
-});
-
-// ---------- 🏝️ island demo: Minds clear, plant, harvest and build ----------
-whenSeen($('#isle-demo'), async el => {
-  el.innerHTML = '<div class="hud"><span id="i-dust">✨ 1,200</span><span id="i-wood">🪵 40</span><span id="i-gems">💎 5</span></div><div class="land" id="i-land"></div>';
-  const land = $('#i-land'), W = 8, H = 5, tiles = [];
-  const start = ['🌿', '🌿', '🪨', '🌳', '🌿', '🌳', '🌿', '🪨'];
-  for (let k = 0; k < W * H; k++) { const t = document.createElement('div'); t.className = 't'; t.textContent = Math.random() < 0.45 ? start[k % 8] : ''; land.append(t); tiles.push(t); }
-  Object.assign(tiles[11], { className: 't b', textContent: '🏰' }); Object.assign(tiles[28], { className: 't b', textContent: '🏠' });
-  let dust = 1200, wood = 40;
-  const walkers = pick(3).map(id => { const w = document.createElement('img'); w.src = thumb(id); w.className = 'walker px-img'; el.append(w); return w; });
-  const at = (w, k) => { const r = tiles[k].getBoundingClientRect(), o = el.getBoundingClientRect(); w.style.left = `${r.left - o.left + r.width / 2 - 22}px`; w.style.top = `${r.top - o.top - 26}px`; };
-  const say = (w, txt) => { const b = document.createElement('div'); b.className = 'bub'; b.textContent = txt; b.style.left = w.style.left; b.style.top = w.style.top; el.append(b); setTimeout(() => b.remove(), 1200); };
-  walkers.forEach((w, i) => at(w, 9 + i * 8));
-  const job = async (w, i) => {
-    for (;;) {
-      const k = Math.floor(Math.random() * tiles.length), t = tiles[k];
-      if (t.classList.contains('b')) continue;
-      at(w, k); await wait(1300);
-      if (['🌿', '🪨', '🌳'].includes(t.textContent)) { const was = t.textContent; t.textContent = ''; if (was === '🌳') wood += 6; else dust += 15; say(w, was === '🌳' ? '+6 🪵' : '+15 ✨'); }
-      else if (!t.textContent && !t.classList.contains('soil')) { t.classList.add('soil'); say(w, 'tilled!'); }
-      else if (t.classList.contains('soil') && !t.textContent) { t.innerHTML = '<span class="grow">🌱</span>'; say(w, 'planted'); setTimeout(() => { if (t.textContent === '🌱') t.innerHTML = '<span class="grow">🥕</span>'; }, 4000 + i * 900); }
-      else if (t.textContent === '🥕') { t.textContent = ''; dust += 40; say(w, '+40 ✨'); }
-      $('#i-dust').textContent = `✨ ${dust.toLocaleString()}`; $('#i-wood').textContent = `🪵 ${wood}`;
-      await wait(500 + Math.random() * 600);
-    }
-  };
-  walkers.forEach((w, i) => setTimeout(() => job(w, i), i * 450));
 });
 
 // ---------- 🧠 AI demo: what the game asks your AI and what it answers (the real question format) ----------
@@ -177,10 +124,12 @@ if (fx && !calm) {
   const g = fx.getContext('2d'), P = [];
   const size = () => { fx.width = fx.clientWidth; fx.height = fx.clientHeight; };
   size(); addEventListener('resize', size);
-  for (let i = 0; i < 70; i++) P.push({ x: Math.random(), y: Math.random(), v: 0.0006 + Math.random() * 0.0016, s: [3, 4, 6][i % 3], c: ['#ffc93c', '#c6f432', '#fff3c4', '#9b6bff'][i % 4], p: Math.random() * 6 });
+  for (let i = 0; i < 40; i++) P.push({ x: Math.random(), y: Math.random(), v: 0.0006 + Math.random() * 0.0016, s: [3, 4, 6][i % 3], c: ['#ffc93c', '#c6f432', '#fff3c4', '#9b6bff'][i % 4], p: Math.random() * 6 });
   let mx = 0.5;
   addEventListener('pointermove', e => { mx = e.clientX / innerWidth; }, { passive: true });
+  let seen = true; new IntersectionObserver(([e]) => { seen = e.isIntersecting; if (seen) requestAnimationFrame(tick); }).observe(fx);
   const tick = t => {
+    if (!seen) return;
     g.clearRect(0, 0, fx.width, fx.height);
     for (const p of P) {
       p.y -= p.v; if (p.y < -0.02) { p.y = 1.02; p.x = Math.random(); }
@@ -198,8 +147,16 @@ document.querySelectorAll('video[data-src], video.bgvid').forEach(v => vio.obser
 // scroll story: the chapter in the middle of the screen picks the video in the sticky frame
 const chapters = [...document.querySelectorAll('.chapter')];
 if (chapters.length) {
-  const vids = [...document.querySelectorAll('.frame .vids video')], dots = [...document.querySelectorAll('.frame .dots i')], label = $('.frame .label');
-  const pickCh = i => { chapters.forEach((c, k) => c.classList.toggle('on', k === i)); vids.forEach((v, k) => { v.classList.toggle('on', k === i); if (k === i) { if (!v.src) v.src = v.dataset.src; v.play().catch(() => {}); } else v.pause(); }); dots.forEach((d, k) => d.classList.toggle('on', k === i)); if (label) label.textContent = chapters[i].dataset.label || 'LIVE'; };
+  const v = $('.frame .vids video'), dots = [...document.querySelectorAll('.frame .dots i')], label = $('.frame .label'), wipe = $('.frame .wipe');
+  let cur = -1;
+  const pickCh = i => {
+    if (i === cur) return; cur = i;
+    chapters.forEach((c, k) => c.classList.toggle('on', k === i)); dots.forEach((d, k) => d.classList.toggle('on', k === i));
+    if (label) label.textContent = chapters[i].dataset.label || 'LIVE';
+    if (!v || !chapters[i].dataset.clip) return;
+    wipe?.classList.remove('go'); void wipe?.offsetWidth; wipe?.classList.add('go');
+    setTimeout(() => { v.src = chapters[i].dataset.clip; v.poster = chapters[i].dataset.clip.replace('.mp4', '.jpg'); v.play().catch(() => {}); }, 220);
+  };
   const cio = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) pickCh(chapters.indexOf(e.target)); }), { rootMargin: '-45% 0px -45% 0px' });
   chapters.forEach(c => cio.observe(c)); pickCh(0);
 }
@@ -230,10 +187,3 @@ if (!calm && matchMedia('(pointer: fine)').matches) {
   }, { passive: true });
 }
 
-// ---------- 🏆 boss fortress embers ----------
-const boss = $('.boss');
-if (boss) for (let i = 0; i < 22; i++) {
-  const e = document.createElement('i'); e.className = 'ember';
-  Object.assign(e.style, { left: `${Math.random() * 100}%`, animationDuration: `${4 + Math.random() * 6}s`, animationDelay: `${-Math.random() * 8}s` });
-  boss.append(e);
-}

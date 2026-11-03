@@ -287,3 +287,47 @@ details.faq { background: #1d1638; box-shadow: 0 0 0 2px rgba(255, 255, 255, .1)
 .spark { position: fixed; z-index: 95; width: 6px; height: 6px; pointer-events: none; background: var(--gold); box-shadow: 0 0 6px var(--gold); animation: sparkfade .7s ease-out forwards; }
 @keyframes sparkfade { to { transform: translate(var(--dx), var(--dy)) scale(.2); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .ticker div, .aurora::before, .shine::after { animation: none; } }
+
+/* ===================== v3: speed, readability, pixel icons, the hero Mind ===================== */
+/* lighter effects: no live blur behind the bar, a still aurora, the parade only slides */
+.nav { backdrop-filter: none; background: rgba(18, 13, 36, .78); } .nav.solid { background: rgba(18, 13, 36, .96); }
+.aurora::before { animation: none; filter: none; inset: 0; background: radial-gradient(60% 70% at 15% 30%, rgba(155, 107, 255, .28), transparent 70%), radial-gradient(50% 60% at 90% 80%, rgba(94, 200, 255, .2), transparent 70%); }
+.parade img { animation: none; }
+.frame video { opacity: 1; transform: none; transition: none; }
+.frame .wipe { position: absolute; inset: 0; z-index: 3; pointer-events: none; background: repeating-linear-gradient(90deg, #0b0818 0 40px, transparent 40px 80px); transform: scaleY(0); }
+.frame .wipe.go { animation: wipe .5s steps(6) both; }
+@keyframes wipe { 0% { transform: scaleY(0); } 45%, 55% { transform: scaleY(1); } 100% { transform: scaleY(0); } }
+/* text stays readable on bright footage: a dark panel behind the hero copy */
+.hero .copy { max-width: 640px; padding: 26px 28px 30px; background: linear-gradient(135deg, rgba(11, 8, 24, .82), rgba(11, 8, 24, .55)); box-shadow: 0 0 0 2px rgba(255, 255, 255, .08), 0 30px 80px rgba(0, 0, 0, .45); }
+.hero.video::after { background: linear-gradient(90deg, rgba(11, 8, 24, .75) 0%, rgba(11, 8, 24, .25) 55%, rgba(11, 8, 24, .55) 100%), linear-gradient(180deg, rgba(11, 8, 24, .5), transparent 25%, transparent 70%, #120d24); }
+.hero .lead, .hero p { text-shadow: 0 2px 6px rgba(0, 0, 0, .7); }
+/* pixel icons (the game's own sprites and icons) */
+.pxi { width: 56px; height: 56px; object-fit: contain; image-rendering: pixelated; display: block; margin-bottom: 10px; filter: drop-shadow(0 4px 0 rgba(0, 0, 0, .45)); }
+.pxi.sm { width: 28px; height: 28px; display: inline-block; vertical-align: -6px; margin: 0 6px 0 0; filter: none; }
+.pxrow { display: flex; gap: 8px; align-items: flex-end; margin-bottom: 10px; } .pxrow .pxi { margin: 0; width: 44px; height: 44px; }
+.card .pxi { transition: transform .25s; } .card:hover .pxi { transform: translateY(-4px) scale(1.06); }
+/* filmed clip in a frame (replaces the old code-drawn demos) */
+.clip { position: relative; aspect-ratio: 16 / 9; background: #000; box-shadow: 0 0 0 4px #000, 0 0 0 7px #3a2e66, 0 24px 60px rgba(0, 0, 0, .5); overflow: hidden; }
+.clip video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.clip .label { position: absolute; left: 10px; top: 10px; font: 700 12px var(--pixel); background: #000; color: var(--lime); padding: 3px 8px; letter-spacing: 1px; } .clip .label::before { content: '● '; color: var(--red); }
+/* 🧠 the hero Mind */
+.pal { position: absolute; z-index: 4; right: max(24px, calc((100vw - 1120px) / 2 + 24px)); bottom: 12vh; width: 260px; display: grid; justify-items: center; gap: 10px; user-select: none; }
+.pal img { width: 220px; height: 220px; image-rendering: pixelated; cursor: pointer; transform: rotate(var(--lean, 0deg)); transition: transform .2s; animation: palidle 2.6s ease-in-out infinite; filter: drop-shadow(0 14px 0 rgba(0, 0, 0, .35)) drop-shadow(0 0 30px rgba(198, 244, 50, .25)); }
+.pal img.hop { animation: palhop .55s cubic-bezier(.3, -0.4, .6, 1.4), palidle 2.6s ease-in-out .55s infinite; }
+@keyframes palidle { 50% { translate: 0 -10px; } }
+@keyframes palhop { 40% { translate: 0 -60px; scale: 1.08 .92; } 70% { translate: 0 0; scale: .92 1.08; } }
+.pal::after { content: ''; width: 150px; height: 18px; background: radial-gradient(closest-side, rgba(0, 0, 0, .45), transparent); margin-top: -18px; order: 2; }
+.pal-say { position: absolute; top: -18px; left: 50%; translate: -50% -100%; width: max-content; max-width: 240px; background: #fff; color: var(--ink); font: 700 15px/1.3 var(--pixel); padding: 8px 12px; box-shadow: 0 0 0 3px #000, 0 5px 0 #000; opacity: 0; scale: .6; transition: opacity .2s, scale .2s; }
+.pal-say::after { content: ''; position: absolute; left: 50%; bottom: -11px; margin-left: -6px; border: 6px solid transparent; border-top-color: #000; }
+.pal-say.on { opacity: 1; scale: 1; }
+.pal-bar { display: flex; gap: 8px; align-items: center; order: 3; } .pal-tag { font: 700 13px var(--pixel); background: rgba(0, 0, 0, .7); color: var(--gold); padding: 3px 8px; }
+.pal-dice { font: 700 13px var(--pixel); background: var(--lime); color: var(--ink); border: 0; padding: 4px 10px; cursor: pointer; box-shadow: 0 0 0 2px #000, 0 3px 0 #000; }
+.pal.swap img { animation: palswap .28s steps(4) forwards; } @keyframes palswap { to { filter: blur(0) brightness(3); scale: .2; opacity: 0; } }
+.pal-px { position: absolute; left: 50%; top: 45%; width: 8px; height: 8px; animation: palpx .7s ease-out forwards; }
+@keyframes palpx { from { transform: rotate(var(--a)) translateY(0); } to { transform: rotate(var(--a)) translateY(-120px); opacity: 0; } }
+@media (max-width: 1000px) { .pal { display: none; } }
+@media (max-width: 700px) { .hero .copy { padding: 18px; } }
+.clip .bosskeep { position: absolute; right: 14px; bottom: 12px; width: 120px; image-rendering: pixelated; filter: drop-shadow(0 0 16px rgba(255, 106, 0, .8)) drop-shadow(0 6px 0 #000); animation: bob 3s ease-in-out infinite; }
+.hero .copy h1.mega { font-size: clamp(48px, 7.4vw, 104px); }
+.pal img { background: linear-gradient(160deg, #fff8e4, #f0e2bf); box-shadow: 0 0 0 4px #000, 0 0 0 8px var(--gold), 0 0 0 12px #000, 0 18px 0 12px rgba(0, 0, 0, .35); filter: drop-shadow(0 0 40px rgba(255, 201, 60, .35)); }
+.pal::after { display: none; }

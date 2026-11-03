@@ -1,0 +1,302 @@
+{
+ "trailer": {
+  "crf": 24,
+  "parts": [
+   {
+    "title": "MINDS CLASH",
+    "sub": "duel  ·  build  ·  raid  ·  explore",
+    "bg": "film/duel",
+    "at": 8.6,
+    "dur": 2.4
+   },
+   {
+    "src": "film/duel",
+    "t0": 0.2,
+    "t1": 6.4,
+    "zoom": [
+     1.0,
+     1.12
+    ],
+    "focus": [
+     0.5,
+     0.35
+    ],
+    "cap": "READ YOUR RIVAL",
+    "sub": "7 secret cards  ·  4 spells"
+   },
+   {
+    "src": "film/duel",
+    "t0": 7.6,
+    "t1": 10.2,
+    "zoom": [
+     1.15,
+     1.3
+    ],
+    "focus": [
+     0.5,
+     0.55
+    ],
+    "cap": "TAKE THE CROWN",
+    "sub": "+25 in one turn"
+   },
+   {
+    "src": "film2/raid",
+    "t0": 0.4,
+    "t1": 3.9,
+    "zoom": [
+     1.3,
+     1.55
+    ],
+    "focus": [
+     0.38,
+     0.3
+    ],
+    "cap": "BUILD & DEFEND",
+    "sub": "walls  ·  towers  ·  traps"
+   },
+   {
+    "src": "film2/raid",
+    "t0": 4.0,
+    "t1": 10.0,
+    "zoom": [
+     1.7,
+     1.85
+    ],
+    "focus": [
+     0.4,
+     0.3
+    ],
+    "cap": "RAID FOR LOOT",
+    "sub": "brawlers  ·  archers  ·  bombers  ·  giants"
+   },
+   {
+    "src": "film2/raid",
+    "t0": 13.0,
+    "t1": 17.0,
+    "zoom": [
+     1.85,
+     2.0
+    ],
+    "focus": [
+     0.45,
+     0.35
+    ]
+   },
+   {
+    "src": "film/duel",
+    "t0": 17.2,
+    "t1": 20.8,
+    "zoom": [
+     1.2,
+     1.3
+    ],
+    "focus": [
+     0.5,
+     0.6
+    ],
+    "cap": "EVERY CARD COUNTS"
+   },
+   {
+    "title": "PLAY FREE",
+    "sub": "in your browser  ·  your AI can play too",
+    "bg": "film2/raid",
+    "at": 14.0,
+    "dur": 2.6,
+    "size": 130
+   }
+  ]
+ },
+ "reel": {
+  "crf": 30,
+  "parts": [
+   {
+    "src": "film/duel",
+    "t0": 0.2,
+    "t1": 6.4,
+    "zoom": [
+     1.0,
+     1.1
+    ],
+    "focus": [
+     0.5,
+     0.35
+    ]
+   },
+   {
+    "src": "film2/raid",
+    "t0": 4.0,
+    "t1": 10.0,
+    "zoom": [
+     1.7,
+     1.85
+    ],
+    "focus": [
+     0.4,
+     0.3
+    ]
+   },
+   {
+    "src": "film2/island",
+    "t0": 6.0,
+    "t1": 11.0,
+    "zoom": [
+     1.0,
+     1.1
+    ],
+    "focus": [
+     0.5,
+     0.5
+    ]
+   },
+   {
+    "src": "film/duel",
+    "t0": 7.6,
+    "t1": 10.2,
+    "zoom": [
+     1.15,
+     1.3
+    ],
+    "focus": [
+     0.5,
+     0.55
+    ]
+   }
+  ],
+  "width": 960
+ },
+ "duel": {
+  "crf": 30,
+  "parts": [
+   {
+    "src": "film/duel",
+    "t0": 0.2,
+    "t1": 6.4,
+    "zoom": [
+     1.0,
+     1.08
+    ],
+    "focus": [
+     0.5,
+     0.4
+    ]
+   },
+   {
+    "src": "film/duel",
+    "t0": 7.6,
+    "t1": 10.2,
+    "zoom": [
+     1.1,
+     1.2
+    ],
+    "focus": [
+     0.5,
+     0.55
+    ]
+   },
+   {
+    "src": "film/duel",
+    "t0": 17.2,
+    "t1": 20.8,
+    "zoom": [
+     1.1,
+     1.2
+    ],
+    "focus": [
+     0.5,
+     0.55
+    ]
+   },
+   {
+    "src": "film/duel",
+    "t0": 21.6,
+    "t1": 24.8,
+    "zoom": [
+     1.1,
+     1.2
+    ],
+    "focus": [
+     0.5,
+     0.55
+    ]
+   }
+  ],
+  "width": 960
+ },
+ "raid": {
+  "crf": 30,
+  "parts": [
+   {
+    "src": "film2/raid",
+    "t0": 0.3,
+    "t1": 4.0,
+    "zoom": [
+     1.3,
+     1.6
+    ],
+    "focus": [
+     0.38,
+     0.3
+    ]
+   },
+   {
+    "src": "film2/raid",
+    "t0": 4.0,
+    "t1": 10.0,
+    "zoom": [
+     1.7,
+     1.85
+    ],
+    "focus": [
+     0.4,
+     0.3
+    ]
+   },
+   {
+    "src": "film2/raid",
+    "t0": 13.0,
+    "t1": 20.0,
+    "zoom": [
+     1.85,
+     2.0
+    ],
+    "focus": [
+     0.45,
+     0.35
+    ]
+   }
+  ],
+  "width": 960
+ },
+ "island": {
+  "crf": 30,
+  "parts": [
+   {
+    "src": "film2/raid",
+    "t0": 0.4,
+    "t1": 3.9,
+    "zoom": [
+     1.3,
+     1.55
+    ],
+    "focus": [
+     0.38,
+     0.3
+    ]
+   },
+   {
+    "src": "film2/island",
+    "t0": 6.0,
+    "t1": 13.0,
+    "zoom": [
+     1.0,
+     1.1
+    ],
+    "focus": [
+     0.5,
+     0.5
+    ]
+   }
+  ],
+  "width": 960
+ }
+}

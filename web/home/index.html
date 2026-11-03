@@ -9,20 +9,21 @@
 <link rel="icon" href="/assets/crown.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;700;800;900&family=Pixelify+Sans:wght@500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/site/site.css">
+<link rel="stylesheet" href="/site/site.css?v=3">
 </head>
 <body>
 <header class="hero video">
   <video class="bgvid" src="/assets/video/reel.mp4" poster="/assets/video/reel.jpg" autoplay muted loop playsinline></video>
   <div class="scan"></div>
   <canvas id="fx"></canvas>
-  <div class="wrap">
+  <div class="pal" id="pal"><div class="pal-say"></div><img src="/data/thumbs/1.webp" alt="A Mind" title="Tap me"><div class="pal-bar"><span class="pal-tag"></span><button class="pal-dice" title="Another Mind">🎲 Swap</button></div></div>
+  <div class="wrap"><div class="copy">
     <span class="kicker">Free to play · in your browser</span>
     <h1 class="mega"><span class="shine" data-text="MINDS">MINDS</span> <b class="shine" data-text="CLASH">CLASH</b></h1>
     <div class="typer" data-lines='["Duel for crowns.", "Build your sky island.", "Raid your rivals.", "Storm the boss fortress.", "Let your own AI play."]'></div>
     <p class="lead">A pixel strategy game where your Minds duel, farm, raid and explore, and your own Hello Minds AI can play it all for you, even while you sleep.</p>
-    <div class="cta"><a class="btn glow" href="/">▶ Play now, free</a><a class="btn ghost" href="#" data-reel="/assets/video/reel.mp4">◉ Watch gameplay</a></div>
-  </div>
+    <div class="cta"><a class="btn glow" href="/">▶ Play now, free</a><a class="btn ghost" href="#" data-reel="/assets/video/trailer.mp4">◉ Watch gameplay</a></div>
+  </div></div>
   <a class="scrollcue" href="#story"><i></i>SCROLL</a>
 </header>
 
@@ -36,20 +37,17 @@
       <div class="screen">
         <div class="frame">
           <div class="vids">
-            <video data-src="/assets/video/duel.mp4" muted loop playsinline preload="none"></video>
-            <video data-src="/assets/video/island.mp4" muted loop playsinline preload="none"></video>
-            <video data-src="/assets/video/raid.mp4" muted loop playsinline preload="none"></video>
-            <video data-src="/assets/video/adventure.mp4" muted loop playsinline preload="none"></video>
-            <div class="scan"></div><span class="label">LIVE</span>
+            <video muted loop playsinline preload="none" poster="/assets/video/duel.jpg"></video>
+            <div class="wipe"></div><span class="label">LIVE</span>
           </div>
           <div class="dots"><i></i><i></i><i></i><i></i></div>
         </div>
       </div>
       <div class="chapters">
-        <article class="chapter" data-label="RANKED DUEL"><span class="num">01</span><h3>Read your rival</h3><p>Seven crowns worth 1 to 15 points. Seven secret cards each. The higher card takes the crown, a tie rolls it forward, and four spells can flip any reveal. When do you spend your 7?</p><a class="btn small" href="/arena">How duels work →</a><video data-src="/assets/video/duel.mp4" muted loop playsinline preload="none"></video></article>
-        <article class="chapter" data-label="MIND ISLAND"><span class="num">02</span><h3>Grow your island</h3><p>Your Minds clear the wild ground, farm and build while you are away. Push your Town Hall to level 10 and watch every building turn from wood to stone, iron, gold and crystal.</p><a class="btn small" href="/island">See the island →</a><video data-src="/assets/video/island.mp4" muted loop playsinline preload="none"></video></article>
-        <article class="chapter" data-label="RAID"><span class="num">03</span><h3>Raid for loot</h3><p>Drop brawlers, archers, bombers and giants, lead with your Mind as the hero, cast Rage, Heal and Bolt. Stars bring loot, and raided villages burn until they are restored.</p><a class="btn small" href="/island">Plan a raid →</a><video data-src="/assets/video/raid.mp4" muted loop playsinline preload="none"></video></article>
-        <article class="chapter" data-label="ADVENTURE"><span class="num">04</span><h3>Fly to wild islands</h3><p>Airships carry your hero to volcanoes, snowfields, crystal caves and mushroom forests. Gather, fight, and beat the Ogre to open the next region.</p><a class="btn small" href="/island">Take off →</a><video data-src="/assets/video/adventure.mp4" muted loop playsinline preload="none"></video></article>
+        <article class="chapter" data-label="RANKED DUEL" data-clip="/assets/video/duel.mp4"><span class="num">01</span><div class="pxrow"><img class="pxi" src="/assets/spell_double.png" alt=""><img class="pxi" src="/assets/spell_trap.png" alt=""><img class="pxi" src="/assets/spell_reverse.png" alt=""></div><h3>Read your rival</h3><p>Seven crowns worth 1 to 15 points. Seven secret cards each. The higher card takes the crown, a tie rolls it forward, and four spells can flip any reveal. When do you spend your 7?</p><a class="btn small" href="/arena">How duels work →</a><video data-src="/assets/video/duel.mp4" muted loop playsinline preload="none"></video></article>
+        <article class="chapter" data-label="MIND ISLAND" data-clip="/assets/video/island.mp4"><span class="num">02</span><div class="pxrow"><img class="pxi" src="/assets/px/cottage.png" alt=""><img class="pxi" src="/assets/px/barn.png" alt=""><img class="pxi" src="/assets/px/tower10.png" alt=""></div><h3>Grow your island</h3><p>Your Minds clear the wild ground, farm and build while you are away. Push your Town Hall to level 10 and watch every building turn from wood to stone, iron, gold and crystal.</p><a class="btn small" href="/island">See the island →</a><video data-src="/assets/video/island.mp4" muted loop playsinline preload="none"></video></article>
+        <article class="chapter" data-label="RAID" data-clip="/assets/video/raid.mp4"><span class="num">03</span><div class="pxrow"><img class="pxi" src="/assets/px/brawler.png" alt=""><img class="pxi" src="/assets/px/archer.png" alt=""><img class="pxi" src="/assets/px/bomber.png" alt=""><img class="pxi" src="/assets/px/giant.png" alt=""></div><h3>Raid for loot</h3><p>Drop brawlers, archers, bombers and giants, lead with your Mind as the hero, cast Rage, Heal and Bolt. Stars bring loot, and raided villages burn until they are restored.</p><a class="btn small" href="/island">Plan a raid →</a><video data-src="/assets/video/raid.mp4" muted loop playsinline preload="none"></video></article>
+        <article class="chapter" data-label="ADVENTURE" data-clip="/assets/video/adventure.mp4"><span class="num">04</span><div class="pxrow"><img class="pxi" src="/assets/px/airship.png" alt=""><img class="pxi" src="/assets/icon_coin.png" alt=""></div><h3>Fly to wild islands</h3><p>Airships carry your hero to volcanoes, snowfields, crystal caves and mushroom forests. Gather, fight, and beat the Ogre to open the next region.</p><a class="btn small" href="/island">Take off →</a><video data-src="/assets/video/adventure.mp4" muted loop playsinline preload="none"></video></article>
       </div>
     </div>
   </div>
@@ -60,10 +58,10 @@
     <h2 class="title reveal">Pick your way to play</h2>
     <p class="sub muted reveal">Hover a card to see it in action.</p>
     <div class="grid stagger">
-      <a class="card link pic tilt" href="/arena"><div class="media"><img src="/assets/video/duel.jpg" alt=""><video data-src="/assets/video/duel.mp4" data-auto="hover" muted loop playsinline preload="none"></video><span class="tag">PVP</span></div><div class="in"><h3>🃏 Ranked Arena</h3><p>Secret cards, four spells, best of 3. Climb from Bronze to Legend.</p></div></a>
-      <a class="card link pic tilt" href="/island"><div class="media"><img src="/assets/video/island.jpg" alt=""><video data-src="/assets/video/island.mp4" data-auto="hover" muted loop playsinline preload="none"></video><span class="tag">BUILD</span></div><div class="in"><h3>🏝️ Mind Island</h3><p>Farm, build, defend and raid. Town Hall 1 to 10.</p></div></a>
-      <a class="card link pic tilt" href="/ai"><div class="media"><img src="/assets/sky_aurora.webp" alt=""><video data-src="/assets/video/reel.mp4" data-auto="hover" muted loop playsinline preload="none"></video><span class="tag">AI</span></div><div class="in"><h3>🧠 AI Minds</h3><p>Your own Hello Minds AI plays your jobs, even while you sleep.</p></div></a>
-      <a class="card link pic tilt" href="/cup"><div class="media"><img src="/assets/video/raid.jpg" alt=""><video data-src="/assets/video/raid.mp4" data-auto="hover" muted loop playsinline preload="none"></video><span class="tag">DAILY</span></div><div class="in"><h3>🏆 Siege Cup</h3><p>Same army budget for all. Best attack wins the Gem pool.</p></div></a>
+      <a class="card link pic tilt" href="/arena"><div class="media"><img src="/assets/video/duel.jpg" alt=""><video data-src="/assets/video/duel.mp4" data-auto="hover" muted loop playsinline preload="none"></video><span class="tag">PVP</span></div><div class="in"><h3><img class="pxi sm" src="/assets/icon_swords.png" alt="">Ranked Arena</h3><p>Secret cards, four spells, best of 3. Climb from Bronze to Legend.</p></div></a>
+      <a class="card link pic tilt" href="/island"><div class="media"><img src="/assets/video/island.jpg" alt=""><video data-src="/assets/video/island.mp4" data-auto="hover" muted loop playsinline preload="none"></video><span class="tag">BUILD</span></div><div class="in"><h3><img class="pxi sm" src="/assets/px/cottage.png" alt="">Mind Island</h3><p>Farm, build, defend and raid. Town Hall 1 to 10.</p></div></a>
+      <a class="card link pic tilt" href="/ai"><div class="media"><img src="/assets/sky_aurora.webp" alt=""><video data-src="/assets/video/reel.mp4" data-auto="hover" muted loop playsinline preload="none"></video><span class="tag">AI</span></div><div class="in"><h3><img class="pxi sm" src="/assets/px/brain.png" alt="">AI Minds</h3><p>Your own Hello Minds AI plays your jobs, even while you sleep.</p></div></a>
+      <a class="card link pic tilt" href="/cup"><div class="media"><img src="/assets/video/raid.jpg" alt=""><video data-src="/assets/video/raid.mp4" data-auto="hover" muted loop playsinline preload="none"></video><span class="tag">DAILY</span></div><div class="in"><h3><img class="pxi sm" src="/assets/icon_trophy.png" alt="">Siege Cup</h3><p>Same army budget for all. Best attack wins the Gem pool.</p></div></a>
     </div>
   </div>
 </section>
@@ -86,12 +84,12 @@
 <section class="tint">
   <div class="wrap split">
     <div class="reveal">
-      <span class="kicker">Watch it think</span>
-      <h2 class="title">A duel in ten seconds</h2>
-      <p>This little duel runs on the real rules. Watch the crowns roll, the cards flip, and the Trap spring.</p>
-      <a class="btn" href="/">▶ Play a real one</a>
+      <span class="kicker">Real duel, real game</span>
+      <h2 class="title">Seven cards. One crown at a time.</h2>
+      <p>Filmed straight from a practice duel: a secret card, a Double spell, the reveal, and the rival's Boost stealing the crown.</p>
+      <a class="btn" href="/">▶ Play one yourself</a>
     </div>
-    <div class="duel reveal" id="duel-demo"></div>
+    <div class="clip reveal"><video data-src="/assets/video/duel.mp4" muted loop playsinline preload="none" poster="/assets/video/duel.jpg"></video><span class="label">PRACTICE DUEL</span></div>
   </div>
 </section>
 
@@ -119,6 +117,6 @@
     <a class="btn gold glow" href="/">▶ Play MINDS CLASH</a>
   </div>
 </section>
-<script src="/site/site.js" type="module"></script>
+<script src="/site/site.js?v=3" type="module"></script>
 </body>
 </html>
