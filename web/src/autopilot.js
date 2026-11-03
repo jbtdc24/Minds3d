@@ -291,7 +291,7 @@ async function loop() {
       if (!K.idle()) { await sleep(3000); continue; }   // you are playing yourself: the AIs wait
       for (const s of [...running]) await checkCog(s);   // no cognition = it stops
       const now = Date.now(), ready = [...running].filter(s => (L(s).wait || 0) < now);
-      if (!ready.length) { const next = Math.min(...[...running].map(s => L(s).wait || 0)); for (const s of running) if (L(s).wait > now) setNow(s, `⏳ next round in ${Math.max(1, Math.round((L(s).wait - now) / 60e3))} min`, 'rest'); await sleep(Math.min(15e3, Math.max(1500, next - now))); continue; }
+      if (!ready.length) { const next = Math.min(...[...running].map(s => L(s).wait || 0)); for (const s of running) if (L(s).wait > now) setNow(s, `${L(s).result ? `${L(s).result} · ` : ''}⏳ next round in ${Math.max(1, Math.round((L(s).wait - now) / 60e3))} min`, 'rest'); await sleep(Math.min(15e3, Math.max(1500, next - now))); continue; }
       const slot = ready[turn++ % ready.length], job = jobOf(slot), l = L(slot);
       if (!job) { running.delete(slot); continue; }
       setNow(slot, `${JOBS[job.kind].icon} ${JOBS[job.kind].say}…`, KIND_OF[job.kind]); l.acts = ACT_ICON[{ ranked: 'duel', cup: 'raid', farm: 'farm', clean: 'farm', adventure: 'adventure', train: 'train', raid: 'raid' }[job.kind]] || [];
@@ -319,7 +319,7 @@ async function work(slot, job) {
   if (!r || r.pending) return false;
   await missed(slot, r.ai);
   if (r.log) ap = { ...ap, log: r.log, gems: r.gems || ap.gems, ai: r.ai && typeof r.ai === 'object' ? r.ai : ap.ai };
-  setNow(slot, r.text); if (r.why) think(slot, r.why);
+  l.result = r.text; setNow(slot, r.text); if (r.why) think(slot, r.why);
   K.babble(slot === '0' ? 49 : +slot, r.ok ? 'happy' : 'sad', 0.5);
   return !!r.did;
 }
@@ -373,6 +373,7 @@ async function duel(slot, i, n) {
   l.duel = null; l.match = null;
   const won = v?.winner === v?.seat, tie = v?.winner == null;
   await log(slot, `🃏 ${tie ? 'tied' : won ? 'won' : 'lost'} vs ${v?.view.rival.name}${v?.delta ? ` (${v.delta > 0 ? '+' : ''}${v.delta} rating)` : ''}${v?.dustWon ? `, +${v.dustWon} ✨` : ''} · the AI chose ${own} of ${total} cards live${planned ? `, ${planned} by its own duel strategy` : ''}${own + planned < total ? `, ${total - own - planned} not played (no answer)` : ''}`);
+  L(slot).result = ap?.log?.[0]?.text || '';
   K.babble(slot === '0' ? 49 : +slot, won ? 'happy' : 'sad', 0.6); K.refresh();
   return true;
 }
