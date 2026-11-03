@@ -54,7 +54,7 @@
   ],
   "functions": {
     "api/router.js": {
-      "maxDuration": 30
+      "maxDuration": 60
     }
   }
 }
