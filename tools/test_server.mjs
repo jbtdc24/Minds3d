@@ -1552,6 +1552,15 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
     isl(M).state.dust += 50000; isl(M).state.inv.wood = (isl(M).state.inv.wood || 0) + 5000; isl(M).state.inv.stone = (isl(M).state.inv.stone || 0) + 5000;
     out = await hit(autopilot, M, { op: 'step', do: 'build', mind: 0 });
     ok(out.body.ok && /upgrade|builders/.test(out.body.text), `the AI can upgrade buildings: ${out.body.text}`);
+    { const ap0 = AP.parsePlan("dont farm, only upgrade everything using diamonds only");
+      ok(ap0.steps.length === 1 && ap0.steps[0].do === 'build' && ap0.steps[0].gems === 1, 'a "diamonds only, dont farm" request becomes Gem upgrades with no farming');
+      await hit(autopilot, M, { op: 'save', mind: 0, steps: ap0.steps });
+      await hit(autopilot, M, { op: 'gems', on: true, cap: 30, confirm: 'CONFIRM' });
+      isl(M).state.gems = 500; isl(M).state.ap.gems.spent = 0; isl(M).state.ap.gems.day = new Date().toISOString().slice(0, 10);
+      fake.reply = 'DO: build WHY: max out'; await hit(autopilot, M, { op: 'next', mind: 0, at: 0, token: tok });
+      const g0 = isl(M).state.gems, d0 = isl(M).state.dust;
+      out = await hit(autopilot, M, { op: 'step', do: 'build', mind: 0 });
+      ok(/with Gems/.test(out.body.text) && isl(M).state.gems < g0 && isl(M).state.dust === d0 && isl(M).state.ap.gems.spent <= 30, `Gem-only upgrades pay with Gems inside the daily limit: ${out.body.text}`); }
     ok((await hit(autopilot, M, { op: 'step', do: 'nope', mind: 0 })).code === 400, 'unknown steps are refused');
     ok((await hit(autopilot, M, { op: 'duel_act', id: '00000000-0000-0000-0000-000000000000', card: 3 })).code === 400, 'the browser cannot play cards for the AI (only the server does, from the AI answer)');
     { const rival = await mk('DuelRival'), m = await startMatch({ player: M, minds: [1] }, { player: rival, minds: [5] }, { ranked: false });

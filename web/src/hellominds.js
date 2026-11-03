@@ -68,7 +68,7 @@ export const decide = (mindId, question, timeoutMs = 14e3) => send(playAlias(min
 export async function history(mindId, limit = 60) {
   const rows = await hm().client.getHistory(chatAlias(mindId), { limit }).catch(() => []);
   // a player's message carries the game's instructions in front of "Human says:": only their own words are shown
-  return rows.map(r => ({ who: r.senderType === 1 ? 'me' : 'mind', text: plain(r.messageText).replace(/^[\s\S]*Human says:\s*/, '').replace(/^\s*PLAN:.*$/im, '').trim(), at: r.createdAt })).filter(r => r.text && !/^\[MINDS CLASH game/.test(r.text)).reverse();
+  return rows.map(r => ({ who: r.senderType === 1 ? 'me' : 'mind', text: plain(r.messageText).replace(/^[\s\S]*Human says:\s*/, '').replace(/^\s*PLAN:.*$/im, '').trim(), at: r.createdAt })).filter(r => r.text && !/^\[MINDS CLASH game/.test(r.text) && !/^Write only the PLAN line/.test(r.text)).reverse();
 }
 // split a reply into what to say and the plan line ("PLAN: …"; '' when there is none)
 export function splitReply(reply) {

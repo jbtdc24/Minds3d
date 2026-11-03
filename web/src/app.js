@@ -1645,7 +1645,7 @@ const chat = chatSigner(api);
 let apRefresh = 0;
 initAutopilot({ api, esc, toast, modal, sfx, babble, online: () => online, guest: () => guest,
   idle: () => (current === 'hub' || (!!watching && ['duel', 'island', 'result'].includes(current))) && !document.querySelector('#modal.on'),   // the AIs play in the lobby, and while you watch them
-  watchDuel, watchIsland, stopWatch, watching: () => watching?.kind || null,
+  watchDuel, watchIsland, stopWatch, watching: () => watching?.kind || null, connectWallet: () => { logout(); show('login'); },
   mindId: () => me?.pfp || myMinds[0] || 1, mindName: () => me ? `${me.name}'s Mind #${me.pfp}` : 'Your Mind', pfp: () => thumb(me?.pfp || 49),
   myMinds: () => myMinds, energyOf: id => energyOf(id), rankPass: () => rankPass, thumb, island: () => isle.state, home: () => { if (current !== 'hub') enterHub(); },
   refresh: () => { if (watching?.kind === 'island' && current === 'island') refreshIsland().catch(() => {}); else resetIsland(); if (Date.now() - apRefresh > 20e3) { apRefresh = Date.now(); refreshMe().then(() => { if (current === 'hub') paintHub(); }).catch(() => {}); } } });

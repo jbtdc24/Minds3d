@@ -60,7 +60,8 @@ function setMin(v) { $('#mdock').classList.toggle('min', v); save(MIN_KEY, v); }
 function place(p) {
   const d = $('#mdock'); if (!d) return;
   if (!p) { d.style.left = d.style.top = ''; d.classList.remove('moved'); return; }
-  const x = Math.max(0, Math.min(innerWidth - 60, p.x)), y = Math.max(0, Math.min(innerHeight - 40, p.y));
+  const w = d.offsetWidth || 340, h = Math.min(d.offsetHeight || 200, innerHeight);
+  const x = Math.max(0, Math.min(innerWidth - w - 4, p.x)), y = Math.max(0, Math.min(innerHeight - Math.min(h, 120), p.y));
   Object.assign(d.style, { left: `${x}px`, top: `${y}px` }); d.classList.add('moved');
 }
 function dragBy(handle, d) {
@@ -74,14 +75,15 @@ addEventListener('resize', () => place(load(POS_KEY, null)));
 export function dockScreen(id, inWindow = false) {
   const d = $('#mdock'); if (!d || !K) return;
   d.classList.toggle('win', inWindow);   // a window (shop, profile…) is open: just the bubble, in its corner
-  d.classList.toggle('hide', !K.online() || K.guest() || ['login', 'boot', 'setup'].includes(id));
+  d.classList.toggle('hide', !K.online() || ['login', 'boot', 'setup'].includes(id));   // trial players see it too (it invites them to connect)
   d.classList.toggle('fight', ['duel', 'raid', 'adventure'].includes(id));
   d.classList.toggle('isl', id === 'island');
 }
 // the lobby opened: load the AIs and carry on with the ones that were playing
 export async function openAutopilot() {
   dockScreen('hub');
-  if (!K.online() || K.guest()) return;
+  if (K.online() && K.guest()) { if (!load(SEEN_KEY, false)) { save(SEEN_KEY, true); setMin(false); } return paint(); }
+  if (!K.online()) return;
   if (!load(SEEN_KEY, false)) { save(SEEN_KEY, true); setMin(false); }   // first time: open, so nobody misses it
   try { ap = await K.api('autopilot', { op: 'get' }); } catch { ap = ap || null; }
   if (!sel || !slots().includes(sel)) sel = slots().find(s => aiOf(s)) || slots()[0];
@@ -140,6 +142,13 @@ function paint() {
   const tabs = $('#md-tabs'), body = $('#md-body'); if (!tabs) return;
   $('#md-count').textContent = running.size ? `${running.size} playing` : '';
   $('#mdock').classList.toggle('on', running.size > 0);
+  if (K.guest()) {   // trial account: show what it is and how to get it
+    tabs.innerHTML = '';
+    body.innerHTML = `<div class="md-hero"><img src="${K.thumb(49)}" alt=""><p><b>Your Minds can play for you.</b> Every Mind NFT gets its own real AI (on Hello Minds) that farms, upgrades, raids, duels and explores, thinking every move itself.</p></div>
+      <ol class="md-steps"><li><i>👛</i><b>Connect your wallet</b><span>the one with your Minds</span></li><li><i>🧠</i><b>Connect Hello Minds</b><span>your AI account (free to make)</span></li><li><i>✨</i><b>Awaken an AI for each Mind</b><span>train it, give it a plan, watch it play</span></li></ol>
+      <button class="btn primary wide" data-a="wallet">👛 Connect a wallet</button>`;
+    return;
+  }
   if (!HM.connected()) {
     tabs.innerHTML = '';
     body.innerHTML = `<div class="md-hero"><img src="${slotPic(slots()[0])}" alt=""><p>Every Mind you hold gets its <b>own AI</b> that farms, raids, duels and explores for you, thinking every move itself. Your AIs live on <b>Hello Minds</b>: connect your account (or make one, it takes a minute).</p></div>
@@ -186,6 +195,7 @@ async function onClick(e) {
   if (t.dataset.preset) return previewPlan(PRESETS[t.dataset.preset].steps, t.dataset.preset);
   const a = t.dataset.a;
   if (a === 'connect') return HM.signIn().catch(err => K.toast(err.message, true));
+  if (a === 'wallet') return K.connectWallet?.();
   if (a === 'out') { stopAll(); await HM.signOut(); paint(); return K.toast('Hello Minds disconnected.'); }
   if (a === 'fresh') return makeFresh(sel);
   if (a === 'go') return running.has(sel) ? stop(sel, 'Stopped. Tell me when to play again!') : start(sel);
@@ -258,14 +268,13 @@ async function talk() {
   if (reply == null) return say(slot, '(I did not answer within 2 minutes. Hello Minds may be busy: try again.)');
   let { say: words, plan } = HM.splitReply(reply);
   if (words) say(slot, words);
-  if (!plan && !/PLAN:\s*none/i.test(reply) && /\b(do|play|max|upgrade|farm|raid|duel|go|start|build|rush|use)\b/i.test(text)) {   // it forgot the plan line: ask once more
-    L(slot).typing = true; paint();
-    const again = await HM.ask(ai.hm, 'Write only the PLAN line for what I just asked (or PLAN: none).', gameState(slot), 90e3).catch(() => null);
-    L(slot).typing = false; plan = HM.splitReply(again || '').plan; paint();
+  let r = parsePlan(plan || ''), fromWords = false;
+  if (!r.steps && !/PLAN:\s*none/i.test(reply)) {   // the AI agreed but wrote no plan line: the plan comes from what the player asked
+    const mine = parsePlan(text);
+    if (mine.steps) { r = mine; fromWords = true; }
   }
-  const r = parsePlan(plan || '');
   if (r.stop) return stop(slot, 'Okay, I stop. 💤');
-  if (r.steps) { say(slot, `📋 I made a plan: ${planText(cleanPlan(r.steps))}. Approve it to use it.`); previewPlan(r.steps, r.preset || null, r.loop, `${ai.name || 'Your AI'} suggests this plan for what you asked.`); }
+  if (r.steps) { say(slot, `📋 ${fromWords ? 'Plan from what you asked' : 'I made a plan'}: ${planText(cleanPlan(r.steps))}. Approve it to use it.`); previewPlan(r.steps, r.preset || null, r.loop, fromWords ? 'The plan from what you asked (your AI agreed).' : `${ai.name || 'Your AI'} suggests this plan for what you asked.`); }
   else if (plan) say(slot, '(I could not turn that into game steps. Try: farm, sell, upgrade buildings, raid, adventure, duel, town.)');
 }
 

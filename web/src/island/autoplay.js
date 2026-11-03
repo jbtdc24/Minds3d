@@ -36,9 +36,10 @@ export function cleanPlan(steps) {
     do: s.do,
     ...(s.do === 'duel' ? { n: Math.max(1, Math.min(10, s.n | 0 || 1)) } : {}),
     ...(s.do === 'town' || s.do === 'wait' ? { min: Math.max(1, Math.min(240, s.min | 0 || (s.do === 'town' ? 20 : 10))) } : {}),
+    ...(s.do === 'build' && s.gems ? { gems: 1 } : {}),   // pay the upgrades with Gems and finish them with Gems (within the Gem limit)
   }));
 }
-export const planText = steps => steps.map(s => `${STEPS[s.do].icon} ${STEPS[s.do].name}${s.n > 1 ? ` ×${s.n}` : ''}${s.min ? ` ${s.min >= 60 && s.min % 60 === 0 ? s.min / 60 + ' h' : s.min + ' min'}` : ''}`).join(' → ');
+export const planText = steps => steps.map(s => `${STEPS[s.do].icon} ${STEPS[s.do].name}${s.gems ? ' with 💎' : ''}${s.n > 1 ? ` ×${s.n}` : ''}${s.min ? ` ${s.min >= 60 && s.min % 60 === 0 ? s.min / 60 + ' h' : s.min + ' min'}` : ''}`).join(' → ');
 
 // a typed message → a plan, in the order the player said it. "every day like a farmer" → a preset.
 const WORDS = [
@@ -49,21 +50,28 @@ const WORDS = [
   [/\b(rest|wait|sleep|break)/, 'wait'],
 ];
 const numIn = (t, re) => { const m = t.match(re); return m ? +m[1] : 0; };
+// "don't farm", "no raids", "never sell", "without duels": those words are taken out before reading the plan
+const NOT = /\b(?:don'?t|do not|dont|no|never|without|not|stop|skip|avoid)\s+(?:\w+\s+){0,2}?(farm\w*|harvest\w*|plant\w*|crops?|sell\w*|raid\w*|attack\w*|duel\w*|ranked|adventur\w*|explor\w*|town|decor\w*|train\w*|troops?|rest\w*|wait\w*|well)\b/g;
 export function parsePlan(text) {
-  const t = String(text || '').toLowerCase();
+  let t = String(text || '').toLowerCase().replace(/\u2019/g, "'");
+  const gemsOnly = /\b(diamonds?|gems?)\b/.test(t) && /\b(only|use|using|with|rush|expedite|pay)\b/.test(t);
+  const skip = new Set([...t.matchAll(NOT)].map(m => m[1]));
+  t = t.replace(NOT, ' ');
   if (/\b(stop|pause|halt|enough)\b/.test(t)) return { stop: true };
   for (const [k, p] of Object.entries(PRESETS)) if (t.includes(p.name.toLowerCase()) || new RegExp(`\\b(be|like|as) an? ${k}\\b`).test(t)) return { preset: k, steps: p.steps };
   const found = [];
   for (const part of t.split(/,|\bthen\b|\band\b|\bafter that\b|;|\.|→|->/)) {
     for (const [re, step] of WORDS) if (re.test(part)) {
-      const s = { do: step };
+      const s = { do: step, ...(step === 'build' && gemsOnly ? { gems: 1 } : {}) };
       if (step === 'duel') s.n = numIn(part, /(\d+)\s*(?:x|times|games|duels|matches)?/) || 1;
       if (step === 'town' || step === 'wait') s.min = numIn(part, /(\d+)\s*h(?:ours?|rs?)?\b/) * 60 || numIn(part, /(\d+)\s*m(?:in(?:utes?)?)?\b/) || (step === 'town' ? 20 : 10);
-      found.push(s);
+      if (JSON.stringify(found.at(-1)) !== JSON.stringify(s)) found.push(s);   // "upgrade… and upgrade…" is one step
       break;
     }
   }
+  if (!found.length && gemsOnly && /\b(max|upgrade|build|everything|base|island)\b/.test(String(text).toLowerCase())) found.push({ do: 'build', gems: 1 });
   if (!found.length) return { talk: true };
+  void skip;
   return { steps: cleanPlan(found), loop: !/\b(once|one time)\b/.test(t) };
 }
 
