@@ -396,15 +396,15 @@ async function openCup() {
   sfx('click');
   let c;
   try { c = await api('cup'); } catch (e) { return toast(e.message, true); }
-  const left = c.me ? c.tries - c.me.tries : c.tries, hours = Math.max(1, Math.ceil((c.endsAt - Date.now()) / 3600e3));
+  const n = c.entries || 0, most = c.maxEntries || 1, left = c.me ? c.tries * Math.max(1, n) - c.me.tries : c.tries, hours = Math.max(1, Math.ceil((c.endsAt - Date.now()) / 3600e3));
   const rows = c.top.map((e, i) => `<div class="cup-row"><b>${i + 1}</b><span>${esc(e.name)}</span><em>${'★'.repeat(e.stars)}${'☆'.repeat(3 - e.stars)} ${e.pct}%</em></div>`).join('') || '<p class="muted">No scores yet. Be first!</p>';
   const go = await modal(`<h3>🏆 Daily Siege Cup</h3><p>Everyone attacks the same boss fortress with the same army budget: you pick the mix. Your Minds, troop levels and Gems give no edge, so only your plan counts. ${c.tries} tries, best score counts.</p>
-    <div class="army-facts"><span>💎 Prize: <b>${c.prize ?? c.pool}</b></span><span>👥 Players: <b>${c.players}</b></span><span>🎟️ Entry: <b>${c.entry} 💎</b></span><span>⏳ Ends in: <b>${hours} h</b></span></div>
-    <p class="muted">Top 3 share the prize: 60 / 30 / 10% (${Math.round((c.fee || 0) * 100)}% of the pool is the cup fee). Real players only. If nobody else joins, your entry comes back.</p>${rows}${c.last?.winners.length ? `<p class="muted">Last winner: <b>${esc(c.last.winners[0].name)}</b> · ${c.last.winners[0].gems} 💎</p>` : ''}`,
-    c.me ? (left > 0 ? [[`Play (${left} left)`, 'play', 'primary'], ['Close', 0]] : [['Close', 0, 'primary']]) : [[`Enter for ${c.entry} 💎`, 'join', 'primary'], ['Close', 0]]);
+    <div class="army-facts"><span>💎 Prize: <b>${c.prize ?? c.pool}</b></span><span>👥 Players: <b>${c.players}</b></span><span>🎟️ Entry: <b>${c.entry} 💎</b> · ${c.tries} tries</span><span>🧠 Your entries: <b>${n}/${most}</b></span><span>⏳ Ends in: <b>${hours} h</b></span></div>
+    <p class="muted">Top 3 share the prize: 60 / 30 / 10% (${Math.round((c.fee || 0) * 100)}% of the pool is the cup fee). Real players only. If nobody else joins, your entries come back.</p><p class="muted">One entry per Mind you hold: ${most} Mind${most === 1 ? '' : 's'} = up to ${most} entries (${most * c.tries} tries).</p>${rows}${c.last?.winners.length ? `<p class="muted">Last winner: <b>${esc(c.last.winners[0].name)}</b> · ${c.last.winners[0].gems} 💎</p>` : ''}`,
+    c.me ? [...(left > 0 ? [[`Play (${left} left)`, 'play', 'primary']] : []), ...(n < most ? [[`+1 entry · ${c.entry} 💎 (+${c.tries} tries)`, 'more', left > 0 ? 'gem' : 'primary']] : []), ['Close', 0]] : [[`Enter for ${c.entry} 💎`, 'join', 'primary'], ['Close', 0]]);
   if (!go) return;
   try {
-    if (go === 'join') { await api('cup', { op: 'join' }); sfx('coins'); resetIsland(); toast('You are in! Good luck.'); }
+    if (go === 'join' || go === 'more') { const r = await api('cup', { op: 'join' }); sfx('coins'); resetIsland(); toast(go === 'more' ? `Entry ${r.entries} bought: ${c.tries} more tries!` : 'You are in! Good luck.'); }
     const s = await api('cup', { op: 'start' });
     const troops = await pickCupArmy(s.budget || 9, s.army.troops) || s.army.troops;   // closing the picker = the standard army (the try has started)
     closeIsland(); show('raid');
