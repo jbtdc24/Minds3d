@@ -976,7 +976,7 @@ h3.raid-result { text-align: center; }
 .nm-neon { color: #d4ff1f !important; text-shadow: 0 0 6px rgba(212, 255, 31, .8), 0 0 12px rgba(94, 200, 255, .6); }
 .nm-rainbow { background: linear-gradient(90deg, #ff5263, #ffc53d, #d4ff1f, #5ec8ff, #9b6bff, #ff5263); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent !important; animation: nmrain 3s linear infinite; }
 @keyframes nmrain { to { background-position: 200% 0; } }
-.cos-name { display: inline-block; font-size: 18px; padding: 14px 6px; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cos-name { display: inline-block; font-size: 15px; padding: 10px 4px; max-width: 110px; overflow-wrap: anywhere; line-height: 1.15; }
 /* auras (cosmetic): a pulsing glow around a picture */
 .au-gold { animation: augold 1.8s ease-in-out infinite; }
 .au-frost { animation: aufrost 1.8s ease-in-out infinite; }

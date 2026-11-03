@@ -342,6 +342,8 @@ async function loop() {
       if (!ai.loop && l.at >= ai.steps.length) { stop(slot, 'All done! ✅'); continue; }
       const s = await nextStep(slot, ai, l);
       if (!running.has(slot)) continue;
+      // ask the AI about the step after this one now, while this one runs (Hello Minds answers take a while)
+      HM.token().then(token => K.api('autopilot', { op: 'next', mind: slot, at: l.at + 1, token })).catch(() => {});
       setNow(slot, `${STEPS[s.do].icon} ${STEPS[s.do].say}…`, KIND[s.do]); L(slot).acts = ACT_ICON[s.do] || [];
       try { await run(slot, s); } catch (e) { await log(slot, `${STEPS[s.do].icon} ${e.message || 'that did not work'}`); }
       l.at++;
@@ -355,7 +357,7 @@ async function run(slot, s) {
   if (s.do === 'wait') { l.rest = Date.now() + s.min * 60e3; setNow(slot, `💤 resting ${s.min} min`, 'rest'); return log(slot, `💤 resting ${s.min} min`); }
   if (s.do === 'town') { l.town = Date.now() + s.min * 60e3; l.beat = 0; l.got = 0; setNow(slot, `🏘️ in Mind Town for ${s.min} min`, 'town'); return log(slot, `🏘️ off to Mind Town for ${s.min} min`); }
   if (s.do === 'duel') { for (let i = 0; i < s.n && running.has(slot); i++) if (!(await duel(slot, i + 1, s.n))) break; return; }
-  const r = await K.api('autopilot', { op: 'step', do: s.do, mind: slot });
+  const r = await K.api('autopilot', { op: 'step', do: s.do, mind: slot, at: l.at });
   ap = { ...ap, log: r.log, gems: r.gems }; setNow(slot, r.text); paintFollow();
   K.babble(slot === '0' ? 49 : +slot, r.ok ? 'happy' : 'sad', 0.5);
 }
