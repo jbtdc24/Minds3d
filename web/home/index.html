@@ -4,92 +4,106 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MINDS CLASH · Duel, build and let your AI play</title>
 <meta name="description" content="MINDS CLASH: crown duels, a floating island to build and raid, a daily Siege Cup, and your own Hello Minds AI that plays for you.">
+<meta name="theme-color" content="#120d24">
 <meta property="og:title" content="MINDS CLASH"><meta property="og:description" content="Duel for crowns. Build your sky island. Let your own AI play while you're away."><meta property="og:image" content="/assets/site_hero.webp">
 <link rel="icon" href="/assets/crown.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;700;800;900&family=Pixelify+Sans:wght@500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/site/site.css">
 </head>
 <body>
-<header class="hero">
-  <div class="clouds"></div>
-  <div class="squad"></div>
+<header class="hero video">
+  <video class="bgvid" src="/assets/video/reel.mp4" poster="/assets/video/reel.jpg" autoplay muted loop playsinline></video>
+  <div class="scan"></div>
+  <canvas id="fx"></canvas>
   <div class="wrap">
     <span class="kicker">Free to play · in your browser</span>
-    <h1>MINDS <b>CLASH</b></h1>
-    <p class="lead">Duel for crowns with your Minds. Build a floating island, raid your rivals, and storm the daily boss fortress. Then let your own AI play it all for you, even while you sleep.</p>
-    <div class="cta"><a class="btn" href="/">▶ Play now</a><a class="btn ghost" href="#modes">See how it plays</a></div>
+    <h1 class="mega"><span class="shine" data-text="MINDS">MINDS</span> <b class="shine" data-text="CLASH">CLASH</b></h1>
+    <div class="typer" data-lines='["Duel for crowns.", "Build your sky island.", "Raid your rivals.", "Storm the boss fortress.", "Let your own AI play."]'></div>
+    <p class="lead">A pixel strategy game where your Minds duel, farm, raid and explore, and your own Hello Minds AI can play it all for you, even while you sleep.</p>
+    <div class="cta"><a class="btn glow" href="/">▶ Play now, free</a><a class="btn ghost" href="#" data-reel="/assets/video/reel.mp4">◉ Watch gameplay</a></div>
   </div>
+  <a class="scrollcue" href="#story"><i></i>SCROLL</a>
 </header>
 
-<section id="modes">
+<div class="ticker" aria-hidden="true"><div><span>CROWN DUELS</span><span>SKY ISLANDS</span><span>RAIDS</span><span>ADVENTURES</span><span>SIEGE CUP</span><span>YOUR OWN AI</span><span>CROWN DUELS</span><span>SKY ISLANDS</span><span>RAIDS</span><span>ADVENTURES</span><span>SIEGE CUP</span><span>YOUR OWN AI</span></div></div>
+
+<section id="story">
   <div class="wrap">
-    <h2 class="title reveal">One game, five ways to play</h2>
-    <p class="sub muted reveal">Everything is connected: duels pay your island, your island fuels your duels, and your AI can run any of it.</p>
-    <div class="grid">
-      <a class="card link pic reveal" href="/arena"><img src="/assets/stage_castle.webp" alt=""><div class="in"><h3>🃏 Ranked Arena</h3><p>A secret card each turn, the higher card takes the crown. Spells flip everything. Best of 3 rounds.</p><span class="more">Learn to duel →</span></div></a>
-      <a class="card link pic reveal" href="/island"><img src="/assets/sky_island.webp" alt=""><div class="in"><h3>🏝️ Mind Island</h3><p>Farm, build, upgrade your Town Hall to level 10, train troops, raid other islands, fly airships to adventures.</p><span class="more">Explore the island →</span></div></a>
-      <a class="card link pic reveal" href="/ai"><img src="/assets/sky_aurora.webp" alt=""><div class="in"><h3>🧠 AI Minds</h3><p>Every Mind you hold gets its own real AI on Hello Minds. Give it jobs, and it plays them, thinking every move.</p><span class="more">Meet your AI →</span></div></a>
-      <a class="card link pic reveal" href="/cup"><img src="/assets/sky_storm.webp" alt=""><div class="in"><h3>🏆 Siege Cup</h3><p>Same army budget for everyone, one boss fortress, a new cup every day. Best attack wins the Gem pool.</p><span class="more">Enter the cup →</span></div></a>
-      <a class="card link pic reveal" href="/"><img src="/assets/lobby.webp" alt=""><div class="in"><h3>🏘️ Mind Town</h3><p>Walk around with other players live: chat, trade, gift, and challenge anyone to a pot duel.</p><span class="more">Visit town →</span></div></a>
+    <h2 class="title reveal">Real gameplay, no trailer magic</h2>
+    <p class="sub muted reveal">Everything below was recorded straight from the game in a browser. Scroll through a day in MINDS CLASH.</p>
+    <div class="story">
+      <div class="screen">
+        <div class="frame">
+          <div class="vids">
+            <video data-src="/assets/video/duel.mp4" muted loop playsinline preload="none"></video>
+            <video data-src="/assets/video/island.mp4" muted loop playsinline preload="none"></video>
+            <video data-src="/assets/video/raid.mp4" muted loop playsinline preload="none"></video>
+            <video data-src="/assets/video/adventure.mp4" muted loop playsinline preload="none"></video>
+            <div class="scan"></div><span class="label">LIVE</span>
+          </div>
+          <div class="dots"><i></i><i></i><i></i><i></i></div>
+        </div>
+      </div>
+      <div class="chapters">
+        <article class="chapter" data-label="RANKED DUEL"><span class="num">01</span><h3>Read your rival</h3><p>Seven crowns worth 1 to 15 points. Seven secret cards each. The higher card takes the crown, a tie rolls it forward, and four spells can flip any reveal. When do you spend your 7?</p><a class="btn small" href="/arena">How duels work →</a><video data-src="/assets/video/duel.mp4" muted loop playsinline preload="none"></video></article>
+        <article class="chapter" data-label="MIND ISLAND"><span class="num">02</span><h3>Grow your island</h3><p>Your Minds clear the wild ground, farm and build while you are away. Push your Town Hall to level 10 and watch every building turn from wood to stone, iron, gold and crystal.</p><a class="btn small" href="/island">See the island →</a><video data-src="/assets/video/island.mp4" muted loop playsinline preload="none"></video></article>
+        <article class="chapter" data-label="RAID"><span class="num">03</span><h3>Raid for loot</h3><p>Drop brawlers, archers, bombers and giants, lead with your Mind as the hero, cast Rage, Heal and Bolt. Stars bring loot, and raided villages burn until they are restored.</p><a class="btn small" href="/island">Plan a raid →</a><video data-src="/assets/video/raid.mp4" muted loop playsinline preload="none"></video></article>
+        <article class="chapter" data-label="ADVENTURE"><span class="num">04</span><h3>Fly to wild islands</h3><p>Airships carry your hero to volcanoes, snowfields, crystal caves and mushroom forests. Gather, fight, and beat the Ogre to open the next region.</p><a class="btn small" href="/island">Take off →</a><video data-src="/assets/video/adventure.mp4" muted loop playsinline preload="none"></video></article>
+      </div>
     </div>
   </div>
 </section>
 
-<section class="tint">
-  <div class="wrap split">
-    <div class="reveal">
-      <span class="kicker">Watch a duel</span>
-      <h2 class="title">Seven crowns. Seven cards. One winner.</h2>
-      <p>Each round, 7 crowns worth 1 to 15 come up one at a time. You and your rival secretly play a card from 1 to 7. The higher card takes the crown, a tie rolls it into the next one. Every card can be used once, so when do you spend your 7?</p>
-      <ul class="ticks"><li>Boost, Double, Trap and Reverse spells change the result after the cards are shown</li><li>Bring up to 3 Minds: they take turns, one per round</li><li>Wins pay Dust to your island and climb the leaderboard</li></ul>
-      <a class="btn" href="/arena">How duels work</a>
+<section class="tint edge" style="--edge:#181230">
+  <div class="wrap">
+    <h2 class="title reveal">Pick your way to play</h2>
+    <p class="sub muted reveal">Hover a card to see it in action.</p>
+    <div class="grid stagger">
+      <a class="card link pic tilt" href="/arena"><div class="media"><img src="/assets/video/duel.jpg" alt=""><video data-src="/assets/video/duel.mp4" data-auto="hover" muted loop playsinline preload="none"></video><span class="tag">PVP</span></div><div class="in"><h3>🃏 Ranked Arena</h3><p>Secret cards, four spells, best of 3. Climb from Bronze to Legend.</p></div></a>
+      <a class="card link pic tilt" href="/island"><div class="media"><img src="/assets/video/island.jpg" alt=""><video data-src="/assets/video/island.mp4" data-auto="hover" muted loop playsinline preload="none"></video><span class="tag">BUILD</span></div><div class="in"><h3>🏝️ Mind Island</h3><p>Farm, build, defend and raid. Town Hall 1 to 10.</p></div></a>
+      <a class="card link pic tilt" href="/ai"><div class="media"><img src="/assets/sky_aurora.webp" alt=""><video data-src="/assets/video/reel.mp4" data-auto="hover" muted loop playsinline preload="none"></video><span class="tag">AI</span></div><div class="in"><h3>🧠 AI Minds</h3><p>Your own Hello Minds AI plays your jobs, even while you sleep.</p></div></a>
+      <a class="card link pic tilt" href="/cup"><div class="media"><img src="/assets/video/raid.jpg" alt=""><video data-src="/assets/video/raid.mp4" data-auto="hover" muted loop playsinline preload="none"></video><span class="tag">DAILY</span></div><div class="in"><h3>🏆 Siege Cup</h3><p>Same army budget for all. Best attack wins the Gem pool.</p></div></a>
     </div>
-    <div class="duel reveal" id="duel-demo"></div>
   </div>
 </section>
 
-<div class="parade" aria-hidden="true"><div class="row"></div><div class="row slow"></div></div>
-
-<section>
-  <div class="wrap split flip">
-    <div class="reveal">
-      <span class="kicker">Mind Island</span>
-      <h2 class="title">Your Minds live here</h2>
-      <p>Your Minds clear the wild ground, plant and harvest crops, and build what you place. Upgrade every building up to your Town Hall's level, defend with cannons, mortars and Spark Spires, then send your army to raid.</p>
-      <a class="btn" href="/island">See the island</a>
-    </div>
-    <div class="isle reveal" id="isle-demo"></div>
-  </div>
-</section>
-
-<section class="dark">
+<section class="dark aurora edge" style="--edge:#0b0818">
   <div class="wrap split">
     <div class="reveal">
       <span class="kicker">Real AI, not a bot</span>
       <h2 class="title">Your AI plays for you</h2>
-      <p>Each Mind you hold gets its own AI on <b>Hello Minds</b>, on your own account. Pick its jobs (Ranked, Siege Cup, farming, cleaning, adventures, troops, raids), or a whole plan in your order. It decides every card, every army and every crop itself.</p>
-      <ul class="ticks"><li>🌙 Away play: keeps going for up to 90 days with the game closed</li><li>🔍 Proof: read its answers straight from Hello Minds</li><li>💎 Gems only with a daily limit you type yourself</li></ul>
-      <a class="btn" href="/ai">How AI Minds work</a>
+      <p>Every Mind you hold gets its own AI on <b>Hello Minds</b>, on your own account. Give it a job or a whole plan: raid until there is nothing left, then Ranked, then an adventure. It decides every card, army and crop itself.</p>
+      <ul class="ticks"><li>🌙 Away play: up to 90 days with the game closed</li><li>🔍 Proof: read its answers straight from Hello Minds</li><li>💎 Gems only within a daily limit you type yourself</li></ul>
+      <a class="btn" href="/ai">How AI Minds work →</a>
     </div>
     <div class="chatdemo reveal" id="ai-demo"></div>
   </div>
 </section>
 
+<div class="parade" aria-hidden="true"><div class="row"></div><div class="row slow"></div></div>
+
 <section class="tint">
-  <div class="wrap">
-    <h2 class="title reveal">Start in a minute</h2>
-    <ol class="steps reveal">
-      <li><b>Tap Play</b>Try it right away with a free trial account. No download.</li>
-      <li><b>Connect your wallet</b>Your Minds become your duel team and your island's workers. No Mind? A Rank Pass lends you some.</li>
-      <li><b>Wake your AI</b>Connect Hello Minds, awaken an AI for each Mind, give it a job, press Start.</li>
-    </ol>
+  <div class="wrap split">
+    <div class="reveal">
+      <span class="kicker">Watch it think</span>
+      <h2 class="title">A duel in ten seconds</h2>
+      <p>This little duel runs on the real rules. Watch the crowns roll, the cards flip, and the Trap spring.</p>
+      <a class="btn" href="/">▶ Play a real one</a>
+    </div>
+    <div class="duel reveal" id="duel-demo"></div>
   </div>
 </section>
 
 <section>
   <div class="wrap">
-    <h2 class="title reveal">Questions</h2>
+    <h2 class="title reveal">Start in a minute</h2>
+    <ol class="steps stagger">
+      <li><b>Tap Play</b>Try it right away with a free trial account. No download.</li>
+      <li><b>Connect your wallet</b>Your Minds become your duel team and your island's workers. No Mind? A Rank Pass lends you some.</li>
+      <li><b>Wake your AI</b>Connect Hello Minds, awaken an AI for each Mind, give it a job, press Start.</li>
+    </ol>
+    <h2 class="title reveal" style="margin-top:70px">Questions</h2>
     <details class="faq reveal"><summary>Do I need a Mind to play?</summary><p>No. Anyone can play Practice, Classic, the tutorial and the island with a free trial account. Ranked needs a Mind, or a Rank Pass that lends you Minds for 7 days.</p></details>
     <details class="faq reveal"><summary>Is the AI really an AI?</summary><p>Yes. Every decision is a question sent to your own AI on Hello Minds, and it answers in its own words using your cognition. Tap 🔍 Proof in the game to read its answers straight from Hello Minds.</p></details>
     <details class="faq reveal"><summary>Can I win money?</summary><p>No. Gems, Dust and prizes are in-game items with no cash value and no cash-out. See the <a href="/terms.html">Terms</a>.</p></details>
@@ -97,11 +111,12 @@
   </div>
 </section>
 
-<section class="bigcta">
+<section class="bigcta edge" style="--edge:#0b0818">
   <div class="wrap">
+    <img class="crownbig" src="/assets/crown.png" alt="">
     <h2 class="title">Your crown is waiting</h2>
     <p class="sub" style="margin:0 auto 26px">Free to play. Your first duel takes two minutes.</p>
-    <a class="btn gold" href="/">▶ Play MINDS CLASH</a>
+    <a class="btn gold glow" href="/">▶ Play MINDS CLASH</a>
   </div>
 </section>
 <script src="/site/site.js" type="module"></script>

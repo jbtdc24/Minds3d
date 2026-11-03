@@ -146,6 +146,90 @@ whenSeen($('#ai-demo'), async el => {
   }
 });
 
+// ---------- v2 effects ----------
+// the page appears through a grid of dissolving pixels
+if (!calm) {
+  const cols = Math.ceil(innerWidth / 48), rows = Math.ceil(innerHeight / 48), g = document.createElement('div');
+  g.id = 'pxin'; g.style.gridTemplateColumns = `repeat(${cols}, 1fr)`; g.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+  const cells = Array.from({ length: cols * rows }, () => document.createElement('i'));
+  g.append(...cells); document.body.append(g);
+  cells.forEach((c, i) => { const x = i % cols, y = (i / cols) | 0; setTimeout(() => c.classList.add('go'), 60 + (x + y) * 18 + Math.random() * 160); });
+  setTimeout(() => g.remove(), 1600 + (cols + rows) * 18);
+}
+// the top bar turns solid once you scroll
+addEventListener('scroll', () => $('.nav')?.classList.toggle('solid', scrollY > 40), { passive: true });
+// staggered reveals
+document.querySelectorAll('.stagger').forEach(el => (io ? io.observe(el) : el.classList.add('in')));
+// typewriter lines under the logo
+const typer = $('.typer');
+if (typer) (async () => {
+  const lines = JSON.parse(typer.dataset.lines || '[]');
+  for (let i = 0; ; i = (i + 1) % lines.length) {
+    for (let n = 1; n <= lines[i].length; n++) { typer.textContent = lines[i].slice(0, n); await wait(calm ? 0 : 45); }
+    await wait(1800);
+    for (let n = lines[i].length; n >= 0; n--) { typer.textContent = lines[i].slice(0, n); await wait(calm ? 0 : 18); }
+    await wait(250);
+  }
+})();
+// pixel embers rising through the hero (square sparks, gold and lime)
+const fx = $('#fx');
+if (fx && !calm) {
+  const g = fx.getContext('2d'), P = [];
+  const size = () => { fx.width = fx.clientWidth; fx.height = fx.clientHeight; };
+  size(); addEventListener('resize', size);
+  for (let i = 0; i < 70; i++) P.push({ x: Math.random(), y: Math.random(), v: 0.0006 + Math.random() * 0.0016, s: [3, 4, 6][i % 3], c: ['#ffc93c', '#c6f432', '#fff3c4', '#9b6bff'][i % 4], p: Math.random() * 6 });
+  let mx = 0.5;
+  addEventListener('pointermove', e => { mx = e.clientX / innerWidth; }, { passive: true });
+  const tick = t => {
+    g.clearRect(0, 0, fx.width, fx.height);
+    for (const p of P) {
+      p.y -= p.v; if (p.y < -0.02) { p.y = 1.02; p.x = Math.random(); }
+      const x = (p.x + Math.sin(t / 1400 + p.p) * 0.01 + (mx - 0.5) * 0.02 * p.s) * fx.width, y = p.y * fx.height;
+      g.globalAlpha = 0.35 + 0.65 * Math.abs(Math.sin(t / 600 + p.p)); g.fillStyle = p.c;
+      g.fillRect(Math.round(x / 2) * 2, Math.round(y / 2) * 2, p.s, p.s);
+    }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+// videos load and play only when on screen (saves data on phones)
+const vio = new IntersectionObserver(es => es.forEach(e => { const v = e.target; if (e.isIntersecting) { if (v.dataset.src && !v.src) v.src = v.dataset.src; if (v.dataset.auto !== 'hover') v.play().catch(() => {}); } else v.pause(); }), { rootMargin: '200px' });
+document.querySelectorAll('video[data-src], video.bgvid').forEach(v => vio.observe(v));
+// scroll story: the chapter in the middle of the screen picks the video in the sticky frame
+const chapters = [...document.querySelectorAll('.chapter')];
+if (chapters.length) {
+  const vids = [...document.querySelectorAll('.frame .vids video')], dots = [...document.querySelectorAll('.frame .dots i')], label = $('.frame .label');
+  const pickCh = i => { chapters.forEach((c, k) => c.classList.toggle('on', k === i)); vids.forEach((v, k) => { v.classList.toggle('on', k === i); if (k === i) { if (!v.src) v.src = v.dataset.src; v.play().catch(() => {}); } else v.pause(); }); dots.forEach((d, k) => d.classList.toggle('on', k === i)); if (label) label.textContent = chapters[i].dataset.label || 'LIVE'; };
+  const cio = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) pickCh(chapters.indexOf(e.target)); }), { rootMargin: '-45% 0px -45% 0px' });
+  chapters.forEach(c => cio.observe(c)); pickCh(0);
+}
+// cards tilt toward the pointer, with a gloss that follows it; a card's video plays while hovered
+document.querySelectorAll('.tilt').forEach(c => {
+  c.insertAdjacentHTML('beforeend', '<span class="gloss"></span>');
+  const v = $('video', c);
+  c.addEventListener('pointermove', e => { const r = c.getBoundingClientRect(), x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height; c.style.transform = `perspective(800px) rotateY(${(x - 0.5) * 10}deg) rotateX(${(0.5 - y) * 8}deg) translateY(-4px)`; c.style.setProperty('--gx', `${x * 100}%`); c.style.setProperty('--gy', `${y * 100}%`); });
+  c.addEventListener('pointerenter', () => { if (v) { if (!v.src) v.src = v.dataset.src; v.play().catch(() => {}); } });
+  c.addEventListener('pointerleave', () => { c.style.transform = ''; v?.pause(); });
+});
+// the trailer, full size with controls
+document.querySelectorAll('[data-reel]').forEach(b => b.addEventListener('click', e => {
+  e.preventDefault();
+  let m = $('.reel');
+  if (!m) { document.body.insertAdjacentHTML('beforeend', `<div class="reel"><video controls playsinline loop src="${b.dataset.reel}"></video><button class="btn small x">✕ Close</button></div>`); m = $('.reel'); m.addEventListener('click', ev => { if (ev.target === m || ev.target.closest('.x')) { m.classList.remove('on'); $('video', m).pause(); } }); }
+  m.classList.add('on'); $('video', m).currentTime = 0; $('video', m).play().catch(() => {});
+}));
+// pixel sparkles behind the pointer (mouse only)
+if (!calm && matchMedia('(pointer: fine)').matches) {
+  let last = 0;
+  addEventListener('pointermove', e => {
+    if (e.timeStamp - last < 40) return; last = e.timeStamp;
+    const s = document.createElement('i'); s.className = 'spark';
+    Object.assign(s.style, { left: `${e.clientX}px`, top: `${e.clientY}px`, background: Math.random() < 0.5 ? '#ffc93c' : '#c6f432' });
+    s.style.setProperty('--dx', `${(Math.random() - 0.5) * 30}px`); s.style.setProperty('--dy', `${10 + Math.random() * 20}px`);
+    document.body.append(s); setTimeout(() => s.remove(), 700);
+  }, { passive: true });
+}
+
 // ---------- 🏆 boss fortress embers ----------
 const boss = $('.boss');
 if (boss) for (let i = 0; i < 22; i++) {

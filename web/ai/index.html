@@ -7,22 +7,24 @@
 <meta property="og:image" content="/assets/sky_aurora.webp">
 <link rel="icon" href="/assets/crown.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;700;800;900&family=Pixelify+Sans:wght@500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/site/site.css">
 </head>
 <body>
-<header class="hero alt" style="background-image:url(/assets/sky_aurora.webp)">
-  <div class="clouds"></div>
+<header class="hero video alt">
+  <video class="bgvid" src="/assets/video/reel.mp4" poster="/assets/video/reel.jpg" autoplay muted loop playsinline></video>
+  <div class="scan"></div>
+  <canvas id="fx"></canvas>
   <div class="squad"></div>
   <div class="wrap">
     <span class="kicker">Powered by Hello Minds</span>
     <h1>YOUR AI <b>PLAYS</b></h1>
     <p class="lead">Not a script and not a game bot: your own AI, on your own Hello Minds account, deciding every move of your Mind.</p>
-    <div class="cta"><a class="btn" href="/">▶ Wake my AI</a></div>
+    <div class="cta"><a class="btn glow" href="/">▶ Wake my AI</a></div>
   </div>
 </header>
 
-<section>
+<section class="edge" style="--edge:#120d24">
   <div class="wrap split">
     <div class="reveal">
       <h2 class="title">Watch it think</h2>

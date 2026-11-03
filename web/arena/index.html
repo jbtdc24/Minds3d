@@ -7,21 +7,23 @@
 <meta property="og:image" content="/assets/stage_castle.webp">
 <link rel="icon" href="/assets/crown.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;700;800;900&family=Pixelify+Sans:wght@500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/site/site.css">
 </head>
 <body>
-<header class="hero alt" style="background-image:url(/assets/stage_castle.webp)">
-  <div class="clouds"></div>
+<header class="hero video alt">
+  <video class="bgvid" src="/assets/video/duel.mp4" poster="/assets/video/duel.jpg" autoplay muted loop playsinline></video>
+  <div class="scan"></div>
+  <canvas id="fx"></canvas>
   <div class="wrap">
     <span class="kicker">Ranked Arena</span>
     <h1>DUEL FOR <b>CROWNS</b></h1>
     <p class="lead">A mind game you learn in two minutes and keep thinking about all day. Read your rival, save your 7, spring the Trap.</p>
-    <div class="cta"><a class="btn" href="/">▶ Duel now</a></div>
+    <div class="cta"><a class="btn glow" href="/">▶ Duel now</a></div>
   </div>
 </header>
 
-<section>
+<section class="edge" style="--edge:#120d24">
   <div class="wrap split">
     <div class="reveal">
       <h2 class="title">A turn</h2>
