@@ -1205,7 +1205,8 @@ h3.raid-result { text-align: center; }
 .md-set label { display: grid; gap: 3px; font-size: 12px; font-weight: 800; margin-top: 6px; } .md-set select, .md-set input { font: 700 13px var(--font); padding: 4px; width: 100%; }
 .md-coach .md-chat { margin-top: 6px; } .md-pick { margin: 0; }
 .md-tab em.job { background: var(--lime); color: var(--ink); width: auto; padding: 0 2px; font-size: 12px; }
-@media (max-width: 420px) { .md-jobs { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 420px) { .md-job { padding: 6px 2px; font-size: 11px; } .md-job i { font-size: 20px; } .md-mixhelp { font-size: 11px; line-height: 1.3; } }
+@media (max-width: 330px) { .md-jobs { grid-template-columns: repeat(3, 1fr); } }
 /* 📋 job plans: numbered jobs, the order strip, the job running now */
 .md-jobhead { display: flex; align-items: center; justify-content: space-between; gap: 6px; } .md-jobhead .label { margin: 0; }
 .md-mixhelp { line-height: 1.3; }
