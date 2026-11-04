@@ -5,7 +5,7 @@ import { setStage, setLayout, setQuality, camTo, camSnap, shake, slowmo, flash, 
 import { Fighter, shoot } from './fighter2d.js';
 import { SPELLS, SPELL_INFO, RULES, CARD_VALUES, createMatch, submit, viewFor } from './duel/engine.js';
 import { DATA_VERSION } from './config.js';
-import { api, session, walletLogin, guestLogin, logout, hasWallet, watch, serverOnline, LocalMatch, setTokenIds, ping } from './net.js';
+import { api, session, walletLogin, guestLogin, logout, hasWallet, watch, serverOnline, LocalMatch, setTokenIds, ping, invite } from './net.js';
 import { initAudio, sfx, music, setVolume, babble } from './audio.js';
 import { PHRASES, MATCH_CHAT, FRIEND_CHAT, BOT_REPLIES } from './chat.js';
 import { chatSigner } from './chatsign.js';
@@ -270,9 +270,16 @@ async function askHelloMinds() {
   const go = await modal(`<h3>🧠 Connect Hello Minds</h3><p>Your Mind in MINDS CLASH is a <b>real AI</b>: your own Mind on <b>Hello Minds</b>. Connect your account (or make one, it takes a minute) and it can farm, raid, duel and explore for you.</p><p class="muted">It uses your own Hello Minds account and cognition.</p>`, [['Connect Hello Minds', 1, 'primary'], ['Later', 0]]);
   if (go) HM.signIn().catch(e => toast(e.message, true));
 }
+// 🎟️ early access: a new account without a good code gets the code box, then the sign-up runs again
+async function askInvite(e) {
+  if (e?.status !== 403 || !/^INVITE: /.test(e.message)) return false;
+  const code = await modal(`<h3>🎟️ Early access</h3><p>${esc(e.message.slice(8))}</p><input id="inv-code" class="wide" maxlength="24" placeholder="MC-XXXX-XXXX" value="${esc(invite.get())}" autocomplete="off"><p class="muted">No code yet? You can still practise offline vs bots.</p>`, [['Join', 'go', 'primary'], ['Cancel', 0]]).then(v => v && $('#inv-code')?.value.trim());
+  if (!code) return true;
+  invite.set(code); return 'retry';
+}
 async function startGuest() {
   try { afterLogin(await guestLogin()); }
-  catch (e) { toast(e.message, true); }
+  catch (e) { const r = await askInvite(e); if (r === 'retry') return startGuest(); if (!r) toast(e.message, true); }
 }
 $('#btn-wallet').onclick = async () => {
   initAudio();
@@ -281,9 +288,11 @@ $('#btn-wallet').onclick = async () => {
     return;
   }
   const b = $('#btn-wallet'); b.disabled = true; b.textContent = 'Check your wallet…';
+  let again = false;
   try { await afterLogin(await walletLogin()); }
-  catch (e) { toast(e.code === 4001 ? 'Signature cancelled.' : e.message, true); }
+  catch (e) { const r = await askInvite(e); again = r === 'retry'; if (!r) toast(e.code === 4001 ? 'Signature cancelled.' : e.message, true); }
   finally { b.disabled = false; b.textContent = 'Connect wallet'; }
+  if (again) b.click();
 };
 $('#btn-guest').onclick = () => { initAudio(); online ? startGuest() : offlineGuest(); };
 $('#guest-connect').onclick = e => { e.preventDefault(); logout(); show('login'); };

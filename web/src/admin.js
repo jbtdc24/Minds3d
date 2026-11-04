@@ -59,6 +59,17 @@ async function mailForm() {
     <input id="ml-dust" type="number" min="0" placeholder="Gift ✨"><input id="ml-gems" type="number" min="0" placeholder="Gift 💎"><input id="ml-to" class="wide" placeholder="Player id (empty = everyone)"><button class="btn small primary" data-a="mail">Send</button></div>
     ${r.mail.map(m => `<div class="adm-row"><b>${K.esc(m.title)}</b><span>${when(m.created_at)} · ${m.to_id ? 'one player' : 'everyone'}${m.gift ? ' · gift' : ''}</span><button class="btn small" data-del="${m.id}">Delete</button></div>`).join('')}`;
 }
+// 🎟️ early access codes: make some, share the link, see who joined with each, switch one off
+async function invites(made) {
+  const r = await K.api('admin', { op: 'invites' });
+  if (r.setup) { $('#adm-detail').innerHTML = '<h3>🎟️ Invites</h3><p class="muted">Run supabase/013_invites.sql to switch this on.</p>'; return; }
+  const link = c => `${location.origin}/?invite=${encodeURIComponent(c)}`;
+  $('#adm-detail').innerHTML = `<h3>🎟️ Invites <small class="muted">${r.on ? 'early access ON: new accounts need a code' : 'OFF: anyone can sign up (Vercel env INVITE_ONLY=0)'}</small></h3>
+    <div class="adm-box"><input id="inv-n" type="number" min="1" max="50" value="5" title="How many codes"> codes, each for <input id="inv-uses" type="number" min="1" max="1000" value="1" title="People per code"> people
+      <input id="inv-note" class="wide" maxlength="80" placeholder="Who is it for (optional)"><input id="inv-own" class="wide" maxlength="24" placeholder="Own code instead, e.g. ANIMOCA (optional)"><button class="btn small primary" data-a="invmake">Make codes</button></div>
+    ${made?.length ? `<div class="adm-box"><b>New links (copy and send):</b><textarea class="rep-text" rows="${Math.min(8, made.length + 1)}" readonly>${made.map(link).join('\n')}</textarea></div>` : ''}
+    ${r.invites.map(i => `<div class="adm-row"><b>${K.esc(i.code)}</b><span>${i.uses}/${i.max_uses} used${i.note ? ' · ' + K.esc(i.note) : ''}${i.off ? ' · <em class="adm-ban">OFF</em>' : ''}${i.players.length ? ' · ' + i.players.map(p => `<a href="#" data-pid="${p.id}">${K.esc(p.name)}</a>`).join(', ') : ''}</span><button class="btn small" data-invcopy="${K.esc(link(i.code))}">Copy link</button><button class="btn small" data-invoff="${K.esc(i.code)}" data-v="${i.off ? 0 : 1}">${i.off ? 'Turn on' : 'Turn off'}</button></div>`).join('') || '<p class="muted">No codes yet.</p>'}`;
+}
 async function reports() {
   const r = await K.api('admin', { op: 'reports' });
   $('#adm-detail').innerHTML = `<h3>🐞 Reports</h3>${r.reports.map(x => `<div class="adm-report ${x.done ? 'done' : ''}"><b>${x.kind === 'player' ? `🚩 ${K.esc(x.about || 'a player')}` : '🐞 Bug'}</b> <small>by ${K.esc(x.by)} · ${when(x.created_at)}${x.place ? ' · ' + K.esc(x.place) : ''}</small><p>${K.esc(x.text)}</p>${x.player_id ? `<button class="btn small" data-pid="${x.player_id}">Open reporter</button>` : ''}${x.target ? `<button class="btn small" data-pid="${x.target}">Open reported</button>` : ''}<button class="btn small" data-rep="${x.id}" data-v="${x.done ? 0 : 1}">${x.done ? 'Reopen' : 'Done'}</button></div>`).join('') || '<p class="muted">No reports yet.</p>'}`;
@@ -110,6 +121,10 @@ document.addEventListener('click', async e => {
     if (e.target.closest('#adm-mail')) return await mailForm();
     if (e.target.closest('#adm-all')) return await allPlayers();
     if (e.target.closest('#adm-reports')) return await reports();
+    if (e.target.closest('#adm-inv')) return await invites();
+    if (e.target.closest('[data-a="invmake"]')) { const r = await K.api('admin', { op: 'invite_make', n: +$('#inv-n').value, uses: +$('#inv-uses').value, note: $('#inv-note').value, code: $('#inv-own').value }); K.toast(`${r.codes.length} code${r.codes.length > 1 ? 's' : ''} made.`); return await invites(r.codes); }
+    const ic = e.target.closest('[data-invcopy]'); if (ic) { await navigator.clipboard.writeText(ic.dataset.invcopy).catch(() => {}); return K.toast('Link copied.'); }
+    const io = e.target.closest('[data-invoff]'); if (io) { await K.api('admin', { op: 'invite_off', code: io.dataset.invoff, off: io.dataset.v === '1' }); return await invites(); }
     if (e.target.closest('#adm-pay')) return await payments();
     if (e.target.closest('#adm-err')) return await errorsList();
     if (e.target.closest('#adm-pay-run')) { const r = await K.api('admin', { op: 'recon_run' }); K.toast(`Checked ${r.checked} payments: ${r.findings} findings.`); return await payments(); }

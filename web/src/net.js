@@ -24,6 +24,11 @@ export async function serverOnline() {
   try { const r = await fetch('/api/leaderboard', { method: 'GET' }); return r.status !== 404; } catch { return false; }
 }
 
+// ---------- 🎟️ early access: the invite code (from an ?invite= link or typed in) goes with a new account's sign-up ----------
+const INV_KEY = 'mindclash.invite';
+export const invite = { get: () => { try { return localStorage.getItem(INV_KEY) || ''; } catch { return ''; } }, set: c => { try { localStorage.setItem(INV_KEY, String(c || '').trim()); } catch { /* private mode */ } } };
+try { const c = new URLSearchParams(location.search).get('invite'); if (c) invite.set(c); } catch { /* not a browser */ }
+
 // ---------- wallet ----------
 export const hasWallet = () => typeof window !== 'undefined' && !!window.ethereum;
 export async function walletLogin() {
@@ -32,12 +37,12 @@ export async function walletLogin() {
   const { message } = await api('auth/nonce', { address });
   const hex = '0x' + Array.from(new TextEncoder().encode(message), b => b.toString(16).padStart(2, '0')).join('');
   const signature = await window.ethereum.request({ method: 'personal_sign', params: [hex, address] });
-  const out = await api('auth/verify', { address, signature });
+  const out = await api('auth/verify', { address, signature, invite: invite.get() });
   session.token = out.token;
   return out;
 }
 export async function guestLogin() {
-  const out = await api('auth/guest', {});
+  const out = await api('auth/guest', { invite: invite.get() });
   session.token = out.token;
   return out;
 }

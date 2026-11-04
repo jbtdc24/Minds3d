@@ -16,6 +16,8 @@ ROUND 24 (owner 2026-11-04) DONE:
 - Site: painted night-sky background on every page (web/assets/site_bg.webp, OpenArt Kling 3 Omni 1k, dimmed with a gradient, fixed body::before; tint/dark sections see-through). Site CSS/JS ?v=4.
 - Boot screen: "🌐 About the game" link top right → /home.
 - Phone check of the dock planner (375 px): fits now without scrolling (4 compact job columns under 420 px, 3 under 330 px). Live check in owner Chrome: plan of 7 jobs running, away play on (3 rounds), cognition 874 left on Clash-1317.
+- 🎟️ EARLY ACCESS (invite only): lib/invite.js useInvite() in auth_verify (new wallets only) + auth_guest; ON unless Vercel env INVITE_ONLY=0. Codes: table invites + rpc use_invite (supabase/013_invites.sql, OWNER MUST RUN; until then new sign-ups get "being set up"), players.invite = code used. Admin → 🎟️ Invites: make N codes × uses, own code (e.g. ANIMOCA), copy link /?invite=CODE (net.js saves it), turn off, see who joined. Client: 403 "INVITE: …" opens the code box and retries.
+- Domain mindsclash.games BOUGHT by owner 2026-11-04 (Namecheap). To do: add to Vercel, DNS records, Hello Minds redirect URIs. minds3d.vercel.app keeps working (cron + GitHub timer use it).
 NEXT: (timer CONFIRMED 05:34 UTC: 200, 1 player, 1 round; check net._http_response if AIs stall) buy domain (owner), Ranked AI job live test (blocked 2026-11-04: 0 energy, refills used; retry after 00:00 UTC), Clash-1317 cognition is low (874).
 ## CURRENT STATUS (2026-11-03, late night)
 EVERYTHING IS LIVE on main: Round 12, Rank Pass, trading + gifts, Round 13, chat retention, and round 14 below. Tests, fuzz, mutation check, economy audit and raid sims pass.
