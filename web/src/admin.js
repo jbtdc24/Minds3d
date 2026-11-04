@@ -63,7 +63,7 @@ async function mailForm() {
 async function invites(made) {
   const r = await K.api('admin', { op: 'invites' });
   if (r.setup) { $('#adm-detail').innerHTML = '<h3>🎟️ Invites</h3><p class="muted">Run supabase/013_invites.sql to switch this on.</p>'; return; }
-  const link = c => `${location.origin}/?invite=${encodeURIComponent(c)}`;
+  const link = c => `${location.origin}/play?invite=${encodeURIComponent(c)}`;
   $('#adm-detail').innerHTML = `<h3>🎟️ Invites <small class="muted">${r.on ? 'early access ON: new accounts need a code' : 'OFF: anyone can sign up (Vercel env INVITE_ONLY=0)'}</small></h3>
     <div class="adm-box"><input id="inv-n" type="number" min="1" max="50" value="5" title="How many codes"> codes, each for <input id="inv-uses" type="number" min="1" max="1000" value="1" title="People per code"> people
       <input id="inv-note" class="wide" maxlength="80" placeholder="Who is it for (optional)"><input id="inv-own" class="wide" maxlength="24" placeholder="Own code instead, e.g. ANIMOCA (optional)"><button class="btn small primary" data-a="invmake">Make codes</button></div>

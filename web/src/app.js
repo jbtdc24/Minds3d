@@ -39,7 +39,7 @@ const oops = detail => { console.error('[mindclash]', detail); try { toast('Some
 // script errors reach the Admin screen, a few per visit, with no account details
 let sentErrors = 0;
 function sendError(message, stack) {
-  if (!/\/\/(minds3d\.vercel\.app)/.test(location.href) || ++sentErrors > 8) return;
+  if (!/\/\/(minds3d\.vercel\.app|(www\.)?mindsclash\.games)\//.test(location.href) || ++sentErrors > 8) return;
   fetch('/api/errors/report', { method: 'POST', keepalive: true, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ message: String(message).slice(0, 300), stack: String(stack || '').slice(0, 600), place: current || '' }) }).catch(() => {});
 }
 addEventListener('error', e => { if (e.message && !/ResizeObserver|Script error/.test(e.message)) sendError(e.message, e.error?.stack); });

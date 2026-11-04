@@ -1,458 +1,123 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-<title>MINDS CLASH</title>
-<meta name="description" content="MINDS CLASH: a 1v1 card duel of crowns and spells, played with your minds.games NFTs.">
-<meta name="theme-color" content="#5ec8ff">
-<link rel="icon" href="assets/crown.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MINDS CLASH · Duel, build and let your AI play</title>
+<meta name="description" content="MINDS CLASH: crown duels, a floating island to build and raid, a daily Siege Cup, and your own Hello Minds AI that plays for you.">
+<meta name="theme-color" content="#120d24">
+<meta property="og:title" content="MINDS CLASH"><meta property="og:description" content="Duel for crowns. Build your sky island. Let your own AI play while you're away."><meta property="og:image" content="/assets/site_hero.webp">
+<script src="/site/fwd.js"></script>
+<link rel="icon" href="/assets/crown.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;700;800;900&family=Pixelify+Sans:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/site/site.css?v=5">
 </head>
 <body>
-<div id="view"></div>
-<div id="tags"></div>
-<div id="pops"></div>
-<div id="banner"></div>
-<div id="toast" class="px"></div>
+<header class="hero video">
+  <video class="bgvid" src="/assets/video/reel.mp4" poster="/assets/video/reel.jpg" autoplay muted loop playsinline></video>
+  <div class="scan"></div>
+  <canvas id="fx"></canvas>
+  <div class="pal" id="pal"><div class="pal-say"></div><img src="/data/thumbs/1.webp" alt="A Mind" title="Tap me"><div class="pal-bar"><span class="pal-tag"></span><button class="pal-dice" title="Another Mind">🎲 Swap</button></div></div>
+  <div class="wrap"><div class="copy">
+    <span class="kicker">Free to play · in your browser</span>
+    <h1 class="mega"><span class="shine" data-text="MINDS">MINDS</span> <b class="shine" data-text="CLASH">CLASH</b></h1>
+    <div class="typer" data-lines='["Duel for crowns.", "Build your sky island.", "Raid your rivals.", "Storm the boss fortress.", "Let your own AI play."]'></div>
+    <p class="lead">A pixel strategy game where your Minds duel, farm, raid and explore, and your own Hello Minds AI can play it all for you, even while you sleep.</p>
+    <div class="cta"><a class="btn glow" href="/play">▶ Play now, free</a><a class="btn ghost" href="#" data-reel="/assets/video/trailer.mp4">◉ Watch gameplay</a></div>
+  </div></div>
+  <a class="scrollcue" href="#story"><i></i>SCROLL</a>
+</header>
 
-<!-- BOOT -->
-<section id="s-boot" class="screen on">
-  <div class="boot">
-    <div class="logo"><img src="assets/crown.png" alt="">MINDS <span>CLASH</span></div>
-    <div class="bar px"><i id="boot-bar"></i></div>
-    <div class="shadow" id="boot-msg">Loading the plaza…</div>
-    <button class="btn primary big tapstart" id="boot-start">▶ TAP TO PLAY</button>
-  </div>
-  <a class="bootsite" href="/home">🌐 About the game</a>
-</section>
+<div class="ticker" aria-hidden="true"><div><span>CROWN DUELS</span><span>SKY ISLANDS</span><span>RAIDS</span><span>ADVENTURES</span><span>SIEGE CUP</span><span>YOUR OWN AI</span><span>CROWN DUELS</span><span>SKY ISLANDS</span><span>RAIDS</span><span>ADVENTURES</span><span>SIEGE CUP</span><span>YOUR OWN AI</span></div></div>
 
-<!-- LOGIN -->
-<section id="s-login" class="screen">
-  <div class="login px panel">
-    <div class="logo"><img src="assets/crown.png" alt="">MINDS <span>CLASH</span></div>
-    <p class="tagline">Outplay. Outsmart. Take the crowns.</p>
-    <ul class="pitch">
-      <li><img src="assets/crown.png" alt=""><span><b>1v1 card duels.</b> Both play a secret card. Higher card takes the crown.</span></li>
-      <li><img src="assets/spell_reverse.png" alt=""><span><b>4 sneaky spells</b> can flip the result after the cards are shown.</span></li>
-      <li><img src="assets/icon_trophy.png" alt=""><span><b>Fair for all.</b> Same cards for everyone. Rarity only adds leaderboard points.</span></li>
-    </ul>
-    <button class="btn primary big" id="btn-wallet">Connect wallet</button>
-    <button class="btn" id="btn-guest">Try free with demo Minds</button>
-    <div class="legal-links"><a href="terms.html" target="_blank" rel="noopener">Terms</a><a href="privacy.html" target="_blank" rel="noopener">Privacy</a></div>
-    <p class="fine">Signing in only proves you own your wallet: no transaction, no gas, nothing can leave your wallet.</p>
-  </div>
-</section>
-
-<!-- FIRST-TIME NAME -->
-<section id="s-setup" class="screen">
-  <div class="panel px center-panel">
-    <h2>Welcome to MINDS CLASH!</h2>
-    <p class="muted">Pick a name and a profile picture. You can change them later.</p>
-    <label class="field">Display name <input id="setup-name" maxlength="16" placeholder="3–16 letters, numbers or _"></label>
-    <div class="label">Profile picture: one of your Minds</div>
-    <div class="mindgrid" id="setup-pfp"></div>
-    <div class="err" id="setup-err"></div>
-    <label class="tos-ok"><input type="checkbox" id="setup-tos"> I am 18 or older and I accept the <a href="terms.html" target="_blank" rel="noopener">Terms</a> and the <a href="privacy.html" target="_blank" rel="noopener">Privacy notice</a>.</label>
-    <button class="btn primary big" id="setup-save">Let's go!</button>
-  </div>
-</section>
-
-<!-- LOBBY -->
-<section id="s-hub" class="screen">
-  <header class="topbar">
-    <button class="me px" id="hub-me"><img id="hub-pfp" alt=""><div class="me-txt"><b id="hub-name"></b><span id="hub-sub"></span></div></button>
-    <div class="topbtns">
-      <button class="iconbtn px shopbtn" id="hub-shop" title="Shop">🛒</button>
-      <button class="iconbtn px stylebtn" id="hub-style" title="Looks: auras, trails, titles, name colours, frames, card backs, skies">✨</button>
-      <button class="iconbtn px invbtn" id="hub-inv" title="Inventory">🎒<i class="enbadge" id="inv-badge"></i></button>
-      <button class="iconbtn px" data-go="leaderboard" title="Leaderboard"><img src="assets/icon_trophy.png" alt="Leaderboard"></button>
-      <button class="iconbtn px" id="hub-mail" title="Mail">✉️<i class="badge" id="mail-badge"></i></button>
-      <button class="iconbtn px" id="hub-friends" title="Friends"><img src="assets/icon_friends.png" alt="Friends"><i class="badge" id="friends-badge"></i></button>
-      <button class="iconbtn px" id="hub-tutorial" title="Tutorial"><img src="assets/icon_book.png" alt="Tutorial"></button>
-      <button class="iconbtn px" data-go="settings" title="Settings"><img src="assets/icon_gear.png" alt="Settings"></button>
-    </div>
-  </header>
-  <div class="lobby">
-    <div class="col-play">
-      <div class="logo hub-logo"><img src="assets/crown.png" alt="">MINDS <span>CLASH</span></div>
-      <button class="mode px big" id="hub-ranked" style="--bg:url(assets/mode_ranked.webp)">
-        <img class="mode-ico" src="assets/icon_swords.png" alt="">
-        <div class="mode-txt"><b>Ranked Duel</b><span id="hub-ranked-sub">1v1 · uses ⚡ energy · wins pay your island</span></div>
-        <em class="tag lime" id="hub-ranked-tag">PLAY</em>
-      </button>
-      <button class="mode px big island-big" id="hub-island">
-        <div class="mode-txt"><b>🏝️ Mind Island</b><span>Farm · raid · explore · makes ⚡ for Ranked</span></div>
-        <div class="isl-chips" id="hub-island-chips"></div>
-        <em class="tag lime">PLAY</em><b class="badge" id="hub-island-ready"></b>
-      </button>
-      <div class="mode-row">
-        <button class="mode px town-tile" id="hub-town"><div class="mode-txt"><b>🏘️ Mind Town</b><span>Meet players live</span></div></button>
-        <button class="mode px cup-tile" id="hub-cup"><div class="mode-txt"><b>🏆 Siege Cup</b><span id="hub-cup-sub">Win the Gem pool</span></div></button>
+<section id="story">
+  <div class="wrap">
+    <h2 class="title reveal">Real gameplay, no trailer magic</h2>
+    <p class="sub muted reveal">Everything below was recorded straight from the game in a browser. Scroll through a day in MINDS CLASH.</p>
+    <div class="story">
+      <div class="screen">
+        <div class="frame">
+          <div class="vids">
+            <video muted loop playsinline preload="none" poster="/assets/video/duel.jpg"></video>
+            <div class="wipe"></div><span class="label">LIVE</span>
+          </div>
+          <div class="dots"><i></i><i></i><i></i><i></i></div>
+        </div>
       </div>
-      <div class="mode-row three">
-        <button class="mode px" id="hub-classic" style="--bg:url(assets/arena_day.webp)">
-          <div class="mode-txt"><b>Classic</b><span>Everyone</span></div>
-        </button>
-        <button class="mode px" id="hub-practice" style="--bg:url(assets/mode_practice.webp)">
-          <div class="mode-txt"><b>Practice</b><span>vs bot</span></div>
-        </button>
-        <button class="mode px" id="hub-learn" style="--bg:url(assets/stage_meadow.webp)">
-          <div class="mode-txt"><b>Tutorial</b><span>2 min</span></div>
-        </button>
+      <div class="chapters">
+        <article class="chapter" data-label="RANKED DUEL" data-clip="/assets/video/duel.mp4"><span class="num">01</span><div class="pxrow"><img class="pxi" src="/assets/spell_double.png" alt=""><img class="pxi" src="/assets/spell_trap.png" alt=""><img class="pxi" src="/assets/spell_reverse.png" alt=""></div><h3>Read your rival</h3><p>Seven crowns worth 1 to 15 points. Seven secret cards each. The higher card takes the crown, a tie rolls it forward, and four spells can flip any reveal. When do you spend your 7?</p><a class="btn small" href="/arena">How duels work →</a><video data-src="/assets/video/duel.mp4" muted loop playsinline preload="none"></video></article>
+        <article class="chapter" data-label="MIND ISLAND" data-clip="/assets/video/island.mp4"><span class="num">02</span><div class="pxrow"><img class="pxi" src="/assets/px/cottage.png" alt=""><img class="pxi" src="/assets/px/barn.png" alt=""><img class="pxi" src="/assets/px/tower10.png" alt=""></div><h3>Grow your island</h3><p>Your Minds clear the wild ground, farm and build while you are away. Push your Town Hall to level 10 and watch every building turn from wood to stone, iron, gold and crystal.</p><a class="btn small" href="/island">See the island →</a><video data-src="/assets/video/island.mp4" muted loop playsinline preload="none"></video></article>
+        <article class="chapter" data-label="RAID" data-clip="/assets/video/raid.mp4"><span class="num">03</span><div class="pxrow"><img class="pxi" src="/assets/px/brawler.png" alt=""><img class="pxi" src="/assets/px/archer.png" alt=""><img class="pxi" src="/assets/px/bomber.png" alt=""><img class="pxi" src="/assets/px/giant.png" alt=""></div><h3>Raid for loot</h3><p>Drop brawlers, archers, bombers and giants, lead with your Mind as the hero, cast Rage, Heal and Bolt. Stars bring loot, and raided villages burn until they are restored.</p><a class="btn small" href="/island">Plan a raid →</a><video data-src="/assets/video/raid.mp4" muted loop playsinline preload="none"></video></article>
+        <article class="chapter" data-label="ADVENTURE" data-clip="/assets/video/adventure.mp4"><span class="num">04</span><div class="pxrow"><img class="pxi" src="/assets/px/airship.png" alt=""><img class="pxi" src="/assets/icon_coin.png" alt=""></div><h3>Fly to wild islands</h3><p>Airships carry your hero to volcanoes, snowfields, crystal caves and mushroom forests. Gather, fight, and beat the Ogre to open the next region.</p><a class="btn small" href="/island">Take off →</a><video data-src="/assets/video/adventure.mp4" muted loop playsinline preload="none"></video></article>
       </div>
-      <button class="mode px soon" id="hub-train" hidden></button>
-      <button class="mode px soon" id="hub-auto" hidden></button>
-      <div class="guest-note px" id="guest-note">Trial mode: play <b>Classic</b> with everyone and <b>Practice</b> vs bots using demo Minds. <a href="#" id="guest-connect">Connect a wallet</a> to play ranked with your own Minds.</div>
-    </div>
-    <button class="board-tab px" id="board-tab" title="Show leaderboard"><img src="assets/icon_trophy.png" alt=""><span>TOP</span><div class="tab-pfps" id="board-tab-pfps"></div><b>‹</b></button>
-    <div class="col-board panel px" id="board">
-      <div class="board-head"><img src="assets/icon_trophy.png" alt=""><h3>Leaderboard</h3><span class="live">● LIVE</span><button class="iconbtn px small" id="board-hide" title="Hide leaderboard">›</button></div>
-      <div class="seg px" id="board-by"><button data-v="rating" class="on">Rating</button><button data-v="points">Points</button></div>
-      <div id="board-podium"></div>
-      <ol class="board-list" id="board-list"></ol>
-      <div class="board-me" id="board-me"></div>
-      <button class="btn small wide" data-go="leaderboard">See full leaderboard</button>
     </div>
   </div>
 </section>
 
-<!-- PREP: pick minds -->
-<section id="s-prep" class="screen window">
-  <div class="page narrow">
-    <div class="pagehead"><h2 id="prep-title">Ranked Duel</h2><button class="iconbtn px small closex" data-go="hub" title="Close">✕</button></div>
-    <div class="panel px">
-      <div class="label">Pick your Minds <span class="muted" id="prep-mind-count"></span></div>
-      <p class="muted">Bring 1 to 3. They take turns, one per round, and every Mind plays the same. In Ranked, a bigger team = bigger wins (and bigger losses).</p>
-      <p class="prep-note" id="prep-note"></p>
-      <div class="mindgrid big" id="prep-minds"></div>
-    </div>
-    <div class="prep-foot">
-      <div class="seg px" id="prep-level"><button data-v="easy">Easy</button><button data-v="normal" class="on">Normal</button><button data-v="hard">Hard</button></div>
-      <div class="err" id="prep-err"></div>
-      <button class="btn primary big" id="prep-go">Find match</button>
+<section class="tint edge" style="--edge:#181230">
+  <div class="wrap">
+    <h2 class="title reveal">Pick your way to play</h2>
+    <p class="sub muted reveal">Hover a card to see it in action.</p>
+    <div class="grid stagger">
+      <a class="card link pic tilt" href="/arena"><div class="media"><img src="/assets/video/duel.jpg" alt=""><video data-src="/assets/video/duel.mp4" data-auto="hover" muted loop playsinline preload="none"></video><span class="tag">PVP</span></div><div class="in"><h3><img class="pxi sm" src="/assets/icon_swords.png" alt="">Ranked Arena</h3><p>Secret cards, four spells, best of 3. Climb from Bronze to Legend.</p></div></a>
+      <a class="card link pic tilt" href="/island"><div class="media"><img src="/assets/video/island.jpg" alt=""><video data-src="/assets/video/island.mp4" data-auto="hover" muted loop playsinline preload="none"></video><span class="tag">BUILD</span></div><div class="in"><h3><img class="pxi sm" src="/assets/px/cottage.png" alt="">Mind Island</h3><p>Farm, build, defend and raid. Town Hall 1 to 10.</p></div></a>
+      <a class="card link pic tilt" href="/ai"><div class="media"><img src="/assets/sky_aurora.webp" alt=""><video data-src="/assets/video/reel.mp4" data-auto="hover" muted loop playsinline preload="none"></video><span class="tag">AI</span></div><div class="in"><h3><img class="pxi sm" src="/assets/px/brain.png" alt="">AI Minds</h3><p>Your own Hello Minds AI plays your jobs, even while you sleep.</p></div></a>
+      <a class="card link pic tilt" href="/cup"><div class="media"><img src="/assets/video/raid.jpg" alt=""><video data-src="/assets/video/raid.mp4" data-auto="hover" muted loop playsinline preload="none"></video><span class="tag">DAILY</span></div><div class="in"><h3><img class="pxi sm" src="/assets/icon_trophy.png" alt="">Siege Cup</h3><p>Same army budget for all. Best attack wins the Gem pool.</p></div></a>
     </div>
   </div>
 </section>
 
-<!-- QUEUE -->
-<section id="s-queue" class="screen">
-  <div class="queue">
-    <div class="radar"><i></i><i></i><i></i><img id="queue-pfp" alt=""></div>
-    <h2 class="shadow">Finding a rival…</h2>
-    <p class="qmsg px" id="queue-msg">Searching players near your rating</p>
-    <button class="btn" id="queue-cancel">Cancel</button>
-  </div>
-</section>
-
-<!-- DUEL -->
-<section id="s-duel" class="screen">
-  <div class="duel-top">
-    <div class="plate px me-side">
-      <img class="pfp" id="d-pfp0" alt="">
-      <div class="info"><b id="d-name0"></b><div class="stars" id="d-rounds0"></div></div>
-      <div class="pts"><b id="d-score0">0</b><span>PTS</span></div>
+<section class="dark aurora edge" style="--edge:#0b0818">
+  <div class="wrap split">
+    <div class="reveal">
+      <span class="kicker">Real AI, not a bot</span>
+      <h2 class="title">Your AI plays for you</h2>
+      <p>Every Mind you hold gets its own AI on <b>Hello Minds</b>, on your own account. Give it a job or a whole plan: raid until there is nothing left, then Ranked, then an adventure. It decides every card, army and crop itself.</p>
+      <ul class="ticks"><li>🌙 Away play: up to 90 days with the game closed</li><li>🔍 Proof: read its answers straight from Hello Minds</li><li>💎 Gems only within a daily limit you type yourself</li></ul>
+      <a class="btn" href="/ai">How AI Minds work →</a>
     </div>
-    <div class="mid">
-      <div class="roundlbl shadow" id="d-round">ROUND 1</div>
-      <div class="timer" id="d-timer"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="17"/><circle id="d-timer-ring" cx="20" cy="20" r="17"/></svg><span id="d-timer-t">20</span></div>
+    <div class="chatdemo reveal" id="ai-demo"></div>
+  </div>
+</section>
+
+<div class="parade" aria-hidden="true"><div class="row"></div><div class="row slow"></div></div>
+
+<section class="tint">
+  <div class="wrap split">
+    <div class="reveal">
+      <span class="kicker">Real duel, real game</span>
+      <h2 class="title">Seven cards. One crown at a time.</h2>
+      <p>Filmed straight from a practice duel: a secret card, a Double spell, the reveal, and the rival's Boost stealing the crown.</p>
+      <a class="btn" href="/play">▶ Play one yourself</a>
     </div>
-    <div class="plate px rv-side">
-      <div class="pts"><b id="d-score1">0</b><span>PTS</span></div>
-      <div class="info"><b id="d-name1"></b><div class="stars" id="d-rounds1"></div></div>
-      <img class="pfp" id="d-pfp1" alt="">
-    </div>
-  </div>
-  <div class="prize">
-    <div class="prizetag px">PRIZE</div>
-    <div class="crownbox px" id="d-crownbox" title="The prize up for grabs this turn">
-      <img src="assets/crown.png" alt=""><b id="d-crown">7</b><small>PTS</small>
-    </div>
-    <div class="potline px" id="d-pot"></div>
-    <div class="crownsleft" id="d-left" title="This round's 7 prizes: values are hidden until they come up (1 to 15)"></div>
-  </div>
-  <div class="rivalinfo px" id="d-rivalinfo">
-    <div class="ri-row"><span>Rival cards</span><div class="minis" id="d-rcards"></div></div>
-    <div class="ri-row"><span>Rival spells</span><div class="minispells" id="d-rspells"></div></div>
-    <div class="ri-lock" id="d-rlock">✔ RIVAL LOCKED IN</div>
-  </div>
-  <div class="duel-bottom" id="d-controls">
-    <div class="duel-hint px" id="d-hint"></div>
-    <div class="spells" id="d-spells"></div>
-    <div class="handrow">
-      <div class="hand" id="d-hand"></div>
-      <div class="lockrow"><button class="btn primary big lock" id="d-lock" disabled>Pick a card</button><div class="waiting px" id="d-wait">Locked in · waiting for rival</div></div>
-    </div>
-  </div>
-  <div class="reveal" id="reveal">
-    <div class="rv-col" id="rv0"><div class="rv-who">YOU</div><div class="rcard"><div class="rc-face"><b></b></div><div class="rc-back"></div></div><div class="rv-spell"></div></div>
-    <div class="rv-col" id="rv1"><div class="rv-who">RIVAL</div><div class="rcard"><div class="rc-face"><b></b></div><div class="rc-back"></div></div><div class="rv-spell"></div></div>
-  </div>
-  <div class="rv-msg px" id="rv-msg"></div>
-  <button class="iconbtn px chatbtn" id="d-chat" title="Quick chat"><img src="assets/icon_chat.png" alt="Chat"></button>
-  <div class="chatpick px" id="d-chatpick"><div class="seg" id="d-chattabs"></div><div class="phrases" id="d-phrases"></div></div>
-  <button class="corner iconbtn px" id="d-menu" title="Menu">☰</button>
-  <div class="coach px" id="coach"><img class="coach-pfp" id="coach-pfp" alt=""><div><b>Coach</b><p id="coach-text"></p><button class="btn small primary" id="coach-next">Next</button></div></div>
-</section>
-
-<!-- RESULT -->
-<section id="s-result" class="screen">
-  <div class="panel px center-panel result">
-    <img class="r-crown" src="assets/crown.png" alt="">
-    <div class="big" id="r-title">VICTORY</div>
-    <div class="r-score" id="r-score"></div>
-    <div class="r-stats" id="r-stats"></div>
-    <div class="r-btns"><button class="btn primary big" id="r-again">Play again</button><button class="btn big" data-go="hub">Lobby</button></div>
+    <div class="clip reveal"><video data-src="/assets/video/duel.mp4" muted loop playsinline preload="none" poster="/assets/video/duel.jpg"></video><span class="label">PRACTICE DUEL</span></div>
   </div>
 </section>
 
-<!-- LEADERBOARD -->
-<section id="s-leaderboard" class="screen window">
-  <div class="page">
-    <div class="pagehead"><h2><img src="assets/icon_trophy.png" alt="">Leaderboard <span class="live">● LIVE</span></h2><div class="seg px" id="lb-by"><button data-v="rating" class="on">Rating</button><button data-v="points">Points</button></div><button class="iconbtn px small closex" data-go="hub" title="Close">✕</button></div>
-    <div class="panel px lb"><table><thead><tr><th>#</th><th>Player</th><th id="lb-col">Rating</th><th>W</th><th>L</th><th class="hide-s">Win %</th><th class="hide-s">Streak</th></tr></thead><tbody id="lb-rows"></tbody></table>
-      <div class="muted small" id="lb-note">Points = +10 per Mind staked per ranked win (−5 per Mind on a loss), + rarity bonus (Uncommon +5%, Rare +10%, Epic +15%, Legendary +20%). Trial players are not listed.</div></div>
+<section>
+  <div class="wrap">
+    <h2 class="title reveal">Start in a minute</h2>
+    <ol class="steps stagger">
+      <li><b>Tap Play</b>Try it right away with a free trial account. No download.</li>
+      <li><b>Connect your wallet</b>Your Minds become your duel team and your island's workers. No Mind? A Rank Pass lends you some.</li>
+      <li><b>Wake your AI</b>Connect Hello Minds, awaken an AI for each Mind, give it a job, press Start.</li>
+    </ol>
+    <h2 class="title reveal" style="margin-top:70px">Questions</h2>
+    <details class="faq reveal"><summary>Do I need a Mind to play?</summary><p>No. Anyone can play Practice, Classic, the tutorial and the island with a free trial account. Ranked needs a Mind, or a Rank Pass that lends you Minds for 7 days.</p></details>
+    <details class="faq reveal"><summary>Is the AI really an AI?</summary><p>Yes. Every decision is a question sent to your own AI on Hello Minds, and it answers in its own words using your cognition. Tap 🔍 Proof in the game to read its answers straight from Hello Minds.</p></details>
+    <details class="faq reveal"><summary>Can I win money?</summary><p>No. Gems, Dust and prizes are in-game items with no cash value and no cash-out. See the <a href="/terms.html">Terms</a>.</p></details>
+    <details class="faq reveal"><summary>What does it run on?</summary><p>Any modern browser, on a computer or a phone. Gems can be bought with ETH or USDG on Robinhood Chain.</p></details>
   </div>
 </section>
 
-<!-- PROFILE -->
-<section id="s-profile" class="screen window">
-  <div class="page">
-    <div class="pagehead"><h2>Profile</h2><button class="iconbtn px small closex" data-go="hub" title="Close">✕</button></div>
-    <div class="profile">
-      <div class="panel px prof-card">
-        <div class="prof-top"><img id="pf-pfp" alt=""><div class="prof-id"><div class="pf-name" id="pf-name"></div><div class="muted" id="pf-addr"></div><div id="pf-actions"></div></div></div>
-        <div class="pf-stats" id="pf-stats"></div>
-        <div class="label">Showcase</div>
-        <div class="showcase" id="pf-show"></div>
-      </div>
-      <div class="panel px" id="pf-edit">
-        <button class="btn wide" id="pf-looks">✨ Change my looks: card back, frame, sky, name colour</button>
-        <label class="field">Display name <input id="pf-name-in" maxlength="16"></label>
-        <div class="label">Profile picture <span class="muted">tap a Mind</span></div>
-        <div class="mindgrid big" id="pf-pfps"></div>
-        <div class="label">Lobby showcase <span class="muted" id="pf-show-count">pick up to 3</span></div>
-        <div class="mindgrid big" id="pf-shows"></div>
-        <div class="err" id="pf-err"></div>
-        <button class="btn primary big" id="pf-save">Save</button>
-      </div>
-      <div class="panel px"><div class="label">Match history</div><div id="pf-history" class="history"></div></div>
-    </div>
+<section class="bigcta edge" style="--edge:#0b0818">
+  <div class="wrap">
+    <img class="crownbig" src="/assets/crown.png" alt="">
+    <h2 class="title">Your crown is waiting</h2>
+    <p class="sub" style="margin:0 auto 26px">Free to play. Your first duel takes two minutes.</p>
+    <a class="btn gold glow" href="/play">▶ Play MINDS CLASH</a>
   </div>
 </section>
-
-<!-- INVENTORY -->
-<section id="s-inventory" class="screen window">
-  <div class="page">
-    <div class="pagehead"><h2>🎒 Inventory</h2><div class="seg px" id="inv-tabs"><button data-v="minds" class="on">Minds</button><button data-v="items">Items</button></div><button class="iconbtn px small closex" data-go="hub" title="Close">✕</button></div>
-    <div class="inv-sum panel px" id="inv-sum"></div>
-    <div class="inv-grid" id="inv-minds"></div>
-    <div class="inv-items panel px" id="inv-items"></div>
-  </div>
-</section>
-
-<!-- MIND ISLAND -->
-<section id="s-island" class="screen">
-  <canvas id="island-cv"></canvas>
-  <div class="isl-top">
-    <button class="btn px" id="isl-back" title="Back to the lobby">←<span class="lbl"> Lobby</span></button>
-    <div class="isl-res px">
-      <span class="dust" title="Dust: the island money">✨ <b id="isl-dust">0</b></span>
-      <span class="gems" title="Gems">💎 <b id="isl-gems">0</b></span>
-      <span title="Wood">🪵 <b id="isl-wood">0</b></span>
-      <span title="Stone">🪨 <b id="isl-stone">0</b></span>
-      <span title="Farm plots used / allowed">🌾 <b id="isl-plots">0/6</b></span>
-    </div>
-    <div class="isl-right">
-      <button class="iconbtn px" id="isl-home" title="Back to my house">🏠</button>
-      <button class="iconbtn px" id="isl-minds" title="Talk to your Minds, give them jobs">🧠</button>
-      <button class="iconbtn px" id="isl-stash" title="Storage (stored buildings)">📦</button>
-      <button class="iconbtn px" id="isl-raidlog" title="Raid history: who raided you, revenge">📜</button>
-      <button class="iconbtn px" id="isl-bag" title="Inventory">🎒</button>
-      <button class="iconbtn px" id="isl-shop" title="Shop">🛒</button>
-    </div>
-  </div>
-  <div class="isl-coach px" id="isl-coach"></div>
-  <div class="isl-sub"><span id="isl-sync" class="isl-chip px">☁ Saved</span><span id="isl-bonus" class="isl-chip px"></span><button id="isl-burn" class="isl-chip isl-burn px"></button></div>
-  <div class="isl-bottom">
-    <div class="isl-tip px" id="isl-tip"></div>
-    <div class="isl-seeds px" id="isl-seeds"></div>
-    <div class="isl-seeds isl-build px" id="isl-build"></div>
-    <div class="isl-bmenu px" id="isl-bmenu"></div>
-    <div class="isl-tools px" id="isl-tools">
-      <button data-tool="hand" class="on" title="Hand (1)"><i>✋</i><span>Hand</span></button>
-      <button data-tool="clear" title="Clear (2)"><i>🪓</i><span>Clear</span></button>
-      <button data-tool="till" title="Make plot (3)"><i>⛏️</i><span>Plot</span></button>
-      <button data-tool="plant" title="Plant (4)"><i><img id="isl-seed-ico" alt=""></i><span>Plant <em id="isl-seed-n">0</em></span></button>
-      <button data-tool="harvest" title="Harvest (5)"><i>🧺</i><span>Harvest</span><b class="badge on" id="isl-ready"></b></button>
-      <button data-tool="build" title="Build (6)"><i>🔨</i><span>Build</span></button>
-      <button data-tool="edit" title="Edit your base: select many, then move, upgrade, store or remove (7)"><i>✏️</i><span>Edit</span></button>
-      <i class="tsep"></i>
-      <button class="go adv" id="isl-adv" title="Adventure: explore wild islands"><i>🧭</i><span>Adventure</span></button>
-      <button class="go raid" id="isl-raid" title="Raid another island"><i>⚔️</i><span>Raid</span></button>
-    </div>
-  </div>
-</section>
-
-<!-- RAID -->
-<section id="s-raid" class="screen">
-  <canvas id="raid-cv"></canvas>
-  <div class="raid-top px">
-    <b id="raid-name">Raid</b>
-    <span class="raid-loot" id="raid-loot"></span>
-    <span class="raid-stars" id="raid-stars"></span>
-    <span class="raid-pct" id="raid-pct">0%</span>
-    <span class="raid-time" id="raid-time">1:30</span>
-    <button class="btn small" id="raid-end">End raid</button>
-  </div>
-  <div class="raid-bottom">
-    <div class="raid-tip px" id="raid-tip"></div>
-    <div class="raid-bar px" id="raid-bar"></div>
-  </div>
-</section>
-
-<!-- WORLD MAP -->
-<section id="s-map" class="screen">
-  <canvas id="map-cv"></canvas>
-  <div class="raid-top px map-top">
-    <button class="btn small" id="map-back">← Island</button>
-    <b>🗺️ The Sky World</b>
-    <span id="map-ship"></span><span id="map-fuel"></span>
-    <button class="btn small" id="map-up"></button>
-  </div>
-  <div class="map-panel px">
-    <div id="map-info"></div>
-    <div class="map-pot" id="map-pot"></div>
-    <button class="btn primary big" id="map-fly">🛩️ Fly!</button>
-  </div>
-</section>
-
-<!-- MIND TOWN -->
-<section id="s-town" class="screen">
-  <canvas id="town-cv"></canvas>
-  <div class="town-top px"><button class="btn small" id="town-back">← Lobby</button><b>🏘️ Mind Town</b><span id="town-stay"></span><span class="town-zoom"><button class="btn small" id="town-out-z" title="Zoom out">−</button><button class="btn small" id="town-in-z" title="Zoom in">+</button><button class="btn small" id="town-all">🗺️ Whole town</button><button class="btn small" id="town-me">🧍 Me</button><button class="btn small gem" id="town-mega" title="Megaphone: a message over your head for 1 hour (1 Gem)">📣</button></span></div>
-  <div class="town-side px"><div class="town-side-head"><h4>💬 Town Chat</h4><span class="seg px" id="town-filter"><button data-v="all" class="on">All</button><button data-v="chat">💬 Chat</button><button data-v="news">📜 News</button></span><button class="iconbtn px small" id="town-fold" title="Fold">▾</button></div><div id="town-feed" data-show="all"></div><div class="fr-add"><input id="town-in" maxlength="120" placeholder="Say something…"><button class="btn small primary" id="town-send">Send</button></div></div>
-</section>
-
-<!-- ADVENTURE -->
-<section id="s-adv" class="screen">
-  <canvas id="adv-cv"></canvas>
-  <div class="raid-top px adv-top">
-    <b id="adv-name">Wild island</b>
-    <span class="adv-hp" id="adv-hp">❤️ <span class="bar"><i></i></span><b>0</b></span>
-    <span class="adv-bag" id="adv-bag"></span>
-    <span class="raid-time" id="adv-time">3:00</span>
-    <button class="btn small" id="adv-home">🏠 Go home</button>
-  </div>
-  <div class="raid-bottom">
-    <div class="raid-tip px">Tap to walk · tap monsters to fight · tap loot, grass, trees and rocks to gather · <b id="adv-gather"></b> left this hour</div>
-    <div class="raid-bar px"><button id="adv-potion" class="adv-ab"><b>🧪</b><span>Potion</span><em>0</em></button><button id="adv-ability" class="adv-ab"></button></div>
-  </div>
-</section>
-
-<!-- SHOP -->
-<section id="s-shop" class="screen window">
-  <div class="page">
-    <div class="pagehead"><h2>🛒 Shop</h2><button class="btn small" id="shop-hist" title="Your purchases (last 30 days)">🧾 Purchases</button><div class="seg px" id="shop-tabs"><button data-v="seeds" class="on">Seeds</button><button data-v="style">✨ Style</button><button data-v="army">⚔️ Army</button><button data-v="items">🧪 Supplies</button><button data-v="gems">💎 Gems</button><button data-v="sell">Sell</button><button data-v="land">Land</button></div><button class="iconbtn px small closex" data-go="hub" title="Close">✕</button></div>
-    <div class="shop-bar panel px"><span>✨ <b id="shop-dust">0</b> Dust</span><span>💎 <b id="shop-gems">0</b> Gems</span><span class="muted" id="shop-note"></span><button class="btn small" id="shop-go-island">🏝️ Go to my island</button></div>
-    <div class="shop-grid" id="shop-grid"></div>
-  </div>
-</section>
-
-<!-- SETTINGS -->
-<section id="s-settings" class="screen window">
-  <div class="page narrow">
-    <div class="pagehead"><h2><img src="assets/icon_gear.png" alt="">Settings</h2><button class="iconbtn px small closex" data-go="back" title="Close">✕</button></div>
-    <div class="panel px">
-      <div class="row">Music <input type="range" id="set-music" min="0" max="1" step="0.05"></div>
-      <div class="row">Sound effects <input type="range" id="set-sfx" min="0" max="1" step="0.05"></div>
-      <div class="row">Graphics <div class="seg px" id="set-quality"><button data-v="high">High</button><button data-v="low">Low</button></div></div>
-      <div class="row">Animation speed <div class="seg px" id="set-speed"><button data-v="1">1x</button><button data-v="1.5">1.5x</button><button data-v="2">2x</button></div></div>
-      <div class="row">Rules <button class="btn small" id="set-rules">How to play</button></div>
-      <div class="legal-links"><a href="terms.html" target="_blank" rel="noopener">Terms of Service</a><a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a></div>
-      <div class="row">Account <span class="muted ellip" id="set-account"></span></div>
-      <div class="row">Purchases <button class="btn small" id="set-hist">🧾 See my purchases</button></div>
-      <div class="row">Code <span class="codebox"><input id="set-code" placeholder="enter a code" autocomplete="off"><button class="btn small" id="set-code-go">OK</button></span></div>
-      <div class="row">Let an AI play for you <button class="btn small" id="set-ai">Connect an AI</button></div>
-      <div class="row">Something wrong? <button class="btn small" id="set-report">Report a problem</button></div>
-      <div class="row"><button class="btn small" id="set-logout-all">Log out everywhere</button><button class="btn" id="set-logout">Sign out</button></div>
-    </div>
-  </div>
-</section>
-
-<!-- ADMIN (owner only; the server checks the wallet) -->
-<section id="s-admin" class="screen window">
-  <div class="page">
-    <div class="pagehead"><h2>🛠️ Admin</h2><button class="iconbtn px small closex" data-go="hub" title="Close">✕</button></div>
-    <div class="adm px">
-      <div class="adm-left panel px">
-        <div class="adm-search"><input id="adm-q" placeholder="name, 0x wallet or id"><button class="btn small primary" id="adm-go">Find</button></div>
-        <div id="adm-results"></div>
-        <div class="adm-tabs"><button class="btn small primary" id="adm-all">👥 All players</button><button class="btn small" id="adm-stats">📊 Players</button><button class="btn small" id="adm-mail">✉️ Send mail</button><button class="btn small" id="adm-inv">🎟️ Invites</button><button class="btn small" id="adm-reports">🐞 Reports <b id="adm-open"></b></button><button class="btn small" id="adm-pay">💳 Payments <b id="adm-payn"></b></button><button class="btn small" id="adm-err">🚨 Errors <b id="adm-errn"></b></button></div>
-        <h3>🚩 Cheat meter <button class="btn small" id="adm-refresh">↻</button></h3>
-        <div id="adm-meter"></div>
-      </div>
-      <div class="adm-right panel px" id="adm-detail"></div>
-    </div>
-  </div>
-</section>
-
-<!-- RULES -->
-<section id="s-codex" class="screen window">
-  <div class="page narrow">
-    <div class="pagehead"><h2><img src="assets/icon_book.png" alt="">How to play</h2><button class="iconbtn px small closex" data-go="back" title="Close">✕</button></div>
-    <div class="panel px codex" id="codex"></div>
-  </div>
-</section>
-
-<!-- FRIENDS DRAWER -->
-<aside class="drawer px" id="trade">
-  <div class="drawer-head"><span class="tr-ico">🤝</span><h3 id="tr-title">Trade</h3><button class="iconbtn px small" id="tr-close" title="Close (the trade stays open)">✕</button></div>
-  <p class="muted small">Both of you must agree. If anything changes, both agree again. Nothing moves until then.</p>
-  <div class="label" id="tr-l-them">They give you</div><ul class="tr-list" id="tr-them"></ul>
-  <div class="label" id="tr-l-mine">You give them</div><div id="tr-mine"></div>
-  <select id="tr-add"></select>
-  <button class="btn" id="tr-save" disabled>Update my offer</button>
-  <div class="tr-state" id="tr-state"></div>
-  <div class="mp-row"><button class="btn primary" id="tr-agree">🤝 Agree</button><button class="btn small red" id="tr-cancel">Cancel trade</button></div>
-</aside>
-<aside class="drawer px" id="friends">
-  <div class="drawer-head"><img src="assets/icon_friends.png" alt=""><h3 id="fr-title">Friends</h3><button class="iconbtn px small" id="fr-close">✕</button></div>
-  <div id="fr-list-view">
-    <div class="fr-add"><input id="fr-name" maxlength="16" placeholder="Add by name"><button class="btn small primary" id="fr-add">Add</button></div>
-    <div class="err" id="fr-err"></div>
-    <div class="fr-list" id="fr-list"></div>
-  </div>
-  <div id="fr-chat-view" class="fr-chat">
-    <button class="btn small" id="fr-back">‹ Friends</button>
-    <div class="fr-msgs" id="fr-msgs"></div>
-    <div class="fr-add"><input id="fr-text" maxlength="400" placeholder="Type a message…"><button class="btn small primary" id="fr-send">Send</button></div>
-    <div class="phrases small" id="fr-phrases"></div>
-    <div class="fr-tools"><small class="muted">Messages delete after 30 days.</small><button class="btn small" id="fr-report">Report</button><button class="btn small" id="fr-gift" title="Send a gift">🎁 Gift</button><button class="btn small" id="fr-block">Block</button><button class="btn small red" id="fr-unfriend">Unfriend</button></div>
-  </div>
-</aside>
-
-<!-- MAIL -->
-<aside class="drawer px" id="maild">
-  <div class="drawer-head"><span class="dh-ico">✉️</span><h3>Mail</h3><button class="iconbtn px small" id="mail-close">✕</button></div>
-  <div class="fr-list" id="mail-list"></div>
-</aside>
-
-<!-- TALK TO A MIND -->
-<aside class="drawer px" id="mindp">
-  <div class="drawer-head"><span class="dh-ico">🧠</span><h3 id="mp-title">Minds</h3><em id="mp-slots"></em><button class="iconbtn px small" id="mp-close">✕</button></div>
-  <div class="mp-list" id="mp-list"></div>
-  <div class="mp-job" id="mp-job"></div>
-  <p class="mp-desc" id="mp-desc"></p>
-  <div class="fr-msgs" id="mp-chat"></div>
-  <div class="fr-add"><input id="mp-in" maxlength="120" placeholder="Tell this Mind what to do…"><button class="btn small primary" id="mp-send">Send</button></div>
-</aside>
-
-<div class="modal-wrap" id="modal"><div class="panel px modal"><div id="modal-body"></div><div class="modal-btns" id="modal-btns"></div></div></div>
-<div id="tip" class="px"></div>
-<script type="module" src="src/app.js"></script>
+<script src="/site/site.js?v=5" type="module"></script>
 </body>
 </html>

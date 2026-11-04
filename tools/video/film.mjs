@@ -8,7 +8,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const [browser, out, scene, secs] = process.argv.slice(2);
-const W = 1280, H = 720, FPS = 30, PORT = 9400 + Math.floor(Math.random() * 400), BASE = 'http://localhost:5190/?debug';
+const W = 1280, H = 720, FPS = 30, PORT = 9400 + Math.floor(Math.random() * 400), BASE = 'http://localhost:5190/play.html?debug';
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const profile = join(out, '_profile_' + scene + '_' + Date.now());
 const proc = spawn(browser, ['--headless=new', '--no-first-run', '--hide-scrollbars', '--mute-audio', '--disable-renderer-backgrounding', '--disable-background-timer-throttling', `--remote-debugging-port=${PORT}`, `--window-size=${W},${H}`, `--user-data-dir=${profile}`, 'about:blank'], { stdio: 'ignore' });

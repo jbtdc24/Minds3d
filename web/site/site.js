@@ -1,9 +1,9 @@
 // MINDS CLASH website: shared top bar and footer, moving pixel clouds, Minds in the hero, scroll reveal,
 // filmed gameplay clips, a Mind to play with in the hero, and a chat of what the game asks your AI.
 const $ = (s, el = document) => el.querySelector(s);
-const PLAY = '/';   // the game
-const PAGES = [['/home', 'Home'], ['/arena', 'Ranked Arena'], ['/island', 'Mind Island'], ['/ai', 'AI Minds'], ['/cup', 'Siege Cup']];
-const here = location.pathname.replace(/\/(index\.html)?$/, '') || '/home';
+const PLAY = '/play';   // the game
+const PAGES = [['/', 'Home'], ['/arena', 'Ranked Arena'], ['/island', 'Mind Island'], ['/ai', 'AI Minds'], ['/cup', 'Siege Cup']];
+const here = location.pathname.replace(/\/(index\.html)?$/, '') || '/';
 const thumb = id => `/data/thumbs/${id}.webp`;
 const pick = n => Array.from({ length: n }, () => 1 + Math.floor(Math.random() * 3333));
 const wait = ms => new Promise(r => setTimeout(r, ms));
@@ -11,7 +11,7 @@ const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ---------- top bar + footer ----------
 document.body.insertAdjacentHTML('afterbegin', `<header class="nav"><div class="wrap">
-  <a class="logo" href="/home"><img src="/assets/crown.png" alt="">MINDS <b>CLASH</b></a>
+  <a class="logo" href="/"><img src="/assets/crown.png" alt="">MINDS <b>CLASH</b></a>
   <button class="menu" aria-label="Menu">☰</button>
   <nav>${PAGES.map(([h, n]) => `<a href="${h}" class="${here === h ? 'on' : ''}">${n}</a>`).join('')}<a class="btn small" href="${PLAY}">▶ Play now</a></nav>
 </div></header>`);

@@ -1928,7 +1928,7 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   }
 
   // legal pages
-  const terms = fs.readFileSync('web/terms.html', 'utf8'), priv = fs.readFileSync('web/privacy.html', 'utf8'), idx = fs.readFileSync('web/index.html', 'utf8');
+  const terms = fs.readFileSync('web/terms.html', 'utf8'), priv = fs.readFileSync('web/privacy.html', 'utf8'), idx = fs.readFileSync('web/play.html', 'utf8');
   ok(/no cash value/.test(terms) && /Draft/.test(terms) && /Draft/.test(priv), 'the pages state what Gems are, and that they are drafts');
   ok((idx.match(/href="terms\.html"/g) || []).length >= 2 && (idx.match(/href="privacy\.html"/g) || []).length >= 2, 'terms and privacy are linked from sign-in and Settings');
   ok(!/complies with|fully compliant|GDPR compliant|guarantee/i.test(terms + priv), 'the pages make no compliance promises');

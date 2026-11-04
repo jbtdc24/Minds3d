@@ -10,12 +10,12 @@
       "destination": "/api/router?route=:path*"
     },
     {
-      "source": "/:page(home|arena|island|ai|cup)",
+      "source": "/:page(arena|island|ai|cup)",
       "destination": "/:page/index.html"
     },
     {
       "source": "/play",
-      "destination": "/index.html"
+      "destination": "/play.html"
     }
   ],
   "headers": [
@@ -64,5 +64,12 @@
     "api/router.js": {
       "maxDuration": 60
     }
-  }
+  },
+  "redirects": [
+    {
+      "source": "/home",
+      "destination": "/",
+      "permanent": true
+    }
+  ]
 }
