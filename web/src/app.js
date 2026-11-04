@@ -24,6 +24,7 @@ import { troopIcon } from './island/troops.js';
 import { openAdventure, closeAdventure } from './island/advview.js';
 import { AREAS, POTIONS_MAX, SPOTS, SHIPS, spotLevel } from './island/adventure.js';
 import { openMap, updateMap, closeMap } from './island/worldmap.js';
+import { initPlaza, resetPlaza } from './plaza.js';
 import { initAdmin, tryCode } from './admin.js';
 import { isle, loadIsland, doAct, flush as flushIsland, resetIsland, refreshIsland, now as islandNow } from './island/store.js';
 import { CROPS, RAW, growMs, permitCost, MAX_PERMITS, ripe, campLevels, campCount, SHOP, RECIPES, troopMax, thLv, troopCount, costText, canAfford, BUILD, STASH_MAX, gemPrice, energyPrice, refillsToday, SHARDS_PER_ENERGY, REFILLS_PER_DAY, wellShards, troopLv, troopUpCost, troopLevels, MAX_TL, troopUpSecs, troopRush, COSMETICS, RANK_PASS, passActive, passLeft } from './island/rules.js';
@@ -158,7 +159,7 @@ function paintBoardOpen() { $('#s-hub').classList.toggle('board-closed', !boardO
 $('#board-hide').onclick = e => { e.stopPropagation(); settings.boardOpen = false; saveSettings(); paintBoardOpen(); };
 $('#board-tab').onclick = () => { settings.boardOpen = true; saveSettings(); paintBoardOpen(); };
 function lobbyScene(ids) {
-  clearStage(); clearTags();
+  clearStage(); clearTags(); resetPlaza();
   setStage('lobby');
   const list = ids.slice(0, 3), xs = list.length === 1 ? [0] : list.length === 2 ? [-0.75, 0.75] : [-1.4, 0, 1.4];
   list.forEach((id, i) => {
@@ -170,11 +171,14 @@ function lobbyScene(ids) {
   });
   lobbyLayout();
 }
+// 🧸 grab, throw and poke the plaza Minds (plaza.js)
+initPlaza({ active: () => current === 'hub' && !$('#modal').classList.contains('on'), fighters: () => stageFighters,
+  bounds: () => { if (narrow()) return { l: 0, r: innerWidth }; const l = $('.col-play')?.getBoundingClientRect(), r = $(boardOpen() ? '#board' : '#board-tab')?.getBoundingClientRect(); return { l: l?.width ? l.right : 0, r: r?.width ? r.left : innerWidth }; }, say: (f, text, ms) => tag(f, esc(text), 'bubble', ms) });
 // the Minds on the plaza chat now and then
 setInterval(() => {
   if (current !== 'hub' || document.hidden || !stageFighters.length || Math.random() < 0.4) return;
   const f = stageFighters[Math.random() * stageFighters.length | 0];
-  if (f.mindId) tag(f, esc(babble(f.mindId, 'chat', 0.9)), 'bubble', 2400);
+  if (f.mindId && !f.toy) tag(f, esc(babble(f.mindId, 'chat', 0.9)), 'bubble', 2400);
 }, 7000);
 addEventListener('resize', () => { if (current === 'hub') paintBoardOpen(); if (current === 'duel') duelLayout(); });
 

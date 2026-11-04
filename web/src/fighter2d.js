@@ -128,6 +128,7 @@ export class Fighter {
       pose.legF += r * 0.8; pose.legB -= r * 0.8; pose.armB += r * 0.9; pose.y += Math.abs(r) * 0.06;
       if (!a || a.type !== 'slash') pose.armF -= r * 0.6;
     }
+    if (this.toy) { this.toy.step(this, pose, dt, t); this.pose = pose; this.t = t; this.flash = Math.max(0, this.flash - dt * 6); return; }   // 🧸 grabbed / thrown on the plaza (plaza.js)
     let x = this.home.x;
     if (a?.target && pose.go) x += (a.target.home.x - this.dir * 1.25 * this.scale - x) * pose.go;
     x -= this.dir * pose.back;
@@ -167,6 +168,7 @@ export class Fighter {
     g.translate(this.pos.x, -this.pos.y - (this.ko ? 0.25 * Math.min(1, P.roll) : 0));
     g.scale(this.dir * this.scale, this.scale);
     g.rotate(-P.roll);
+    if (P.spin) { const c = -this.rig.height * 0.5; g.translate(0, c); g.rotate(-P.spin); g.translate(0, -c); }   // tumbling turns around the middle of the body
     at('legL', null, () => part('legL', P.legB));
     at('legR', null, () => part('legR', P.legF, 0, -P.legFy));
     at('torso', null, () => {

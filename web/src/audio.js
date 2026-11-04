@@ -132,6 +132,12 @@ const REAL = {
   work: ['almost done!', 'heave ho!', 'so much work', 'I need a break', 'this one is heavy', 'nearly there', 'for the island!'],
   happy: ['yay!', 'nice!', 'okay!', 'on it!', 'love you!', 'hehe yes!'],
   sad: ['oh no...', 'hmm?', 'sorry...', 'I am confused'],
+  // 🧸 the lobby toy (plaza.js)
+  grab: ['hey!', 'put me down!', 'where are we going?', 'nooo!', 'eek!', 'wheee?'],
+  throw: ['wheeeee!', 'aaaaa!', 'nooooo!', 'I can fly!'],
+  angry: ['HEY!!', 'not cool!', 'grr...', 'I will remember this', 'rude!', 'do that again and see!'],
+  dizzy: ['@_@', 'the world is spinning', 'wobble wobble...', 'where am I?'],
+  poke: ['hehe', 'that tickles!', '?', 'boop!', 'hi!'],
 };
 export function babble(id = 1, mood = 'chat', loud = 1) {
   const base = 640 + ((id * 37) % 360), real = Math.random() < 0.25 ? REAL[mood][Math.random() * REAL[mood].length | 0] : null;
@@ -140,7 +146,7 @@ export function babble(id = 1, mood = 'chat', loud = 1) {
     words.push(SYL[Math.random() * SYL.length | 0]);
     if (!ctx) continue;
     // cute = high, soft and bouncy: a sine blip that hops up a little at the start, with a tiny wobble, and a rising squeak at the end
-    const t = ctx.currentTime + i * 0.09 + (i % 2) * 0.012, f = base * (1 + Math.random() * 0.3) * (mood === 'sad' ? 0.82 : mood === 'happy' ? 1.2 : 1);
+    const t = ctx.currentTime + i * 0.09 + (i % 2) * 0.012, f = base * (1 + Math.random() * 0.3) * (mood === 'sad' || mood === 'dizzy' ? 0.82 : mood === 'angry' ? 0.7 : mood === 'happy' || mood === 'throw' ? 1.25 : 1);
     const end = mood === 'sad' ? 0.75 : i === n - 1 ? 1.65 : 0.95 + Math.random() * 0.35;
     tone(f * 0.86, t, 0.025, { type: 'sine', gain: 0.16 * loud, slide: 1.18, attack: 0.004 });
     tone(f, t + 0.018, 0.075, { type: 'sine', gain: 0.26 * loud, slide: end, attack: 0.01, vib: 0.03 });
