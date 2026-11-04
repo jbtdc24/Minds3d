@@ -34,6 +34,7 @@ db.update = async (t, q, patch) => { const rows = T[t].filter(parse(q)); rows.fo
 db.remove = async (t, q) => { T[t] = T[t].filter(r => !parse(q)(r)); return []; };
 db.upsert = async (t, row) => { const k = t === 'queue' || t === 'town_now' ? 'player_id' : t === 'recon_findings' ? 'key' : t === 'payment_intents' ? 'tx' : 'address'; const ex = T[t].find(r => r[k] === row[k]); if (ex) Object.assign(ex, row); else T[t].push({ ...(t === 'recon_findings' ? { status: 'open' } : {}), ...row }); return clone(ex || row); };
 db.rpc = async () => true;
+const asTeam = async (id, fn) => { const was = process.env.ADMIN_PLAYER_IDS; process.env.ADMIN_PLAYER_IDS = id; try { return await fn(); } finally { if (was === undefined) delete process.env.ADMIN_PLAYER_IDS; else process.env.ADMIN_PLAYER_IDS = was; } };   // a game-team account for a moment
 db.count = async (t, q = '') => T[t].filter(parse(q)).length;
 const PK = { payment_intents: ['tx'], payments: ['tx'], mail_claims: ['mail_id', 'player_id'], cup_entries: ['day', 'player_id'], cups: ['day'] }, rawInsert = db.insert;
 db.insert = async (t, row) => {
@@ -917,7 +918,8 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   ok((await hit(mail, B, { op: 'claim', id: 7 })).code === 200 && isl(B).state.gems === g0 + 2, 'a mail gift arrives');
   ok((await hit(mail, B, { op: 'claim', id: 7 })).code === 400 && isl(B).state.gems === g0 + 2, 'a mail gift can only be taken once');
 
-  // AI keys
+  // AI keys: only the game team makes new ones now (players use AI Minds)
+  ok((await hit(agentKeys, B, { op: 'new' })).code === 403 && (await hit(agentKeys, B, { op: 'list' })).code === 200, 'a player cannot make a new AI key but can still see and turn off old ones');
   out = await hit(agentKeys, A, { op: 'new', name: 'Bot' });
   const key = out.body.key;
   ok(key.startsWith('mk_') && !JSON.stringify(T.agent_keys).includes(key), 'the key is shown once and only its hash is stored');
@@ -1261,7 +1263,7 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   ok(R.act(sB, { type: 'store', id: sB.b.at(-1).id }, cx).error && sB.b.at(-1).done, 'storing a half-built building cannot skip its timer');
 
   // AI key and Gems
-  const Ai = await mk('AiOwner'), Other = await mk('AiOther'), key = (await hit(agentKeys, Ai, { op: 'new' })).body.key, wA = openLand(Ai); let kk = -1;
+  const Ai = await mk('AiOwner'), Other = await mk('AiOther'), key = await asTeam(Ai.id, () => hit(agentKeys, Ai, { op: 'new' })).then(o => o.body.key), wA = openLand(Ai); let kk = -1;
   for (let i = 0; i < 64 * 48 && kk < 0; i++) if (R.fits(isl(Ai).state, wA, 'crystal', i)) kk = i;
   out = await hit(agent, Ai, { op: 'do', actions: [{ type: 'build', item: 'crystal', tiles: [kk] }] }, { tok: key });
   ok(out.code === 403 && isl(Ai).state.gems === 40, 'an AI cannot buy Gem-only decorations without permission');
@@ -1674,7 +1676,7 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   const s0 = isl(P).state; s0.inv.shard = 3;
   await Promise.all([hit(energy, P, { mind: 900, pay: 'shard' }), hit(energy, P, { mind: 900, pay: 'shard' })]);
   ok(isl(P).state.inv.shard === undefined && T.mind_energy.find(e => e.token_id === 900).used === 2, 'two refills at once spend the shards once');
-  const key = (await hit(agentKeys, P, { op: 'new' })).body.key;
+  const key = (await asTeam(P.id, () => hit(agentKeys, P, { op: 'new' }))).body.key;
   await hit(agent, P, { op: 'duel_join', mode: 'classic', minds: [900] }, 'POST', {}, key);
   ok(T.players.find(p => p.id === P.id).ai_until && Date.parse(T.players.find(p => p.id === P.id).ai_until) > Date.now(), 'an AI duel marks the player as AI-played');
   const am = await startMatch({ player: T.players.find(p => p.id === P.id), minds: [900] }, null, { ranked: false, botLevel: 'easy', practice: true });
@@ -1728,7 +1730,7 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   // log out everywhere
   const pid = good.body.player.id, tok = good.body.token, p = T.players.find(x => x.id === pid);
   const st = R.newIsland(60, Date.now()); T.islands.push({ player_id: pid, seed: 60, state: st, minds: 0, minds_at: new Date().toISOString(), rev: 0, updated_at: new Date().toISOString() });
-  const key = (await raw(agentKeys, { body: { op: 'new' }, tok })).body.key;
+  const key = (await asTeam(pid, () => raw(agentKeys, { body: { op: 'new' }, tok }))).body.key;
   adm.forgetBan(pid);
   ok((await raw(island, { body: { acts: [] }, tok })).code === 200, 'a session works before logging out');
   await new Promise(r => setTimeout(r, 5));

@@ -340,7 +340,12 @@ document.addEventListener('click', e => {
   if (go === 'hub') return WINDOWS.has(current) ? closeWindow() : enterHub();
   if (go === 'leaderboard') return openLeaderboard();
   if (go === 'codex') { renderCodex(); return show('codex'); }
-  if (go === 'settings') { $('#set-account').textContent = guest ? 'Trial (guest)' : me?.address || ''; return show('settings'); }
+  if (go === 'settings') {
+    $('#set-account').textContent = guest ? 'Trial (guest)' : me?.address || '';
+    $('#set-ai-row').hidden = true;   // AI keys are for the game team only now (players use AI Minds)
+    if (!guest && online) api('admin', { op: 'me' }).then(r => { $('#set-ai-row').hidden = !r.admin; }).catch(() => {});
+    return show('settings');
+  }
   show(go);
 });
 $('#hub-ranked').onclick = async () => {
