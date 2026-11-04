@@ -77,6 +77,8 @@ input[type=range] { width: 180px; accent-color: var(--ink); }
 .boot .logo { font-size: clamp(34px, 9vw, 56px); }
 .boot .bar { align-self: end; }
 .boot .tapstart { margin-top: 0; }
+.bootsite { position: absolute; top: 12px; right: 12px; z-index: 2; padding: 6px 12px; background: rgba(23, 18, 42, .7); color: #fff; font-weight: 900; font-size: 14px; text-decoration: none; box-shadow: 0 0 0 2px #000; }
+.bootsite:hover { background: rgba(23, 18, 42, .9); }
 .boot .bar { width: min(320px, 70vw); height: 18px; background: var(--paper); padding: 3px; }
 .boot .bar i { display: block; height: 100%; width: 0; background: repeating-linear-gradient(90deg, var(--lime) 0 12px, var(--lime-d) 12px 14px); transition: width .3s; }
 .login { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(500px, calc(100% - 32px)); max-height: calc(100% - 32px); overflow: auto; display: flex; flex-direction: column; gap: 12px; text-align: center; padding: 26px 22px; }

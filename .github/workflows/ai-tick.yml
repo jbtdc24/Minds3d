@@ -1,4 +1,4 @@
-# 🌙 Away play: every 5 minutes, ask the game to run the AI rounds that are due (lib/routes/cron_ai.js).
+# 🌙 Away play BACKUP timer (GitHub schedules are best-effort and often skip hours). The main timer is Supabase pg_cron, supabase/012_ai_tick.sql.
 # The endpoint needs no secret (it only runs work that is already due, at most twice a minute).
 name: ai-tick
 on:

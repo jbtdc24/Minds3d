@@ -331,3 +331,8 @@ details.faq { background: #1d1638; box-shadow: 0 0 0 2px rgba(255, 255, 255, .1)
 .hero .copy h1.mega { font-size: clamp(48px, 7.4vw, 104px); }
 .pal img { background: linear-gradient(160deg, #fff8e4, #f0e2bf); box-shadow: 0 0 0 4px #000, 0 0 0 8px var(--gold), 0 0 0 12px #000, 0 18px 0 12px rgba(0, 0, 0, .35); filter: drop-shadow(0 0 40px rgba(255, 201, 60, .35)); }
 .pal::after { display: none; }
+/* ===================== v4: painted night sky behind every page (dimmed, fades to the page colour) ===================== */
+body { background: var(--bg); }
+body::before { content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(180deg, rgba(18, 13, 36, .55) 0%, rgba(18, 13, 36, .72) 45%, rgba(18, 13, 36, .9) 100%), url(/assets/site_bg.webp) center top / cover no-repeat; }
+section.tint { background: rgba(24, 18, 48, .55); } section.dark { background: rgba(11, 8, 24, .6); }
