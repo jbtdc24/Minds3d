@@ -1274,3 +1274,4 @@ h3.raid-result { text-align: center; }
 .sharebtn.xbtn { background: #111; animation: none; } .sharebtn.xbtn.done { background: #2b2340; } .sharebtn.xbtn.done span { color: var(--lime); }
 .sharebtn:hover { filter: brightness(1.08); } .sharebtn:active { transform: translateY(3px); box-shadow: 0 0 0 3px var(--ink), 0 3px 0 var(--ink); }
 @media (max-width: 640px) { .sharebtn { font-size: 15px; padding: 8px 10px; } .sharebtn span { font-size: 11px; } }
+.invite-card { display: block; width: 100%; aspect-ratio: 1200 / 630; margin: 8px 0; box-shadow: 0 0 0 3px var(--ink); background: #120d24; }

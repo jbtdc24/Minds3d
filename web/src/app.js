@@ -277,10 +277,11 @@ async function inviteFriends() {
   if (guest || !online) return modal(`<h3>📣 Invite friends</h3><p>Connect a wallet to get your own invite link. Friends who join with it count for you.</p>`, [['OK', 1, 'primary']]);
   let r;
   try { r = await api('referral', {}); } catch (e) { return toast(e.message, true); }
-  const link = `https://www.mindsclash.games/?ref=${r.code}`;
+  const link = `https://www.mindsclash.games/i/${r.code}`;   // X shows the player's own card for this link (lib/routes/share.js)
   const text = `I'm playing MINDS CLASH ⚔️ Crown duels, my own sky island, and an AI Mind that plays for me while I'm away. Join me 👇`;
   const x = `https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(link)}&hashtags=MINDSCLASH`;
   const go = await modal(`<h3>📣 Invite friends</h3><p>Share your link. Every friend who opens it and joins with a <b>wallet</b> counts for you.</p>
+    <img class="invite-card" src="/api/card?c=${encodeURIComponent(r.code)}" alt="Your invite card" loading="lazy">
     <div class="invite-link px"><code>${esc(link)}</code></div>
     <p class="muted">${r.joined ? `🎉 <b>${r.joined}</b> friend${r.joined > 1 ? 's' : ''} joined with your link so far.` : 'Nobody has joined with your link yet.'}</p>`, [['𝕏 Post on X', 'x', 'primary'], ['📋 Copy link', 'copy'], ['Close', 0]]);
   if (go === 'x') window.open(x, '_blank', 'noopener');

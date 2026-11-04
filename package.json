@@ -6,6 +6,8 @@
     "node": ">=20"
   },
   "dependencies": {
+    "@resvg/resvg-js": "2.6.2",
+    "sharp": "0.33.5",
     "viem": "2.57.13"
   }
 }

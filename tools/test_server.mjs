@@ -1412,6 +1412,15 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   const board = await asTeam(Inv.id, () => raw(adminRt, { body: { op: 'refs' }, tok: invTok }));
   ok(board.code === 200 && board.body.board[0].id === Inv.id && board.body.board[0].same === 1 && board.body.board[0].real === 0, 'the admin referral board counts it, but not as real (same connection, never played)');
   ok((await raw(adminRt, { body: { op: 'refs' }, tok: invTok })).code === 403, 'only admins see the referral board');
+  // 🖼️ personal invite card: the share page carries the player's card for X, and sends people on with the referral
+  const { card: cardRt, share: shareRt } = await import('../lib/routes/share.js');
+  const fetchRaw = async (fn, query) => { const out = { headers: {} }; const res = { statusCode: 200, setHeader(k, v) { out.headers[k.toLowerCase()] = v; }, end(b) { out.body = b; this.headersSent = true; }, headersSent: false }; await fn({ method: 'GET', url: '/api/x', headers: {}, body: {}, query }, res); out.code = res.statusCode; return out; };
+  const page = await fetchRaw(shareRt, { c: 'abc2345' });
+  ok(page.code === 200 && page.body.includes('Inviter invites you to MINDS CLASH') && page.body.includes('/api/card?c=abc2345') && page.body.includes('url=/?ref=abc2345'), 'the share page shows the inviter card and passes the referral on');
+  ok((await fetchRaw(shareRt, { c: '<script>' })).body.includes('og_share.jpg') && !(await fetchRaw(shareRt, { c: '<script>' })).body.includes('<script>'), 'an unknown or odd link falls back to the game card, nothing injected');
+  const pic = await fetchRaw(cardRt, { c: 'abc2345' });
+  ok(pic.code === 200 && pic.headers['content-type'] === 'image/jpeg' && pic.body.length > 20000 && pic.body[0] === 0xff, 'the personal card is a real JPEG picture');
+  ok((await fetchRaw(cardRt, { c: 'nobody' })).headers.location === '/assets/og_share.jpg', 'no such player: the game card instead');
   // 𝕏 linking an X account: off without keys; a signed state; only the handle is kept; one X account per player
   const { xStart, xCallback } = await import('../lib/routes/xlink.js');
   ok((await raw(xStart, { body: {}, tok: invTok })).code === 503, 'Connect X is off until the X keys are set');

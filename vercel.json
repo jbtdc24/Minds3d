@@ -10,6 +10,10 @@
       "destination": "/api/router?route=:path*"
     },
     {
+      "source": "/i/:code",
+      "destination": "/api/router?route=share&c=:code"
+    },
+    {
       "source": "/:page(arena|island|ai|cup)",
       "destination": "/:page/index.html"
     },
@@ -62,7 +66,8 @@
   ],
   "functions": {
     "api/router.js": {
-      "maxDuration": 60
+      "maxDuration": 60,
+      "includeFiles": "{web/assets/cards/**,web/assets/crown.png,web/data/thumbs/**,tools/video/fonts/PixelifySans.ttf}"
     }
   },
   "redirects": [
