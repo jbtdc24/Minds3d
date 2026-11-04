@@ -314,7 +314,7 @@ $('#hub-share').onclick = () => { initAudio(); sfx('select'); inviteFriends(); }
 (() => {
   const r = new URLSearchParams(location.search).get('x'); if (!r) return;
   history.replaceState(null, '', location.pathname);
-  const say = { linked: '𝕏 X account linked.', cancelled: 'X connect cancelled.', expired: 'That took too long. Try Connect X again.', taken: 'That X account is already linked to another player.', failed: 'Could not connect X. Try again.' }[r];
+  const say = { linked: '𝕏 X account linked.', cancelled: 'X connect cancelled.', expired: 'That took too long. Try Connect X again.', taken: 'That X account is already linked to another player.', setup: 'Connecting X is being set up. Try again soon.', failed: 'Could not connect X. Try again.' }[r];
   if (say) setTimeout(() => toast(say, r !== 'linked'), 1500);
 })();
 async function startGuest() {
