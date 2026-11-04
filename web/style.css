@@ -1182,6 +1182,10 @@ h3.raid-result { text-align: center; }
 .mdock.win .md-bubble { display: flex; } .mdock.win .md-win { display: none; }
 .mdock.win, .mdock.fight, .mdock.min { left: auto !important; top: auto !important; right: 12px; bottom: 12px; width: auto; }
 .mdock.isl.min, .mdock.isl.win { bottom: 84px; }
+.mdock.duelscr.fight { top: 40vh !important; bottom: auto; right: 8px; }   /* duels: over the arena art, clear of cards, spells and the ☰ menu */
+.mdock.duelscr.fight .md-bubble { padding: 6px; width: 52px; height: 52px; justify-content: center; position: relative; } .mdock.duelscr.fight .md-bubble span { display: none; }
+.mdock.duelscr.fight .md-bubble i { position: absolute; top: -8px; right: -8px; padding: 0 4px; font-size: 10px; }
+@media (max-width: 640px) { .mdock.moved:not(.min):not(.fight):not(.win) { width: calc(100vw - 16px); } }
 
 /* admin: the list of all players */
 .adm-table { overflow: auto; max-height: 62vh; } .adm-table table { width: 100%; border-collapse: collapse; font-size: 12px; }

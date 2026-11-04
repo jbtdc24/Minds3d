@@ -33,7 +33,7 @@ const aiOf = s => ap?.ai?.[s] || null;
 export const aiPlaying = id => (running.has(String(id)) ? aiOf(String(id))?.name || 'its AI' : null);
 export const stopAi = id => stop(String(id), 'Stopped: you are playing me yourself now.');
 // open the dock on one Mind (tapping a Mind on the island, or the 🧠 button there)
-export function openDock(id) { if (id != null && slots().includes(String(id))) sel = String(id); setMin(false); paint(); loadChat(sel); }
+export function openDock(id) { if (id != null && slots().includes(String(id))) sel = String(id); paint(); setMin(false); loadChat(sel); }
 
 export function initAutopilot(ctx) {
   K = ctx;
@@ -48,11 +48,15 @@ export function initAutopilot(ctx) {
   document.body.append(d);
   d.addEventListener('click', onClick);
   d.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'md-in') talk(); });
-  dragBy($('#md-head'), d);   // the folded bubble always sits in the corner: only the open window moves
-  setMin(load(MIN_KEY, false)); d.classList.toggle('big', !!load(BIG_KEY, false)); place(load(POS_KEY, null));
+  dragBy($('#md-head'), d);
+  new ResizeObserver(() => place(here())).observe(d);   // content grew or shrank: still fully on screen   // the folded bubble always sits in the corner: only the open window moves
+  d.classList.toggle('big', !!load(BIG_KEY, false)); setMin(load(MIN_KEY, false));
 }
-// opening (or growing) the window puts it back fully on screen: it never hangs off an edge
-function setMin(v) { $('#mdock').classList.toggle('min', v); save(MIN_KEY, v); if (!v) requestAnimationFrame(() => place(load(POS_KEY, null))); }
+// opening the window always puts it in the middle of the screen (the player can then drag it anywhere); folded, it
+// is the bubble in its corner
+function setMin(v) { $('#mdock').classList.toggle('min', v); save(MIN_KEY, v); if (!v) center(); }
+function center() { const d = $('#mdock'); if (!d) return; if (!d.offsetWidth) { d.dataset.recenter = '1'; return; } delete d.dataset.recenter; d.classList.add('moved'); place({ x: (innerWidth - d.offsetWidth) / 2, y: (innerHeight - Math.min(d.offsetHeight, innerHeight - 8)) / 2 }); }
+const here = () => { const d = $('#mdock'), r = d?.getBoundingClientRect(); return d?.classList.contains('moved') && r ? { x: r.left, y: r.top } : null; };
 // move the dock anywhere (remembered on this device); a short tap is still a tap
 function place(p) {
   const d = $('#mdock'); if (!d) return;
@@ -67,7 +71,7 @@ function dragBy(handle, d) {
   handle.addEventListener('pointermove', e => { if (!start) return; const dx = e.clientX - start.x, dy = e.clientY - start.y; if (!start.moved && Math.hypot(dx, dy) < 6) return; start.moved = true; place({ x: start.ox + dx, y: start.oy + dy }); });
   handle.addEventListener('pointerup', () => { if (start?.moved) { const r = d.getBoundingClientRect(); save(POS_KEY, { x: r.left, y: r.top }); d.dataset.dragged = '1'; setTimeout(() => delete d.dataset.dragged, 50); } start = null; });
 }
-addEventListener('resize', () => place(load(POS_KEY, null)));
+addEventListener('resize', () => place(here()));   // stays where it is, but never off screen
 // the screen changed: show the dock (folded in fights, so it never covers the controls)
 export function dockScreen(id, inWindow = false) {
   const d = $('#mdock'); if (!d || !K) return;
@@ -75,6 +79,8 @@ export function dockScreen(id, inWindow = false) {
   d.classList.toggle('hide', !K.online() || ['login', 'boot', 'setup'].includes(id));   // trial players see it too (it invites them to connect)
   d.classList.toggle('fight', ['duel', 'raid', 'adventure'].includes(id));
   d.classList.toggle('isl', id === 'island');
+  d.classList.toggle('duelscr', id === 'duel');
+  if (d.dataset.recenter) requestAnimationFrame(center);   // it opened while hidden: centre it now that it has a size   // the duel's ☰ menu sits in that corner: the bubble goes above it
 }
 // the lobby opened: load the AIs and carry on with the ones that were playing
 export async function openAutopilot() {
@@ -204,7 +210,7 @@ async function onClick(e) {
   const t = e.target.closest('button'); if (!t || $('#mdock').dataset.dragged) return;
   if (t.id === 'md-bubble') return setMin(false);
   if (t.id === 'md-min') return setMin(true);
-  if (t.id === 'md-big') { const b = !$('#mdock').classList.contains('big'); $('#mdock').classList.toggle('big', b); save(BIG_KEY, b); return requestAnimationFrame(() => place(load(POS_KEY, null))); }
+  if (t.id === 'md-big') { const b = !$('#mdock').classList.contains('big'); $('#mdock').classList.toggle('big', b); save(BIG_KEY, b); return center(); }
   if (t.dataset.slot) { sel = t.dataset.slot; K.sfx('select'); paint(); return loadChat(sel); }
   if (t.dataset.job) return mixing(sel) ? planToggle(t.dataset.job) : pickJob(t.dataset.job);
   const a = t.dataset.a;

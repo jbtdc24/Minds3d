@@ -153,7 +153,7 @@ function lobbyLayout() {
   camSnap(-(free - innerWidth / 2) / stage.K, 1);
 }
 // collapsible leaderboard: open by default on wide screens, a slim tab otherwise
-const boardOpen = () => settings.boardOpen ?? innerWidth >= 1500;
+const boardOpen = () => settings.boardOpen ?? false;   // closed until the player opens it (then remembered)
 function paintBoardOpen() { $('#s-hub').classList.toggle('board-closed', !boardOpen()); if (current === 'hub') lobbyLayout(); }
 $('#board-hide').onclick = e => { e.stopPropagation(); settings.boardOpen = false; saveSettings(); paintBoardOpen(); };
 $('#board-tab').onclick = () => { settings.boardOpen = true; saveSettings(); paintBoardOpen(); };
