@@ -233,6 +233,7 @@ function paintHub() {
   $('#inv-badge').textContent = guest ? '' : `⚡${totalEnergy()}`;
   $('#inv-badge').classList.toggle('on', !guest);
   $('#guest-note').style.display = guest ? 'block' : 'none';
+  paintXRow();
   islandTile();
   $('#hub-ranked-sub').textContent = guest ? 'Connect a wallet to play ranked' : !myMinds.length ? (rankPass ? `🎟️ Rank Pass · ${rankPass.left} games left today` : 'No Mind? Get a 🎟️ Rank Pass') : `⚡ ${totalEnergy()} energy left today · refills in ${resetText()}`;
   $('#hub-ranked-tag').textContent = guest ? '🔒 WALLET' : 'PLAY';
@@ -301,8 +302,14 @@ async function xAccount() {
   if (!go) return;
   try { location.href = (await api('x/start', {})).url; } catch (e) { toast(e.message, true); }
 }
-function paintXRow() { const b = $('#set-x'); if (b) b.textContent = me?.x ? `𝕏 @${me.x.handle}` : '𝕏 Connect X'; }
+function paintXRow() {
+  const b = $('#set-x'); if (b) b.textContent = me?.x ? `𝕏 @${me.x.handle}` : '𝕏 Connect X';
+  $('#hub-x')?.classList.toggle('done', !!me?.x);
+  if ($('#hub-x-t')) { $('#hub-x-t').textContent = me?.x ? `𝕏 @${me.x.handle}` : '𝕏 Connect X'; $('#hub-x-s').textContent = me?.x ? 'Linked ✓' : 'Show your @'; }
+}
 $('#set-x').onclick = () => xAccount();
+$('#hub-x').onclick = () => { initAudio(); sfx('select'); xAccount(); };
+$('#hub-share').onclick = () => { initAudio(); sfx('select'); inviteFriends(); };
 // back from X: say how it went and show the handle
 (() => {
   const r = new URLSearchParams(location.search).get('x'); if (!r) return;

@@ -1266,3 +1266,11 @@ h3.raid-result { text-align: center; }
 /* 📣 invite link box */
 .invite-link { background: #fff; color: var(--ink); padding: 10px 12px; margin: 8px 0; box-shadow: 0 0 0 3px var(--ink); word-break: break-all; font-weight: 800; font-size: 14px; user-select: all; }
 .xtag { color: inherit; font-weight: 900; text-decoration: none; white-space: nowrap; } .xtag:hover { text-decoration: underline; }
+/* 📣 lobby: invite friends + connect X, big and easy to find */
+.share-row { display: grid; grid-template-columns: 1.3fr 1fr; gap: 10px; flex: none; align-items: start; }
+.sharebtn b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; } .sharebtn span { white-space: nowrap; }
+.sharebtn { display: grid; justify-items: start; gap: 1px; padding: 10px 14px; border: 0; cursor: pointer; text-align: left; color: #fff; background: linear-gradient(135deg, #ff7a3d, #ff3d8b); box-shadow: 0 0 0 3px var(--ink), 0 6px 0 var(--ink); font: 900 16px var(--font); line-height: 1.15; animation: mdpulse 2.4s ease-in-out infinite; }
+.sharebtn span { font-size: 12px; font-weight: 800; opacity: .95; }
+.sharebtn.xbtn { background: #111; animation: none; } .sharebtn.xbtn.done { background: #2b2340; } .sharebtn.xbtn.done span { color: var(--lime); }
+.sharebtn:hover { filter: brightness(1.08); } .sharebtn:active { transform: translateY(3px); box-shadow: 0 0 0 3px var(--ink), 0 3px 0 var(--ink); }
+@media (max-width: 640px) { .sharebtn { font-size: 15px; padding: 8px 10px; } .sharebtn span { font-size: 11px; } }
