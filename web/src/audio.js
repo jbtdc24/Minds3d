@@ -138,15 +138,32 @@ const REAL = {
   angry: ['HEY!!', 'not cool!', 'grr...', 'I will remember this', 'rude!', 'do that again and see!'],
   dizzy: ['@_@', 'the world is spinning', 'wobble wobble...', 'where am I?'],
   poke: ['hehe', 'that tickles!', '?', 'boop!', 'hi!'],
+  ouch: ['ouch!', 'ow!', 'bonk!', 'my head!'],
+  struggle: ['let me gooo!', 'put me DOWN!', 'I will bite!', 'enough!!'],
+  escape: ['ha! free!', 'gotcha!', 'never again'],
+  shake: ['STOP SHAKING ME', 'my brain!!', 'aaaaaa', 'I feel sick'],
+  bonked: ['HEY!', 'who did that?!', 'oof!', 'watch it!'],
+  splat: ['ow...', 'my face', 'I meant to do that', 'nobody saw that'],
+  proud: ['ta-da!', '10 out of 10', 'did you see that?', 'nailed it!'],
+  heavy: ['heavy!!', 'get off!', 'my back!', 'oof, shoo!'],
+  view: ['nice view up here', 'I am tall now', 'hehe comfy'],
+  revenge: ['YOU!', 'payback!', 'come here!', 'take that!'],
+  leave: ['I am leaving!', 'bye!!', 'not playing with you'],
+  laugh: ['hahaha!', 'lol!', 'hehehe', 'pfff haha'],
+  gasp: ['!!', 'oh no!', 'whoa!', 'is he ok?'],
+  love: ['hehe', 'more pats!', 'I like you', 'purr...', 'you are nice'],
+  wake: ['huh?!', 'I was not sleeping!', 'five more minutes...', 'grr...'],
+  dodge: ['NO!', 'not again!', 'nope!', 'catch me if you can'],
 };
-export function babble(id = 1, mood = 'chat', loud = 1) {
-  const base = 640 + ((id * 37) % 360), real = Math.random() < 0.25 ? REAL[mood][Math.random() * REAL[mood].length | 0] : null;
+export function babble(id = 1, mood = 'chat', loud = 1, realChance = 0.25) {
+  const lines = REAL[mood] || REAL.chat;   // an unknown mood never breaks a Mind's voice
+  const base = 640 + ((id * 37) % 360), real = Math.random() < realChance ? lines[Math.random() * lines.length | 0] : null;
   const n = real ? Math.min(6, 2 + real.split(' ').length) : 2 + (Math.random() * 4 | 0), words = [];
   for (let i = 0; i < n; i++) {
     words.push(SYL[Math.random() * SYL.length | 0]);
     if (!ctx) continue;
     // cute = high, soft and bouncy: a sine blip that hops up a little at the start, with a tiny wobble, and a rising squeak at the end
-    const t = ctx.currentTime + i * 0.09 + (i % 2) * 0.012, f = base * (1 + Math.random() * 0.3) * (mood === 'sad' || mood === 'dizzy' ? 0.82 : mood === 'angry' ? 0.7 : mood === 'happy' || mood === 'throw' ? 1.25 : 1);
+    const t = ctx.currentTime + i * 0.09 + (i % 2) * 0.012, f = base * (1 + Math.random() * 0.3) * (mood === 'sad' || mood === 'dizzy' ? 0.82 : mood === 'angry' ? 0.7 : ['happy', 'throw', 'proud', 'love', 'laugh'].includes(mood) ? 1.25 : ['revenge', 'bonked', 'struggle', 'dodge'].includes(mood) ? 0.8 : 1);
     const end = mood === 'sad' ? 0.75 : i === n - 1 ? 1.65 : 0.95 + Math.random() * 0.35;
     tone(f * 0.86, t, 0.025, { type: 'sine', gain: 0.16 * loud, slide: 1.18, attack: 0.004 });
     tone(f, t + 0.018, 0.075, { type: 'sine', gain: 0.26 * loud, slide: end, attack: 0.01, vib: 0.03 });
