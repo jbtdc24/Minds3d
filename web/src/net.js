@@ -24,10 +24,10 @@ export async function serverOnline() {
   try { const r = await fetch('/api/leaderboard', { method: 'GET' }); return r.status !== 404; } catch { return false; }
 }
 
-// ---------- 🎟️ early access: the invite code (from an ?invite= link or typed in) goes with a new account's sign-up ----------
-const INV_KEY = 'mindclash.invite';
-export const invite = { get: () => { try { return localStorage.getItem(INV_KEY) || ''; } catch { return ''; } }, set: c => { try { localStorage.setItem(INV_KEY, String(c || '').trim()); } catch { /* private mode */ } } };
-try { const c = new URLSearchParams(location.search).get('invite'); if (c) invite.set(c); } catch { /* not a browser */ }
+// ---------- 🤝 referrals: the first friend's link this browser opened (?ref=) goes with a new wallet's sign-up ----------
+const REF_KEY = 'mindclash.ref';
+export const refCode = () => { try { return localStorage.getItem(REF_KEY) || ''; } catch { return ''; } };
+try { const c = new URLSearchParams(location.search).get('ref'); if (c && !refCode()) localStorage.setItem(REF_KEY, c.slice(0, 12)); } catch { /* private mode */ }
 
 // ---------- wallet ----------
 export const hasWallet = () => typeof window !== 'undefined' && !!window.ethereum;
@@ -37,12 +37,12 @@ export async function walletLogin() {
   const { message } = await api('auth/nonce', { address });
   const hex = '0x' + Array.from(new TextEncoder().encode(message), b => b.toString(16).padStart(2, '0')).join('');
   const signature = await window.ethereum.request({ method: 'personal_sign', params: [hex, address] });
-  const out = await api('auth/verify', { address, signature, invite: invite.get() });
+  const out = await api('auth/verify', { address, signature, ref: refCode() });
   session.token = out.token;
   return out;
 }
 export async function guestLogin() {
-  const out = await api('auth/guest', { invite: invite.get() });
+  const out = await api('auth/guest', {});
   session.token = out.token;
   return out;
 }

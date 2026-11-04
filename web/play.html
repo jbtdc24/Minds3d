@@ -11,6 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
+<meta property="og:title" content="MINDS CLASH"><meta property="og:description" content="Crown duels. Your own sky island. An AI Mind that plays for you."><meta property="og:image" content="https://www.mindsclash.games/assets/og_share.jpg"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:image" content="https://www.mindsclash.games/assets/og_share.jpg">
 </head>
 <body>
 <div id="view"></div>
@@ -72,6 +73,7 @@
       <button class="iconbtn px" data-go="leaderboard" title="Leaderboard"><img src="assets/icon_trophy.png" alt="Leaderboard"></button>
       <button class="iconbtn px" id="hub-mail" title="Mail">✉️<i class="badge" id="mail-badge"></i></button>
       <button class="iconbtn px" id="hub-friends" title="Friends"><img src="assets/icon_friends.png" alt="Friends"><i class="badge" id="friends-badge"></i></button>
+      <button class="iconbtn px invitebtn" id="hub-invite" title="Invite friends">📣</button>
       <button class="iconbtn px" id="hub-tutorial" title="Tutorial"><img src="assets/icon_book.png" alt="Tutorial"></button>
       <button class="iconbtn px" data-go="settings" title="Settings"><img src="assets/icon_gear.png" alt="Settings"></button>
     </div>
@@ -376,6 +378,8 @@
       <div class="row">Account <span class="muted ellip" id="set-account"></span></div>
       <div class="row">Purchases <button class="btn small" id="set-hist">🧾 See my purchases</button></div>
       <div class="row">Code <span class="codebox"><input id="set-code" placeholder="enter a code" autocomplete="off"><button class="btn small" id="set-code-go">OK</button></span></div>
+      <div class="row">Invite friends <button class="btn small primary" id="set-invite">📣 Invite friends</button></div>
+      <div class="row">X account <button class="btn small" id="set-x">𝕏 Connect X</button></div>
       <div class="row" id="set-ai-row" hidden>AI key (game team only) <button class="btn small" id="set-ai">Connect an AI</button></div>
       <div class="row">Something wrong? <button class="btn small" id="set-report">Report a problem</button></div>
       <div class="row"><button class="btn small" id="set-logout-all">Log out everywhere</button><button class="btn" id="set-logout">Sign out</button></div>
@@ -391,7 +395,7 @@
       <div class="adm-left panel px">
         <div class="adm-search"><input id="adm-q" placeholder="name, 0x wallet or id"><button class="btn small primary" id="adm-go">Find</button></div>
         <div id="adm-results"></div>
-        <div class="adm-tabs"><button class="btn small primary" id="adm-all">👥 All players</button><button class="btn small" id="adm-stats">📊 Players</button><button class="btn small" id="adm-mail">✉️ Send mail</button><button class="btn small" id="adm-inv">🎟️ Invites</button><button class="btn small" id="adm-reports">🐞 Reports <b id="adm-open"></b></button><button class="btn small" id="adm-pay">💳 Payments <b id="adm-payn"></b></button><button class="btn small" id="adm-err">🚨 Errors <b id="adm-errn"></b></button></div>
+        <div class="adm-tabs"><button class="btn small primary" id="adm-all">👥 All players</button><button class="btn small" id="adm-stats">📊 Players</button><button class="btn small" id="adm-mail">✉️ Send mail</button><button class="btn small" id="adm-refs">🤝 Referrals</button><button class="btn small" id="adm-multi">👥 Same connection</button><button class="btn small" id="adm-admins">🛡️ Admins</button><button class="btn small" id="adm-reports">🐞 Reports <b id="adm-open"></b></button><button class="btn small" id="adm-pay">💳 Payments <b id="adm-payn"></b></button><button class="btn small" id="adm-err">🚨 Errors <b id="adm-errn"></b></button></div>
         <h3>🚩 Cheat meter <button class="btn small" id="adm-refresh">↻</button></h3>
         <div id="adm-meter"></div>
       </div>

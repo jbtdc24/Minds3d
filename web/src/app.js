@@ -5,7 +5,7 @@ import { setStage, setLayout, setQuality, camTo, camSnap, shake, slowmo, flash, 
 import { Fighter, shoot } from './fighter2d.js';
 import { SPELLS, SPELL_INFO, RULES, CARD_VALUES, createMatch, submit, viewFor } from './duel/engine.js';
 import { DATA_VERSION } from './config.js';
-import { api, session, walletLogin, guestLogin, logout, hasWallet, watch, serverOnline, LocalMatch, setTokenIds, ping, invite } from './net.js';
+import { api, session, walletLogin, guestLogin, logout, hasWallet, watch, serverOnline, LocalMatch, setTokenIds, ping } from './net.js';
 import { initAudio, sfx, music, setVolume, babble } from './audio.js';
 import { PHRASES, MATCH_CHAT, FRIEND_CHAT, BOT_REPLIES } from './chat.js';
 import { chatSigner } from './chatsign.js';
@@ -270,16 +270,49 @@ async function askHelloMinds() {
   const go = await modal(`<h3>🧠 Connect Hello Minds</h3><p>Your Mind in MINDS CLASH is a <b>real AI</b>: your own Mind on <b>Hello Minds</b>. Connect your account (or make one, it takes a minute) and it can farm, raid, duel and explore for you.</p><p class="muted">It uses your own Hello Minds account and cognition.</p>`, [['Connect Hello Minds', 1, 'primary'], ['Later', 0]]);
   if (go) HM.signIn().catch(e => toast(e.message, true));
 }
-// 🎟️ early access: a new account without a good code gets the code box, then the sign-up runs again
-async function askInvite(e) {
-  if (e?.status !== 403 || !/^INVITE: /.test(e.message)) return false;
-  const code = await modal(`<h3>🎟️ Early access</h3><p>${esc(e.message.slice(8))}</p><input id="inv-code" class="wide" maxlength="24" placeholder="MC-XXXX-XXXX" value="${esc(invite.get())}" autocomplete="off"><p class="muted">No code yet? You can still practise offline vs bots.</p>`, [['Join', 'go', 'primary'], ['Cancel', 0]]).then(v => v && $('#inv-code')?.value.trim());
-  if (!code) return true;
-  invite.set(code); return 'retry';
+// 📣 the player's invite link: copy it or post it on X (the link shows the game's picture card). A friend who opens it and
+// makes a wallet account counts for them.
+async function inviteFriends() {
+  if (guest || !online) return modal(`<h3>📣 Invite friends</h3><p>Connect a wallet to get your own invite link. Friends who join with it count for you.</p>`, [['OK', 1, 'primary']]);
+  let r;
+  try { r = await api('referral', {}); } catch (e) { return toast(e.message, true); }
+  const link = `https://www.mindsclash.games/?ref=${r.code}`;
+  const text = `I'm playing MINDS CLASH ⚔️ Crown duels, my own sky island, and an AI Mind that plays for me while I'm away. Join me 👇`;
+  const x = `https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(link)}&hashtags=MINDSCLASH`;
+  const go = await modal(`<h3>📣 Invite friends</h3><p>Share your link. Every friend who opens it and joins with a <b>wallet</b> counts for you.</p>
+    <div class="invite-link px"><code>${esc(link)}</code></div>
+    <p class="muted">${r.joined ? `🎉 <b>${r.joined}</b> friend${r.joined > 1 ? 's' : ''} joined with your link so far.` : 'Nobody has joined with your link yet.'}</p>`, [['𝕏 Post on X', 'x', 'primary'], ['📋 Copy link', 'copy'], ['Close', 0]]);
+  if (go === 'x') window.open(x, '_blank', 'noopener');
+  if (go === 'copy') { try { await navigator.clipboard.writeText(link); toast('Link copied.'); } catch { toast(link); } }
 }
+$('#hub-invite').onclick = () => { initAudio(); sfx('select'); inviteFriends(); };
+$('#set-invite').onclick = () => inviteFriends();
+// 𝕏 a player's linked X account, shown next to their name (opens their X profile)
+const xTag = p => p?.x?.handle && /^\w{1,30}$/.test(p.x.handle) ? ` · <a class="xtag" href="https://x.com/${p.x.handle}" target="_blank" rel="noopener">𝕏 @${esc(p.x.handle)}</a>` : '';
+async function xAccount() {
+  if (guest || !online) return toast('Connect a wallet first, then your X account.');
+  if (me?.x) {
+    const go = await modal(`<h3>𝕏 X account</h3><p>Linked to <b>@${esc(me.x.handle)}</b>. Other players see it on your profile and player card.</p>`, [['Unlink', 'off', 'red'], ['Close', 0, 'primary']]);
+    if (go !== 'off') return;
+    try { await api('x/start', { op: 'unlink' }); me.x = null; paintXRow(); toast('X account unlinked.'); } catch (e) { toast(e.message, true); }
+    return;
+  }
+  const go = await modal(`<h3>𝕏 Connect X</h3><p>Show your X name on your profile and player card, so friends and rivals can find you.</p><p class="muted">We only keep your @handle and display name. We never post for you.</p>`, [['Connect X', 1, 'primary'], ['Cancel', 0]]);
+  if (!go) return;
+  try { location.href = (await api('x/start', {})).url; } catch (e) { toast(e.message, true); }
+}
+function paintXRow() { const b = $('#set-x'); if (b) b.textContent = me?.x ? `𝕏 @${me.x.handle}` : '𝕏 Connect X'; }
+$('#set-x').onclick = () => xAccount();
+// back from X: say how it went and show the handle
+(() => {
+  const r = new URLSearchParams(location.search).get('x'); if (!r) return;
+  history.replaceState(null, '', location.pathname);
+  const say = { linked: '𝕏 X account linked.', cancelled: 'X connect cancelled.', expired: 'That took too long. Try Connect X again.', taken: 'That X account is already linked to another player.', failed: 'Could not connect X. Try again.' }[r];
+  if (say) setTimeout(() => toast(say, r !== 'linked'), 1500);
+})();
 async function startGuest() {
   try { afterLogin(await guestLogin()); }
-  catch (e) { const r = await askInvite(e); if (r === 'retry') return startGuest(); if (!r) toast(e.message, true); }
+  catch (e) { toast(e.message, true); }
 }
 $('#btn-wallet').onclick = async () => {
   initAudio();
@@ -288,11 +321,9 @@ $('#btn-wallet').onclick = async () => {
     return;
   }
   const b = $('#btn-wallet'); b.disabled = true; b.textContent = 'Check your wallet…';
-  let again = false;
   try { await afterLogin(await walletLogin()); }
-  catch (e) { const r = await askInvite(e); again = r === 'retry'; if (!r) toast(e.code === 4001 ? 'Signature cancelled.' : e.message, true); }
+  catch (e) { toast(e.code === 4001 ? 'Signature cancelled.' : e.message, true); }
   finally { b.disabled = false; b.textContent = 'Connect wallet'; }
-  if (again) b.click();
 };
 $('#btn-guest').onclick = () => { initAudio(); online ? startGuest() : offlineGuest(); };
 $('#guest-connect').onclick = e => { e.preventDefault(); logout(); show('login'); };
@@ -342,6 +373,8 @@ document.addEventListener('click', e => {
   if (go === 'codex') { renderCodex(); return show('codex'); }
   if (go === 'settings') {
     $('#set-account').textContent = guest ? 'Trial (guest)' : me?.address || '';
+    paintXRow();
+    if (!guest && online && me?.id) api(`player?id=${me.id}`).then(r => { me.x = r.player.x; paintXRow(); }).catch(() => {});
     $('#set-ai-row').hidden = true;   // AI keys are for the game team only now (players use AI Minds)
     if (!guest && online) api('admin', { op: 'me' }).then(r => { $('#set-ai-row').hidden = !r.admin; }).catch(() => {});
     return show('settings');
@@ -1617,7 +1650,7 @@ async function openProfile(pid) {
     const r = await api(`player?id=${pid}`), p = r.player, mine = pid === me?.id;
     $('#pf-pfp').src = thumb(p.pfp); $('#pf-name').textContent = p.name;
     wear(mine ? myCos() : p.cos, ['#pf-pfp']); nameLook(mine ? myCos() : p.cos, ['#pf-name']);   // everyone sees the looks a player bought
-    $('#pf-addr').textContent = p.guest ? 'Trial account' : p.address || '';
+    $('#pf-addr').innerHTML = (p.guest ? 'Trial account' : esc(p.address || '')) + xTag(p);
     const W = p.wins + (p.botWins || 0), L = p.losses + (p.botLosses || 0);
     $('#pf-stats').innerHTML = [[valIcon('rating') + p.rating, 'Rating'], [valIcon('points') + p.points, 'Points'], [W + L ? Math.round(W / (W + L) * 100) + '%' : '—', 'Win rate'], [W, 'Ranked wins'], [L, 'Ranked losses'], [p.bestStreak, 'Best streak']]
       .map(([b, s]) => `<div><b>${b}</b><span>${s}</span></div>`).join('');
@@ -1765,7 +1798,7 @@ async function playerCard(o) {
   const btns = guest ? [['Profile', 'profile'], ['Close', 0, 'primary']]
     : [...(current === 'town' ? [['⚔️ Duel', 'duel', 'primary'], ['🤝 Trade', 'trade']] : []), ...(f?.status === 'accepted' ? [] : [[f?.incoming ? 'Accept friend' : '➕ Add friend', 'add', current === 'town' ? '' : 'primary']]), ['💬 Message', 'chat', f?.status === 'accepted' && current !== 'town' ? 'primary' : ''],
       ...(f?.status === 'accepted' ? [['🎁 Gift', 'gift']] : []), ['Profile', 'profile'], ['🚩 Report', 'report'], ['⛔ Block', 'block'], ['Close', 0]];
-  const go = await modal(`<div class="pcard"><img class="${frameCls(cos)}" src="${thumb(p.pfp)}" alt=""><div><h3 class="${nameCls(cos)}">${esc(p.name)}</h3>${titleTag(cos)}<p class="muted">${p.online ? '🟢 online' : 'offline'}${status ? ' · ' + status : ''}</p></div></div>
+  const go = await modal(`<div class="pcard"><img class="${frameCls(cos)}" src="${thumb(p.pfp)}" alt=""><div><h3 class="${nameCls(cos)}">${esc(p.name)}</h3>${titleTag(cos)}<p class="muted">${p.online ? '🟢 online' : 'offline'}${status ? ' · ' + status : ''}${xTag(p)}</p></div></div>
     <div class="army-facts"><span>${valIcon('rating')} Rating <b>${p.rating}</b></span><span>${valIcon('points')} Points <b>${p.points}</b></span><span>🏆 Wins <b>${W}</b></span><span>📈 Win rate <b>${W + L ? Math.round(W / (W + L) * 100) + '%' : '—'}</b></span><span>🔥 Best streak <b>${p.bestStreak || 0}</b></span></div>`, btns);
   if (go === 'trade') { if (await ensureIsland()) openTrade(p.id); }
   else if (go === 'duel') { if (await ensureIsland()) openTrade(p.id, 'duel'); }

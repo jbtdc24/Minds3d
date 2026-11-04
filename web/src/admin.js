@@ -59,16 +59,37 @@ async function mailForm() {
     <input id="ml-dust" type="number" min="0" placeholder="Gift ✨"><input id="ml-gems" type="number" min="0" placeholder="Gift 💎"><input id="ml-to" class="wide" placeholder="Player id (empty = everyone)"><button class="btn small primary" data-a="mail">Send</button></div>
     ${r.mail.map(m => `<div class="adm-row"><b>${K.esc(m.title)}</b><span>${when(m.created_at)} · ${m.to_id ? 'one player' : 'everyone'}${m.gift ? ' · gift' : ''}</span><button class="btn small" data-del="${m.id}">Delete</button></div>`).join('')}`;
 }
-// 🎟️ early access codes: make some, share the link, see who joined with each, switch one off
-async function invites(made) {
-  const r = await K.api('admin', { op: 'invites' });
-  if (r.setup) { $('#adm-detail').innerHTML = '<h3>🎟️ Invites</h3><p class="muted">Run supabase/013_invites.sql to switch this on.</p>'; return; }
-  const link = c => `${location.origin}/play?invite=${encodeURIComponent(c)}`;
-  $('#adm-detail').innerHTML = `<h3>🎟️ Invites <small class="muted">${r.on ? 'early access ON: new accounts need a code' : 'OFF: anyone can sign up (Vercel env INVITE_ONLY=0)'}</small></h3>
-    <div class="adm-box"><input id="inv-n" type="number" min="1" max="50" value="5" title="How many codes"> codes, each for <input id="inv-uses" type="number" min="1" max="1000" value="1" title="People per code"> people
-      <input id="inv-note" class="wide" maxlength="80" placeholder="Who is it for (optional)"><input id="inv-own" class="wide" maxlength="24" placeholder="Own code instead, e.g. ANIMOCA (optional)"><button class="btn small primary" data-a="invmake">Make codes</button></div>
-    ${made?.length ? `<div class="adm-box"><b>New links (copy and send):</b><textarea class="rep-text" rows="${Math.min(8, made.length + 1)}" readonly>${made.map(link).join('\n')}</textarea></div>` : ''}
-    ${r.invites.map(i => `<div class="adm-row"><b>${K.esc(i.code)}</b><span>${i.uses}/${i.max_uses} used${i.note ? ' · ' + K.esc(i.note) : ''}${i.off ? ' · <em class="adm-ban">OFF</em>' : ''}${i.players.length ? ' · ' + i.players.map(p => `<a href="#" data-pid="${p.id}">${K.esc(p.name)}</a>`).join(', ') : ''}</span><button class="btn small" data-invcopy="${K.esc(link(i.code))}">Copy link</button><button class="btn small" data-invoff="${K.esc(i.code)}" data-v="${i.off ? 0 : 1}">${i.off ? 'Turn on' : 'Turn off'}</button></div>`).join('') || '<p class="muted">No codes yet.</p>'}`;
+const pl = (id, name) => `<a href="#" data-pid="${K.esc(id)}">${K.esc(name || '?')}</a>`;
+// 🤝 who brought the most real players: real = joined with a wallet, played (or came back a day later), and not from
+// the inviter's own connection. Chain = everyone below them (their invites' invites too).
+async function referrals() {
+  const r = await K.api('admin', { op: 'refs' });
+  if (r.setup) { $('#adm-detail').innerHTML = '<h3>🤝 Referrals</h3><p class="muted">Run supabase/014_referrals.sql to switch this on.</p>'; return; }
+  $('#adm-detail').innerHTML = `<h3>🤝 Referral leaderboard <small class="muted">${r.total} wallet sign-ups came from a link</small></h3>
+    <p class="muted">✅ real = played or came back · 💤 never played · 🔁 same connection as the inviter (likely their own wallets) · 🚫 ruled out by an admin · 🌳 chain = all invites below them</p>
+    <div class="adm-table"><table><thead><tr><th>#</th><th>Player</th><th>✅ Real</th><th>Joined</th><th>💤</th><th>🔁</th><th>🚫</th><th>🌳 Chain</th></tr></thead><tbody>
+    ${r.board.map((b, n) => `<tr data-refof="${K.esc(b.id)}"><td>${n + 1}</td><td><b>${K.esc(b.name)}</b>${b.banned ? ' <em class="adm-ban">banned</em>' : ''}</td><td><b>${b.real}</b></td><td>${b.direct}</td><td>${b.idle}</td><td>${b.same ? `<em class="adm-ban">${b.same}</em>` : 0}</td><td>${b.void}</td><td>${b.chain}</td></tr>`).join('') || '<tr><td colspan="8" class="muted">Nobody joined with a link yet.</td></tr>'}
+    </tbody></table></div><small class="muted">Tap a row to see who they invited.</small>`;
+}
+async function refOf(pid) {
+  const r = await K.api('admin', { op: 'ref_of', pid });
+  $('#adm-detail').innerHTML = `<h3>🤝 Invited by ${K.esc(r.player.name)} <button class="btn small" id="adm-refs">← Leaderboard</button> <button class="btn small" data-pid="${K.esc(r.player.id)}">Open player</button></h3>
+    ${r.list.map(k => `<div class="adm-row"><b>${pl(k.id, k.name)}</b><span>${k.active ? '✅' : '💤'} ${k.games} games · joined ${new Date(k.joined).toLocaleDateString()}${k.sameIp ? ' · <em class="adm-ban">🔁 same connection</em>' : ''}${k.void ? ' · 🚫 ruled out' : ''}${k.banned ? ' · <em class="adm-ban">banned</em>' : ''}</span><button class="btn small" data-refvoid="${K.esc(k.id)}" data-v="${k.void ? 0 : 1}" data-back="${K.esc(r.player.id)}">${k.void ? 'Count again' : 'Rule out'}</button></div>`).join('') || '<p class="muted">Nobody yet.</p>'}`;
+}
+// 👥 wallets that signed up or log in from one connection: one person playing many accounts (or a shared Wi-Fi)
+async function multi() {
+  const r = await K.api('admin', { op: 'multi' });
+  if (r.setup) { $('#adm-detail').innerHTML = '<h3>👥 Same connection</h3><p class="muted">Run supabase/014_referrals.sql to switch this on.</p>'; return; }
+  $('#adm-detail').innerHTML = `<h3>👥 Wallets on the same connection</h3><p class="muted">Several wallets from one internet connection. Often one person with many accounts (referral or Gem farming), sometimes a family, school or café. Open a player to act.</p>
+    ${r.groups.map(g => `<div class="adm-report"><b>${g.length} wallets</b><p>${g.map(p => `${pl(p.id, p.name)}${p.invitedBy ? ' (invited)' : ''}${p.banned ? ' <em class="adm-ban">banned</em>' : ''}`).join(' · ')}</p></div>`).join('') || '<p class="muted">No shared connections found.</p>'}`;
+}
+// 🛡️ admins: owners come from Vercel (ADMIN_ADDRESSES); owners add more here by wallet, name or player id
+async function admins() {
+  const r = await K.api('admin', { op: 'admins' });
+  if (r.setup) { $('#adm-detail').innerHTML = '<h3>🛡️ Admins</h3><p class="muted">Run supabase/014_referrals.sql to switch this on.</p>'; return; }
+  $('#adm-detail').innerHTML = `<h3>🛡️ Admins</h3><p class="muted">Owners (set in Vercel) can always open this screen. Admins added here can use every tool except adding or removing admins.</p>
+    ${r.owner ? `<div class="adm-box"><input id="adm-who" class="wide" placeholder="wallet 0x…, player name or id"><button class="btn small primary" data-adm="1">Make admin</button></div>` : ''}
+    ${r.admins.map(a => `<div class="adm-row"><b>${pl(a.id, a.name)}</b><span>${K.esc(a.address || '')}</span>${r.owner ? `<button class="btn small red" data-adm="0" data-who="${K.esc(a.id)}">Remove</button>` : ''}</div>`).join('') || '<p class="muted">No extra admins yet.</p>'}`;
 }
 async function reports() {
   const r = await K.api('admin', { op: 'reports' });
@@ -103,6 +124,8 @@ async function show(pid) {
     <div class="adm-box"><b>Give</b> <input id="adm-dust" type="number" placeholder="✨ Dust"> <input id="adm-gems" type="number" placeholder="💎 Gems"> <input id="adm-pts" type="number" placeholder="⭐ Points">
       <input id="adm-item" placeholder="item (potion, fuel, troop_giant…)"> <input id="adm-qty" type="number" placeholder="qty"> <button class="btn small primary" data-a="give">Send</button>
       <small class="muted">Use negative numbers to take away.</small></div>
+    ${r.ref ? `<div class="adm-box"><b>🤝 Referrals</b> ${r.ref.admin ? '🛡️ admin · ' : ''}invited by ${r.ref.by ? pl(r.ref.by.id, r.ref.by.name) : 'nobody'}${r.ref.void ? ' (🚫 ruled out)' : ''} · invited <b>${r.ref.invited}</b> <button class="btn small" data-refof="${K.esc(p.id)}">See who</button>
+      ${r.ref.twins.length ? `<br><b class="adm-ban">👥 Same connection:</b> ${r.ref.twins.map(t => pl(t.id, t.name)).join(' · ')}` : ''}</div>` : ''}
     <div class="adm-box"><b>Island copies</b> <button class="btn small" data-a="snaps">Show the last 7 days</button><span id="adm-snaps"></span></div>
     <div class="adm-box"><b>Discipline</b> <input id="adm-reason" placeholder="reason"> <input id="adm-hours" type="number" placeholder="hours" value="24">
       <button class="btn small" data-a="suspend">Suspend</button><button class="btn small red" data-a="ban">Ban</button><button class="btn small" data-a="unban">Unban</button></div>
@@ -121,10 +144,17 @@ document.addEventListener('click', async e => {
     if (e.target.closest('#adm-mail')) return await mailForm();
     if (e.target.closest('#adm-all')) return await allPlayers();
     if (e.target.closest('#adm-reports')) return await reports();
-    if (e.target.closest('#adm-inv')) return await invites();
-    if (e.target.closest('[data-a="invmake"]')) { const r = await K.api('admin', { op: 'invite_make', n: +$('#inv-n').value, uses: +$('#inv-uses').value, note: $('#inv-note').value, code: $('#inv-own').value }); K.toast(`${r.codes.length} code${r.codes.length > 1 ? 's' : ''} made.`); return await invites(r.codes); }
-    const ic = e.target.closest('[data-invcopy]'); if (ic) { await navigator.clipboard.writeText(ic.dataset.invcopy).catch(() => {}); return K.toast('Link copied.'); }
-    const io = e.target.closest('[data-invoff]'); if (io) { await K.api('admin', { op: 'invite_off', code: io.dataset.invoff, off: io.dataset.v === '1' }); return await invites(); }
+    if (e.target.closest('#adm-refs')) return await referrals();
+    if (e.target.closest('#adm-multi')) return await multi();
+    if (e.target.closest('#adm-admins')) return await admins();
+    const ro = e.target.closest('[data-refof]'); if (ro) return await refOf(ro.dataset.refof);
+    const rv = e.target.closest('[data-refvoid]'); if (rv) { await K.api('admin', { op: 'ref_void', pid: rv.dataset.refvoid, void: rv.dataset.v === '1' }); return await refOf(rv.dataset.back); }
+    const ad = e.target.closest('[data-adm]');
+    if (ad) {
+      const on = ad.dataset.adm === '1', who = on ? $('#adm-who').value.trim() : ad.dataset.who;
+      if (!who || !(await K.modal(`<h3>${on ? 'Make this player an admin?' : 'Remove this admin?'}</h3><p>${on ? 'They will see every player, payment and report, and can give, suspend and ban.' : 'They lose access to this screen.'}</p>`, [[on ? 'Make admin' : 'Remove', 1, on ? 'primary' : 'red'], ['Cancel', 0]]))) return;
+      const r = await K.api('admin', { op: 'admin_set', who, on }); K.toast(on ? `${r.name} is now an admin.` : `${r.name} is no longer an admin.`); return await admins();
+    }
     if (e.target.closest('#adm-pay')) return await payments();
     if (e.target.closest('#adm-err')) return await errorsList();
     if (e.target.closest('#adm-pay-run')) { const r = await K.api('admin', { op: 'recon_run' }); K.toast(`Checked ${r.checked} payments: ${r.findings} findings.`); return await payments(); }

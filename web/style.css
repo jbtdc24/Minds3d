@@ -1262,3 +1262,7 @@ h3.raid-result { text-align: center; }
 .mf-feed li { display: grid; grid-template-columns: 34px 1fr; gap: 6px; padding: 4px 6px; background: #fff; box-shadow: 0 0 0 2px rgba(0, 0, 0, .12); line-height: 1.3; overflow-wrap: anywhere; }
 .mf-feed li.new { box-shadow: 0 0 0 2px var(--ink); animation: drop .3s; } .mf-feed time { font-weight: 900; color: var(--muted); }
 @media (max-width: 700px) { .mf-card2 { grid-template-columns: 1fr; overflow-y: auto; } .mf-stage { min-height: 230px; } .mf-hero { width: 96px; height: 96px; left: calc(50% - 48px); } .mf-rival { width: 80px; height: 80px; } }
+
+/* 📣 invite link box */
+.invite-link { background: #fff; color: var(--ink); padding: 10px 12px; margin: 8px 0; box-shadow: 0 0 0 3px var(--ink); word-break: break-all; font-weight: 800; font-size: 14px; user-select: all; }
+.xtag { color: inherit; font-weight: 900; text-decoration: none; white-space: nowrap; } .xtag:hover { text-decoration: underline; }
