@@ -228,7 +228,8 @@ function refreshEnergy() {
 const energyTag = id => { const n = energyOf(id), c = capFor(id); return `<span class="en ${n ? '' : 'none'}" title="Ranked energy left today">⚡${n}/${c}</span>`; };
 // a wallet with no Mind of its own plays Classic/Practice with the loaner Minds (same ids as the trial and the Rank Pass)
 const LOANERS = [49, 14, 8];
-const playMinds = () => guest ? (myMinds.length ? myMinds : LOANERS) : loaners.length ? [...myMinds, ...loaners.map(l => l.id)] : myMinds.length ? myMinds : LOANERS;
+// a wallet never sees the old demo Minds (49/14/8): before the server lists its Loaners it sees L1 (every wallet has it)
+const playMinds = () => guest ? (myMinds.length ? myMinds : LOANERS) : [...myMinds, ...(loaners.length ? loaners : [{ id: 'L1' }]).map(l => l.id)];
 const picked = () => { const p = (settings.picks.minds || []).filter(id => playMinds().includes(id)); return p.length ? p : playMinds().slice(0, 3); };
 // the lobby line-up: your showcase (or picks), and your 🪪 Loaner always stands with them when there is room
 const showcaseIds = () => {
@@ -2020,7 +2021,7 @@ function tapToStart() {
     const cached = loadAccount();
     if (cached) {
       // straight into the lobby with what we knew last time, then refresh from the server
-      ({ me, myMinds, guest, energy, energyResetAt } = cached);
+      ({ me, myMinds, guest, energy, energyResetAt } = cached); loaners = guest ? [] : cached.loaners || [];
       enterHub();
       const shownBefore = showcaseIds().join();
       refreshMe().then(r => {
