@@ -2,11 +2,11 @@
 # HANDOFF — read this first (next AI session: continue from the top of "NEXT TASKS")
 
 ## >>> START AT "NEXT" BELOW <<<
-STATUS 2026-11-05 (end of ROUND 27) — pushed to main, 646 tests pass:
+STATUS 2026-11-05 (end of ROUND 27b) — pushed to main, 646 tests pass:
 - LIVE: https://www.mindsclash.games (homepage) · game https://www.mindsclash.games/play · invite links https://www.mindsclash.games/i/<code> · old https://minds3d.vercel.app still works (cron uses it).
 - Local branch is `island`; main = island (push both: git push origin island && git push origin island:main).
 NEXT:
-1. Round 27 follow-ups: LOANER badge still missing on duel screen (state.players[i].loaner holds the art ids), profile, leaderboard, Mind Town tag, player card. Live test in owner Chrome: free L1 shows, ranked with L1, buy a Loaner with Gems.
+1. Live test in owner Chrome: free L1 shows, ranked with L1, buy a Loaner from the AI dock '🪪 + Loaner' tab (Gems). Optional: LOANER tag on leaderboard + Mind Town name tag (not done).
 2. Owner: one small real USDG + one ETH Loaner purchase ($10 / 0.0045 ETH), check Admin recovery.
 3. Owner: confirm games a day Uncommon 6 / Rare 7 / Epic 8 / Legendary 10 (ENERGY_CAP in web/src/energy.js; the DB spend_energy RPC takes caps from the server, so no SQL needed).
 4. Owner: Clash-1848 (Mind #1848, Julz) has 0 cognition: add cognition on Hello Minds.
@@ -22,6 +22,7 @@ ROUND 27 (owner approved 2026-11-05) DONE — LOANER MINDS + AI SLOTS (spec docs
 - Energy route: mind 'L1' refills on the island (shards/Dust/Gems), no daily limit for anyone.
 - Buy: shop card '🪪 Loaner Mind' (replaces Rank Pass card): 120 Gems = gems op 'loaner_gems'; USDG/ETH = buyGems('loaner') → claim with pack 'loaner' / 'loaner:usd' (LOANER_PRICE in web/src/gems.js; packOf returns gems 0 + loaner:true so payments/reconcile rows stay consistent); creditLoaner (st.paid mark), admin recovery uses it.
 - AI: slots = NFTs + Loaners (aiSlots in lib/routes/autopilot.js; free AIs = same count, then 50 Gems). slotOf accepts 'L#'. Away ranked + browser ranked job: a Loaner duels alone on its own games. Dock tabs "Loaner N".
+- Round 27b: AI dock has a '🪪 + Loaner' tab at the end of the Mind tabs → buyLoaner() (Gems or USDG/ETH, same as the shop card). LOANER badge on duel name plates (state.p[i].loaner → viewFor side.loaner) and profile ('🪪 N LOANERS', route player returns loaners count). Profile/setup picture pickers use pfMinds() (real ids + Loaner art, numbers only).
 - Client: prep grid shows Loaners (LOANER tag, purple), energy/refill per Loaner, hub text, new first-login modal.
 
 Local preview: .claude/launch.json "mindclash-web" = node tools/video/serve.mjs web 5174 (no cache) → http://localhost:5174/play.html?debug (no /play rewrite locally).

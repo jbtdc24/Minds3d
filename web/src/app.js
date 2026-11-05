@@ -228,7 +228,7 @@ const energyTag = id => { const n = energyOf(id), c = capFor(id); return `<span 
 const LOANERS = [49, 14, 8];
 const playMinds = () => guest ? (myMinds.length ? myMinds : LOANERS) : loaners.length ? [...myMinds, ...loaners.map(l => l.id)] : myMinds.length ? myMinds : LOANERS;
 const picked = () => { const p = (settings.picks.minds || []).filter(id => playMinds().includes(id)); return p.length ? p : playMinds().slice(0, 3); };
-const showcaseIds = () => { const s = (me?.showcase || []).filter(id => playMinds().includes(id)); return s.length ? s : picked().length ? picked().map(artOf) : [me?.pfp || 49]; };
+const showcaseIds = () => { const s = (me?.showcase || []).filter(id => pfMinds().includes(id)); return s.length ? s : picked().length ? picked().map(artOf) : [me?.pfp || 49]; };
 // your looks: from the island save, remembered on this device so they show before the island loads
 const myCos = () => isle.state?.cos || settings.cos || null;
 function wearMine() { const c = myCos(); if (isle.state?.cos && JSON.stringify(settings.cos) !== JSON.stringify(c)) { settings.cos = c; saveSettings(); } wear(c); }
@@ -357,9 +357,9 @@ function offlineGuest() {
 
 let setupPfp = null;
 function openSetup() {
-  setupPfp = playMinds()[0];
+  setupPfp = pfMinds()[0];
   $('#setup-name').value = '';
-  $('#setup-pfp').innerHTML = playMinds().map(id => `<div class="mind ${id === setupPfp ? 'on' : ''}" data-id="${id}"><img src="${thumb(id)}" alt=""><span class="tag">#${id}</span></div>`).join('');
+  $('#setup-pfp').innerHTML = pfMinds().map(id => `<div class="mind ${id === setupPfp ? 'on' : ''}" data-id="${id}"><img src="${thumb(id)}" alt=""><span class="tag">#${id}</span></div>`).join('');
   show('setup');
 }
 $('#setup-pfp').onclick = e => { const m = e.target.closest('[data-id]'); if (!m) return; setupPfp = +m.dataset.id; $$('#setup-pfp .mind').forEach(x => x.classList.toggle('on', x === m)); };
@@ -651,7 +651,7 @@ const RAID_TIPS = ['Drop troops away from towers, then push in.', 'Archers hit f
   'Hidden traps hide near the loot. Spread your troops out.', 'A Barn keeps 1,000 ✨ safe when others raid you.', 'Revenge raids are free and do not use up a raid.'];
 async function startRaid(revenge = 0) {
   sfx('click');
-  const lead = (picked()[0] ?? myMinds[0]) || 49, holder = online && !guest && myMinds.length;
+  const lead = (artOf(picked()[0]) ?? myMinds[0]) || 49, holder = online && !guest && myMinds.length;
   if (!(await ensureIsland())) return;
   const cap = armyCap(guest ? 0 : myMinds.length, campLevels(isle.state), thLv(isle.state));
   const troops = await pickArmy(cap, holder ? 'hero' : 'captain', lead);
@@ -756,7 +756,7 @@ async function upgradeShip() {
   flushIsland(); updateMap({ ship: isle.state.ship || t, fuel: isle.state.inv.fuel || 0 });
 }
 async function launchAdventure(pick) {
-  const lead = (picked()[0] ?? myMinds[0]) || 49, holder = online && !guest && myMinds.length;
+  const lead = (artOf(picked()[0]) ?? myMinds[0]) || 49, holder = online && !guest && myMinds.length;
   let start = null;
   if (online) {
     try { await flushIsland(); start = await api('adventure', { op: 'start', mind: lead, spot: pick.area, potions: pick.potions }); resetIsland(); }
@@ -900,9 +900,19 @@ function paintShop() {
 }
 // Gems for ETH on Robinhood Chain: the player's wallet pays the treasury, the server checks the transaction, then adds Gems
 const ethToWei = eth => { const [i, f = ''] = String(eth).split('.'); return BigInt(i || 0) * 10n ** 18n + BigInt((f + '0'.repeat(18)).slice(0, 18)); };
-async function buyLoanerGems() {
+// 🪪 one place to buy a Loaner (shop card + AI dock '+ Loaner' tab): Gems, or USDG / ETH
+async function buyLoaner() {
   if (guest || !online) return toast('Connect a wallet to get Loaner Minds.', true);
-  if (!(await modal(`<h3>🪪 Buy a Loaner Mind</h3><p>${LOANER_PRICE.gems} 💎. It plays like a real Common Mind, comes with its own AI slot and is fixed to your account.</p>`, [[`Buy · ${LOANER_PRICE.gems} 💎`, 1, 'gem'], ['Cancel', 0]]))) return;
+  await ensureIsland();
+  const g = isle.state?.gems || 0;
+  const how = await modal(`<h3>🪪 Buy a Loaner Mind</h3><p>A Mind fixed to your account that plays exactly like a real one: Ranked (5 games a day, unlimited refills), jobs, and <b>its own AI</b>. No limit.</p><p class="muted">You have ${loaners.length} Loaner${loaners.length === 1 ? '' : 's'} · ${g} 💎</p>`,
+    [[`${LOANER_PRICE.gems} 💎`, 'gems', g >= LOANER_PRICE.gems ? 'gem' : ''], [`$${LOANER_PRICE.usd} · USDG / ETH`, 'pay', 'primary'], ['Cancel', 0]]);
+  if (how === 'gems') return buyLoanerGems(true);
+  if (how === 'pay') return buyGems('loaner');
+}
+async function buyLoanerGems(asked) {
+  if (guest || !online) return toast('Connect a wallet to get Loaner Minds.', true);
+  if (!asked && !(await modal(`<h3>🪪 Buy a Loaner Mind</h3><p>${LOANER_PRICE.gems} 💎. It plays like a real Common Mind, comes with its own AI slot and is fixed to your account.</p>`, [[`Buy · ${LOANER_PRICE.gems} 💎`, 1, 'gem'], ['Cancel', 0]]))) return;
   await flushIsland().catch(() => {});
   try { const r = await api('gems', { op: 'loaner_gems' }); sfx('levelup'); toast(`🪪 New Loaner Mind ${r.loaner} is yours!`); resetIsland(); await ensureIsland(); await refreshMe().catch(() => {}); refreshHud(); if (current === 'shop') paintShop(); }
   catch (e) { sfx('denied'); toast(e.message, true); }
@@ -1207,7 +1217,7 @@ const starsHtml = n => Array.from({ length: RULES.roundsToWin }, (_, i) => `<img
 function paintPlates(v, scores) {
   [[v.me, 0], [v.rival, 1]].forEach(([p, i]) => {
     $(`#d-pfp${i}`).src = thumb(p.minds[p.mind]);
-    $(`#d-name${i}`).textContent = p.name;
+    $(`#d-name${i}`).innerHTML = esc(p.name) + (p.loaner?.includes(p.minds[p.mind]) ? '<span class="loaner-badge">LOANER</span>' : '');   // 🪪
     $(`#d-rounds${i}`).innerHTML = starsHtml(p.rounds);
     $(`#d-score${i}`).textContent = scores ? scores[i] : p.score;
   });
@@ -1609,7 +1619,7 @@ const TUT = [
   { say: 'Every card is used once per round, so plan ahead. Last card: play your 6.', card: 6, rival: 1 },
 ];
 function startTutorial() {
-  const minds = picked().length ? picked() : [me?.pfp || 49];
+  const minds = picked().length ? picked().map(artOf) : [me?.pfp || 49];
   const state = createMatch({ seed: 7, players: [{ name: me?.name || 'You', minds: minds.slice(0, 1) }, { name: 'Coach Bot', minds: [1848] }] });
   state.crowns = [5, 3, 6, 7, 2, 4, 1]; state.pot = 5;
   let i = 0;
@@ -1687,7 +1697,7 @@ async function openProfile(pid) {
     const r = await api(`player?id=${pid}`), p = r.player, mine = pid === me?.id;
     $('#pf-pfp').src = thumb(p.pfp); $('#pf-name').textContent = p.name;
     wear(mine ? myCos() : p.cos, ['#pf-pfp']); nameLook(mine ? myCos() : p.cos, ['#pf-name']);   // everyone sees the looks a player bought
-    $('#pf-addr').innerHTML = (p.guest ? 'Trial account' : esc(p.address || '')) + xTag(p);
+    $('#pf-addr').innerHTML = (p.guest ? 'Trial account' : esc(p.address || '')) + xTag(p) + (p.loaners ? ` <span class="loaner-badge">🪪 ${p.loaners} LOANER${p.loaners > 1 ? 'S' : ''}</span>` : '');
     const W = p.wins + (p.botWins || 0), L = p.losses + (p.botLosses || 0);
     $('#pf-stats').innerHTML = [[valIcon('rating') + p.rating, 'Rating'], [valIcon('points') + p.points, 'Points'], [W + L ? Math.round(W / (W + L) * 100) + '%' : '—', 'Win rate'], [W, 'Ranked wins'], [L, 'Ranked losses'], [p.bestStreak, 'Best streak']]
       .map(([b, s]) => `<div><b>${b}</b><span>${s}</span></div>`).join('');
@@ -1697,7 +1707,7 @@ async function openProfile(pid) {
     $('#pf-friend')?.addEventListener('click', () => addFriend({ id: p.id }));
     $('#pf-edit').style.display = mine && !guest ? 'flex' : 'none';
     if (mine && !guest) {
-      pfPick = p.pfp; pfShow = [...(p.showcase || [])].filter(id => playMinds().includes(id));
+      pfPick = p.pfp; pfShow = [...(p.showcase || [])].filter(id => pfMinds().includes(id));
       $('#pf-name-in').value = p.name; $('#pf-err').textContent = '';
       paintProfileEdit();
     }
@@ -1707,9 +1717,11 @@ async function openProfile(pid) {
     show('profile');
   } catch (e) { toast(e.message, true); }
 }
+// profile pictures: real Minds + the Loaner art (numbers only)
+const pfMinds = () => guest ? playMinds() : [...new Set([...myMinds, ...loaners.map(l => l.art)])].length ? [...new Set([...myMinds, ...loaners.map(l => l.art)])] : LOANERS;
 function paintProfileEdit() {
-  $('#pf-pfps').innerHTML = playMinds().map(id => `<div class="mind ${id === pfPick ? 'on' : ''}" data-id="${id}"><img src="${thumb(id)}" alt="" loading="lazy"><span class="tag">#${id}</span></div>`).join('');
-  $('#pf-shows').innerHTML = playMinds().map(id => { const i = pfShow.indexOf(id); return `<div class="mind ${i >= 0 ? 'on' : ''}" data-id="${id}"><img src="${thumb(id)}" alt="" loading="lazy"><span class="tag">#${id}</span><span class="order">${i + 1}</span></div>`; }).join('');
+  $('#pf-pfps').innerHTML = pfMinds().map(id => `<div class="mind ${id === pfPick ? 'on' : ''}" data-id="${id}"><img src="${thumb(id)}" alt="" loading="lazy"><span class="tag">#${id}</span></div>`).join('');
+  $('#pf-shows').innerHTML = pfMinds().map(id => { const i = pfShow.indexOf(id); return `<div class="mind ${i >= 0 ? 'on' : ''}" data-id="${id}"><img src="${thumb(id)}" alt="" loading="lazy"><span class="tag">#${id}</span><span class="order">${i + 1}</span></div>`; }).join('');
   $('#pf-show-count').textContent = `${pfShow.length}/3 · shown in your lobby and profile`;
 }
 $('#pf-pfps').onclick = e => { const m = e.target.closest('[data-id]'); if (!m) return; pfPick = +m.dataset.id; sfx('select'); paintProfileEdit(); };
@@ -1731,7 +1743,7 @@ initAutopilot({ api, esc, toast, modal, sfx, babble, online: () => online, guest
   idle: () => (current === 'hub' || (!!watching && ['duel', 'island', 'result'].includes(current))) && !document.querySelector('#modal.on'),   // the AIs play in the lobby, and while you watch them
   watchDuel, watchIsland, stopWatch, watching: () => watching?.kind || null, connectWallet: () => { logout(); show('login'); },
   mindId: () => me?.pfp || myMinds[0] || 1, mindName: () => me ? `${me.name}'s Mind #${me.pfp}` : 'Your Mind', pfp: () => thumb(me?.pfp || 49),
-  myMinds: () => myMinds, loaners: () => loaners, energyOf: id => energyOf(id), rankPass: () => rankPass, thumb, island: () => isle.state, home: () => { if (current !== 'hub') enterHub(); },
+  myMinds: () => myMinds, loaners: () => loaners, buyLoaner: () => buyLoaner(), energyOf: id => energyOf(id), rankPass: () => rankPass, thumb, island: () => isle.state, home: () => { if (current !== 'hub') enterHub(); },
   refresh: () => { if (watching?.kind === 'island' && current === 'island') refreshIsland().catch(() => {}); else resetIsland(); if (Date.now() - apRefresh > 20e3) { apRefresh = Date.now(); refreshMe().then(() => { if (current === 'hub') paintHub(); }).catch(() => {}); } } });
 initTrade({ api, esc, toast, modal, sfx, island: () => isle.state, inTown: () => current === 'town' && online && !guest, inDuel: () => current === 'duel', openMatch: id => openMatch(id), refresh: () => { resetIsland(); ensureIsland(); } });
 initTown({ minds: () => (guest ? [] : myMinds), myCos, api, esc, toast, online: () => online, go: townGo, card: playerCard, mega: megaphone, me: () => me?.id, name: () => me?.name || 'You', canChat: () => online && !guest, chat });

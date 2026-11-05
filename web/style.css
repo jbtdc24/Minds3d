@@ -1067,6 +1067,7 @@ h3.raid-result { text-align: center; }
 .md-tabs { display: flex; gap: 4px; padding: 6px 8px; overflow-x: auto; background: var(--paper-2); } .md-tabs:empty { display: none; }
 .md-tab { position: relative; flex: none; display: grid; justify-items: center; gap: 1px; padding: 3px; border: 0; cursor: pointer; background: #fff; box-shadow: 0 0 0 2px var(--ink); font: 800 10px var(--font); }
 .md-tab img { width: 34px; height: 34px; image-rendering: pixelated; } .md-tab.on { background: var(--lime); } .md-tab em { position: absolute; top: -4px; right: -4px; font-style: normal; background: #9b6bff; color: #fff; width: 14px; height: 14px; line-height: 14px; font-size: 11px; }
+.md-tab.buy { background: #efe6ff; min-width: 46px; } .md-tab.buy b { font-size: 24px; line-height: 34px; }
 .md-tab.run::after { content: ''; position: absolute; top: 2px; left: 2px; width: 7px; height: 7px; background: #3ddc5a; box-shadow: 0 0 0 1px var(--ink); animation: mdpulse 1.2s infinite; }
 .md-body { padding: 8px 10px 10px; overflow-y: auto; display: grid; gap: 7px; font-size: 13px; }
 .md-hero { display: flex; gap: 8px; align-items: center; } .md-hero img { width: 64px; height: 64px; image-rendering: pixelated; box-shadow: 0 0 0 2px var(--ink); flex: none; } .md-hero p { margin: 0; }

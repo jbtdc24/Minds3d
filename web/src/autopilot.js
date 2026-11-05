@@ -163,7 +163,8 @@ function paint() {
     return;
   }
   if (!ap) { tabs.innerHTML = ''; body.innerHTML = '<p class="muted">Loading your AIs…</p>'; return; }
-  tabs.innerHTML = slots().map(s => `<button class="md-tab ${s === sel ? 'on' : ''} ${running.has(s) ? 'run' : ''}" data-slot="${s}" title="${slotName(s)}"><img src="${slotPic(s)}" alt=""><span>${s === '0' ? 'Pass' : isLoan(s) ? 'Loaner ' + s.slice(1) : '#' + s}</span>${aiOf(s) ? (jobOf(s) ? `<em class="job">${JOBS[jobOf(s).kind].icon}</em>` : '') : '<em>＋</em>'}</button>`).join('');
+  tabs.innerHTML = slots().map(s => `<button class="md-tab ${s === sel ? 'on' : ''} ${running.has(s) ? 'run' : ''}" data-slot="${s}" title="${slotName(s)}"><img src="${slotPic(s)}" alt=""><span>${s === '0' ? 'Pass' : isLoan(s) ? 'Loaner ' + s.slice(1) : '#' + s}</span>${aiOf(s) ? (jobOf(s) ? `<em class="job">${JOBS[jobOf(s).kind].icon}</em>` : '') : '<em>＋</em>'}</button>`).join('')
+    + (K.buyLoaner && !K.guest() ? `<button class="md-tab buy" data-buyloaner="1" title="Buy a Loaner Mind: plays like a real Mind and comes with its own AI"><b>🪪</b><span>+ Loaner</span></button>` : '');
   const s = sel, ai = aiOf(s), l = L(s);
   if (!ai) {   // this Mind has no AI yet: a fresh one, made for this Mind only
     body.innerHTML = `<div class="md-hero"><img src="${slotPic(s)}" alt=""><p><b>${slotName(s)}</b> has no AI yet. Give it one, then give it a job.</p></div>
@@ -214,6 +215,7 @@ async function onClick(e) {
   if (t.id === 'md-bubble') return setMin(false);
   if (t.id === 'md-min') return setMin(true);
   if (t.id === 'md-big') { const b = !$('#mdock').classList.contains('big'); $('#mdock').classList.toggle('big', b); save(BIG_KEY, b); return center(); }
+  if (t.dataset.buyloaner) return K.buyLoaner();
   if (t.dataset.slot) { sel = t.dataset.slot; K.sfx('select'); paint(); return loadChat(sel); }
   if (t.dataset.job) return mixing(sel) ? planToggle(t.dataset.job) : pickJob(t.dataset.job);
   const a = t.dataset.a;

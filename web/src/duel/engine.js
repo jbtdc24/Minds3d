@@ -167,7 +167,7 @@ export function forfeitMatch(s, i) {
 // What player i may see: never the rival's locked card or spell. Card counting info is public.
 export function viewFor(s, i) {
   const me = s.p[i], op = s.p[1 - i];
-  const side = p => ({ name: p.name, minds: p.minds, mind: p.mind, rounds: p.rounds, score: p.score, crowns: p.crowns, cards: [...p.cards], spells: [...p.spells], reverse: p.reverse, cos: p.cos || null });   // cos: card back + frame (looks only)
+  const side = p => ({ name: p.name, minds: p.minds, mind: p.mind, rounds: p.rounds, score: p.score, crowns: p.crowns, cards: [...p.cards], spells: [...p.spells], reverse: p.reverse, cos: p.cos || null, loaner: p.loaner || null });   // cos: card back + frame (looks only)
   return {
     round: s.round, turn: s.turn, over: s.over, winner: s.winner,
     crown: s.over ? null : currentCrown(s), pot: s.pot,
