@@ -2024,7 +2024,7 @@ function tapToStart() {
   const hmRes = await hmBack;
   if (hmRes?.away) setTimeout(async () => {   // 🌙 back from the away sign-in: hand it to the server for the Minds that have a job
     try {
-      const r = await api('autopilot', { op: 'away_on', slots: (myMinds.length ? myMinds.map(String) : ['0']), refreshToken: hmRes.away.refreshToken, accessToken: hmRes.away.accessToken, expiresIn: hmRes.away.expiresIn, days: hmRes.away.days });
+      const r = await api('autopilot', { op: 'away_on', slots: [...myMinds.map(String), ...loaners.map(l => l.id)], refreshToken: hmRes.away.refreshToken, accessToken: hmRes.away.accessToken, expiresIn: hmRes.away.expiresIn, days: hmRes.away.days });
       toast(`🌙 Your AIs keep playing until ${new Date(r.away.until).toLocaleDateString()}, even with the game closed.`); openAutopilot();
     } catch (e) { toast(`Away play: ${e.message}`, true); }
   }, 2500);
