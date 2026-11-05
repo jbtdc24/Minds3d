@@ -27,7 +27,7 @@ const ACT_ICON = { build: ['🏗️', '🔨', '⬆️'], farm: ['🌱', '🧺', 
 // the Minds that can have an AI: every NFT held, or one Rank Pass slot ('0') for a wallet without Minds
 // Round 27: every NFT held + every Loaner ('L1'…) has its own AI slot ('0' only for an old Rank Pass with no Loaner yet)
 const isLoan = s => /^L\d+$/.test(s);
-const slots = () => { const l = (K.loaners?.() || []).map(x => x.id), all = [...K.myMinds().map(String), ...l]; return all.length ? all : ['0']; };
+const slots = () => { const l = (K.loaners?.() || []).map(x => x.id); return [...K.myMinds().map(String), ...(l.length ? l : ['L1'])]; };   // every wallet has L1 (never the old Rank Pass slot '0')
 const slotArt = s => s === '0' ? 49 : isLoan(s) ? 0 : +s;
 const slotName = s => (s === '0' ? 'Rank Pass Mind' : isLoan(s) ? `Loaner ${s}` : `Mind #${s}`);
 const slotPic = s => K.thumb(slotArt(s));
@@ -36,6 +36,7 @@ const aiOf = s => ap?.ai?.[s] || null;
 export const aiPlaying = id => (running.has(String(id)) ? aiOf(String(id))?.name || 'its AI' : null);
 export const stopAi = id => stop(String(id), 'Stopped: you are playing me yourself now.');
 // open the dock on one Mind (tapping a Mind on the island, or the 🧠 button there)
+export function dockRefresh() { try { paint(); } catch { /* dock not built yet */ } }   // new Minds / Loaners: redraw the tabs
 export function openDock(id) { if (id != null && slots().includes(String(id))) sel = String(id); paint(); setMin(false); loadChat(sel); }
 
 export function initAutopilot(ctx) {

@@ -10,7 +10,7 @@ import { initAudio, sfx, music, setVolume, babble } from './audio.js';
 import { PHRASES, MATCH_CHAT, FRIEND_CHAT, BOT_REPLIES } from './chat.js';
 import { chatSigner } from './chatsign.js';
 import { initTown, openTown, closeTown, setMega } from './town.js';
-import { initAutopilot, openAutopilot, dockScreen, autopilotRunning, aiPlaying, stopAi, openDock } from './autopilot.js';
+import { initAutopilot, openAutopilot, dockScreen, autopilotRunning, aiPlaying, stopAi, openDock, dockRefresh } from './autopilot.js';
 import { initTrade, openTrade, giftTo } from './trade.js';
 import { capOf, ENERGY_CAP } from './energy.js';
 import { loading } from './loader.js';
@@ -197,7 +197,9 @@ function loadAccount() {
 async function refreshMe() {
   // send the Minds we saw last time: the server verifies them on-chain in one quick call instead of a full scan
   const r = await api(`me${!guest && myMinds.length ? `?known=${myMinds.join(',')}` : ''}`);
+  const before = JSON.stringify([myMinds, loaners.map(l => l.id)]);
   me = r.player; myMinds = r.minds; guest = r.guest; rankPass = r.rankPass || null; loaners = guest ? [] : r.loaners || [];
+  if (JSON.stringify([myMinds, loaners.map(l => l.id)]) !== before) dockRefresh();
   energy = r.energy || {}; energyResetAt = Date.now() + (r.energyResetIn || 0);
   saveAccount();
   return r;
