@@ -1568,6 +1568,8 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
     const { rarityOf } = await import('../lib/game.js');
     ok(rarityOf(0) === 'Common', 'a Loaner always counts as Common for rewards');
     const { maxEntries } = await import('../lib/routes/cup.js');
+    const islOut = await hit(await rt('island'), P, { acts: [] });
+    ok(islOut.body.island?.minds === isl(P).minds + (await L.loanersOf(P.id)).length, 'island rules count Loaners like held Minds');
     ok(maxEntries(0, 1) === 1 && maxEntries(2, 1) === 3 && maxEntries(0, 0) === 1, 'Siege Cup: one entry per Mind held, Loaners included');
     isl(P).state.gems = 50; const lb = (await L.loanersOf(P.id))[0].left;
     const ag = await hit(gemsRt, P, { op: 'info' });

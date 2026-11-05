@@ -214,6 +214,7 @@ const mindLabel = id => isLoan(id) ? `Loaner ${id}` : `Mind #${id}`;
 const idKey = v => /^L\d+$/.test(v) ? v : +v;
 const capFor = id => isLoan(id) ? loanOf(id)?.cap || 5 : capOf(rarityOf(id));
 const energyOf = id => isLoan(id) ? loanOf(id)?.left ?? 5 : energy[id] ?? capFor(id);
+const heldCount = () => guest ? 0 : myMinds.length + loaners.length;   // 🪪 Minds that count for island / raid / adventure rules (NFTs + Loaners)
 const totalEnergy = () => [...myMinds, ...loaners.map(l => l.id)].reduce((s, id) => s + energyOf(id), 0);
 const resetText = () => { const m = Math.max(0, Math.round((energyResetAt - Date.now()) / 60000)); return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`; };
 const BONUS = { Common: 0, Uncommon: 0.05, Rare: 0.10, Epic: 0.15, Legendary: 0.20 };
@@ -593,7 +594,7 @@ $('#hub-inv').onclick = openInventory;
 // ---------- Mind Island: farm, Shop, and island items in the inventory ----------
 async function ensureIsland() {
   if (isle.loaded && isle.offline === !online) { if (online && Date.now() - (isle.at || 0) > 8000) await refreshIsland(); return true; }
-  try { await loadIsland({ online, guestSeed: me?.id || me?.name, minds: guest ? 0 : myMinds.length }); return true; }
+  try { await loadIsland({ online, guestSeed: me?.id || me?.name, minds: heldCount() }); return true; }
   catch (e) { toast(e.message, true); return false; }
 }
 let trialWarned = false;
@@ -632,10 +633,10 @@ function pickArmy(cap, hero, lead) {
   return new Promise(done => {
     const draw = () => {
       const used = armyUsed(army);
-      const st = isle.state || { inv: {} }, day = new Date().toISOString().slice(0, 10), done = st.rd?.day === day ? st.rd.n : 0, left = Math.max(0, raidsPerDay(guest ? 0 : myMinds.length, campCount(st)) - done);
+      const st = isle.state || { inv: {} }, day = new Date().toISOString().slice(0, 10), done = st.rd?.day === day ? st.rd.n : 0, left = Math.max(0, raidsPerDay(heldCount(), campCount(st)) - done);
       $('#modal-body').innerHTML = `<h3>⚔️ Your army</h3>
         <div class="army-facts"><span>🎟️ Raids left today: <b>${left}</b>${st.inv.raid_ticket ? ` (+${st.inv.raid_ticket} ticket${st.inv.raid_ticket > 1 ? 's' : ''})` : ''}</span><span>✨ Supplies: <b>${raidFee(army)}</b> Dust (you have ${(st.dust || 0).toLocaleString()})</span></div>
-        <div class="army-cap"><b>${used}/${cap}</b> camp space <span class="muted">${campCount(st) ? `(+${cap - armyCap(guest ? 0 : myMinds.length)} from Army Camps)` : `Build an ⛺ Army Camp for +${CAMP_SPACE} space and +1 raid a day`}</span></div>
+        <div class="army-cap"><b>${used}/${cap}</b> camp space <span class="muted">${campCount(st) ? `(+${cap - armyCap(heldCount())} from Army Camps)` : `Build an ⛺ Army Camp for +${CAMP_SPACE} space and +1 raid a day`}</span></div>
         <div class="army-list">${Object.entries(TROOPS).map(([k, d]) => `<div class="army-row"><img src="${troopIcon(k)}" alt=""><div><b>${d.name}</b> <span class="muted">· ${d.cost} space · you have ${owned(k)}</span><small>${d.desc}</small></div><button class="btn small" data-a="${k}" data-d="-1">−</button><em>${army[k]}</em><button class="btn small" data-a="${k}" data-d="1">+</button></div>`).join('')}</div>
         <div class="army-hero">${hero === 'hero' ? `<img src="${chibi(lead).full.cv.toDataURL()}" alt=""><span><b>Hero: Mind #${lead}</b><small>Stronger leader + 📯 Battle Cry</small></span>` : `<img src="${troopIcon('captain')}" alt=""><span><b>Captain</b><small>Own a Mind to lead with it (stronger + Battle Cry)</small></span>`}</div>`;
     };
@@ -664,7 +665,7 @@ async function startRaid(revenge = 0) {
   sfx('click');
   const lead = artOf(picked()[0]) ?? myMinds[0] ?? 49, holder = online && !guest && myMinds.length;
   if (!(await ensureIsland())) return;
-  const cap = armyCap(guest ? 0 : myMinds.length, campLevels(isle.state), thLv(isle.state));
+  const cap = armyCap(heldCount(), campLevels(isle.state), thLv(isle.state));
   const troops = await pickArmy(cap, holder ? 'hero' : 'captain', lead);
   if (!troops) return;
   let target = null;
