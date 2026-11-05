@@ -383,13 +383,13 @@ const add = (o, k, n) => { if (n) o[k] = (o[k] || 0) + n; };
 // A player's work goes into st.q with the time it will be done; your Minds work side by side (1 lane each, at least 3
 // so it matches the 3 Minds everyone sees walking around, max 12).
 // It keeps going while you are away, and nothing is done before its time, so leaving the island never rushes it.
-export const WORK_MS = { [COVER.WEEDS]: 2200, [COVER.BUSH]: 2500, [COVER.ROCK]: 2900, [COVER.TREE]: 3200, till: 2400, plant: 2000, harvest: 2100 };
+export const WORK_MS = { [COVER.WEEDS]: 700, [COVER.BUSH]: 1100, [COVER.ROCK]: 1900, [COVER.TREE]: 2500, till: 1200, plant: 800, harvest: 800 };   // faster (owner 2026-11-05): grass quick, trees slowest
 const WORK = { clear: 1, till: 1, plant: 1, harvest: 1 }, QUEUE_MAX = 300;
 Object.setPrototypeOf(WORK, null);
 export const workLanes = minds => Math.max(1, Math.min(12, minds | 0));   // one job at a time per Mind you have (NFTs + Loaners), up to 12; no helpers (owner 2026-11-05)
 // the walk before a job (owner 2026-11-05: the timer starts only when the Mind is there, like adventures): from the
-// lane's last tile (or the house) at the Minds' walking speed (38 px/s on 16 px tiles), at most 8 s
-export const WALK_TILE_MS = 16 / 38 * 1000, WALK_MAX_MS = 8000;
+// lane's last tile (or the house) at the Minds' work speed (90 px/s on 16 px tiles), at most 3 s
+export const WALK_TILE_MS = 16 / 90 * 1000, WALK_MAX_MS = 3000;   // Minds hurry to work at 90 px/s
 export const walkMs = (fromK, toK, home) => { const fx = fromK != null ? fromK % TW : home.x + 1, fy = fromK != null ? (fromK / TW) | 0 : home.y + 3; return Math.min(WALK_MAX_MS, Math.round(Math.hypot((toK % TW) - fx, ((toK / TW) | 0) - fy) * WALK_TILE_MS)); };
 export const workMs = (st, w, type, k) => (type === 'clear' ? WORK_MS[coverAt(st, w, k)] : WORK_MS[type]) || 2000;
 function queueWork(st, a, w, tiles, { now, minds }) {

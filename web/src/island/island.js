@@ -87,7 +87,7 @@ function valid(tl, k) {
 
 const compOf = (x, y) => { const k = tileAt(x, y); return k < 0 ? -1 : w.comp[k]; };
 // ---------- Minds: they wander, and do the jobs you give them ----------
-const GO_SPEED = 38;
+const GO_SPEED = 90;   // matches WALK_TILE_MS in rules.js
 // the jobs are the island's saved work queue (st.q: { y: type, k, c?: crop, d: done at }): they take real time and keep
 // going while you are away; a Mind walks over and works on a tile until the queue says it is done
 const queued = () => isle.state?.q || [];

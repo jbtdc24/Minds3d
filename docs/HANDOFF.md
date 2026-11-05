@@ -22,6 +22,7 @@ ROUND 27 (owner approved 2026-11-05) DONE — LOANER MINDS + AI SLOTS (spec docs
 - Energy route: mind 'L1' refills on the island (shards/Dust/Gems), no daily limit for anyone.
 - Buy: shop card '🪪 Loaner Mind' (replaces Rank Pass card): 120 Gems = gems op 'loaner_gems'; USDG/ETH = buyGems('loaner') → claim with pack 'loaner' / 'loaner:usd' (LOANER_PRICE in web/src/gems.js; packOf returns gems 0 + loaner:true so payments/reconcile rows stay consistent); creditLoaner (st.paid mark), admin recovery uses it.
 - AI: slots = NFTs + Loaners (aiSlots in lib/routes/autopilot.js; free AIs = same count, then 50 Gems). slotOf accepts 'L#'. Away ranked + browser ranked job: a Loaner duels alone on its own games. Dock tabs "Loaner N".
+- Island faster (owner): WORK_MS weeds 0.7 s, bush 1.1, rock 1.9, tree 2.5, till 1.2, plant/harvest 0.8; walk 90 px/s, max 3 s (GO_SPEED 90 in island.js).
 - Island job timer starts when the Mind arrives (owner): rules queueWork adds walkMs (lane last tile or house, 38 px/s, max 8 s), job.s = start, d = done, st.qp = lane positions; island draws a lime loading bar on the tile from s to d.
 - Island work = your Minds (2026-11-05): workLanes min 1 (was 3, helpers did the rest; with helpers gone tiles cleared with nobody there). Minds take the job that finishes soonest (was nearest: a Mind could stand at a tile whose turn never came).
 - Shop bar shows wood / stone / shards too; paintShop + world map tap guarded (error log). 
