@@ -1572,6 +1572,12 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
       fake.minds = [{ mindId: 'hm-orph', name: 'Clash-Pass-8', createdAt: '2026-01-01T00:00:00Z' }];
       w = await hit(autopilot, O, { op: 'awaken', mind: 0, token: tok });
       ok(w.code === 200 && w.body.ai['0'].hm === 'hm-orph' && woken === 2, 'an AI left over from an old failed try is picked up, not a new one');
+      const C = await mk('CogMind'), cog0 = fake.cog;
+      fake.minds = [{ mindId: 'hm-dry', name: 'Clash-1848' }, { mindId: 'hm-full', name: 'Clash-Pass-8' }];
+      HMS.hm.client = token => ({ ...client0(token), getCognitionBalance: async id => ({ mindId: id, cognition: id === 'hm-full' ? 550 : 0 }) });
+      w = await hit(autopilot, C, { op: 'awaken', mind: 0, token: tok });
+      ok(w.code === 200 && w.body.ai['0'].hm === 'hm-full', 'the spare that still has cognition is picked, not an empty one');
+      fake.cog = cog0;
       fake.minds = keep; HMS.hm.client = client0; await HMS.mindsOf(tok, true);   // put the real list back in the cache
     }
     out = await hit(autopilot, M, { op: 'save', mind: 0, steps: AP.PRESETS.daily.steps, preset: 'daily' });
