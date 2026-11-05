@@ -365,6 +365,7 @@ function drawPlot(k, t, nowMs) {
 function frame(nowT) {
   if (!running) return;
   raf = requestAnimationFrame(frame);
+  if (!isle.state) { last = nowT; return; }   // reloading: wait (never crash every frame)
   const dt = Math.min(0.05, (nowT - last) / 1000); last = nowT; Tm += dt;
   if (innerWidth !== W || innerHeight !== H) { const first = W < 2; resize(); if (first) fitCam(); }
   if (!isle.state) return;
@@ -533,6 +534,7 @@ function showDone(type, k, res, before) {
 }
 // tap with the hand: do the obvious thing for that tile
 function smart(k, p) {
+  if (!isle.state) return;   // the island is reloading
   const m = [...minds].sort((a, b) => b.y - a.y).find(m => Math.abs(p.x - m.x) < m.c.w / 2 && p.y < m.y + 2 && p.y > m.y - m.c.h);
   if (m) { m.hop = 0.5; if (!m.job && !m.site) { m.state = 'idle'; m.timer = 2; } selected = m;   // a working Mind hops and carries on (it used to stop for good)
     selectedT = 3; emote(m, 'heart'); sfx('pop'); if (m.helper) cb.toast('A village helper. Own more Minds to have your own Minds work here.'); else cb.mind?.(m.id); return; }
@@ -929,10 +931,7 @@ export function openIsland({ minds: ids = [], toast, shop, bag, restore: onResto
   clouds.length = 0;
   for (let i = 0; i < 6; i++) clouds.push({ x: r() * WW, y: 40 + r() * (WH - 80), v: 3 + r() * 3, puffs: Array.from({ length: 4 }, () => [(r() - 0.5) * 50, (r() - 0.5) * 16, 14 + r() * 14]) });
   minds = ids.slice(0, 12).map(makeMind);
-  // every island has at least 3 workers (rules.js workLanes); if you own fewer Minds, village helpers in straw hats
-  // fill in, so what you see matches how many jobs are done at once. Helpers are not Minds you own.
-  const need = workLanes(isle.minds) - minds.length;
-  for (const id of [49, 14, 8, 2, 3].filter(h => !ids.includes(h)).slice(0, Math.max(0, need))) minds.push(Object.assign(makeMind(id, minds.length), { helper: true }));
+  // only your own Minds (NFTs + Loaners) walk the island, up to 12; no straw-hat village helpers (owner 2026-11-05)
   fx = []; selected = null; hover = -1;
   resize(); fitCam(); setTool(tool); paintHud();
   if (!isle.state.tut && tour < 0) setTimeout(() => { if (running && !isle.state.tut) startTour(); }, 700);

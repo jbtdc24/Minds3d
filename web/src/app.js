@@ -278,7 +278,7 @@ async function enterHub() {
 }
 async function afterLogin(out) {
   me = out.player; myMinds = out.minds; guest = !!out.guest;
-  resetIsland();
+  resetIsland(true);
   saveAccount();
   if (!guest && !myMinds.length && !settings.noMindsSeen) {   // a wallet with no Mind stays a wallet account (Rank Pass, trading, Gems all work)
     settings.noMindsSeen = true; saveSettings();
@@ -359,7 +359,7 @@ $('#btn-wallet').onclick = async () => {
 $('#btn-guest').onclick = () => { initAudio(); online ? startGuest() : offlineGuest(); };
 $('#guest-connect').onclick = e => { e.preventDefault(); logout(); show('login'); };
 function offlineGuest() {
-  resetIsland();
+  resetIsland(true);
   me = { name: 'Guest', pfp: 49, rating: 1000, points: 0, wins: 0, losses: 0, showcase: [] }; myMinds = [49, 14, 8].filter(id => tokenIds().includes(id)); guest = true;
   if (!myMinds.length) myMinds = tokenIds().slice(0, 3);
   toast('Server offline: practice vs bots only.');

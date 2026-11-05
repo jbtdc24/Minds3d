@@ -66,4 +66,9 @@ export async function refreshIsland() {
   if (isle.offline || !isle.loaded || queue.length || inflight) return;
   try { const r = await api('island', { acts: [] }); if (!queue.length && !inflight) { take(r); isle.at = Date.now(); emit({ synced: true }); } } catch { /* next time */ }
 }
-export function resetIsland() { isle.state = null; isle.loaded = false; queue = []; }
+// full = another account (sign-in / trial): forget the island. Otherwise something changed it on the server (a purchase,
+// a gift, a raid…): keep showing it (an open island must never lose its data mid-tap) and re-read it at the next chance
+export function resetIsland(full = false) {
+  if (full || !isle.loaded) { isle.state = null; isle.loaded = false; queue = []; return; }
+  isle.at = 0; setTimeout(() => refreshIsland().catch(() => {}), 0);
+}
