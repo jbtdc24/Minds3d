@@ -127,13 +127,9 @@ function assignJobs() {
   const taken = new Set(minds.map(m => m.job?.k));
   for (const m of minds) {
     if (m.job || m.hop > 0) continue;
-    let best = null, bd = 1e9;
-    for (const q of queued()) {
-      if (taken.has(q.k)) continue;
-      const j = { k: q.k, type: q.y, cov: q.v ?? coverAt(isle.state, w, q.k) };
-      const d = Math.hypot(kx(j.k) * T + 8 - m.x, ky(j.k) * T + 12 - m.y);
-      if (d < bd) { bd = d; best = j; }
-    }
+    // the job the rules work on next (queue order), so a Mind never waits at a tile whose turn has not come yet
+    const q = queued().filter(x => !taken.has(x.k)).sort((a, b) => (a.d || 0) - (b.d || 0))[0];   // soonest done first
+    const best = q ? { k: q.k, type: q.y, cov: q.v ?? coverAt(isle.state, w, q.k) } : null;
     if (!best) continue;
     taken.add(best.k); m.job = best; m.state = 'go';
     const cx = kx(best.k) * T + 8, side = m.x < cx ? -1 : 1;

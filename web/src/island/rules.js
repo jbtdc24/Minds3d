@@ -386,7 +386,7 @@ const add = (o, k, n) => { if (n) o[k] = (o[k] || 0) + n; };
 export const WORK_MS = { [COVER.WEEDS]: 2200, [COVER.BUSH]: 2500, [COVER.ROCK]: 2900, [COVER.TREE]: 3200, till: 2400, plant: 2000, harvest: 2100 };
 const WORK = { clear: 1, till: 1, plant: 1, harvest: 1 }, QUEUE_MAX = 300;
 Object.setPrototypeOf(WORK, null);
-export const workLanes = minds => Math.max(3, Math.min(12, minds | 0));
+export const workLanes = minds => Math.max(1, Math.min(12, minds | 0));   // one job at a time per Mind you have (NFTs + Loaners), up to 12; no helpers (owner 2026-11-05)
 export const workMs = (st, w, type, k) => (type === 'clear' ? WORK_MS[coverAt(st, w, k)] : WORK_MS[type]) || 2000;
 function queueWork(st, a, w, tiles, { now, minds }) {
   if (a.type === 'plant' && !CROPS[a.crop]) return { error: 'unknown seed' };

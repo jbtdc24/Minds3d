@@ -395,7 +395,7 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   ok(st.dust === dust0 && st.q.length === 6, 'nothing is done before its time');
   R.settleWork(st, { seed, now: now + R.WORK_MS[COVER.WEEDS], minds: 4 });
   ok(st.dust === dust0 + 4 && st.q.length === 2, 'four Minds clear four weeds at a time');
-  ok(R.workLanes(0) === 3 && R.workLanes(20) === 12, 'at least 3 workers (the Minds everyone sees), at most 12');
+  ok(R.workLanes(0) === 1 && R.workLanes(2) === 2 && R.workLanes(20) === 12, 'one job at a time per Mind (at least 1), at most 12');
   R.settleWork(st, { seed, now: now + 3600e3, minds: 4 });
   ok(st.dust === dust0 + 6 && !st.q && !st.ql, 'the rest finishes while you are away');
   ok(R.act(st, { type: 'plant', crop: 'constructor', tiles: [1] }, ctx).error, 'queue refuses unknown seeds');
