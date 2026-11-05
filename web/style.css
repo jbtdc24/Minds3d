@@ -1144,6 +1144,7 @@ h3.raid-result { text-align: center; }
 .mcog { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 48; display: none; align-items: center; gap: 10px; width: min(620px, calc(100vw - 16px)); padding: 10px 12px; background: #ffb02e; color: var(--ink); box-shadow: 0 0 0 3px var(--ink), 0 6px 0 var(--ink); animation: drop .3s; }
 .mcog.on { display: flex; } .mcog.out { background: #ff5263; color: #fff; animation: mcogpulse 1.4s ease-in-out infinite; }
 .mcog > b { font-size: 28px; } .mcog > div { flex: 1; display: grid; } .mcog strong { font-size: 16px; } .mcog span { font-size: 13px; }
+.mcog .iconbtn { color: var(--ink); font-weight: 900; }   /* the ✕ stays dark on the red "out" warning (it inherited white) */
 @keyframes mcogpulse { 50% { box-shadow: 0 0 0 3px var(--ink), 0 6px 0 var(--ink), 0 0 22px 8px rgba(255, 82, 99, .8); } }
 .md-cogwarn { display: grid; gap: 4px; padding: 8px; background: #ffb02e; box-shadow: 0 0 0 2px var(--ink); } .md-cogwarn.out { background: #ff5263; color: #fff; }
 .md-cogwarn b { font-size: 15px; } .md-cogwarn span { font-size: 12px; }
