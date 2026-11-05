@@ -12,7 +12,7 @@ try { talk = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { /* private
 const keep = () => { try { localStorage.setItem(KEY, JSON.stringify(talk)); } catch { /* private mode */ } };
 const name = id => id ? `Mind #${id}` : 'Captain';
 const jobOf = id => isle.state?.jobs?.[id];
-const pic = id => { try { return chibi(id || 49).full.cv.toDataURL(); } catch { return ''; } };
+const pic = id => { try { return chibi(id ?? 49).full.cv.toDataURL(); } catch { return ''; } };
 
 export function initMindTalk(ctx) { K = ctx; }
 const ids = () => { const m = K.minds(); return m.length ? m : [0]; };

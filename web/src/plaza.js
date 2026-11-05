@@ -26,7 +26,7 @@ const edges = () => {
 };
 const all = () => [...K.fighters()];
 const hit = w => all().reverse().find(f => Math.abs(w.x - f.pos.x) < 0.62 * f.scale && w.y > f.pos.y - 0.1 && w.y < f.pos.y + f.height + 0.1);
-const idOf = f => f.mindId || f.id;
+const idOf = f => f.mindId ?? f.id;
 const say = (f, mood, ms = 1800, pre = '') => K.say(f, pre + babble(idOf(f), mood, 1, 0.8), ms);   // reactions: mostly real words
 const mood = f => (f.grudge = Math.max(0, (f.grudge || 0) - (performance.now() - (f.grudgeAt || 0)) / 8000), f.grudgeAt = performance.now(), f.grudge);
 const toyOf = f => f.toy || (f.toy = { step, t: 0, x: f.pos.x, y: f.pos.y, spin: 0, vx: 0, vy: 0, vs: 0 });

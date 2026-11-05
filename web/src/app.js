@@ -168,7 +168,9 @@ function lobbyScene(ids) {
     f.dropIn(0.2 + i * 0.18);
     f.mindId = id;
     stageFighters.push(f);
-    if (current === 'hub') tag(f, `#${id} <i>${rarityOf(id)}</i>${!guest && myMinds.includes(id) ? ` <span class="ten">⚡${energyOf(id)}/${capFor(id)}</span>` : ''}`);
+    const lo = id === 0 && !guest ? loaners : null;   // 🪪 the Loaner Mind: games left on all your Loaners
+    if (current === 'hub') tag(f, lo ? `LOANER <i>Common</i>${lo.length ? ` <span class="ten">⚡${lo.reduce((t, l) => t + (l.left ?? 5), 0)}/${lo.length * 5}</span>` : ''}${lo.length > 1 ? ` ×${lo.length}` : ''}`
+      : `#${id} <i>${rarityOf(id)}</i>${!guest && myMinds.includes(id) ? ` <span class="ten">⚡${energyOf(id)}/${capFor(id)}</span>` : ''}`);
   });
   lobbyLayout();
 }
@@ -228,7 +230,12 @@ const energyTag = id => { const n = energyOf(id), c = capFor(id); return `<span 
 const LOANERS = [49, 14, 8];
 const playMinds = () => guest ? (myMinds.length ? myMinds : LOANERS) : loaners.length ? [...myMinds, ...loaners.map(l => l.id)] : myMinds.length ? myMinds : LOANERS;
 const picked = () => { const p = (settings.picks.minds || []).filter(id => playMinds().includes(id)); return p.length ? p : playMinds().slice(0, 3); };
-const showcaseIds = () => { const s = (me?.showcase || []).filter(id => pfMinds().includes(id)); return s.length ? s : picked().length ? picked().map(artOf) : [me?.pfp || 49]; };
+// the lobby line-up: your showcase (or picks), and your 🪪 Loaner always stands with them when there is room
+const showcaseIds = () => {
+  const s = (me?.showcase || []).filter(id => pfMinds().includes(id)), base = s.length ? s : picked().length ? picked().map(artOf) : [me?.pfp || 49];
+  const list = [...new Set(base)];
+  return !guest && loaners.length && !list.includes(0) && list.length < 3 ? [...list, 0] : list.slice(0, 3);
+};
 // your looks: from the island save, remembered on this device so they show before the island loads
 const myCos = () => isle.state?.cos || settings.cos || null;
 function wearMine() { const c = myCos(); if (isle.state?.cos && JSON.stringify(settings.cos) !== JSON.stringify(c)) { settings.cos = c; saveSettings(); } wear(c); }
