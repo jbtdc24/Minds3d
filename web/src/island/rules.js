@@ -58,7 +58,19 @@ export const gemPrice = cost => cost.gems ? cost.gems : Math.max(1, Math.ceil(((
 const priceOf = (cost, gems) => gems ? { gems: gemPrice(cost) } : cost;
 // building takes time (like a real build game): seconds per building; 0 = instant (walls, fences, flowers so you can drag lines)
 export const BUILD_SECS = { camp: 420, house: 300, mill: 900, barn: 600, tower: 480, cannon: 600, mortar: 1200, spire: 1800, trap: 60, lamp: 30, bench: 30, banner: 30, lantern: 20, crystal: 20, fountain: 60 };
-export const builders = minds => Math.max(1, Math.min(5, minds | 0));      // one builder per Mind you own (at least 1, max 5)
+export const builders = minds => Math.max(1, Math.min(12, minds | 0));     // every Mind you have is a builder (at least 1, max 12)
+// 🔨 Minds are workers (owner 2026-11-05, like Clash of Clans builders): a Mind building or upgrading is BUSY until it is
+// done: it does no island work and cannot play Ranked, raid or explore. Your Minds in order: NFTs (seenMinds), then Loaners.
+export const mindIds = st => [...new Set((st.seenMinds || []).map(Number).filter(n => n > 0))].sort((a, b) => a - b).concat((st.loaners || []).map(l => l.id));
+export function builderOf(st, now = Date.now()) {   // Map: Mind id → the building it works on
+  const ids = mindIds(st), out = new Map(), live = (st.b || []).filter(b => b.done && b.done > now).sort((a, b) => (a.start || 0) - (b.start || 0));
+  for (const b of live) if (b.by != null && ids.includes(b.by) && !out.has(b.by)) out.set(b.by, b);
+  const placed = new Set(out.values());
+  for (const b of live) if (!placed.has(b)) { const f = ids.find(i => !out.has(i)); if (f != null) out.set(f, b); }
+  return out;
+}
+const freeBuilder = (st, now) => { const used = builderOf(st, now); return mindIds(st).find(i => !used.has(i)) ?? null; };
+export const busyText = (id, b, now = Date.now()) => `${typeof id === 'string' ? `Loaner ${id}` : `Mind #${id}`} is busy building ${BUILD[b.type]?.name || 'something'} (${Math.max(1, Math.ceil((b.done - now) / 60000))} min left). Finish it with 💎 or wait.`;
 export const busy = st => (st.b || []).filter(b => b.done).length;            // buildings still going up
 export const rushGems = (b, now) => Math.max(1, Math.ceil((b.done - now) / 300e3));   // 1 💎 per 5 minutes left
 // effects only count finished buildings
@@ -351,7 +363,7 @@ export function normalize(st, seed, now) {
   }
   st.wellAt ??= now;
   if (st.tlq && st.tlq.d <= now) { (st.tl ||= {})[st.tlq.k] = st.tlq.lv; delete st.tlq; }   // a troop upgrade finished
-  for (const b of st.b || []) if (b.done && b.done <= now) { if (b.uplv) b.lv = b.uplv; delete b.done; delete b.start; delete b.uplv; }   // finished building / upgrade
+  for (const b of st.b || []) if (b.done && b.done <= now) { if (b.uplv) b.lv = b.uplv; delete b.done; delete b.start; delete b.uplv; delete b.by; }   // finished building / upgrade
   if ((st.v || 1) < 5) {   // v5: the islets are gone; anything built there goes to storage, farm tiles there are dropped
     const w5 = gen(seed);
     for (const b of [...(st.b || [])]) {
@@ -394,8 +406,10 @@ export const walkMs = (fromK, toK, home) => { const fx = fromK != null ? fromK %
 export const workMs = (st, w, type, k) => (type === 'clear' ? WORK_MS[coverAt(st, w, k)] : WORK_MS[type]) || 2000;
 function queueWork(st, a, w, tiles, { now, minds }) {
   if (a.type === 'plant' && !CROPS[a.crop]) return { error: 'unknown seed' };
+  const lanes = Math.max(0, workLanes(minds) - (st.b || []).filter(b => b.done && b.done > now).length);   // building Minds do no island work
+  if (!lanes) return { error: 'All your Minds are busy building. Island work waits until one is free.' };
   st.q ||= [];
-  const free = Array.from({ length: workLanes(minds) }, (_, i) => Math.max(now, st.ql?.[i] || 0)), have = new Set(st.q.map(j => j.k));
+  const free = Array.from({ length: lanes }, (_, i) => Math.max(now, st.ql?.[i] || 0)), have = new Set(st.q.map(j => j.k));
   let done = 0;
   for (const k of tiles) {
     if (!okTile(w, k) || have.has(k) || st.q.length >= QUEUE_MAX) continue;
@@ -508,10 +522,10 @@ export function act(st, a, { seed, now, minds = 0, instant = false, queue = fals
         const cost = priceOf(d.cost, a.gems);
         if (!canAfford(st, cost)) return done ? { gain, done } : { error: `A ${d.name} costs ${costText(cost)}.` };
         const secs = instant ? 0 : Math.round((BUILD_SECS[a.item] || 0) * boostOf(st, now));
-        if (secs && busy(st) >= builders(minds)) return done ? { gain, done } : { error: `All your builders are busy (${builders(minds)}: one per Mind you own). Wait, or finish a build with 💎.` };
+        if (secs && busy(st) >= builders(minds)) return done ? { gain, done } : { error: `All your Minds are busy building (${builders(minds)}). Wait, or finish a build with 💎.` };
         for (const [i, n] of Object.entries(cost)) pay(i, -n);
         const b = { id: st.nb++, type: a.item, k };
-        if (secs) { b.done = now + secs * 1000; b.start = now; }
+        if (secs) { b.done = now + secs * 1000; b.start = now; b.by = freeBuilder(st, now); }
         st.b.push(b);
         for (const t of footprint(b)) st.tiles[t] = { s: 'b', t: now };
         done++;
@@ -662,9 +676,9 @@ export function act(st, a, { seed, now, minds = 0, instant = false, queue = fals
       if (block) return { error: block };
       const price = priceOf(upgradeCost(b), a.gems), secs = instant ? 0 : Math.round(upgradeSecs(b) * boostOf(st, now));
       if (!canAfford(st, price)) return { error: `Upgrading costs ${costText(price)}.` };
-      if (secs && busy(st) >= builders(minds)) return { error: `All your builders are busy (${builders(minds)}: one per Mind you own). Wait, or finish a build with 💎.` };
+      if (secs && busy(st) >= builders(minds)) return { error: `All your Minds are busy building (${builders(minds)}). Wait, or finish a build with 💎.` };
       for (const [k, m] of Object.entries(price)) pay(k, -m);
-      if (secs) { b.uplv = lvOf(b) + 1; b.done = now + secs * 1000; b.start = now; } else b.lv = lvOf(b) + 1;
+      if (secs) { b.uplv = lvOf(b) + 1; b.done = now + secs * 1000; b.start = now; b.by = freeBuilder(st, now); } else b.lv = lvOf(b) + 1;
       done = 1;
       break;
     }
@@ -690,7 +704,7 @@ export function act(st, a, { seed, now, minds = 0, instant = false, queue = fals
       if (!b?.done) return { error: 'That is already built.' };
       const cost = rushGems(b, now);
       if ((st.gems || 0) < cost) return { error: `Finishing now costs ${cost} 💎.` };
-      pay('gems', -cost); if (b.uplv) b.lv = b.uplv; delete b.done; delete b.start; delete b.uplv; done = 1;
+      pay('gems', -cost); if (b.uplv) b.lv = b.uplv; delete b.done; delete b.start; delete b.uplv; delete b.by; done = 1;
       break;
     }
     case 'ship': {   // upgrade your airship one tier (Dust + wood + stone, or Gems)

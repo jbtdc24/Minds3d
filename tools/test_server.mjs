@@ -1571,6 +1571,15 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
     ok(JSON.stringify(pm?.state?.p?.[0]?.minds) === '[0,0]' && JSON.stringify(pm.state.p[0].loaner) === '[0,0]', 'the match marks both Minds as Loaners');
     const { rarityOf } = await import('../lib/game.js');
     ok(rarityOf(0) === 'Common', 'a Loaner always counts as Common for rewards');
+    { // 🔨 a Mind that builds is busy
+      const S = isl(P).state; S.b.push({ id: 9991, type: 'tower', k: 7, done: Date.now() + 3600e3, start: Date.now(), by: 'L1' });
+      ok(R.builderOf(S).get('L1')?.id === 9991 && !R.builderOf(S).has('L2'), 'the build belongs to its Mind');
+      const bz = await hit(queue_join, P, { minds: ['L1'], bot: 'easy' });
+      ok(bz.code === 409 && /busy building/.test(bz.body.error), 'a building Mind cannot duel');
+      const fr = await hit(queue_join, P, { minds: ['L2'], bot: 'easy' }); T.matches.forEach(m => { m.status = 'done'; });
+      ok(fr.code === 200, 'a free Mind still can');
+      S.b = S.b.filter(b => b.id !== 9991);
+    }
     const { maxEntries } = await import('../lib/routes/cup.js');
     const islOut = await hit(await rt('island'), P, { acts: [] });
     ok(islOut.body.island?.minds === isl(P).minds + (await L.loanersOf(P.id)).length, 'island rules count Loaners like held Minds');

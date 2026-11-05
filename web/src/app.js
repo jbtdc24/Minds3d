@@ -28,7 +28,7 @@ import { initPlaza, resetPlaza } from './plaza.js';
 import { initAdmin, tryCode } from './admin.js';
 import { isle, loadIsland, doAct, flush as flushIsland, resetIsland, refreshIsland, now as islandNow } from './island/store.js';
 import { LOANER_PRICE } from './gems.js';
-import { CROPS, RAW, growMs, permitCost, MAX_PERMITS, ripe, campLevels, campCount, SHOP, RECIPES, troopMax, thLv, troopCount, costText, canAfford, BUILD, STASH_MAX, gemPrice, energyPrice, refillsToday, SHARDS_PER_ENERGY, REFILLS_PER_DAY, wellShards, troopLv, troopUpCost, troopLevels, MAX_TL, troopUpSecs, troopRush, COSMETICS, RANK_PASS, passActive, passLeft } from './island/rules.js';
+import { CROPS, RAW, growMs, permitCost, MAX_PERMITS, ripe, campLevels, campCount, SHOP, RECIPES, troopMax, thLv, troopCount, costText, canAfford, BUILD, STASH_MAX, gemPrice, energyPrice, refillsToday, SHARDS_PER_ENERGY, REFILLS_PER_DAY, wellShards, troopLv, troopUpCost, troopLevels, MAX_TL, troopUpSecs, troopRush, COSMETICS, RANK_PASS, passActive, passLeft, builderOf, busyText } from './island/rules.js';
 import { buildIcon } from './island/buildings.js';
 import { islandThumb } from './island/art.js';
 import { hashStr } from './island/gen.js';
@@ -214,6 +214,10 @@ const mindLabel = id => isLoan(id) ? `Loaner ${id}` : `Mind #${id}`;
 const idKey = v => /^L\d+$/.test(v) ? v : +v;
 const capFor = id => isLoan(id) ? loanOf(id)?.cap || 5 : capOf(rarityOf(id));
 const energyOf = id => isLoan(id) ? loanOf(id)?.left ?? 5 : energy[id] ?? capFor(id);
+// 🔨 Minds busy building on the island (they can't duel, raid or explore until it is done)
+const busyMap = () => { try { return isle.state ? builderOf(isle.state, islandNow()) : new Map(); } catch { return new Map(); } };
+const busyOf = id => busyMap().get(id) || null;
+const freeLead = () => { const m = busyMap(), c = [...picked(), ...myMinds, ...loaners.map(l => l.id)].find(id => !m.has(id)); return c === undefined ? null : c; };
 const heldCount = () => guest ? 0 : myMinds.length + loaners.length;   // 🪪 Minds that count for island / raid / adventure rules (NFTs + Loaners)
 const totalEnergy = () => [...myMinds, ...loaners.map(l => l.id)].reduce((s, id) => s + energyOf(id), 0);
 const resetText = () => { const m = Math.max(0, Math.round((energyResetAt - Date.now()) / 60000)); return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`; };
@@ -663,7 +667,7 @@ const RAID_TIPS = ['Drop troops away from towers, then push in.', 'Archers hit f
   'Hidden traps hide near the loot. Spread your troops out.', 'A Barn keeps 1,000 ✨ safe when others raid you.', 'Revenge raids are free and do not use up a raid.'];
 async function startRaid(revenge = 0) {
   sfx('click');
-  const lead = artOf(picked()[0]) ?? myMinds[0] ?? 49, holder = online && !guest && (myMinds.length || loaners.length);
+  const fl = freeLead(), lead = guest ? artOf(picked()[0]) ?? 49 : fl === null ? artOf(picked()[0]) ?? 49 : artOf(fl), holder = online && !guest && (myMinds.length || loaners.length);   // a free (not building) Mind leads
   if (!(await ensureIsland())) return;
   const cap = armyCap(heldCount(), campLevels(isle.state), thLv(isle.state));
   const troops = await pickArmy(cap, holder ? 'hero' : 'captain', lead);
@@ -768,7 +772,7 @@ async function upgradeShip() {
   flushIsland(); updateMap({ ship: isle.state.ship || t, fuel: isle.state.inv.fuel || 0 });
 }
 async function launchAdventure(pick) {
-  const lead = artOf(picked()[0]) ?? myMinds[0] ?? 49, holder = online && !guest && (myMinds.length || loaners.length);
+  const fl = freeLead(), lead = guest ? artOf(picked()[0]) ?? 49 : fl === null ? artOf(picked()[0]) ?? 49 : artOf(fl), holder = online && !guest && (myMinds.length || loaners.length);   // a free (not building) Mind leads
   let start = null;
   if (online) {
     try { await flushIsland(); start = await api('adventure', { op: 'start', mind: lead, spot: pick.area, potions: pick.potions }); resetIsland(); }
@@ -1074,7 +1078,7 @@ let prep = { mode: 'ranked', minds: [], level: 'normal' };
 function openPrep(mode) {
   prep.mode = mode;
   prep.pass = mode === 'ranked' && !guest && !myMinds.length && !loaners.length && !!rankPass;   // Rank Pass: the loaner Minds, the pass pays instead of energy
-  prep.minds = prep.pass ? [...rankPass.minds] : picked().filter(id => (mode !== 'ranked' || energyOf(id) > 0) && !aiPlaying(id)).slice(0, 3);   // never a Mind its AI is playing
+  prep.minds = prep.pass ? [...rankPass.minds] : picked().filter(id => !busyOf(id) && (mode !== 'ranked' || energyOf(id) > 0) && !aiPlaying(id)).slice(0, 3);   // never a Mind its AI is playing
   prep.level = settings.picks.level || 'normal';
   $('#prep-title').textContent = { ranked: 'Ranked Duel', classic: 'Classic Duel', practice: 'Practice vs bot' }[mode];
   $('#prep-go').textContent = mode === 'practice' ? 'Start practice' : 'Find match';
@@ -1093,7 +1097,8 @@ function renderPrepGrid() {
   }
   // ranked: Minds with energy first, empty ones last (they can't be picked until the refill)
   const list = ranked ? [...myMinds, ...loaners.map(l => l.id)].sort((a, b) => (energyOf(b) > 0) - (energyOf(a) > 0)) : playMinds();
-  $('#prep-minds').innerHTML = list.map(id => `<div class="mind ${ranked && !energyOf(id) ? 'tired' : ''} ${isLoan(id) ? 'loaner' : ''}" data-id="${id}"><img src="${thumb(artOf(id))}" alt="" loading="lazy"><span class="tag" style="background:${RAR_COLOR[rarOf(id)]}">${isLoan(id) ? 'LOANER' : '#' + id}</span>${ranked ? energyTag(id) : ''}<span class="order"></span></div>`).join('');
+  const bz = busyMap();
+  $('#prep-minds').innerHTML = list.map(id => `<div class="mind ${ranked && !energyOf(id) ? 'tired' : ''} ${bz.has(id) ? 'building' : ''} ${isLoan(id) ? 'loaner' : ''}" data-id="${id}"><img src="${thumb(artOf(id))}" alt="" loading="lazy"><span class="tag" style="background:${RAR_COLOR[rarOf(id)]}">${isLoan(id) ? 'LOANER' : '#' + id}</span>${ranked ? energyTag(id) : ''}<span class="order"></span></div>`).join('');
   paintPrep();
 }
 function paintPrep() {
@@ -1112,6 +1117,7 @@ $('#prep-minds').onclick = e => {
   const m = e.target.closest('[data-id]'); if (!m) return;
   const id = idKey(m.dataset.id), i = prep.minds.indexOf(id);
   if (prep.pass && i < 0 && !rankPass.minds.includes(id)) return;
+  if (i < 0 && busyOf(id)) { sfx('denied'); return toast(busyText(id, busyOf(id), islandNow()), true); }   // 🔨
   if (i < 0 && aiPlaying(id)) return aiBusy(id);
   if (i < 0 && m.classList.contains('tired')) return refillEnergy(id);
   if (i >= 0) prep.minds.splice(i, 1); else if (prep.minds.length < 3) prep.minds.push(id); else return toast('Max 3 Minds. Tap one to remove it first.');

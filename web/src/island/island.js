@@ -7,7 +7,7 @@ import { sfx } from '../audio.js';
 import { gen, COVER, T, TW, TH, WW, WH, hash } from './gen.js';
 import { drawSky, groundFor, sprites, sprouts, heart, SOIL, toolSprites } from './art.js';
 import { rng } from './pixel.js';
-import { CROPS, coverAt, ripe, growMs, regrowMs, maxPlots, plotCount, PLOT_COST, speedBonus, BUILD, buildingAt, fits, footprint, maxOf, countOf, canAfford, costText, homeOf, wellOf, STASH_MAX, rushGems, builders, busy, gemPrice, UPGRADABLE, MAX_LV, lvOf, upgradeCost, wellShards, SHARD_CAP, SHARD_MS, SHARDS_PER_ENERGY, BUILD_SECS, upgradeSecs, levelStats, upgradeBlock, thLv, burning, restoreCost, unlockTh, repairMs, BURN_CROPS_MS, workLanes } from './rules.js';
+import { builderOf, CROPS, coverAt, ripe, growMs, regrowMs, maxPlots, plotCount, PLOT_COST, speedBonus, BUILD, buildingAt, fits, footprint, maxOf, countOf, canAfford, costText, homeOf, wellOf, STASH_MAX, rushGems, builders, busy, gemPrice, UPGRADABLE, MAX_LV, lvOf, upgradeCost, wellShards, SHARD_CAP, SHARD_MS, SHARDS_PER_ENERGY, BUILD_SECS, upgradeSecs, levelStats, upgradeBlock, thLv, burning, restoreCost, unlockTh, repairMs, BURN_CROPS_MS, workLanes } from './rules.js';
 import { bsprites, drawSails, buildIcon, leveled } from './buildings.js';
 import { drawCinema, dropShadow } from './cinema.js';
 import { isle, doAct, now, onChange, flush, tickWork } from './store.js';
@@ -126,7 +126,7 @@ function enqueue(type, k, extra = {}) {
 function assignJobs() {
   const taken = new Set(minds.map(m => m.job?.k));
   for (const m of minds) {
-    if (m.job || m.hop > 0) continue;
+    if (m.job || m.hop > 0 || m.site) continue;   // 🔨 a Mind on a building site does nothing else
     // the job the rules work on next (queue order), so a Mind never waits at a tile whose turn has not come yet
     const q = queued().filter(x => !taken.has(x.k)).sort((a, b) => (a.w ? 1e15 + a.w : a.d || 0) - (b.w ? 1e15 + b.w : b.d || 0))[0];   // jobs already running first, then your taps in order
     const best = q ? { k: q.k, type: q.y, cov: q.v ?? coverAt(isle.state, w, q.k), wait: !!q.w, crop: q.c } : null;
@@ -227,9 +227,9 @@ function drawSite(b, nowMs) {
 }
 // builders: the first free Minds walk to each building site and hammer away
 function assignBuilders(nowMs) {
-  const sites = (isle.state.b || []).filter(b => b.done && b.done > nowMs);
+  const sites = (isle.state.b || []).filter(b => b.done && b.done > nowMs), who = builderOf(isle.state, nowMs), lo = isle.state.loaners?.[0]?.id;
   minds.forEach((m, i) => {
-    const s = sites[i];
+    const s = who.size ? who.get(m.id === 0 ? lo : m.id) : sites[i];   // the Mind the rules gave this build to (trial: in order)
     if (!s) { if (m.site) { m.site = null; m.state = 'idle'; m.timer = 0.3; } return; }
     if (m.job) return;
     const d = BUILD[s.type], tx = kx(s.k) * T - 4 + (i % 2) * (d.w * T + 8), ty = (ky(s.k) + d.h) * T + 2;

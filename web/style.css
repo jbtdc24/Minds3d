@@ -1284,3 +1284,5 @@ h3.raid-result { text-align: center; }
 .invite-card { display: block; width: 100%; aspect-ratio: 1200 / 630; margin: 8px 0; box-shadow: 0 0 0 3px var(--ink); background: #120d24; }
 /* 🧸 plaza toy: the hand shows over a Mind you can grab */
 body.plaza-hover, body.plaza-hover #s-hub { cursor: grab; } body.plaza-grab, body.plaza-grab * { cursor: grabbing !important; user-select: none; }
+.mind.building { filter: grayscale(.7); opacity: .65; }
+.mind.building::after { content: 'BUILDING'; position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%) rotate(-8deg); background: #c97a1f; color: #fff; font-size: 12px; font-weight: 900; padding: 2px 8px; letter-spacing: .08em; }
