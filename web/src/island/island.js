@@ -116,7 +116,8 @@ function enqueue(type, k, extra = {}) {
   if (!valid(type, k)) return;
   const st = isle.state, same = queued().filter(j => j.y === type).map(j => ({ type: j.y, crop: j.c }));
   let err = '';
-  if (type === 'till' && plotCount(st) + same.length >= maxPlots(st, isle.minds)) err = 'No free plots left. Buy a Land Permit in the Shop, or own more Minds.';
+  if (minds.length && minds.every(m => m.site)) err = 'All your Minds are busy building. Island work waits until one is free (or finish a build with 💎).';
+  else if (type === 'till' && plotCount(st) + same.length >= maxPlots(st, isle.minds)) err = 'No free plots left. Buy a Land Permit in the Shop, or own more Minds.';
   else if (type === 'till' && st.dust < PLOT_COST * (same.length + 1)) err = `You need ${PLOT_COST} ✨ Dust for each plot.`;
   else if (type === 'plant' && (st.inv['seed_' + extra.crop] || 0) <= same.filter(j => j.crop === extra.crop).length) err = `No ${CROPS[extra.crop].name} seeds left. Buy more in the Shop.`;
   if (err) { if (!strokeErr) { strokeErr = true; sfx('denied'); cb.toast(err, true); if (type === 'plant') openSeeds(true); } return; }
