@@ -14,11 +14,23 @@ NEXT:
 5. Optional: share routes accept GET only (HEAD 405); plaza toy feel at full speed (preview pane runs ~2 fps); sleeping Minds only wake when touched.
 Local preview: .claude/launch.json "mindclash-web" = node tools/video/serve.mjs web 5174 (no cache) → http://localhost:5174/play.html?debug (no /play rewrite locally).
 
-ROUND 26 (owner 2026-11-05, "Awaken an AI" broken) DONE, NOT COMMITTED/DEPLOYED yet:
+ROUND 26 (owner 2026-11-05, "Awaken an AI" broken) DONE, LIVE:
 - Bug: Awaken made the AI in the browser, then op 'link' checked it against mindsOf()'s 5-min cached list (stale) -> 403 "That AI is not on your Hello Minds account"; retries made MORE AIs (owner got 10x "Clash-Pass-8": checkMindName always said taken, so the name loop ended on -8) and later links failed "Each Mind needs its own new AI" (createdAt missing/old).
 - Fix: new server op 'awaken' {mind, token, pay?}: fresh list (mindsOf(token, true)); reuses a SPARE first (ids in ap.woke, or any unlinked AI named Clash-*) = owner's leftover AIs get used; else the server calls awakenMind itself (hmserver.awakenAi, name Clash-<Pass|slot>-<4 random>) and links it in the same request. ap.waking lock 90 s (no double AIs). 'link' also uses a fresh list now.
 - Pricing (owner): one free AI per Mind held (1 with no Minds), every next one AI_GEM_PRICE = 50 Gems (402 asks first, client shows a pay modal; 403 if too few Gems). Counter ap.made. Price is a guess: confirm with owner.
-- Tests: 8 new in test_server.mjs (632 pass). NOT checked live with real Hello Minds yet.
+- Pushed to main b5eca28. LIVE TEST (Julz account, Chrome): unlinked Clash-1848 from #1848, Awaken once = linked a spare, no 403, no new AI. It re-picked Clash-1848 (0 cognition), so spares are now sorted by cognition first (balance() of up to 12 Clash-* spares), pushed 09bab8a. Tests 633 pass.
+- Note: unlinking has no button in the UI (server op only); unlinking drops that Mind's job settings.
+- Retest after 09bab8a: Awaken OK again (no error, no new AI) but Julz's Hello Minds login has no other Clash-* spare with cognition, so #1848 kept Clash-1848 (0 cognition). The 10 Clash-Pass-8 AIs are on the owner's OTHER Hello Minds login (Rank Pass wallet). Owner needs to add cognition to Clash-1848 or test on that wallet.
+
+ROUND 27 NEXT (owner 2026-11-05) — BUY EXTRA AI SLOTS (not built yet):
+- Owner wants more AIs than Minds held. One extra AI slot = $10: pay 10 USDG, or 0.0045 ETH (same as the $10 "bag" Gem pack), or 120 Gems (the bag's Gems). Price in one place (e.g. AI_SLOT in web/src/gems.js).
+- An extra slot's AI plays a LOANER Mind (DEMO_MINDS 49, 14, 8 in lib/owned.js; owner picked this): so max 3 extra slots. Slot ids = the loaner ids; client slots() (web/src/autopilot.js:28) must list owned Minds (or '0') PLUS the bought loaner slots; slotName/slotPic for them ("Loaner Mind #49").
+- Store st.aiSlots (count). AI limit in autopilot.js 'awaken'/'link' = max(1, isl.minds) + aiSlots; free AIs (ap.made) = same number (the slot includes its first AI).
+- Payment: reuse lib/routes/gems.js claimPayment checks (treasury, sender wallet, chain, confirmations, unique tx) with a product key like 'aislot' / 'aislot:usd' that adds aiSlots +1 instead of Gems; lib/reconcile.js + admin recovery must understand the new key (they use packOf). Gems path: server op (autopilot 'slot_buy') takes 120 st.gems. Log with logBuy (real:true for money).
+- CHECK: jobs pass the slot as `lead`/`mind` to runOp (raid, adventure) and rankedTeam: make sure a loaner id is accepted there (no ownership check failure) or the loaner AI only gets island jobs; Ranked for loaner slots probably via the Rank Pass rules.
+- UI: in the AI dock a "+ Add AI slot ($10)" tab/button with ETH / USDG / 💎 choices (copy the Gem shop flow in web/src/app.js ~line 903).
+- Tests in tools/test_server.mjs (fake chain like the Gem pack tests), then owner does one real small purchase.
+
 ROUND 25 (owner 2026-11-05, QA feedback) DONE:
 - Trial island move REVERTED (owner: wallet may already have another account). Instead: loud red lobby note (#guest-note) + pulsing red bar on the island (#isl-trial, Connect wallet link) + 'Trial mode' modal on first island visit per page load: trial progress resets and never moves to a wallet.
 - Island: tapping a working Mind no longer stops it forever (tap kept m.job but set state idle; now only idle Minds stop).
