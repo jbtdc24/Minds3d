@@ -405,7 +405,7 @@ function queueWork(st, a, w, tiles, { now, minds }) {
     if (!ok) continue;
     let i = 0;
     for (let n = 1; n < free.length; n++) if (free[n] < free[i]) i = n;
-    const at = (st.qp ||= [])[i] ?? null, s = free[i] + walkMs(free[i] > now ? at : null, k, homeOf(st, w));   // a lane that sat idle starts from the house
+    const at = (st.qp ||= [])[i] ?? null, s = free[i] + (a.here ? 0 : walkMs(free[i] > now ? at : null, k, homeOf(st, w)));   // here = the Mind is already standing there   // a lane that sat idle starts from the house
     free[i] = s + workMs(st, w, a.type, k); st.qp[i] = k;
     const job = { y: a.type, k, s, d: free[i] };   // s = the Mind is there and starts, d = done
     if (a.type === 'plant') job.c = a.crop;

@@ -90,7 +90,8 @@ const compOf = (x, y) => { const k = tileAt(x, y); return k < 0 ? -1 : w.comp[k]
 const GO_SPEED = 90;   // matches WALK_TILE_MS in rules.js
 // the jobs are the island's saved work queue (st.q: { y: type, k, c?: crop, d: done at }): they take real time and keep
 // going while you are away; a Mind walks over and works on a tile until the queue says it is done
-const queued = () => isle.state?.q || [];
+let waiting = [], waitN = 0;   // tapped tiles a Mind is walking to (sent to the rules on arrival)
+const queued = () => [...(isle.state?.q || []), ...waiting];
 const inQueue = k => queued().some(j => j.k === k);
 function makeMind(id, i) {
   const r = rng(id * 2654435761);
@@ -119,8 +120,7 @@ function enqueue(type, k, extra = {}) {
   else if (type === 'till' && st.dust < PLOT_COST * (same.length + 1)) err = `You need ${PLOT_COST} ✨ Dust for each plot.`;
   else if (type === 'plant' && (st.inv['seed_' + extra.crop] || 0) <= same.filter(j => j.crop === extra.crop).length) err = `No ${CROPS[extra.crop].name} seeds left. Buy more in the Shop.`;
   if (err) { if (!strokeErr) { strokeErr = true; sfx('denied'); cb.toast(err, true); if (type === 'plant') openSeeds(true); } return; }
-  const res = doAct({ type, tiles: [k], ...extra });
-  if (res.error) { if (!strokeErr) { strokeErr = true; sfx('denied'); cb.toast(res.error, true); } return; }
+  waiting.push({ k, y: type, c: extra.crop, v: coverAt(st, w, k), w: ++waitN });   // the timer starts when a Mind gets there
   sfx('hover');
 }
 function assignJobs() {
@@ -128,8 +128,8 @@ function assignJobs() {
   for (const m of minds) {
     if (m.job || m.hop > 0) continue;
     // the job the rules work on next (queue order), so a Mind never waits at a tile whose turn has not come yet
-    const q = queued().filter(x => !taken.has(x.k)).sort((a, b) => (a.d || 0) - (b.d || 0))[0];   // soonest done first
-    const best = q ? { k: q.k, type: q.y, cov: q.v ?? coverAt(isle.state, w, q.k) } : null;
+    const q = queued().filter(x => !taken.has(x.k)).sort((a, b) => (a.w ? 1e15 + a.w : a.d || 0) - (b.w ? 1e15 + b.w : b.d || 0))[0];   // jobs already running first, then your taps in order
+    const best = q ? { k: q.k, type: q.y, cov: q.v ?? coverAt(isle.state, w, q.k), wait: !!q.w, crop: q.c } : null;
     if (!best) continue;
     taken.add(best.k); m.job = best; m.state = 'go';
     const cx = kx(best.k) * T + 8, side = m.x < cx ? -1 : 1;
@@ -159,6 +159,11 @@ function updateMind(m, dt, night) {
     if (d < 1.5) {
       const j = m.job;
       if (!j || !inQueue(j.k)) { m.job = null; m.state = 'idle'; m.timer = 0.1; return; }
+      if (j.wait) {   // arrived: now the job really starts (its timer and loading bar begin here)
+        waiting = waiting.filter(x => x.k !== j.k); j.wait = false;
+        const res = doAct({ type: j.type, tiles: [j.k], here: true, ...(j.crop ? { crop: j.crop } : {}) });
+        if (res.error || !res.done && !res.queued) { if (res.error) cb.toast(res.error, true); m.job = null; m.state = 'idle'; m.timer = 0.2; return; }
+      }
       m.state = 'work'; m.t = 0; m.dir = kx(j.k) * T + 8 > m.x ? 1 : -1;
     } else { const s = Math.min(d, GO_SPEED * dt); m.x += dx / d * s; m.y += dy / d * s; m.phase += dt * 16; if (Math.abs(dx) > 0.5) m.dir = dx > 0 ? 1 : -1; }
   } else if (m.state === 'work') {
@@ -933,6 +938,7 @@ export function openIsland({ minds: ids = [], toast, shop, bag, restore: onResto
   const r = rng(isle.seed ^ 0x5bd1e995);
   clouds.length = 0;
   for (let i = 0; i < 6; i++) clouds.push({ x: r() * WW, y: 40 + r() * (WH - 80), v: 3 + r() * 3, puffs: Array.from({ length: 4 }, () => [(r() - 0.5) * 50, (r() - 0.5) * 16, 14 + r() * 14]) });
+  waiting = [];
   minds = ids.slice(0, 12).map(makeMind);
   // only your own Minds (NFTs + Loaners) walk the island, up to 12; no straw-hat village helpers (owner 2026-11-05)
   fx = []; selected = null; hover = -1;

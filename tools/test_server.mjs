@@ -394,6 +394,7 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   R.settleWork(st, { seed, now: now + 1000, minds: 4 });
   ok(st.dust === dust0 && st.q.length === 6, 'nothing is done before its time');
   ok(st.q.every(j => j.s >= now && j.d - j.s === R.WORK_MS[COVER.WEEDS]), 'the work timer starts when the Mind arrives');
+  { const s2 = R.newIsland(seed, now), wk = [...w.cover.keys()].filter(k => w.cover[k] === COVER.WEEDS)[7]; R.act(s2, { type: 'clear', tiles: [wk], here: true }, ctx); ok(s2.q[0].s === now && s2.q[0].d === now + R.WORK_MS[COVER.WEEDS], 'a job sent when the Mind is there starts at once'); }
   ok(new Set(st.q.filter(j => j.s <= st.q.reduce((m, x) => Math.min(m, x.d), 1e15)).map(j => j.k)).size <= 4, 'four Minds work four weeds at a time');
   const t1 = st.q.reduce((m, x) => Math.min(m, x.d), 1e15), n1 = st.q.filter(j => j.d <= t1).length;
   R.settleWork(st, { seed, now: t1, minds: 4 });
