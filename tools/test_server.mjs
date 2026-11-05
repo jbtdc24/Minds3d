@@ -1914,6 +1914,10 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
   const good = payTx('1', P);
   ok((await hit(gems, P, { op: 'claim', tx: good, pack: 'pouch' })).body.ok && isl(P).state.paid?.[good]?.g === 50 && isl(P).state.gems === 50, 'a purchase leaves a ledger mark with the Gems');
   ok(!T.payment_intents.some(i => i.tx === good), 'a finished claim clears its record');
+  const junk = hx('9e9'); await hit(gems, P, { op: 'claim', tx: junk, pack: 'pouch' });
+  ok(!T.payment_intents.some(i => i.tx === junk), 'a made-up tx hash leaves no payment record');
+  const other = payTx('9e8', { address: '0x000000000000000000000000000000000000dEaD' }); chainTx[other].to = tre; await hit(gems, P, { op: 'claim', tx: other, pack: 'pouch' }).catch(() => {});
+  ok(!T.payment_intents.some(i => i.tx === other), 'another wallet tx leaves no payment record');
   let run = await runReconcile();
   ok(run.findings === 0 && run.checked === 1 && !run.partial, 'a clean payment raises nothing');
   // each kind of problem

@@ -59,7 +59,7 @@ test_server 651/651 · fuzz 13,600 calls, 0 crashes, money stayed valid · econo
 | Rate limit | 429 after 60 calls a minute |
 
 ## Problems found
-1. **LOW: junk payment records.** A claim with a random but valid-looking tx hash saves a "payment intent" row. The daily check deletes it later, but anyone can add junk rows (rate-limited to 30 a minute). `lib/routes/gems.js:49`. Fix idea: save the intent only after the chain read finds the tx.
+1. **FIXED (2026-11-05): junk payment records.** The intent is now saved only for a real tx from the player's own wallet (2 tests added). Was: A claim with a random but valid-looking tx hash saves a "payment intent" row. The daily check deletes it later, but anyone can add junk rows (rate-limited to 30 a minute). `lib/routes/gems.js:49`. Fix idea: save the intent only after the chain read finds the tx.
 2. **LOW (by design): Hello Minds sign-in is kept in the browser.** localStorage holds `minds_oauth_session` (the Hello Minds SDK) and the WalletLink session. This is normal for those libraries; the strict CSP limits the risk.
 3. **INFO: owner action.** Clash-L1-yf6l (Loaner 1 AI) has 0 cognition.
 
