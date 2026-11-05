@@ -187,14 +187,14 @@ export const passLeft = (st, now) => !passActive(st, now) ? 0 : Math.max(0, RANK
 // 🪪 Loaner Minds (Round 27): every wallet player gets one free Loaner; more can be bought (no limit). A Loaner plays like a
 // Common Mind (5 ranked games a day, unlimited refills), is fixed to the account, and its art is cycled from LOANER_ART.
 // st.loaners = [{ id: 'L1', art: 49, at, free?, day, used }]
-export const LOANER_ART = [49, 14, 8], LOANER_GAMES = 5;
+export const LOANER_ART = [0], LOANER_GAMES = 5, LOANER_MIND = 0;   // Round 27c: every Loaner is the same grey Loaner Mind (game id 0, Common)
 export const isLoanerId = v => typeof v === 'string' && /^L[1-9]\d{0,3}$/.test(v);
 export const loanerOf = (st, id) => (st.loaners || []).find(l => l.id === id) || null;
 export const loanerLeft = (st, id, now = Date.now()) => { const l = loanerOf(st, id); if (!l) return 0; return Math.max(0, LOANER_GAMES - (l.day === new Date(now).toISOString().slice(0, 10) ? l.used || 0 : 0)); };
 export function addLoaner(st, now = Date.now(), free = false) {
   st.loaners ||= [];
   const n = st.loaners.reduce((m, l) => Math.max(m, +l.id.slice(1) || 0), 0) + 1;
-  const l = { id: 'L' + n, art: LOANER_ART[(n - 1) % LOANER_ART.length], at: now, ...(free ? { free: true } : {}) };
+  const l = { id: 'L' + n, art: LOANER_MIND, at: now, ...(free ? { free: true } : {}) };
   st.loaners.push(l);
   return l;
 }

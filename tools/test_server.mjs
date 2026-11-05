@@ -1536,7 +1536,7 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
     ok(R.ensureLoaner(st0) && st0.loaners[0].id === 'L1' && st0.loaners[0].free && st0.ap.ai.L1?.name === 'Old' && !st0.ap.ai['0'] && st0.ap.away.slots[0] === 'L1', 'free Loaner L1 given once; an old Rank Pass AI moves onto it with its job');
     ok(!R.ensureLoaner(st0) && st0.loaners.length === 1, 'the free Loaner is given only once');
     R.addLoaner(st0); R.addLoaner(st0); R.addLoaner(st0);
-    ok(st0.loaners.map(l => l.id + ':' + l.art).join() === 'L1:49,L2:14,L3:8,L4:49', 'Loaners get their own ids and cycle the loaner art');
+    ok(st0.loaners.map(l => l.id + ':' + l.art).join() === 'L1:0,L2:0,L3:0,L4:0', 'Loaners get their own ids and all play as the grey Loaner Mind (0)');
     ok(G.packOf('loaner')?.pack.loaner && G.packOf('loaner:usd')?.usd && G.packOf('loaner').pack.gems === 0 && G.LOANER_PRICE.usd === 10 && G.LOANER_PRICE.eth === '0.0045' && G.LOANER_PRICE.gems === 120, 'Loaner price: 10 USDG / 0.0045 ETH / 120 Gems');
     const P = await mk('LoanOne');
     T.islands.find(x => x.player_id === P.id).state.loaners = undefined;
@@ -1546,11 +1546,11 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
     ok(out.code === 403, 'someone else\'s / unknown Loaner cannot be played');
     out = await hit(queue_join, P, { minds: ['L1'] });
     const qrow = T.queue.find(q => q.player_id === P.id);
-    ok(out.code === 200 && out.body.waiting && qrow?.minds[0] === 49 && qrow.loadout.includes('lo:L1'), 'a Loaner queues for ranked with its art id');
+    ok(out.code === 200 && out.body.waiting && qrow?.minds[0] === 0 && qrow.loadout.includes('lo:L1'), 'a Loaner queues for ranked as the Loaner Mind (0)');
     T.queue = T.queue.filter(q => q.player_id !== P.id);
-    for (let i = 0; i < 5; i++) { await botMatch(P, { minds: [49], real: [], loans: ['L1'] }, null, true); T.matches.forEach(m => { m.status = 'done'; }); }
+    for (let i = 0; i < 5; i++) { await botMatch(P, { minds: [0], real: [], loans: ['L1'] }, null, true); T.matches.forEach(m => { m.status = 'done'; }); }
     ok((await L.loanersOf(P.id))[0].left === 0, 'five ranked games a day on a Loaner');
-    let err = null; try { await botMatch(P, { minds: [49], real: [], loans: ['L1'] }, null, true); } catch (e) { err = e; }
+    let err = null; try { await botMatch(P, { minds: [0], real: [], loans: ['L1'] }, null, true); } catch (e) { err = e; }
     ok(err && /no ranked games left/.test(err.message), 'after five the Loaner is out for today');
     isl(P).state.dust = 10000;
     isl(P).state.dust = 12000;
@@ -1562,8 +1562,14 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
     out = await hit(gemsRt, P, { op: 'loaner_gems' });
     ok(out.code === 200 && out.body.loaner === 'L2' && isl(P).state.gems === 10 && (await L.loanersOf(P.id)).length === 2, 'buying a Loaner with 120 Gems adds L2');
     out = await hit(queue_join, P, { minds: ['L1', 'L2'], bot: 'easy' });
-    ok(out.code === 200 && out.body.match, 'two Loaners with different art can team up');
+    ok(out.code === 200 && out.body.match, 'two Loaners can team up (same picture is fine)');
+    const pm = T.matches.find(m => m.id === out.body.match);
+    ok(JSON.stringify(pm?.state?.p?.[0]?.minds) === '[0,0]' && JSON.stringify(pm.state.p[0].loaner) === '[0,0]', 'the match marks both Minds as Loaners');
+    const { rarityOf } = await import('../lib/game.js');
+    ok(rarityOf(0) === 'Common', 'a Loaner always counts as Common for rewards');
     T.matches.forEach(m => { m.status = 'done'; });
+    const { pickOfRow } = await import('../lib/matchmaking.js');
+    ok(JSON.stringify(pickOfRow({ minds: [49, 0], loadout: ['d', 'lo:L1', 'ra:0'] })) === JSON.stringify({ minds: [49, 0], loans: ['L1'], real: [49] }), 'an NFT + a Loaner in one queue row: only the NFT is checked on-chain');
   }
 
   {   // 🧠 Mind Autopilot: plans, Gem layers, and steps that play by the normal rules

@@ -28,7 +28,7 @@ const ACT_ICON = { build: ['🏗️', '🔨', '⬆️'], farm: ['🌱', '🧺', 
 // Round 27: every NFT held + every Loaner ('L1'…) has its own AI slot ('0' only for an old Rank Pass with no Loaner yet)
 const isLoan = s => /^L\d+$/.test(s);
 const slots = () => { const l = (K.loaners?.() || []).map(x => x.id), all = [...K.myMinds().map(String), ...l]; return all.length ? all : ['0']; };
-const slotArt = s => s === '0' ? 49 : isLoan(s) ? (K.loaners?.() || []).find(x => x.id === s)?.art || 49 : +s;
+const slotArt = s => s === '0' ? 49 : isLoan(s) ? 0 : +s;
 const slotName = s => (s === '0' ? 'Rank Pass Mind' : isLoan(s) ? `Loaner ${s}` : `Mind #${s}`);
 const slotPic = s => K.thumb(slotArt(s));
 const aiOf = s => ap?.ai?.[s] || null;
@@ -215,7 +215,7 @@ async function onClick(e) {
   if (t.id === 'md-bubble') return setMin(false);
   if (t.id === 'md-min') return setMin(true);
   if (t.id === 'md-big') { const b = !$('#mdock').classList.contains('big'); $('#mdock').classList.toggle('big', b); save(BIG_KEY, b); return center(); }
-  if (t.dataset.buyloaner) return K.buyLoaner();
+  if (t.dataset.buyloaner) return Promise.resolve(K.buyLoaner()).then(() => paint()).catch(() => {});
   if (t.dataset.slot) { sel = t.dataset.slot; K.sfx('select'); paint(); return loadChat(sel); }
   if (t.dataset.job) return mixing(sel) ? planToggle(t.dataset.job) : pickJob(t.dataset.job);
   const a = t.dataset.a;

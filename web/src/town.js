@@ -223,7 +223,7 @@ function frame(tMs) {
     if (d > v) { o.dir = to.x < o.x ? -1 : 1; o.x += (to.x - o.x) / d * v; o.y += (to.y - o.y) / d * v; } else { o.x = to.x; o.y = to.y; o.path?.shift(); }
     const cos = wears.get(o.id);
     if (d > v && cos?.trail) dropTrail(o.x, o.y, cos.trail, dt);
-    draw.push({ y: o.y, mind: { id: o.mind || 49, x: o.x, y: o.y, dir: o.dir || 1, walking: d > v, cos } });
+    draw.push({ y: o.y, mind: { id: o.mind ?? 49, x: o.x, y: o.y, dir: o.dir || 1, walking: d > v, cos } });
   }
   const mine = K.myCos?.() || null;
   if (meP.path?.length && mine?.trail) dropTrail(meP.x, meP.y, mine.trail, dt);
@@ -240,8 +240,8 @@ function frame(tMs) {
   drawCinema(g, W, H, t, dt, { motes: 'pollen' });   // warm light, sun rays, drifting pollen, vignette (like the island)
   for (const b of SPOTS) if (b.name) label(b.name, b.px, b.py - b.spr.h + (b.flat ? 2 : -3), b.go ? '#d4ff1f' : '#fff8e4', undefined, 12);
   const titleLine = c => titleOf(c) ? `« ${titleOf(c)} »` : '';   // a bought title sits above the name tag
-  for (const o of people.values()) { const c = wears.get(o.id); label(o.name, o.x, o.y - 26, nameInk(c, t), undefined, 13, FRAME_INK[c?.frame]); if (titleLine(c)) label(titleLine(c), o.x, o.y - 42, '#ffd84a', 'rgba(29,27,47,.7)', 10); }
-  label('You', meP.x, meP.y - 26, '#d4ff1f', undefined, 13, FRAME_INK[mine?.frame]); if (titleLine(mine)) label(titleLine(mine), meP.x, meP.y - 42, '#ffd84a', 'rgba(29,27,47,.7)', 10);
+  for (const o of people.values()) { const c = wears.get(o.id); label(o.mind === 0 ? `${o.name} · LOANER` : o.name, o.x, o.y - 26, nameInk(c, t), undefined, 13, FRAME_INK[c?.frame]); if (titleLine(c)) label(titleLine(c), o.x, o.y - 42, '#ffd84a', 'rgba(29,27,47,.7)', 10); }
+  label(meP.mind === 0 ? 'You · LOANER' : 'You', meP.x, meP.y - 26, '#d4ff1f', undefined, 13, FRAME_INK[mine?.frame]); if (titleLine(mine)) label(titleLine(mine), meP.x, meP.y - 42, '#ffd84a', 'rgba(29,27,47,.7)', 10);
   // 📣 Megaphone messages stay over a player's head for an hour
   const now = Date.now();
   for (const o of people.values()) { const m = wears.get(o.id)?.mega; if (m && m.until > now) label(`📣 ${m.text}`, o.x, o.y - (titleLine(wears.get(o.id)) ? 62 : 52), '#2b2340', '#ffd84a', 13, '#8a5a00'); }
@@ -406,7 +406,7 @@ export function initTown(ctx) {
 export function openTown() {
   if (!map) { map = buildMap(); frames = [paintGround(0), paintGround(1)]; buildLoop(); }
   meP ||= { x: 50 * T, y: 38 * T, mind: 49, dir: 1, path: [] };
-  meP.mind = K.minds()[0] || 49; meP.path = []; meP.arrive = null; free = false; chatAfter = 0; pendingLines = []; $('#town-feed').innerHTML = ''; people.clear();
+  meP.mind = K.minds()[0] ?? 49; meP.path = []; meP.arrive = null; free = false; chatAfter = 0; pendingLines = []; $('#town-feed').innerHTML = ''; people.clear();
   CAM.x = meP.x; CAM.y = meP.y; zoom = 1.3;
   resize(); music('town'); joinRoom(); beat();
   clearInterval(beatTimer); beatTimer = setInterval(beat, 10000);

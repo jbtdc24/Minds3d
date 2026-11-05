@@ -48,7 +48,7 @@ addEventListener('error', e => { if (e.message && !/ResizeObserver|Script error/
 addEventListener('unhandledrejection', e => sendError(e.reason?.message || e.reason, e.reason?.stack));
 addEventListener('unhandledrejection', e => { const m = e.reason?.message || String(e.reason || ''); if (m && !/abort|cancel/i.test(m)) oops(e.reason); });
 addEventListener('error', e => { if (e.message && !/ResizeObserver|Script error/.test(e.message)) oops(`${e.message} @ ${e.filename}:${e.lineno}`); });
-const thumb = id => `data/thumbs/${id || 1}.webp?v=${DATA_VERSION}`;
+const thumb = id => `data/thumbs/${id === 0 || id === '0' ? 0 : id || 1}.webp?v=${DATA_VERSION}`;   // 0 = the grey Loaner Mind
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const RAR_COLOR = { Legendary: '#d68a00', Epic: '#9b6bff', Rare: '#2f8fd0', Uncommon: '#3a9a00', Common: '#6d6987' };
 const CARD_COLOR = { 1: '#7fd6ff', 2: '#5ee08a', 3: '#c3f03a', 4: '#ffe14a', 5: '#ffb03d', 6: '#ff7a5c', 7: '#ff5fc8' };
@@ -204,7 +204,7 @@ async function refreshMe() {
 // 🪪 Loaner Minds: ids 'L1', 'L2'… play with their art (49/14/8) and always count as Common
 const isLoan = id => typeof id === 'string' && id[0] === 'L';
 const loanOf = id => loaners.find(l => l.id === id);
-const artOf = id => isLoan(id) ? loanOf(id)?.art || 49 : id;
+const artOf = id => isLoan(id) ? 0 : id;   // every Loaner is the grey Loaner Mind (0)
 const rarOf = id => isLoan(id) ? 'Common' : rarityOf(id);
 const mindLabel = id => isLoan(id) ? `Loaner ${id}` : `Mind #${id}`;
 const idKey = v => /^L\d+$/.test(v) ? v : +v;
@@ -1027,7 +1027,7 @@ async function loadBoard() {
   if (!online) { top.innerHTML = podium([], boardBy); list.innerHTML = '<li class="board-empty">Live rankings show here when you play online.</li>'; mine.innerHTML = ''; return; }
   try {
     const r = await api(`leaderboard?by=${boardBy}`);
-    const row = (p, i) => `<li class="brow ${p.id === me?.id ? 'mine-row' : ''}" data-pid="${p.id}"><span class="rk">${i + 1}</span><img class="${frameCls(p.cos)}" src="${thumb(p.pfp)}" alt=""><span class="nm ${nameCls(p.cos)}">${esc(p.name)}${titleTag(p.cos)}</span><span class="vl">${valIcon(boardBy)}${boardBy === 'points' ? p.points : p.rating}</span></li>`;
+    const row = (p, i) => `<li class="brow ${p.id === me?.id ? 'mine-row' : ''}" data-pid="${p.id}"><span class="rk">${i + 1}</span><img class="${frameCls(p.cos)}" src="${thumb(p.pfp)}" alt=""><span class="nm ${nameCls(p.cos)}">${esc(p.name)}${p.pfp === 0 ? '<span class="loaner-badge">LOANER</span>' : ''}${titleTag(p.cos)}</span><span class="vl">${valIcon(boardBy)}${boardBy === 'points' ? p.points : p.rating}</span></li>`;
     top.innerHTML = podium(r.players, boardBy);
     $('#board-tab-pfps').innerHTML = r.players.slice(0, 3).map(p => `<img src="${thumb(p.pfp)}" alt="">`).join('');
     list.innerHTML = r.players.length > 3 ? r.players.slice(3, 12).map((p, i) => row(p, i + 3)).join('')
@@ -1088,7 +1088,6 @@ function paintPrep() {
 $('#prep-minds').onclick = e => {
   const m = e.target.closest('[data-id]'); if (!m) return;
   const id = idKey(m.dataset.id), i = prep.minds.indexOf(id);
-  if (i < 0 && prep.minds.some(x => artOf(x) === artOf(id))) return toast('Two Minds with the same picture cannot play in one team.', true);
   if (prep.pass && i < 0 && !rankPass.minds.includes(id)) return;
   if (i < 0 && aiPlaying(id)) return aiBusy(id);
   if (i < 0 && m.classList.contains('tired')) return refillEnergy(id);
@@ -1576,6 +1575,7 @@ async function finish(v) {
   if (!D || D.finished) return;
   D.finished = true;
   clearInterval(D.poll); clearInterval(D.clock); D.unwatch?.();
+  if (v.ranked && online && !guest) refreshEnergy();   // 🪪 Loaner games left + energy are fresh on the next screen
   $('#reveal').classList.remove('on');
   const seat = v.seat, won = v.winner === seat, draw = v.winner === null;
   const winF = draw ? null : D.F[won ? 0 : 1], loseF = draw ? null : D.F[won ? 1 : 0];
@@ -1718,7 +1718,7 @@ async function openProfile(pid) {
   } catch (e) { toast(e.message, true); }
 }
 // profile pictures: real Minds + the Loaner art (numbers only)
-const pfMinds = () => guest ? playMinds() : [...new Set([...myMinds, ...loaners.map(l => l.art)])].length ? [...new Set([...myMinds, ...loaners.map(l => l.art)])] : LOANERS;
+const pfMinds = () => guest ? playMinds() : [...myMinds, 0];   // real Minds + the grey Loaner Mind (0)
 function paintProfileEdit() {
   $('#pf-pfps').innerHTML = pfMinds().map(id => `<div class="mind ${id === pfPick ? 'on' : ''}" data-id="${id}"><img src="${thumb(id)}" alt="" loading="lazy"><span class="tag">#${id}</span></div>`).join('');
   $('#pf-shows').innerHTML = pfMinds().map(id => { const i = pfShow.indexOf(id); return `<div class="mind ${i >= 0 ? 'on' : ''}" data-id="${id}"><img src="${thumb(id)}" alt="" loading="lazy"><span class="tag">#${id}</span><span class="order">${i + 1}</span></div>`; }).join('');
@@ -1746,7 +1746,7 @@ initAutopilot({ api, esc, toast, modal, sfx, babble, online: () => online, guest
   myMinds: () => myMinds, loaners: () => loaners, buyLoaner: () => buyLoaner(), energyOf: id => energyOf(id), rankPass: () => rankPass, thumb, island: () => isle.state, home: () => { if (current !== 'hub') enterHub(); },
   refresh: () => { if (watching?.kind === 'island' && current === 'island') refreshIsland().catch(() => {}); else resetIsland(); if (Date.now() - apRefresh > 20e3) { apRefresh = Date.now(); refreshMe().then(() => { if (current === 'hub') paintHub(); }).catch(() => {}); } } });
 initTrade({ api, esc, toast, modal, sfx, island: () => isle.state, inTown: () => current === 'town' && online && !guest, inDuel: () => current === 'duel', openMatch: id => openMatch(id), refresh: () => { resetIsland(); ensureIsland(); } });
-initTown({ minds: () => (guest ? [] : myMinds), myCos, api, esc, toast, online: () => online, go: townGo, card: playerCard, mega: megaphone, me: () => me?.id, name: () => me?.name || 'You', canChat: () => online && !guest, chat });
+initTown({ minds: () => (guest ? [] : [...myMinds, ...(loaners.length ? [0] : [])]), myCos, api, esc, toast, online: () => online, go: townGo, card: playerCard, mega: megaphone, me: () => me?.id, name: () => me?.name || 'You', canChat: () => online && !guest, chat });
 
 // ---------- friends + friend chat (preset lines) ----------
 let frTick = 0, friendsList = [], chatWith = null, frUnwatch = null, frTimer = null;
@@ -1843,11 +1843,12 @@ async function playerCard(o) {
   try { p = (await api(`player?id=${o.pid}`)).player; } catch (e) { return toast(e.message, true); }
   if (!guest) { if (!friendsList.length) await loadFriends(); f = friendsList.find(x => x.player.id === p.id); }
   const W = p.wins + (p.botWins || 0), L = p.losses + (p.botLosses || 0), cos = p.cos || o.cos;
+  const loanTag = p.pfp === 0 || o.mind === 0 ? '<span class="loaner-badge">LOANER</span>' : '';   // 🪪
   const status = f?.status === 'accepted' ? '✔ Friends' : f?.incoming ? 'Wants to be your friend' : f?.status === 'pending' ? 'Friend request sent' : '';
   const btns = guest ? [['Profile', 'profile'], ['Close', 0, 'primary']]
     : [...(current === 'town' ? [['⚔️ Duel', 'duel', 'primary'], ['🤝 Trade', 'trade']] : []), ...(f?.status === 'accepted' ? [] : [[f?.incoming ? 'Accept friend' : '➕ Add friend', 'add', current === 'town' ? '' : 'primary']]), ['💬 Message', 'chat', f?.status === 'accepted' && current !== 'town' ? 'primary' : ''],
       ...(f?.status === 'accepted' ? [['🎁 Gift', 'gift']] : []), ['Profile', 'profile'], ['🚩 Report', 'report'], ['⛔ Block', 'block'], ['Close', 0]];
-  const go = await modal(`<div class="pcard"><img class="${frameCls(cos)}" src="${thumb(p.pfp)}" alt=""><div><h3 class="${nameCls(cos)}">${esc(p.name)}</h3>${titleTag(cos)}<p class="muted">${p.online ? '🟢 online' : 'offline'}${status ? ' · ' + status : ''}${xTag(p)}</p></div></div>
+  const go = await modal(`<div class="pcard"><img class="${frameCls(cos)}" src="${thumb(p.pfp)}" alt=""><div><h3 class="${nameCls(cos)}">${esc(p.name)}${loanTag}</h3>${titleTag(cos)}<p class="muted">${p.online ? '🟢 online' : 'offline'}${status ? ' · ' + status : ''}${xTag(p)}</p></div></div>
     <div class="army-facts"><span>${valIcon('rating')} Rating <b>${p.rating}</b></span><span>${valIcon('points')} Points <b>${p.points}</b></span><span>🏆 Wins <b>${W}</b></span><span>📈 Win rate <b>${W + L ? Math.round(W / (W + L) * 100) + '%' : '—'}</b></span><span>🔥 Best streak <b>${p.bestStreak || 0}</b></span></div>`, btns);
   if (go === 'trade') { if (await ensureIsland()) openTrade(p.id); }
   else if (go === 'duel') { if (await ensureIsland()) openTrade(p.id, 'duel'); }
@@ -1908,7 +1909,7 @@ $('#fr-phrases').onclick = async e => {
 async function friendsPoll() {
   if (!online || guest || !me) { renderFriends(); return; }
   loadFriends(); loadMail(); chat.ready().catch(() => {});
-  if (settings.payTx) api('gems', { op: 'claim', ...settings.payTx }).then(r => { if (r.ok) { settings.payTx = null; saveSettings(); resetIsland(); toast(`+${r.added} 💎 from your last payment.`); } }).catch(e => { if (e.status !== 503) { settings.payTx = null; saveSettings(); } });
+  if (settings.payTx) api('gems', { op: 'claim', ...settings.payTx }).then(r => { if (r.ok) { settings.payTx = null; saveSettings(); resetIsland(); if (r.loaner) { toast('🪪 Your new Loaner Mind from your last payment is here!'); refreshMe().catch(() => {}); } else toast(`+${r.added} 💎 from your last payment.`); } }).catch(e => { if (e.status !== 503) { settings.payTx = null; saveSettings(); } });
   const myTopic = `player:${me.id}`;
   if (!frUnwatch) frUnwatch = await watch(myTopic, async p => {
     if (p.cert) {   // a signed line: it shows only if it is genuinely from the friend whose chat is open

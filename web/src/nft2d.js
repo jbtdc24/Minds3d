@@ -33,6 +33,7 @@ export async function loadData() {
   }
   layers.hex = layers.palette.map(c => '#' + c.toString(16).padStart(6, '0'));
   layers.dark = layers.palette.map(c => ((c >> 16) & 255) + ((c >> 8) & 255) + (c & 255) < 60);
+  if (tokens[49]) tokens[0] = { ...tokens[49], Rarity: 'Common', Loaner: true };   // 🪪 the one Loaner Mind every Loaner uses (drawn grey)
   DATA = { ...layers, tokens };
   return DATA;
 }
@@ -75,6 +76,8 @@ function compose(traits) {
 }
 
 // one canvas per part (+ a white copy for hit flashes); pivot = the joint it rotates around (cell units)
+let greyRig = false;   // set while building the Loaner's rig: every colour turns a pale grey-lavender
+const greyOf = hex => { const n = parseInt(hex.slice(1), 16), l = (((n >> 16) & 255) * 0.3 + ((n >> 8) & 255) * 0.59 + (n & 255) * 0.11) / 255; const c = (a, b) => Math.round(a + (b - a) * l); return `rgb(${c(42, 217)},${c(37, 210)},${c(64, 242)})`; };
 function sprite(cells, pivot) {
   let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
   for (const c of cells) { x0 = Math.min(x0, c.x); y0 = Math.min(y0, c.y); x1 = Math.max(x1, c.x); y1 = Math.max(y1, c.y); }
@@ -83,7 +86,7 @@ function sprite(cells, pivot) {
   cv.width = wc.width = W; cv.height = wc.height = H;
   const g = cv.getContext('2d'), w = wc.getContext('2d');
   w.fillStyle = '#ffffff';
-  for (const c of cells) { g.fillStyle = DATA.hex[c.front]; g.fillRect(c.x - x0, c.y - y0, 1, 1); w.fillRect(c.x - x0, c.y - y0, 1, 1); }
+  for (const c of cells) { g.fillStyle = greyRig ? greyOf(DATA.hex[c.front]) : DATA.hex[c.front]; g.fillRect(c.x - x0, c.y - y0, 1, 1); w.fillRect(c.x - x0, c.y - y0, 1, 1); }
   return { cv, white: wc, ox: x0 - pivot.x, oy: y0 - pivot.y, w: W, h: H, pivot };
 }
 
@@ -126,7 +129,9 @@ export function buildRig(id) {
     pivots.emote = { x: e.reduce((s, c) => s + c.x, 0) / e.length, y: e.reduce((s, c) => s + c.y, 0) / e.length };
   }
   const parts = {};
+  greyRig = !!traits.Loaner;
   for (const [name, cells] of Object.entries(groups)) parts[name] = sprite(cells, pivots[name]);
+  greyRig = false;
   let top = 1e9;
   for (const c of Object.values(groups).flat()) top = Math.min(top, c.y);
   const rig = { id, traits, parts, pivots, height: (GROUND - top) * VOX, legend: traits.Legendary && LEGEND_FX[traits.Legendary] };
@@ -137,4 +142,4 @@ export function buildRig(id) {
 export function tokenColor(id) { return DATA.backgrounds?.[DATA.tokens[id]?.Background] || '#2a2f4a'; }
 export function rarityOf(id) { return DATA.tokens[id]?.Rarity || 'Common'; }
 export function traitsOf(id) { return DATA.tokens[id]; }
-export function tokenIds() { return Object.keys(DATA.tokens).map(Number); }
+export function tokenIds() { return Object.keys(DATA.tokens).map(Number).filter(n => n > 0); }   // never the Loaner (0)
