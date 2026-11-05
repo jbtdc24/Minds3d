@@ -606,7 +606,7 @@ async function goIsland() {
     trialWarned = true;
     modal(`<h3>⚠️ Trial mode</h3><p><b>Nothing you do here is saved for good.</b> This trial island, its Dust and items will reset, and they do <b>not</b> move to a wallet account.</p><p>Connect a wallet to start an island that keeps your progress.</p>`, [['Got it', 1, 'primary']]);
   }
-  openIsland({ minds: myMinds, toast: (m, bad) => toast(m, bad), shop: tab => openShop(tab), bag: () => { invTab = 'items'; openInventory(); }, mind: id => openDock(id), restore: openRestoreModal });   // a Mind on the island: its Hello Minds AI
+  openIsland({ minds: guest ? myMinds : [...myMinds, ...(loaners.length ? [0] : [])], toast: (m, bad) => toast(m, bad), shop: tab => openShop(tab), bag: () => { invTab = 'items'; openInventory(); }, mind: id => openDock(id), restore: openRestoreModal });   // a Mind on the island: its Hello Minds AI
   const worked = (isle.state?.jobLog || []).filter(e => e.at > (settings.jobSeen || 0)).slice(0, 6);
   if (worked.length) { settings.jobSeen = worked[0].at; saveSettings(); }
   // raided while you were away?
@@ -662,7 +662,7 @@ const RAID_TIPS = ['Drop troops away from towers, then push in.', 'Archers hit f
   'Hidden traps hide near the loot. Spread your troops out.', 'A Barn keeps 1,000 ✨ safe when others raid you.', 'Revenge raids are free and do not use up a raid.'];
 async function startRaid(revenge = 0) {
   sfx('click');
-  const lead = (artOf(picked()[0]) ?? myMinds[0]) || 49, holder = online && !guest && myMinds.length;
+  const lead = artOf(picked()[0]) ?? myMinds[0] ?? 49, holder = online && !guest && myMinds.length;
   if (!(await ensureIsland())) return;
   const cap = armyCap(guest ? 0 : myMinds.length, campLevels(isle.state), thLv(isle.state));
   const troops = await pickArmy(cap, holder ? 'hero' : 'captain', lead);
@@ -767,7 +767,7 @@ async function upgradeShip() {
   flushIsland(); updateMap({ ship: isle.state.ship || t, fuel: isle.state.inv.fuel || 0 });
 }
 async function launchAdventure(pick) {
-  const lead = (artOf(picked()[0]) ?? myMinds[0]) || 49, holder = online && !guest && myMinds.length;
+  const lead = artOf(picked()[0]) ?? myMinds[0] ?? 49, holder = online && !guest && myMinds.length;
   let start = null;
   if (online) {
     try { await flushIsland(); start = await api('adventure', { op: 'start', mind: lead, spot: pick.area, potions: pick.potions }); resetIsland(); }
