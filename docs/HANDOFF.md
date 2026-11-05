@@ -2,16 +2,18 @@
 # HANDOFF — read this first (next AI session: continue from the top of "NEXT TASKS")
 
 ## >>> START AT "NEXT" BELOW <<<
-STATUS 2026-11-04 (end of ROUND 24) — all shipped on main, 624 tests pass, mutation check clean:
+STATUS 2026-11-05 (end of ROUND 26) — all shipped on main, 633 tests pass:
 - LIVE: https://www.mindsclash.games (homepage) · game https://www.mindsclash.games/play · invite links https://www.mindsclash.games/i/<code> · old https://minds3d.vercel.app still works (cron uses it).
-- Open sign-up (no invite codes) · referral links + personal X cards (owner confirmed on X) · admin Referrals / Same connection / Admins tabs · Connect X (keys set, 014 SQL run) · Supabase pg_cron away timer (confirmed) · plaza toy v2.
-- Owner already did: domain + DNS (Namecheap → Vercel), Hello Minds redirect URIs (www, apex, minds3d, localhost:5173), 012 + 013 + 014 SQL, X app (MINDS CLASH, keys in Vercel).
+- Round 26 live + tested in owner Chrome: Awaken an AI fixed (server makes/reuses the AI, no extra AIs, spares with most cognition first); out-of-cognition bar ✕ visible.
+- Local branch is `island`; main = island (push both: git push origin island && git push origin island:main).
 NEXT:
-1. Owner: try Connect X end to end once (014 is run now) and report the message.
-2. Ranked AI job live test (needs energy: resets 00:00 UTC; owner Chrome with Claude in Chrome).
-3. Owner: Vercel Pro (Hobby = no commercial use; Gem sales), lawyer sign-off then remove the "Draft" banner on terms/privacy (test checks /Draft/ in tools/test_server.mjs: update it then), backup restore test, 2-player tests (duel, Pot duel, trade, gift), Safari/iPhone/Android.
-4. docs/MINDS_CLASH_terms.pdf + privacy.pdf are untracked: ask owner if they are the lawyer's final text.
-5. Optional: share routes accept GET only (HEAD 405); plaza toy feel at full speed (preview pane runs ~2 fps); sleeping Minds only wake when touched.
+1. BUILD ROUND 27: Loaner Minds + AI slots, Rank Pass removed. Spec: docs/LOANER_PLAN.md (owner approved; only open point: Uncommon-Legendary games a day, suggested 6/7/8/10).
+2. Owner: Clash-1848 (Mind #1848, Julz) has 0 cognition: add cognition on Hello Minds. The 10 spare Clash-Pass-8 AIs are on the owner's other Hello Minds login.
+3. Owner: try Connect X end to end once and report the message.
+4. Ranked AI job live test (needs energy: resets 00:00 UTC; owner Chrome with Claude in Chrome).
+5. Owner: Vercel Pro (Hobby = no commercial use; Gem sales), lawyer sign-off then remove the "Draft" banner on terms/privacy (test checks /Draft/ in tools/test_server.mjs), backup restore test, 2-player tests (duel, Pot duel, trade, gift), Safari/iPhone/Android, one small real USDG + ETH purchase.
+6. docs/MINDS_CLASH_terms.pdf + privacy.pdf are untracked: ask owner if they are the lawyer's final text.
+7. Optional: share routes accept GET only (HEAD 405); sleeping Minds only wake when touched; unlink has no UI button (server op only).
 Local preview: .claude/launch.json "mindclash-web" = node tools/video/serve.mjs web 5174 (no cache) → http://localhost:5174/play.html?debug (no /play rewrite locally).
 
 ROUND 26 (owner 2026-11-05, "Awaken an AI" broken) DONE, LIVE:
