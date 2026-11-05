@@ -22,17 +22,8 @@ ROUND 26 (owner 2026-11-05, "Awaken an AI" broken) DONE, LIVE:
 - Note: unlinking has no button in the UI (server op only); unlinking drops that Mind's job settings.
 - Retest after 09bab8a: Awaken OK again (no error, no new AI) but Julz's Hello Minds login has no other Clash-* spare with cognition, so #1848 kept Clash-1848 (0 cognition). The 10 Clash-Pass-8 AIs are on the owner's OTHER Hello Minds login (Rank Pass wallet). Owner needs to add cognition to Clash-1848 or test on that wallet.
 
-ROUND 27 NEXT (owner 2026-11-05) — BUY EXTRA AI SLOTS (not built yet):
-- RULES (owner, corrected 2026-11-05): ANYONE can buy more slots (holders and non-holders). Free slots: no Minds (Rank Pass / loaner) = 1 free; Mind holders = 1 free per Mind held. Every slot beyond the free ones is paid ($10 each, below).
-- OPEN (ask owner): what a paid extra slot plays: a loaner Mind (49/14/8, max 3 extra) or another job/Mind? Spec below assumes loaner Minds.
-- Owner wants more AIs than Minds held. One extra AI slot = $10: pay 10 USDG, or 0.0045 ETH (same as the $10 "bag" Gem pack), or 120 Gems (the bag's Gems). Price in one place (e.g. AI_SLOT in web/src/gems.js).
-- An extra slot's AI plays a LOANER Mind (DEMO_MINDS 49, 14, 8 in lib/owned.js; owner picked this): so max 3 extra slots. Slot ids = the loaner ids; client slots() (web/src/autopilot.js:28) must list owned Minds (or '0') PLUS the bought loaner slots; slotName/slotPic for them ("Loaner Mind #49").
-- Store st.aiSlots (count). AI limit in autopilot.js 'awaken'/'link' = max(1, isl.minds) + aiSlots; free AIs (ap.made) = same number (the slot includes its first AI).
-- Payment: reuse lib/routes/gems.js claimPayment checks (treasury, sender wallet, chain, confirmations, unique tx) with a product key like 'aislot' / 'aislot:usd' that adds aiSlots +1 instead of Gems; lib/reconcile.js + admin recovery must understand the new key (they use packOf). Gems path: server op (autopilot 'slot_buy') takes 120 st.gems. Log with logBuy (real:true for money).
-- CHECK: jobs pass the slot as `lead`/`mind` to runOp (raid, adventure) and rankedTeam: make sure a loaner id is accepted there (no ownership check failure) or the loaner AI only gets island jobs; Ranked for loaner slots probably via the Rank Pass rules.
-- UI: in the AI dock a "+ Add AI slot ($10)" tab/button with ETH / USDG / 💎 choices (copy the Gem shop flow in web/src/app.js ~line 903).
-- Tests in tools/test_server.mjs (fake chain like the Gem pack tests), then owner does one real small purchase.
-
+ROUND 27 NEXT (owner approved 2026-11-05) — LOANER MINDS + AI SLOTS, Rank Pass removed. FULL SPEC: docs/LOANER_PLAN.md (read it first).
+Short: every wallet player gets 1 free LOANER Mind (#49) on top of their NFTs; one AI per Mind, free for every Mind they start with; extra Loaners (max 3 total) cost $10 = 10 USDG / 0.0045 ETH / 120 Gems and come with their AI; Loaners are labeled, 5 ranked/day, no rarity bonus, no trade. Two small questions for the owner are at the end of the spec.
 ROUND 25 (owner 2026-11-05, QA feedback) DONE:
 - Trial island move REVERTED (owner: wallet may already have another account). Instead: loud red lobby note (#guest-note) + pulsing red bar on the island (#isl-trial, Connect wallet link) + 'Trial mode' modal on first island visit per page load: trial progress resets and never moves to a wallet.
 - Island: tapping a working Mind no longer stops it forever (tap kept m.job but set state idle; now only idle Minds stop).
