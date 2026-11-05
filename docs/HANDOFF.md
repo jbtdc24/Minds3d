@@ -23,6 +23,8 @@ ROUND 26 (owner 2026-11-05, "Awaken an AI" broken) DONE, LIVE:
 - Retest after 09bab8a: Awaken OK again (no error, no new AI) but Julz's Hello Minds login has no other Clash-* spare with cognition, so #1848 kept Clash-1848 (0 cognition). The 10 Clash-Pass-8 AIs are on the owner's OTHER Hello Minds login (Rank Pass wallet). Owner needs to add cognition to Clash-1848 or test on that wallet.
 
 ROUND 27 NEXT (owner 2026-11-05) — BUY EXTRA AI SLOTS (not built yet):
+- RULES (owner, corrected 2026-11-05): ANYONE can buy more slots (holders and non-holders). Free slots: no Minds (Rank Pass / loaner) = 1 free; Mind holders = 1 free per Mind held. Every slot beyond the free ones is paid ($10 each, below).
+- OPEN (ask owner): what a paid extra slot plays: a loaner Mind (49/14/8, max 3 extra) or another job/Mind? Spec below assumes loaner Minds.
 - Owner wants more AIs than Minds held. One extra AI slot = $10: pay 10 USDG, or 0.0045 ETH (same as the $10 "bag" Gem pack), or 120 Gems (the bag's Gems). Price in one place (e.g. AI_SLOT in web/src/gems.js).
 - An extra slot's AI plays a LOANER Mind (DEMO_MINDS 49, 14, 8 in lib/owned.js; owner picked this): so max 3 extra slots. Slot ids = the loaner ids; client slots() (web/src/autopilot.js:28) must list owned Minds (or '0') PLUS the bought loaner slots; slotName/slotPic for them ("Loaner Mind #49").
 - Store st.aiSlots (count). AI limit in autopilot.js 'awaken'/'link' = max(1, isl.minds) + aiSlots; free AIs (ap.made) = same number (the slot includes its first AI).
