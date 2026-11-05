@@ -638,7 +638,7 @@ function pickArmy(cap, hero, lead) {
         <div class="army-facts"><span>🎟️ Raids left today: <b>${left}</b>${st.inv.raid_ticket ? ` (+${st.inv.raid_ticket} ticket${st.inv.raid_ticket > 1 ? 's' : ''})` : ''}</span><span>✨ Supplies: <b>${raidFee(army)}</b> Dust (you have ${(st.dust || 0).toLocaleString()})</span></div>
         <div class="army-cap"><b>${used}/${cap}</b> camp space <span class="muted">${campCount(st) ? `(+${cap - armyCap(heldCount())} from Army Camps)` : `Build an ⛺ Army Camp for +${CAMP_SPACE} space and +1 raid a day`}</span></div>
         <div class="army-list">${Object.entries(TROOPS).map(([k, d]) => `<div class="army-row"><img src="${troopIcon(k)}" alt=""><div><b>${d.name}</b> <span class="muted">· ${d.cost} space · you have ${owned(k)}</span><small>${d.desc}</small></div><button class="btn small" data-a="${k}" data-d="-1">−</button><em>${army[k]}</em><button class="btn small" data-a="${k}" data-d="1">+</button></div>`).join('')}</div>
-        <div class="army-hero">${hero === 'hero' ? `<img src="${chibi(lead).full.cv.toDataURL()}" alt=""><span><b>Hero: Mind #${lead}</b><small>Stronger leader + 📯 Battle Cry</small></span>` : `<img src="${troopIcon('captain')}" alt=""><span><b>Captain</b><small>Own a Mind to lead with it (stronger + Battle Cry)</small></span>`}</div>`;
+        <div class="army-hero">${hero === 'hero' ? `<img src="${chibi(lead).full.cv.toDataURL()}" alt=""><span><b>Hero: ${lead === 0 ? "Loaner Mind" : `Mind #${lead}`}</b><small>Stronger leader + 📯 Battle Cry</small></span>` : `<img src="${troopIcon('captain')}" alt=""><span><b>Captain</b><small>Own a Mind to lead with it (stronger + Battle Cry)</small></span>`}</div>`;
     };
     draw();
     const box = $('#modal-btns'); box.innerHTML = '';
@@ -1065,8 +1065,8 @@ $('#board').onclick = e => { const p = e.target.closest('[data-pid]'); if (p) op
 // ---------- prep: pick minds ----------
 // a Mind its Hello Minds AI is playing right now: say so (instead of a confusing error), and offer to take it back
 async function aiBusy(id) {
-  const go = await modal(`<h3>🧠 Mind #${id} is playing</h3><p>Its Hello Minds AI <b>${esc(aiPlaying(id))}</b> is playing this Mind right now (it may be in a duel or a raid).</p><p>Stop the AI to play Mind #${id} yourself.</p>`, [['Stop the AI and use it', 1, 'primary'], ['Keep the AI playing', 0]]);
-  if (go) { stopAi(id); toast(`Mind #${id} is yours to play now.`); }
+  const go = await modal(`<h3>🧠 ${mindLabel(id)} is playing</h3><p>Its Hello Minds AI <b>${esc(aiPlaying(id))}</b> is playing this Mind right now (it may be in a duel or a raid).</p><p>Stop the AI to play ${mindLabel(id)} yourself.</p>`, [['Stop the AI and use it', 1, 'primary'], ['Keep the AI playing', 0]]);
+  if (go) { stopAi(id); toast(`${mindLabel(id)} is yours to play now.`); }
 }
 let prep = { mode: 'ranked', minds: [], level: 'normal' };
 function openPrep(mode) {
