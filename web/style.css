@@ -549,6 +549,8 @@ p, li, .muted, .fine, .pitch, .coach p, .codex, .modal p, .guest-note { line-hei
 .mind .en.none { background: #ffd0d5; color: var(--red); }
 .mind.tired { filter: grayscale(.85); opacity: .6; }
 .mind.tired::after { content: 'RESTING'; position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%) rotate(-8deg); background: var(--ink); color: #fff; font-size: 12px; font-weight: 900; padding: 2px 8px; letter-spacing: .08em; }
+.mind.loaner .tag { background: #7a4dff !important; letter-spacing: .06em; }
+.loaner-badge { display: inline-block; background: #7a4dff; color: #fff; font-size: 10px; font-weight: 900; padding: 0 5px; margin-left: 4px; letter-spacing: .06em; vertical-align: middle; }
 
 /* inventory */
 .invbtn { font-size: 26px; }

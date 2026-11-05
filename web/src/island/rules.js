@@ -48,7 +48,7 @@ export const BUILD = {
 export const STASH_MAX = 12;
 // the link between the island and Ranked: the Energy Well slowly fills with shards; 3 shards = +1 ranked energy on a Mind
 export const SHARD_MS = 4 * 3600e3, SHARD_CAP = 6, SHARDS_PER_ENERGY = 3;
-export const ENERGY_PRICE = { dust: 3000, gems: 8 }, REFILLS_PER_DAY = 3;   // or buy it: max 3 refills per Mind per day
+export const ENERGY_PRICE = { dust: 3000, gems: 8 }, REFILLS_PER_DAY = Infinity;   // or buy it: no daily limit (Round 27)
 // one price for every refill and every Mind (the same everywhere, so nobody is surprised)
 export const energyPrice = () => ({ ...ENERGY_PRICE });
 export const refillsToday = (st, mind, day) => (st.er?.day === day ? st.er.m?.[mind] || 0 : 0);
@@ -184,6 +184,27 @@ export const tradeHave = (st, k) => k === 'dust' ? st.dust : k === 'gems' ? st.g
 export const RANK_PASS = { days: 7, games: 5, price: { dust: 5000 }, gems: 30 };
 export const passActive = (st, now) => (st.rp?.until || 0) > now;
 export const passLeft = (st, now) => !passActive(st, now) ? 0 : Math.max(0, RANK_PASS.games - (st.rp.day === new Date(now).toISOString().slice(0, 10) ? st.rp.used || 0 : 0));
+// 🪪 Loaner Minds (Round 27): every wallet player gets one free Loaner; more can be bought (no limit). A Loaner plays like a
+// Common Mind (5 ranked games a day, unlimited refills), is fixed to the account, and its art is cycled from LOANER_ART.
+// st.loaners = [{ id: 'L1', art: 49, at, free?, day, used }]
+export const LOANER_ART = [49, 14, 8], LOANER_GAMES = 5;
+export const isLoanerId = v => typeof v === 'string' && /^L[1-9]\d{0,3}$/.test(v);
+export const loanerOf = (st, id) => (st.loaners || []).find(l => l.id === id) || null;
+export const loanerLeft = (st, id, now = Date.now()) => { const l = loanerOf(st, id); if (!l) return 0; return Math.max(0, LOANER_GAMES - (l.day === new Date(now).toISOString().slice(0, 10) ? l.used || 0 : 0)); };
+export function addLoaner(st, now = Date.now(), free = false) {
+  st.loaners ||= [];
+  const n = st.loaners.reduce((m, l) => Math.max(m, +l.id.slice(1) || 0), 0) + 1;
+  const l = { id: 'L' + n, art: LOANER_ART[(n - 1) % LOANER_ART.length], at: now, ...(free ? { free: true } : {}) };
+  st.loaners.push(l);
+  return l;
+}
+// the free Loaner for a wallet player (once) + an AI on the old Rank Pass slot '0' moves onto it, job and all
+export function ensureLoaner(st, now = Date.now()) {
+  let changed = false;
+  if (!(st.loaners || []).length) { addLoaner(st, now, true); changed = true; }
+  if (st.ap?.ai?.['0']) { const to = st.loaners[0].id; if (!st.ap.ai[to]) st.ap.ai[to] = st.ap.ai['0']; delete st.ap.ai['0']; if (st.ap.away?.slots) st.ap.away.slots = st.ap.away.slots.map(s => s === '0' ? to : s); changed = true; }
+  return changed;
+}
 export const TROOP_UP = { brawler: 1, archer: 1, bomber: 2, giant: 3 }, MAX_TL = 10;
 export const troopLv = (st, k) => Math.min(MAX_TL, Math.max(1, st.tl?.[k] | 0 || 1));
 // troops: +20% a level up to Lv3 (as before), then +10% a level (×2.1 at Lv10)

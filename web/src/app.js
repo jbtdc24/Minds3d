@@ -27,6 +27,7 @@ import { openMap, updateMap, closeMap } from './island/worldmap.js';
 import { initPlaza, resetPlaza } from './plaza.js';
 import { initAdmin, tryCode } from './admin.js';
 import { isle, loadIsland, doAct, flush as flushIsland, resetIsland, refreshIsland, now as islandNow } from './island/store.js';
+import { LOANER_PRICE } from './gems.js';
 import { CROPS, RAW, growMs, permitCost, MAX_PERMITS, ripe, campLevels, campCount, SHOP, RECIPES, troopMax, thLv, troopCount, costText, canAfford, BUILD, STASH_MAX, gemPrice, energyPrice, refillsToday, SHARDS_PER_ENERGY, REFILLS_PER_DAY, wellShards, troopLv, troopUpCost, troopLevels, MAX_TL, troopUpSecs, troopRush, COSMETICS, RANK_PASS, passActive, passLeft } from './island/rules.js';
 import { buildIcon } from './island/buildings.js';
 import { islandThumb } from './island/art.js';
@@ -183,10 +184,10 @@ setInterval(() => {
 addEventListener('resize', () => { if (current === 'hub') paintBoardOpen(); if (current === 'duel') duelLayout(); });
 
 // ---------- account ----------
-let me = null, myMinds = [], guest = false, online = false, energy = {}, energyResetAt = 0, rankPass = null;   // rankPass: { until, left, minds } when a Rank Pass is active
+let me = null, myMinds = [], guest = false, online = false, energy = {}, energyResetAt = 0, rankPass = null, loaners = [];   // loaners: [{ id: 'L1', art, left, cap }] (Round 27)   // rankPass: { until, left, minds } when a Rank Pass is active
 // the account is remembered on this device so the game opens instantly; the server copy refreshes in the background
 const ACC_KEY = 'mindclash.account';
-const saveAccount = () => { try { localStorage.setItem(ACC_KEY, JSON.stringify({ token: session.token, me, myMinds, guest, energy, energyResetAt })); } catch { /* private mode */ } };
+const saveAccount = () => { try { localStorage.setItem(ACC_KEY, JSON.stringify({ token: session.token, me, myMinds, guest, energy, energyResetAt, loaners })); } catch { /* private mode */ } };
 function loadAccount() {
   try { const a = JSON.parse(localStorage.getItem(ACC_KEY) || 'null'); if (a && a.token === session.token && a.me) return a; } catch { /* ignore */ }
   return null;
@@ -194,18 +195,25 @@ function loadAccount() {
 async function refreshMe() {
   // send the Minds we saw last time: the server verifies them on-chain in one quick call instead of a full scan
   const r = await api(`me${!guest && myMinds.length ? `?known=${myMinds.join(',')}` : ''}`);
-  me = r.player; myMinds = r.minds; guest = r.guest; rankPass = r.rankPass || null;
+  me = r.player; myMinds = r.minds; guest = r.guest; rankPass = r.rankPass || null; loaners = guest ? [] : r.loaners || [];
   energy = r.energy || {}; energyResetAt = Date.now() + (r.energyResetIn || 0);
   saveAccount();
   return r;
 }
 // ---------- Mind Energy: ranked matches use 1 ⚡ per Mind; refills at 00:00 UTC ----------
-const capFor = id => capOf(rarityOf(id));
-const energyOf = id => energy[id] ?? capFor(id);
-const totalEnergy = () => myMinds.reduce((s, id) => s + energyOf(id), 0);
+// 🪪 Loaner Minds: ids 'L1', 'L2'… play with their art (49/14/8) and always count as Common
+const isLoan = id => typeof id === 'string' && id[0] === 'L';
+const loanOf = id => loaners.find(l => l.id === id);
+const artOf = id => isLoan(id) ? loanOf(id)?.art || 49 : id;
+const rarOf = id => isLoan(id) ? 'Common' : rarityOf(id);
+const mindLabel = id => isLoan(id) ? `Loaner ${id}` : `Mind #${id}`;
+const idKey = v => /^L\d+$/.test(v) ? v : +v;
+const capFor = id => isLoan(id) ? loanOf(id)?.cap || 5 : capOf(rarityOf(id));
+const energyOf = id => isLoan(id) ? loanOf(id)?.left ?? 5 : energy[id] ?? capFor(id);
+const totalEnergy = () => [...myMinds, ...loaners.map(l => l.id)].reduce((s, id) => s + energyOf(id), 0);
 const resetText = () => { const m = Math.max(0, Math.round((energyResetAt - Date.now()) / 60000)); return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`; };
 const BONUS = { Common: 0, Uncommon: 0.05, Rare: 0.10, Epic: 0.15, Legendary: 0.20 };
-const winReward = ids => Math.round(ids.reduce((s, id) => s + 10 * (1 + BONUS[rarityOf(id)]), 0));
+const winReward = ids => Math.round(ids.reduce((s, id) => s + 10 * (1 + BONUS[rarOf(id)]), 0));
 const lossRisk = ids => 5 * ids.length;   // must match lib/rating.js lossPoints
 // refresh energy in the background (never block a tap on the server); repaint whatever is open
 function refreshEnergy() {
@@ -218,9 +226,9 @@ function refreshEnergy() {
 const energyTag = id => { const n = energyOf(id), c = capFor(id); return `<span class="en ${n ? '' : 'none'}" title="Ranked energy left today">⚡${n}/${c}</span>`; };
 // a wallet with no Mind of its own plays Classic/Practice with the loaner Minds (same ids as the trial and the Rank Pass)
 const LOANERS = [49, 14, 8];
-const playMinds = () => myMinds.length ? myMinds : LOANERS;
+const playMinds = () => guest ? (myMinds.length ? myMinds : LOANERS) : loaners.length ? [...myMinds, ...loaners.map(l => l.id)] : myMinds.length ? myMinds : LOANERS;
 const picked = () => { const p = (settings.picks.minds || []).filter(id => playMinds().includes(id)); return p.length ? p : playMinds().slice(0, 3); };
-const showcaseIds = () => { const s = (me?.showcase || []).filter(id => playMinds().includes(id)); return s.length ? s : picked().length ? picked() : [me?.pfp || 49]; };
+const showcaseIds = () => { const s = (me?.showcase || []).filter(id => playMinds().includes(id)); return s.length ? s : picked().length ? picked().map(artOf) : [me?.pfp || 49]; };
 // your looks: from the island save, remembered on this device so they show before the island loads
 const myCos = () => isle.state?.cos || settings.cos || null;
 function wearMine() { const c = myCos(); if (isle.state?.cos && JSON.stringify(settings.cos) !== JSON.stringify(c)) { settings.cos = c; saveSettings(); } wear(c); }
@@ -239,7 +247,7 @@ function paintHub() {
   $('#guest-note').style.display = guest ? 'block' : 'none';
   paintXRow();
   islandTile();
-  $('#hub-ranked-sub').textContent = guest ? 'Connect a wallet to play ranked' : !myMinds.length ? (rankPass ? `🎟️ Rank Pass · ${rankPass.left} games left today` : 'No Mind? Get a 🎟️ Rank Pass') : `⚡ ${totalEnergy()} energy left today · refills in ${resetText()}`;
+  $('#hub-ranked-sub').textContent = guest ? 'Connect a wallet to play ranked' : !myMinds.length && !loaners.length ? (rankPass ? `🎟️ Rank Pass · ${rankPass.left} games left today` : 'Your free 🪪 Loaner Mind is on its way') : `⚡ ${totalEnergy()} energy left today · refills in ${resetText()}`;
   $('#hub-ranked-tag').textContent = guest ? '🔒 WALLET' : 'PLAY';
   $('#hub-ranked').classList.toggle('locked', guest);
 }
@@ -263,7 +271,7 @@ async function afterLogin(out) {
   saveAccount();
   if (!guest && !myMinds.length && !settings.noMindsSeen) {   // a wallet with no Mind stays a wallet account (Rank Pass, trading, Gems all work)
     settings.noMindsSeen = true; saveSettings();
-    await modal(`<h3>No Minds in this wallet</h3><p>You're signed in with your wallet. Classic and Practice use loaner Minds.</p><p><b>🎟️ Want Ranked?</b> Get a Rank Pass in the Shop with Dust or Gems.</p>`, [['OK', 1, 'primary']]);
+    await modal(`<h3>🪪 Your free Loaner Mind</h3><p>No Mind NFT in this wallet? No problem: you get a free <b>Loaner Mind</b>. It plays exactly like a real Mind: Ranked (5 games a day), jobs and its own AI.</p><p class="muted">Want more? Buy more Loaners in the Shop, as many as you like.</p>`, [['OK', 1, 'primary']]);
   }
   if (out.isNew && !guest) return openSetup();
   enterHub();
@@ -394,9 +402,8 @@ document.addEventListener('click', e => {
   show(go);
 });
 $('#hub-ranked').onclick = async () => {
-  if (!guest && !myMinds.length && !rankPass) return offerRankPass();   // a wallet without Minds: the Rank Pass lets them play ranked
   if (!guest) { openPrep('ranked'); if (online) refreshEnergy(); return; }
-  const r = await modal(`<img class="wide" src="assets/mode_ranked.webp" alt=""><h3>Play Ranked</h3><p>Connect a wallet to play ranked, climb the leaderboard and earn points.</p><p><b>🎟️ No Mind? No problem.</b> With any wallet you can get a <b>Rank Pass</b> (${costText(RANK_PASS.price)} or ${RANK_PASS.gems} 💎): ${RANK_PASS.days} days of Ranked with loaner Minds.</p><p class="muted">Trial accounts can practice vs bots.</p>`, [['Connect wallet', 1, 'primary'], ['Practice instead', 2], ['Close', 0]]);
+  const r = await modal(`<img class="wide" src="assets/mode_ranked.webp" alt=""><h3>Play Ranked</h3><p>Connect a wallet to play ranked, climb the leaderboard and earn points.</p><p><b>🪪 No Mind? No problem.</b> Every wallet gets a free <b>Loaner Mind</b> that plays Ranked like a real one.</p><p class="muted">Trial accounts can practice vs bots.</p>`, [['Connect wallet', 1, 'primary'], ['Practice instead', 2], ['Close', 0]]);
   if (r === 1) { logout(); show('login'); } else if (r === 2) openPrep('practice');
 };
 // 🎟️ Rank Pass: 7 days of ranked with loaner Minds, for players who connected a wallet but hold no Mind
@@ -825,10 +832,10 @@ const shopCard = (img, name, desc, have, btns, cls = '') => `<div class="shop-ca
 async function refillEnergy(id) {
   await ensureIsland();
   const inv = isle.state?.inv || {}, shards = inv.shard || 0, price = energyPrice(refillsToday(isle.state || {}, id, new Date().toISOString().slice(0, 10)));
-  const pay = await modal(`<h3>⚡ Refill Mind #${id}</h3><p>This Mind has <b>${energyOf(id)}/${capFor(id)}</b> energy. It refills by itself in ${resetText()}.</p><p>Your ⚡ shards: <b>${shards}</b> <span class="muted">(the Energy Well on your island makes 1 every 4 hours)</span></p><p class="muted">Max ${REFILLS_PER_DAY} refills per Mind per day. A refill is for rating and ranked chests: one ranked win pays about 60 ✨ a Mind.</p>`,
+  const pay = await modal(`<h3>⚡ Refill ${mindLabel(id)}</h3><p>This Mind has <b>${energyOf(id)}/${capFor(id)}</b> energy. It refills by itself in ${resetText()}.</p><p>Your ⚡ shards: <b>${shards}</b> <span class="muted">(the Energy Well on your island makes 1 every 4 hours)</span></p><p class="muted">No daily limit on refills. A refill is for rating and ranked chests: one ranked win pays about 60 ✨ a Mind.</p>`,
     [[`${SHARDS_PER_ENERGY} ⚡ shards`, 'shard', shards >= SHARDS_PER_ENERGY ? 'primary' : ''], [`${price.dust.toLocaleString()} ✨`, 'dust'], [`${price.gems} 💎`, 'gems', 'gem'], ['Not now', 0]]);
   if (!pay) return;
-  try { const r = await api('energy', { mind: id, pay }); energy[id] = r.energy; sfx('levelup'); toast(`Mind #${id} now has ${r.energy} ⚡`); resetIsland(); await ensureIsland(); refreshEnergy(); if (current === 'prep') renderPrepGrid(); if (current === 'inventory') paintInventory(); }
+  try { const r = await api('energy', { mind: id, pay }); if (isLoan(id)) { const l = loanOf(id); if (l) l.left = r.energy; } else energy[id] = r.energy; sfx('levelup'); toast(`${mindLabel(id)} now has ${r.energy} ⚡`); resetIsland(); await ensureIsland(); refreshEnergy(); if (current === 'prep') renderPrepGrid(); if (current === 'inventory') paintInventory(); }
   catch (e) { sfx('denied'); toast(e.message, true); }
 }
 const RAW_ICON = { wood: '🪵', stone: '🪨' };
@@ -868,7 +875,7 @@ function paintShop() {
     };
     html = head + keys.map(k => { const it = SHOP[k], ok = canAfford(st, it.price), h = have(k);
       return shopCard(icon(k), it.name, it.desc + lvLine(k), h, `<button class="btn small ${it.gem ? 'gem' : 'primary'}" data-act="shop" data-item="${k}" data-n="1" ${ok ? '' : 'disabled'}>${costText(it.price)}</button>${it.gem ? '' : `<button class="btn small" data-act="shop" data-item="${k}" data-n="5" ${canAfford(st, Object.fromEntries(Object.entries(it.price).map(([a, n]) => [a, n * 5]))) ? '' : 'disabled'}>×5</button><button class="btn small gem" data-act="shop" data-gems="1" data-item="${k}" data-n="1" ${(st.gems || 0) < gemPrice(it.price) ? 'disabled' : ''}>${gemPrice(it.price)} 💎</button>`}`, it.gem ? 'gemcard' : ''); }).join('')
-      + (shopTab === 'items' && !guest ? shopCard('<i>🎟️</i>', 'Rank Pass', `Play Ranked without a Mind: loaner Minds, ${RANK_PASS.games} ranked games a day for ${RANK_PASS.days} days.${passActive(st, islandNow()) ? ` Active until ${new Date(st.rp.until).toLocaleDateString()} · ${passLeft(st, islandNow())} games left today.` : ''}`, null, `<button class="btn small primary" data-act="rankpass" ${canAfford(st, RANK_PASS.price) ? '' : 'disabled'}>${costText(RANK_PASS.price)}</button><button class="btn small gem" data-act="rankpass" data-gems="1" ${(st.gems || 0) >= RANK_PASS.gems ? '' : 'disabled'}>${RANK_PASS.gems} 💎</button>`, 'featured') : '')
+      + (shopTab === 'items' && !guest ? shopCard('<i>🪪</i>', 'Loaner Mind', `A Mind fixed to your account that plays exactly like a real one: Ranked (5 games a day, unlimited refills), jobs, and its own AI. No limit. You have ${loaners.length}.`, null, `<button class="btn small gem" data-loaner="gems" ${(st.gems || 0) >= LOANER_PRICE.gems ? '' : 'disabled'}>${LOANER_PRICE.gems} 💎</button><button class="btn small primary" data-loaner="pay">$${LOANER_PRICE.usd} · USDG / ETH</button>`, 'featured') : '')
       + (shopTab === 'items' && SHIPS[(st.ship || 0) + 1] ? shopCard(`<i>${SHIPS[(st.ship || 0) + 1].icon}</i>`, `Airship: ${SHIPS[(st.ship || 0) + 1].name}`, `${SHIPS[(st.ship || 0) + 1].desc} You have the ${SHIPS[st.ship || 0].name}.`, null, `<button class="btn small primary" data-ship="1">${costText(SHIPS[(st.ship || 0) + 1].cost)}</button><button class="btn small gem" data-ship="2">${SHIPS[(st.ship || 0) + 1].gems} 💎</button>`) : '')
       + (shopTab === 'items' ? Object.entries(RECIPES).map(([k, r]) => shopCard('<i>⚗️</i>', `Craft: ${r.name}`, `Uses ${costText(r.needs)}`, inv.herb || 0, `<button class="btn small primary" data-act="craft" data-item="${k}" data-n="1" ${canAfford(st, r.needs) ? '' : 'disabled'}>Craft</button>`)).join('') : '');
   } else if (shopTab === 'style') {   // cosmetics: card backs and profile frames (looks only)
@@ -893,7 +900,14 @@ function paintShop() {
 }
 // Gems for ETH on Robinhood Chain: the player's wallet pays the treasury, the server checks the transaction, then adds Gems
 const ethToWei = eth => { const [i, f = ''] = String(eth).split('.'); return BigInt(i || 0) * 10n ** 18n + BigInt((f + '0'.repeat(18)).slice(0, 18)); };
-async function buyGems() {
+async function buyLoanerGems() {
+  if (guest || !online) return toast('Connect a wallet to get Loaner Minds.', true);
+  if (!(await modal(`<h3>🪪 Buy a Loaner Mind</h3><p>${LOANER_PRICE.gems} 💎. It plays like a real Common Mind, comes with its own AI slot and is fixed to your account.</p>`, [[`Buy · ${LOANER_PRICE.gems} 💎`, 1, 'gem'], ['Cancel', 0]]))) return;
+  await flushIsland().catch(() => {});
+  try { const r = await api('gems', { op: 'loaner_gems' }); sfx('levelup'); toast(`🪪 New Loaner Mind ${r.loaner} is yours!`); resetIsland(); await ensureIsland(); await refreshMe().catch(() => {}); refreshHud(); if (current === 'shop') paintShop(); }
+  catch (e) { sfx('denied'); toast(e.message, true); }
+}
+async function buyGems(product) {
   sfx('click');
   if (guest || !online) return toast('Connect a wallet to buy Gems.', true);
   if (!(await askTos())) return;
@@ -904,7 +918,8 @@ async function buyGems() {
   const st = info.stable, cur = st ? await modal(`<h3>💎 Get Gems</h3><p>How do you want to pay? Both are on Robinhood Chain, from your connected wallet.</p>`, [[`💵 ${st.symbol} (dollars)`, 'usd', 'primary'], ['Ξ ETH', 'eth', 'primary'], ['Cancel', 0]]) : 'eth';
   if (!cur) return;
   const usd = cur === 'usd', price = pk => usd ? `${pk.usd} ${st.symbol}` : `${pk.eth} ETH`;
-  const pick = await modal(`<h3>💎 Get Gems</h3><p class="muted">Paid in ${usd ? st.symbol : 'ETH'} on Robinhood Chain, from your connected wallet.</p>
+  if (product === 'loaner') info.packs = [{ ...info.loaner, icon: '🪪' }];
+  const pick = product === 'loaner' ? ((await modal(`<h3>🪪 Buy a Loaner Mind</h3><p>${price(info.loaner)}, paid on Robinhood Chain from your connected wallet. It comes with its own AI slot and is fixed to your account.</p>`, [[`Pay ${price(info.loaner)}`, 1, 'primary'], ['Cancel', 0]])) ? 'loaner' : 0) : await modal(`<h3>💎 Get Gems</h3><p class="muted">Paid in ${usd ? st.symbol : 'ETH'} on Robinhood Chain, from your connected wallet.</p>
     <div class="gem-packs">${info.packs.map(pk => `<div class="gem-pack"><b>${pk.icon}</b><span>${pk.name}</span><em>${pk.gems} 💎</em><small class="gem-bonus">+${pk.gems} 🏆 points · +${(pk.gems * 20).toLocaleString()} ✨ · +${pk.gems * 2} 🪵🪨</small>${pk.tag ? `<small>${pk.tag}</small>` : ''}<strong>${price(pk)}</strong></div>`).join('')}</div>`,
     [...info.packs.map(pk => [`${pk.gems} 💎 · ${price(pk)}`, pk.id, 'primary']), ['Cancel', 0]]);
   if (!pick) return;
@@ -926,6 +941,7 @@ async function buyGems() {
       await new Promise(r => setTimeout(r, 3000));
       const r = await api('gems', { op: 'claim', tx, pack: key }).catch(e => ({ error: e.message, status: e.status }));
       if (r.ok || r.error) { settings.payTx = null; saveSettings(); }
+      if (r.ok && r.loaner) { sfx('levelup'); resetIsland(); await ensureIsland(); await refreshMe().catch(() => {}); if (current === 'shop') paintShop(); return toast(`🪪 New Loaner Mind ${r.loaner === true ? '' : r.loaner} is yours!`); }
       if (r.ok) { sfx('levelup'); resetIsland(); await ensureIsland(); refreshHud(); if (current === 'shop') paintShop(); return toast(`+${r.added} 💎 added! You have ${r.gems} Gems.`); }
       if (r.error) return toast(`${r.error} (tx ${tx.slice(0, 10)}…)`, true);
     }
@@ -934,6 +950,7 @@ async function buyGems() {
 }
 $('#shop-grid').addEventListener('click', e => {
   if (e.target.closest('#buy-gems')) return buyGems();
+  const lb = e.target.closest('[data-loaner]'); if (lb) return lb.dataset.loaner === 'gems' ? buyLoanerGems() : buyGems('loaner');
   const sb = e.target.closest('[data-ship]'); if (!sb) return;
   const res = doAct({ type: 'ship', gems: sb.dataset.ship === '2' });
   if (res.error) { sfx('denied'); return toast(res.error, true); }
@@ -1023,7 +1040,7 @@ async function aiBusy(id) {
 let prep = { mode: 'ranked', minds: [], level: 'normal' };
 function openPrep(mode) {
   prep.mode = mode;
-  prep.pass = mode === 'ranked' && !guest && !myMinds.length && !!rankPass;   // Rank Pass: the loaner Minds, the pass pays instead of energy
+  prep.pass = mode === 'ranked' && !guest && !myMinds.length && !loaners.length && !!rankPass;   // Rank Pass: the loaner Minds, the pass pays instead of energy
   prep.minds = prep.pass ? [...rankPass.minds] : picked().filter(id => (mode !== 'ranked' || energyOf(id) > 0) && !aiPlaying(id)).slice(0, 3);   // never a Mind its AI is playing
   prep.level = settings.picks.level || 'normal';
   $('#prep-title').textContent = { ranked: 'Ranked Duel', classic: 'Classic Duel', practice: 'Practice vs bot' }[mode];
@@ -1042,12 +1059,12 @@ function renderPrepGrid() {
     return paintPrep();
   }
   // ranked: Minds with energy first, empty ones last (they can't be picked until the refill)
-  const list = ranked ? [...myMinds].sort((a, b) => (energyOf(b) > 0) - (energyOf(a) > 0)) : playMinds();
-  $('#prep-minds').innerHTML = list.map(id => `<div class="mind ${ranked && !energyOf(id) ? 'tired' : ''}" data-id="${id}"><img src="${thumb(id)}" alt="" loading="lazy"><span class="tag" style="background:${RAR_COLOR[rarityOf(id)]}">#${id}</span>${ranked ? energyTag(id) : ''}<span class="order"></span></div>`).join('');
+  const list = ranked ? [...myMinds, ...loaners.map(l => l.id)].sort((a, b) => (energyOf(b) > 0) - (energyOf(a) > 0)) : playMinds();
+  $('#prep-minds').innerHTML = list.map(id => `<div class="mind ${ranked && !energyOf(id) ? 'tired' : ''} ${isLoan(id) ? 'loaner' : ''}" data-id="${id}"><img src="${thumb(artOf(id))}" alt="" loading="lazy"><span class="tag" style="background:${RAR_COLOR[rarOf(id)]}">${isLoan(id) ? 'LOANER' : '#' + id}</span>${ranked ? energyTag(id) : ''}<span class="order"></span></div>`).join('');
   paintPrep();
 }
 function paintPrep() {
-  $$('#prep-minds .mind').forEach(m => { const i = prep.minds.indexOf(+m.dataset.id); m.classList.toggle('on', i >= 0); m.querySelector('.order').textContent = i + 1; });
+  $$('#prep-minds .mind').forEach(m => { const i = prep.minds.indexOf(idKey(m.dataset.id)); m.classList.toggle('on', i >= 0); m.querySelector('.order').textContent = i + 1; });
   $('#prep-mind-count').textContent = `${prep.minds.length}/3`;
   if (prep.pass) $('#prep-note').innerHTML = `🎟️ <b>Rank Pass</b>: loaner Minds · ${rankPass.left} ranked game${rankPass.left === 1 ? '' : 's'} left today · pass until ${new Date(rankPass.until).toLocaleDateString()}`;
   else if (prep.mode === 'ranked') {
@@ -1060,7 +1077,8 @@ function paintPrep() {
 }
 $('#prep-minds').onclick = e => {
   const m = e.target.closest('[data-id]'); if (!m) return;
-  const id = +m.dataset.id, i = prep.minds.indexOf(id);
+  const id = idKey(m.dataset.id), i = prep.minds.indexOf(id);
+  if (i < 0 && prep.minds.some(x => artOf(x) === artOf(id))) return toast('Two Minds with the same picture cannot play in one team.', true);
   if (prep.pass && i < 0 && !rankPass.minds.includes(id)) return;
   if (i < 0 && aiPlaying(id)) return aiBusy(id);
   if (i < 0 && m.classList.contains('tired')) return refillEnergy(id);
@@ -1070,7 +1088,7 @@ $('#prep-minds').onclick = e => {
 $('#prep-level').onclick = e => { const v = e.target.dataset.v; if (!v) return; prep.level = v; $$('#prep-level button').forEach(b => b.classList.toggle('on', b === e.target)); };
 $('#prep-go').onclick = async () => {
   settings.picks = { minds: prep.minds, level: prep.level }; saveSettings();
-  if (!online) return startDuel(new LocalMatch({ name: me.name, minds: prep.minds, level: prep.mode === 'practice' ? prep.level : 'normal' }));
+  if (!online) return startDuel(new LocalMatch({ name: me.name, minds: prep.minds.map(artOf), level: prep.mode === 'practice' ? prep.level : 'normal' }));
   const b = $('#prep-go'); b.disabled = true;
   try {
     const r = await api('queue/join', { minds: prep.minds, ...(prep.pass ? { pass: true } : {}), ...(prep.mode === 'practice' ? { bot: prep.level } : prep.mode === 'classic' ? { mode: 'classic' } : {}) });
@@ -1713,7 +1731,7 @@ initAutopilot({ api, esc, toast, modal, sfx, babble, online: () => online, guest
   idle: () => (current === 'hub' || (!!watching && ['duel', 'island', 'result'].includes(current))) && !document.querySelector('#modal.on'),   // the AIs play in the lobby, and while you watch them
   watchDuel, watchIsland, stopWatch, watching: () => watching?.kind || null, connectWallet: () => { logout(); show('login'); },
   mindId: () => me?.pfp || myMinds[0] || 1, mindName: () => me ? `${me.name}'s Mind #${me.pfp}` : 'Your Mind', pfp: () => thumb(me?.pfp || 49),
-  myMinds: () => myMinds, energyOf: id => energyOf(id), rankPass: () => rankPass, thumb, island: () => isle.state, home: () => { if (current !== 'hub') enterHub(); },
+  myMinds: () => myMinds, loaners: () => loaners, energyOf: id => energyOf(id), rankPass: () => rankPass, thumb, island: () => isle.state, home: () => { if (current !== 'hub') enterHub(); },
   refresh: () => { if (watching?.kind === 'island' && current === 'island') refreshIsland().catch(() => {}); else resetIsland(); if (Date.now() - apRefresh > 20e3) { apRefresh = Date.now(); refreshMe().then(() => { if (current === 'hub') paintHub(); }).catch(() => {}); } } });
 initTrade({ api, esc, toast, modal, sfx, island: () => isle.state, inTown: () => current === 'town' && online && !guest, inDuel: () => current === 'duel', openMatch: id => openMatch(id), refresh: () => { resetIsland(); ensureIsland(); } });
 initTown({ minds: () => (guest ? [] : myMinds), myCos, api, esc, toast, online: () => online, go: townGo, card: playerCard, mega: megaphone, me: () => me?.id, name: () => me?.name || 'You', canChat: () => online && !guest, chat });

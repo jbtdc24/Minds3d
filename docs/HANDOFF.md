@@ -2,18 +2,28 @@
 # HANDOFF — read this first (next AI session: continue from the top of "NEXT TASKS")
 
 ## >>> START AT "NEXT" BELOW <<<
-STATUS 2026-11-05 (end of ROUND 26) — all shipped on main, 633 tests pass:
+STATUS 2026-11-05 (end of ROUND 27) — pushed to main, 646 tests pass:
 - LIVE: https://www.mindsclash.games (homepage) · game https://www.mindsclash.games/play · invite links https://www.mindsclash.games/i/<code> · old https://minds3d.vercel.app still works (cron uses it).
-- Round 26 live + tested in owner Chrome: Awaken an AI fixed (server makes/reuses the AI, no extra AIs, spares with most cognition first); out-of-cognition bar ✕ visible.
 - Local branch is `island`; main = island (push both: git push origin island && git push origin island:main).
 NEXT:
-1. BUILD ROUND 27: Loaner Minds + AI slots, Rank Pass removed. Spec: docs/LOANER_PLAN.md (owner approved; only open point: Uncommon-Legendary games a day, suggested 6/7/8/10).
-2. Owner: Clash-1848 (Mind #1848, Julz) has 0 cognition: add cognition on Hello Minds. The 10 spare Clash-Pass-8 AIs are on the owner's other Hello Minds login.
-3. Owner: try Connect X end to end once and report the message.
-4. Ranked AI job live test (needs energy: resets 00:00 UTC; owner Chrome with Claude in Chrome).
-5. Owner: Vercel Pro (Hobby = no commercial use; Gem sales), lawyer sign-off then remove the "Draft" banner on terms/privacy (test checks /Draft/ in tools/test_server.mjs), backup restore test, 2-player tests (duel, Pot duel, trade, gift), Safari/iPhone/Android, one small real USDG + ETH purchase.
-6. docs/MINDS_CLASH_terms.pdf + privacy.pdf are untracked: ask owner if they are the lawyer's final text.
-7. Optional: share routes accept GET only (HEAD 405); sleeping Minds only wake when touched; unlink has no UI button (server op only).
+1. Round 27 follow-ups: LOANER badge still missing on duel screen (state.players[i].loaner holds the art ids), profile, leaderboard, Mind Town tag, player card. Live test in owner Chrome: free L1 shows, ranked with L1, buy a Loaner with Gems.
+2. Owner: one small real USDG + one ETH Loaner purchase ($10 / 0.0045 ETH), check Admin recovery.
+3. Owner: confirm games a day Uncommon 6 / Rare 7 / Epic 8 / Legendary 10 (ENERGY_CAP in web/src/energy.js; the DB spend_energy RPC takes caps from the server, so no SQL needed).
+4. Owner: Clash-1848 (Mind #1848, Julz) has 0 cognition: add cognition on Hello Minds.
+5. Owner: try Connect X end to end once and report the message.
+6. Owner: Vercel Pro, lawyer sign-off then remove the "Draft" banner on terms/privacy (test checks /Draft/ in tools/test_server.mjs), backup restore test, 2-player tests, Safari/iPhone/Android.
+7. docs/MINDS_CLASH_terms.pdf + privacy.pdf are untracked: ask owner if they are the lawyer's final text.
+8. Optional: share routes accept GET only (HEAD 405); unlink has no UI button (server op only).
+
+ROUND 27 (owner approved 2026-11-05) DONE — LOANER MINDS + AI SLOTS (spec docs/LOANER_PLAN.md):
+- rules.js: LOANER_ART [49,14,8], LOANER_GAMES 5, st.loaners [{id 'L1', art, at, free?, day, used}], addLoaner, ensureLoaner (free L1 once + moves ap.ai['0'] / away slot '0' onto it). REFILLS_PER_DAY = Infinity. ENERGY_CAP 5/6/7/8/10.
+- lib/loaners.js: loanersOf, giveFreeLoaner (called in route me for every wallet player; me returns loaners), spend/refund/emptyLoaners.
+- Queue: minds may mix numbers and 'L#'; a Loaner plays with its art id (same art twice in one team refused). Queue row loadout tags 'lo:L1.L2' + 'ra:<arts>' (matchmaking pickOfRow/loanTags); only real ids are ownership/energy checked; Loaner games come off the island. Rank Pass path still works for a running pass (prep uses it only with no Minds and no Loaners).
+- Energy route: mind 'L1' refills on the island (shards/Dust/Gems), no daily limit for anyone.
+- Buy: shop card '🪪 Loaner Mind' (replaces Rank Pass card): 120 Gems = gems op 'loaner_gems'; USDG/ETH = buyGems('loaner') → claim with pack 'loaner' / 'loaner:usd' (LOANER_PRICE in web/src/gems.js; packOf returns gems 0 + loaner:true so payments/reconcile rows stay consistent); creditLoaner (st.paid mark), admin recovery uses it.
+- AI: slots = NFTs + Loaners (aiSlots in lib/routes/autopilot.js; free AIs = same count, then 50 Gems). slotOf accepts 'L#'. Away ranked + browser ranked job: a Loaner duels alone on its own games. Dock tabs "Loaner N".
+- Client: prep grid shows Loaners (LOANER tag, purple), energy/refill per Loaner, hub text, new first-login modal.
+
 Local preview: .claude/launch.json "mindclash-web" = node tools/video/serve.mjs web 5174 (no cache) → http://localhost:5174/play.html?debug (no /play rewrite locally).
 
 ROUND 26 (owner 2026-11-05, "Awaken an AI" broken) DONE, LIVE:
@@ -24,8 +34,6 @@ ROUND 26 (owner 2026-11-05, "Awaken an AI" broken) DONE, LIVE:
 - Note: unlinking has no button in the UI (server op only); unlinking drops that Mind's job settings.
 - Retest after 09bab8a: Awaken OK again (no error, no new AI) but Julz's Hello Minds login has no other Clash-* spare with cognition, so #1848 kept Clash-1848 (0 cognition). The 10 Clash-Pass-8 AIs are on the owner's OTHER Hello Minds login (Rank Pass wallet). Owner needs to add cognition to Clash-1848 or test on that wallet.
 
-ROUND 27 NEXT (owner approved 2026-11-05) — LOANER MINDS + AI SLOTS, Rank Pass removed. FULL SPEC: docs/LOANER_PLAN.md (read it first).
-Short: every wallet player gets 1 free LOANER Mind on top of their NFTs; Loaners play exactly like real Minds; NO limit, buy more for $10 = 10 USDG / 0.0045 ETH / 120 Gems (each comes with its AI); ranked games a day by rarity (Common 5, suggested Uncommon 6 / Rare 7 / Epic 8 / Legendary 10), a Loaner counts as Common; refills UNLIMITED (Dust or Gems); Loaners fixed to the account; Rank Pass removed from the store; new accounts 0 Gems.
 ROUND 25 (owner 2026-11-05, QA feedback) DONE:
 - Trial island move REVERTED (owner: wallet may already have another account). Instead: loud red lobby note (#guest-note) + pulsing red bar on the island (#isl-trial, Connect wallet link) + 'Trial mode' modal on first island visit per page load: trial progress resets and never moves to a wallet.
 - Island: tapping a working Mind no longer stops it forever (tap kept m.job but set state idle; now only idle Minds stop).

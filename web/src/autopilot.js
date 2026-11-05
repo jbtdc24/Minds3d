@@ -25,9 +25,12 @@ const noCog = msg => /cognition|credit|insufficient|balance|quota|402/i.test(Str
 const ACT_ICON = { build: ['🏗️', '🔨', '⬆️'], farm: ['🌱', '🧺', '🥕'], sell: ['💰', '✨'], well: ['⚡'], train: ['🏹', '🪓'], decorate: ['🌷', '🏮'], raid: ['⚔️', '💥', '⭐'], adventure: ['🧭', '🌿', '🪵'], duel: ['🃏', '👑'], town: ['🏘️', '💬'], wait: ['💤'] };
 
 // the Minds that can have an AI: every NFT held, or one Rank Pass slot ('0') for a wallet without Minds
-const slots = () => (K.myMinds().length ? K.myMinds().map(String) : ['0']);
-const slotName = s => (s === '0' ? 'Rank Pass Mind' : `Mind #${s}`);
-const slotPic = s => K.thumb(s === '0' ? 49 : +s);
+// Round 27: every NFT held + every Loaner ('L1'…) has its own AI slot ('0' only for an old Rank Pass with no Loaner yet)
+const isLoan = s => /^L\d+$/.test(s);
+const slots = () => { const l = (K.loaners?.() || []).map(x => x.id), all = [...K.myMinds().map(String), ...l]; return all.length ? all : ['0']; };
+const slotArt = s => s === '0' ? 49 : isLoan(s) ? (K.loaners?.() || []).find(x => x.id === s)?.art || 49 : +s;
+const slotName = s => (s === '0' ? 'Rank Pass Mind' : isLoan(s) ? `Loaner ${s}` : `Mind #${s}`);
+const slotPic = s => K.thumb(slotArt(s));
 const aiOf = s => ap?.ai?.[s] || null;
 // a Mind its AI is playing right now (the Ranked screen warns before you take it): the AI's name, or null
 export const aiPlaying = id => (running.has(String(id)) ? aiOf(String(id))?.name || 'its AI' : null);
@@ -160,7 +163,7 @@ function paint() {
     return;
   }
   if (!ap) { tabs.innerHTML = ''; body.innerHTML = '<p class="muted">Loading your AIs…</p>'; return; }
-  tabs.innerHTML = slots().map(s => `<button class="md-tab ${s === sel ? 'on' : ''} ${running.has(s) ? 'run' : ''}" data-slot="${s}" title="${slotName(s)}"><img src="${slotPic(s)}" alt=""><span>${s === '0' ? 'Pass' : '#' + s}</span>${aiOf(s) ? (jobOf(s) ? `<em class="job">${JOBS[jobOf(s).kind].icon}</em>` : '') : '<em>＋</em>'}</button>`).join('');
+  tabs.innerHTML = slots().map(s => `<button class="md-tab ${s === sel ? 'on' : ''} ${running.has(s) ? 'run' : ''}" data-slot="${s}" title="${slotName(s)}"><img src="${slotPic(s)}" alt=""><span>${s === '0' ? 'Pass' : isLoan(s) ? 'Loaner ' + s.slice(1) : '#' + s}</span>${aiOf(s) ? (jobOf(s) ? `<em class="job">${JOBS[jobOf(s).kind].icon}</em>` : '') : '<em>＋</em>'}</button>`).join('');
   const s = sel, ai = aiOf(s), l = L(s);
   if (!ai) {   // this Mind has no AI yet: a fresh one, made for this Mind only
     body.innerHTML = `<div class="md-hero"><img src="${slotPic(s)}" alt=""><p><b>${slotName(s)}</b> has no AI yet. Give it one, then give it a job.</p></div>
@@ -420,7 +423,7 @@ async function work(slot, job) {
   if (r.log) ap = { ...ap, log: r.log, gems: r.gems || ap.gems, ai: r.ai && typeof r.ai === 'object' ? r.ai : ap.ai };
   if (r.wait) l.long = Date.now() + r.wait;   // e.g. the Siege Cup is done for today
   l.result = r.text; l.stage = 'done'; setNow(slot, r.text); if (r.why) think(slot, r.why);
-  K.babble(slot === '0' ? 49 : +slot, r.ok ? 'happy' : 'sad', 0.5);
+  K.babble(slotArt(slot), r.ok ? 'happy' : 'sad', 0.5);
   return !!r.did;
 }
 // one ranked duel with this Mind: every card and spell is the AI's own choice
@@ -428,15 +431,18 @@ async function duel(slot, i, n) {
   const ai = aiOf(slot), train = cleanTraining(ai?.train), pass = slot === '0' && K.rankPass();
   if (slot === '0' && (!pass || pass.left < 1)) { await log(slot, pass ? '🃏 the Rank Pass has no games left today' : '🃏 ranked needs a Mind or a Rank Pass: skipping duels'); return false; }
   // the team: this Mind first, then any other Mind held with energy left (Minds another AI duels with stay out)
+  if (isLoan(slot)) {   // 🪪 a Loaner duels alone with its own 5 ranked games a day
+    if (!(K.energyOf(slot) > 0)) { await log(slot, `🃏 Loaner ${slot} has no ranked games left today: I wait 30 minutes`); L(slot).long = Date.now() + 30 * 60e3; return false; }
+  }
   const held = K.myMinds().map(Number), busy = [...running].filter(s => s !== slot && jobOf(s)?.kind === 'ranked').map(Number);
-  let minds = pass ? pass.minds : rankedTeam(+slot, held, Object.fromEntries(held.map(id => [id, K.energyOf(id)])), jobOf(slot)?.team, busy);
+  let minds = pass ? pass.minds : isLoan(slot) ? [slot] : rankedTeam(+slot, held, Object.fromEntries(held.map(id => [id, K.energyOf(id)])), jobOf(slot)?.team, busy);
   if (!pass && !minds.length) {
     if (train.energy.refill === 'stop') { await log(slot, '🃏 none of your Minds has ranked energy left (training: stop dueling)'); return false; }
     const r = await K.api('autopilot', { op: 'refill', mind: +slot, only: train.energy.refill }).catch(() => ({ ok: false }));
     if (!r.ok) { await log(slot, r.max ? '🃏 none of your Minds has energy and no refills are left today: I wait 30 minutes, then look again' : '🃏 none of your Minds has ranked energy (no shards, Dust or allowed Gems for a refill): I wait 30 minutes'); L(slot).long = Date.now() + 30 * 60e3; return false; }
     await log(slot, `⚡ refilled with ${r.pay === 'shard' ? 'shards' : r.pay === 'dust' ? 'Dust' : 'Gems'}`); K.refresh(); minds = [+slot];
   }
-  if (!pass && (minds.length > 1 || minds[0] !== +slot)) think(slot, `My team: ${minds.map(id => `#${id}`).join(' + ')}${minds.length > 1 ? ` (Team ×${minds.length} points)` : ''}`);
+  if (!pass && !isLoan(slot) && (minds.length > 1 || minds[0] !== +slot)) think(slot, `My team: ${minds.map(id => `#${id}`).join(' + ')}${minds.length > 1 ? ` (Team ×${minds.length} points)` : ''}`);
   L(slot).stage = 'plan'; setNow(slot, '🧠 writing its duel strategy…', 'duel');   // the AI's own rules for turns where its live answer is too slow
   let sp = {};
   for (let n = 0; n < 18 && running.has(slot); n++) { sp = await K.api('autopilot', { op: 'duel_plan', mind: slot, token: await HM.token() }).catch(() => ({})); if (!sp.pending) break; setNow(slot, `🧠 writing its duel strategy… ${n * 8} s`, 'duel'); }
@@ -477,7 +483,7 @@ async function duel(slot, i, n) {
   const won = v?.winner === v?.seat, tie = v?.winner == null;
   await log(slot, `🃏 ${tie ? 'tied' : won ? 'won' : 'lost'} vs ${v?.view.rival.name}${v?.delta ? ` (${v.delta > 0 ? '+' : ''}${v.delta} rating)` : ''}${v?.dustWon ? `, +${v.dustWon} ✨` : ''} · the AI chose ${own} of ${total} cards live${planned ? `, ${planned} by its own duel strategy` : ''}${own + planned < total ? `, ${total - own - planned} not played (no answer)` : ''}`);
   L(slot).result = ap?.log?.[0]?.text || ''; L(slot).stage = 'done';
-  K.babble(slot === '0' ? 49 : +slot, won ? 'happy' : 'sad', 0.6); K.refresh();
+  K.babble(slotArt(slot), won ? 'happy' : 'sad', 0.6); K.refresh();
   return true;
 }
 
@@ -547,7 +553,7 @@ let histOnly = '';
 async function openHistory() {
   try { ap = await K.api('autopilot', { op: 'get' }); } catch { /* show what we have */ }
   const list = (ap?.log || []).filter(x => !histOnly || x.mind === histOnly);
-  const opts = [['All', 'h:'], ...slots().map(s => [s === '0' ? 'Pass' : '#' + s, 'h:' + s])].map(([n, v]) => [n, v, v === 'h:' + histOnly ? 'primary' : '']);
+  const opts = [['All', 'h:'], ...slots().map(s => [s === '0' ? 'Pass' : isLoan(s) ? 'Loaner ' + s.slice(1) : '#' + s, 'h:' + s])].map(([n, v]) => [n, v, v === 'h:' + histOnly ? 'primary' : '']);
   const day = t => new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric' });
   const go = await K.modal(`<h3>📜 What your AIs did${histOnly ? ` · ${slotName(histOnly)}` : ''}</h3><ol class="md-hist">${list.map(x => `<li><time>${day(x.at)} ${new Date(x.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>${x.mind ? `<img src="${slotPic(x.mind)}" alt="">` : '<i>🧠</i>'}<span>${K.esc(x.text)}</span></li>`).join('') || '<li class="muted">Nothing yet.</li>'}</ol>`,
     [...(slots().length > 1 ? opts : []), ['Close', 0, 'primary']]);

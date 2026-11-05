@@ -205,14 +205,14 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
     if (rows.some((r, i) => r.used >= a.caps[i])) return false;
     rows.forEach(r => r.used++); return true;
   };
-  ok(capFor(1) === 3 && capFor(4) === 4, 'energy cap by rarity (Common 3, Epic 4)');
-  ok((await energyLeft([1]))[1] === 3, 'a fresh Mind has full energy');
-  ok(await spendEnergy([1, 2]) && (await energyLeft([1, 2]))[1] === 2, 'a ranked match spends 1 energy per Mind');
-  await spendEnergy([1]); await spendEnergy([1]);
+  ok(capFor(1) === 5 && capFor(4) === 8, 'energy cap by rarity (Common 5, Epic 8)');
+  ok((await energyLeft([1]))[1] === 5, 'a fresh Mind has full energy');
+  ok(await spendEnergy([1, 2]) && (await energyLeft([1, 2]))[1] === 4, 'a ranked match spends 1 energy per Mind');
+  for (let k = 0; k < 4; k++) await spendEnergy([1]);
   ok((await emptyOf([1, 2])).join() === '1', 'empty Mind detected');
-  ok(!(await spendEnergy([2, 1])) && (await energyLeft([2]))[2] === 2, 'all or nothing: nothing spent if one Mind is empty');
+  ok(!(await spendEnergy([2, 1])) && (await energyLeft([2]))[2] === capFor(2) - 1, 'all or nothing: nothing spent if one Mind is empty');
   T.mind_energy.find(r => r.token_id === 1).day = '2000-01-01';
-  ok((await energyLeft([1]))[1] === 3, 'energy refills on a new UTC day');
+  ok((await energyLeft([1]))[1] === 5, 'energy refills on a new UTC day');
   ok(winPoints(['Common'], false) === 10 && winPoints(['Common', 'Common', 'Legendary'], false) === 32 && winPoints(['Common', 'Common'], true) === 10, 'win points are paid per Mind brought (bots half)');
   db.rpc = prevRpc;
 }
@@ -1527,6 +1527,43 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
     ok((await hit(queue_join, P1, { minds: [], pass: true })).code === 403, 'an empty pass cannot queue');
     isl(P2).state.rp.until = Date.now() - 1; T.queue = T.queue.filter(q => q.player_id !== P2.id);
     ok((await hit(queue_join, P2, { minds: [], pass: true })).code === 403, 'an expired pass stops working');
+  }
+
+  {   // 🪪 Round 27: Loaner Minds (free one per wallet, buy more, play ranked like a Common Mind)
+    const [queue_join, energyRt, gemsRt, meRt] = await Promise.all(['queue_join', 'energy', 'gems', 'me'].map(rt));
+    const { botMatch } = await import('../lib/matchmaking.js'), L = await import('../lib/loaners.js'), G = await import('../web/src/gems.js');
+    const st0 = { ap: { ai: { '0': { hm: 'x', name: 'Old', job: { kind: 'ranked' } } }, away: { slots: ['0'] } } };
+    ok(R.ensureLoaner(st0) && st0.loaners[0].id === 'L1' && st0.loaners[0].free && st0.ap.ai.L1?.name === 'Old' && !st0.ap.ai['0'] && st0.ap.away.slots[0] === 'L1', 'free Loaner L1 given once; an old Rank Pass AI moves onto it with its job');
+    ok(!R.ensureLoaner(st0) && st0.loaners.length === 1, 'the free Loaner is given only once');
+    R.addLoaner(st0); R.addLoaner(st0); R.addLoaner(st0);
+    ok(st0.loaners.map(l => l.id + ':' + l.art).join() === 'L1:49,L2:14,L3:8,L4:49', 'Loaners get their own ids and cycle the loaner art');
+    ok(G.packOf('loaner')?.pack.loaner && G.packOf('loaner:usd')?.usd && G.packOf('loaner').pack.gems === 0 && G.LOANER_PRICE.usd === 10 && G.LOANER_PRICE.eth === '0.0045' && G.LOANER_PRICE.gems === 120, 'Loaner price: 10 USDG / 0.0045 ETH / 120 Gems');
+    const P = await mk('LoanOne');
+    T.islands.find(x => x.player_id === P.id).state.loaners = undefined;
+    await L.giveFreeLoaner(P.id);
+    ok((await L.loanersOf(P.id)).map(l => `${l.id}/${l.left}`).join() === 'L1/5', 'a wallet player gets one free Loaner with 5 ranked games');
+    let out = await hit(queue_join, P, { minds: ['L9'] });
+    ok(out.code === 403, 'someone else\'s / unknown Loaner cannot be played');
+    out = await hit(queue_join, P, { minds: ['L1'] });
+    const qrow = T.queue.find(q => q.player_id === P.id);
+    ok(out.code === 200 && out.body.waiting && qrow?.minds[0] === 49 && qrow.loadout.includes('lo:L1'), 'a Loaner queues for ranked with its art id');
+    T.queue = T.queue.filter(q => q.player_id !== P.id);
+    for (let i = 0; i < 5; i++) { await botMatch(P, { minds: [49], real: [], loans: ['L1'] }, null, true); T.matches.forEach(m => { m.status = 'done'; }); }
+    ok((await L.loanersOf(P.id))[0].left === 0, 'five ranked games a day on a Loaner');
+    let err = null; try { await botMatch(P, { minds: [49], real: [], loans: ['L1'] }, null, true); } catch (e) { err = e; }
+    ok(err && /no ranked games left/.test(err.message), 'after five the Loaner is out for today');
+    isl(P).state.dust = 10000;
+    isl(P).state.dust = 12000;
+    for (let i = 0; i < 4; i++) out = await hit(energyRt, P, { mind: 'L1', pay: 'dust' });
+    ok(out.code === 200 && (await L.loanersOf(P.id))[0].left === 4 && isl(P).state.dust === 0, 'Loaner refills with Dust, 4 in a day (no 3-a-day limit)');
+    isl(P).state.gems = 119;
+    ok((await hit(gemsRt, P, { op: 'loaner_gems' })).code === 403, 'a Loaner needs 120 Gems');
+    isl(P).state.gems = 130;
+    out = await hit(gemsRt, P, { op: 'loaner_gems' });
+    ok(out.code === 200 && out.body.loaner === 'L2' && isl(P).state.gems === 10 && (await L.loanersOf(P.id)).length === 2, 'buying a Loaner with 120 Gems adds L2');
+    out = await hit(queue_join, P, { minds: ['L1', 'L2'], bot: 'easy' });
+    ok(out.code === 200 && out.body.match, 'two Loaners with different art can team up');
+    T.matches.forEach(m => { m.status = 'done'; });
   }
 
   {   // 🧠 Mind Autopilot: plans, Gem layers, and steps that play by the normal rules

@@ -8,5 +8,7 @@ export const GEM_PACKS = [
   { id: 'vault', name: 'Vault of Gems', gems: 800, eth: '0.025', usd: 50, icon: '🏦', tag: 'Best value' },
 ];
 // 'bag' → { pack, usd: false } · 'bag:usd' → { pack, usd: true }
-export const packOf = key => { const [id, cur] = String(key || '').split(':'); const pack = GEM_PACKS.find(x => x.id === id); return pack && (!cur || cur === 'usd') ? { pack, usd: cur === 'usd' } : null; };
+export const packOf = key => { const [id, cur] = String(key || '').split(':'); const pack = GEM_PACKS.find(x => x.id === id) || (id === 'loaner' ? { ...LOANER_PRICE, gems: 0, loaner: true } : null); return pack && (!cur || cur === 'usd') ? { pack, usd: cur === 'usd' } : null; };
+// 🪪 one Loaner Mind (comes with its AI): product keys 'loaner' (ETH) / 'loaner:usd', or 120 Gems (server op)
+export const LOANER_PRICE = { id: 'loaner', name: 'Loaner Mind', eth: '0.0045', usd: 10, gems: 120 };
 export const CHAIN_ID = 4663;   // Robinhood Chain
