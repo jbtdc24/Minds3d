@@ -51,7 +51,7 @@ Mind picture (badge corner), AI panel tabs ("Loaner 1"), duel screen, team picke
 
 ## Build notes (for the coding session)
 - Unlimited Loaners means they can't use the 3 on-chain loaner ids as identity. Give each its own game id (e.g. `L1`, `L2` per player, or a global sequence) and an artwork picked from the loaner art set (#49, #14, #8, cycled or random). A Loaner is always Common, whatever its artwork. Store `st.loaners = [{ id, art, at }]` on the island.
-- Energy per Mind = 5, refills as today; Loaner energy kept on the island like `st.rp`.
+- Energy per Mind by rarity (Loaner = Common = 5); refills unlimited (Dust or Gems); Loaner energy kept on the island like `st.rp`.
 - Ranked/queue (`queue_join.js`, `matchmaking.js`, `rankpass.js`, `owned.js`): a pick may mix real Minds and Loaners; one team never has the same Loaner twice.
 - AI: free AIs = real Minds + 1; each bought Loaner adds one AI (Round 26 Awaken: spares first, then a new AI). Client `slots()` in `web/src/autopilot.js` = owned Minds + Loaners.
 - Payment: reuse `claimPayment` checks in `lib/routes/gems.js` with product keys `loaner` / `loaner:usd`; Gems path = server op taking 120 `st.gems`. `lib/reconcile.js` + admin recovery must understand the key. Log with `logBuy` (real: true for money).
