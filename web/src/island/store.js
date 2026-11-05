@@ -25,6 +25,9 @@ function take(r) {
   isle.offline = false; isle.seed = r.island.seed; isle.minds = r.island.minds; isle.skew = r.now - Date.now();
   isle.state = r.island.state;
   for (const a of queue) act(isle.state, a, ctx());   // actions made while the batch was on its way
+  // the server copy can be a moment behind: a job this screen already finished (its tile is clear here) finishes in the
+  // fresh copy too, so the grass never comes back for the Mind to cut again (the server settles it a second later anyway)
+  if (isle.state.q?.length) settleWork(isle.state, { seed: isle.seed, now: now() + 3000, minds: isle.minds });
 }
 const ctx = () => ({ seed: isle.seed, now: now(), minds: isle.minds, queue: true });
 

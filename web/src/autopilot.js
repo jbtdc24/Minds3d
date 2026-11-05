@@ -434,6 +434,7 @@ async function duel(slot, i, n) {
   const ai = aiOf(slot), train = cleanTraining(ai?.train), pass = slot === '0' && K.rankPass();
   if (slot === '0' && (!pass || pass.left < 1)) { await log(slot, pass ? '🃏 the Rank Pass has no games left today' : '🃏 ranked needs a Mind or a Rank Pass: skipping duels'); return false; }
   // the team: this Mind first, then any other Mind held with energy left (Minds another AI duels with stay out)
+  if (K.busy?.(isLoan(slot) ? slot : +slot)) { await log(slot, `🔨 ${K.busyText(isLoan(slot) ? slot : +slot)}: no duels until the build is done`); L(slot).long = Date.now() + 15 * 60e3; return false; }   // 🔨
   if (isLoan(slot)) {   // 🪪 a Loaner duels alone with its own 5 ranked games a day
     if (!(K.energyOf(slot) > 0)) {
       const r = train.energy.refill === 'stop' ? { ok: false } : await K.api('autopilot', { op: 'refill', mind: slot, only: train.energy.refill }).catch(() => ({ ok: false }));
@@ -441,7 +442,7 @@ async function duel(slot, i, n) {
       await log(slot, `⚡ refilled Loaner ${slot} with ${r.pay === 'shard' ? 'shards' : r.pay === 'dust' ? 'Dust' : 'Gems'}`); K.refresh();
     }
   }
-  const held = K.myMinds().map(Number), busy = [...running].filter(s => s !== slot && jobOf(s)?.kind === 'ranked').map(Number);
+  const held = K.myMinds().map(Number).filter(id => !K.busy?.(id)), busy = [...running].filter(s => s !== slot && jobOf(s)?.kind === 'ranked').map(Number);   // building Minds stay out of the team
   let minds = pass ? pass.minds : isLoan(slot) ? [slot] : rankedTeam(+slot, held, Object.fromEntries(held.map(id => [id, K.energyOf(id)])), jobOf(slot)?.team, busy);
   if (!pass && !minds.length) {
     if (train.energy.refill === 'stop') { await log(slot, '🃏 none of your Minds has ranked energy left (training: stop dueling)'); return false; }
