@@ -271,13 +271,19 @@ async function pickJob(kind) {
 }
 async function makeFresh(slot) {
   if (busy) return;
-  const name = `Clash-${slot === '0' ? 'Pass' : slot}`;
-  if (!(await K.modal(`<h3>✨ Awaken an AI for ${slotName(slot)}</h3><p>This makes a brand-new AI Mind called <b>${name}</b> on <b>your</b> Hello Minds account. It starts with a clean slate and only ever plays ${slotName(slot)}.</p><p class="muted">It thinks every move itself, using your own Hello Minds cognition.</p>`, [['Awaken it', 1, 'primary'], ['Cancel', 0]]))) return;
+  if (!(await K.modal(`<h3>✨ Awaken an AI for ${slotName(slot)}</h3><p>This gives ${slotName(slot)} its own AI Mind on <b>your</b> Hello Minds account (a spare one the game already made for you, or a brand-new one). It only ever plays ${slotName(slot)}.</p><p class="muted">Your first AI is free (one free per Mind you hold). It thinks every move itself, using your own Hello Minds cognition.</p>`, [['Awaken it', 1, 'primary'], ['Cancel', 0]]))) return;
   busy = true; paint();
+  // the server makes (or reuses) the AI and links it in one step, so a failed try never leaves extra AIs behind
+  const wake = async pay => K.api('autopilot', { op: 'awaken', mind: slot, token: await HM.token(), ...(pay ? { pay: true } : {}) });
   try {
-    const m = await HM.awaken(name);
-    ap = await K.api('autopilot', { op: 'link', mind: slot, hm: m.mindId, name: m.name || name, token: await HM.token() });
-    L(slot).chat = []; K.sfx('levelup'); say(slot, `Hi! I'm ${m.name || name}, the AI for ${slotName(slot)}. Give me a job and press Start.`);
+    try { ap = await wake(false); }
+    catch (err) {
+      if (err.status !== 402) throw err;   // 402 = the free AI is used: ask before paying Gems
+      if (!(await K.modal(`<h3>💎 A new AI</h3><p>${K.esc(err.message)}</p>`, [['Pay and awaken', 1, 'primary'], ['Cancel', 0]]))) { busy = false; return paint(); }
+      ap = await wake(true);
+    }
+    const name = ap?.ai?.[slot]?.name || 'your AI';
+    L(slot).chat = []; K.sfx('levelup'); say(slot, `Hi! I'm ${name}, the AI for ${slotName(slot)}. Give me a job and press Start.`);
   } catch (err) { K.toast(`Hello Minds: ${err.message}`, true); }
   busy = false; paint();
 }

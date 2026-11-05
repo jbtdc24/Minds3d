@@ -14,6 +14,11 @@ NEXT:
 5. Optional: share routes accept GET only (HEAD 405); plaza toy feel at full speed (preview pane runs ~2 fps); sleeping Minds only wake when touched.
 Local preview: .claude/launch.json "mindclash-web" = node tools/video/serve.mjs web 5174 (no cache) → http://localhost:5174/play.html?debug (no /play rewrite locally).
 
+ROUND 26 (owner 2026-11-05, "Awaken an AI" broken) DONE, NOT COMMITTED/DEPLOYED yet:
+- Bug: Awaken made the AI in the browser, then op 'link' checked it against mindsOf()'s 5-min cached list (stale) -> 403 "That AI is not on your Hello Minds account"; retries made MORE AIs (owner got 10x "Clash-Pass-8": checkMindName always said taken, so the name loop ended on -8) and later links failed "Each Mind needs its own new AI" (createdAt missing/old).
+- Fix: new server op 'awaken' {mind, token, pay?}: fresh list (mindsOf(token, true)); reuses a SPARE first (ids in ap.woke, or any unlinked AI named Clash-*) = owner's leftover AIs get used; else the server calls awakenMind itself (hmserver.awakenAi, name Clash-<Pass|slot>-<4 random>) and links it in the same request. ap.waking lock 90 s (no double AIs). 'link' also uses a fresh list now.
+- Pricing (owner): one free AI per Mind held (1 with no Minds), every next one AI_GEM_PRICE = 50 Gems (402 asks first, client shows a pay modal; 403 if too few Gems). Counter ap.made. Price is a guess: confirm with owner.
+- Tests: 8 new in test_server.mjs (632 pass). NOT checked live with real Hello Minds yet.
 ROUND 25 (owner 2026-11-05, QA feedback) DONE:
 - Trial island move REVERTED (owner: wallet may already have another account). Instead: loud red lobby note (#guest-note) + pulsing red bar on the island (#isl-trial, Connect wallet link) + 'Trial mode' modal on first island visit per page load: trial progress resets and never moves to a wallet.
 - Island: tapping a working Mind no longer stops it forever (tap kept m.job but set state idle; now only idle Minds stop).

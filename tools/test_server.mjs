@@ -1549,6 +1549,31 @@ ok(v.status === 'abandoned' && v.winner === 1, 'forfeit works');
     let out = await hit(autopilot, M, { op: 'link', mind: 0, hm: 'hm-1', token: tok });
     ok(out.code === 200 && out.body.ai['0'].hm === 'hm-1' && out.body.ai['0'].name === 'Clash-1', 'a Mind gets its own new Hello Minds AI (checked by the server)');
     ok((await hit(autopilot, M, { op: 'link', mind: 7, hm: 'hm-1', token: tok })).code === 403, 'one AI per Mind held');
+    {   // ✨ awaken: the server makes (or reuses) the AI and links it in one step; first free, then Gems
+      const keep = fake.minds, client0 = HMS.hm.client; let woken = 0;
+      HMS.hm.client = token => ({ ...client0(token), awakenMind: async ({ name }) => { woken++; const m = { mindId: `hm-w${woken}`, name, createdAt: new Date().toISOString() }; fake.minds = [...fake.minds, m]; return m; } });
+      const W = await mk('WakeMind'), wisl = () => T.islands.find(x => x.player_id === W.id);
+      fake.minds = [{ mindId: 'hm-x', name: 'Other', createdAt: new Date().toISOString() }];
+      ok((await hit(autopilot, W, { op: 'awaken', mind: 0, token: 'tok-bad-0123456789abcdef' })).code === 401 && woken === 0, 'awaken needs a real Hello Minds login and makes nothing without it');
+      let w = await hit(autopilot, W, { op: 'awaken', mind: 0, token: tok });
+      ok(w.code === 200 && w.body.ai['0'].hm === 'hm-w1' && /^Clash-Pass-[a-z0-9]{4}$/.test(w.body.ai['0'].name) && woken === 1, 'the first AI is made and linked at once, with its own name (free)');
+      ok((await hit(autopilot, W, { op: 'awaken', mind: 0, token: tok })).code === 409 && woken === 1, 'a Mind that has an AI makes no second one');
+      await hit(autopilot, W, { op: 'unlink', mind: 0 });
+      w = await hit(autopilot, W, { op: 'awaken', mind: 0, token: tok });
+      ok(w.code === 200 && w.body.ai['0'].hm === 'hm-w1' && woken === 1, 'a spare AI the game made is reused, nothing new is made');
+      await hit(autopilot, W, { op: 'unlink', mind: 0 }); fake.minds = fake.minds.filter(m => m.mindId !== 'hm-w1');
+      ok((await hit(autopilot, W, { op: 'awaken', mind: 0, token: tok })).code === 402 && woken === 0 + 1, 'the free AI is used: the next one asks to pay Gems first');
+      wisl().state.gems = 10;
+      ok((await hit(autopilot, W, { op: 'awaken', mind: 0, token: tok, pay: true })).code === 403 && woken === 1, 'not enough Gems: no AI is made');
+      wisl().state.gems = 60;
+      w = await hit(autopilot, W, { op: 'awaken', mind: 0, token: tok, pay: true });
+      ok(w.code === 200 && w.body.ai['0'].hm === 'hm-w2' && wisl().state.gems === 10 && woken === 2, `a paid AI costs ${50} Gems and is linked`);
+      const O = await mk('OrphanMind');
+      fake.minds = [{ mindId: 'hm-orph', name: 'Clash-Pass-8', createdAt: '2026-01-01T00:00:00Z' }];
+      w = await hit(autopilot, O, { op: 'awaken', mind: 0, token: tok });
+      ok(w.code === 200 && w.body.ai['0'].hm === 'hm-orph' && woken === 2, 'an AI left over from an old failed try is picked up, not a new one');
+      fake.minds = keep; HMS.hm.client = client0; await HMS.mindsOf(tok, true);   // put the real list back in the cache
+    }
     out = await hit(autopilot, M, { op: 'save', mind: 0, steps: AP.PRESETS.daily.steps, preset: 'daily' });
     ok(out.code === 200 && out.body.ai['0'].steps.length === AP.PRESETS.daily.steps.length && !out.body.gems.on, 'a preset plan is saved for that Mind, Gems start OFF');
     ok((await hit(autopilot, M, { op: 'gems', on: true, cap: 10 })).code === 400, 'Gems need the typed CONFIRM');
