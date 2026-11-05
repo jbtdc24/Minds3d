@@ -2,7 +2,7 @@
 # HANDOFF — read this first (next AI session: continue from the top of "NEXT TASKS")
 
 ## >>> START AT "NEXT" BELOW <<<
-STATUS 2026-11-05 (end of ROUND 27c) — pushed to main, 646 tests pass:
+STATUS 2026-11-05 (end of ROUND 27g + live QA) — pushed to main, 651 tests pass, live QA in owner Chrome OK:
 - LIVE: https://www.mindsclash.games (homepage) · game https://www.mindsclash.games/play · invite links https://www.mindsclash.games/i/<code> · old https://minds3d.vercel.app still works (cron uses it).
 - Local branch is `island`; main = island (push both: git push origin island && git push origin island:main).
 NEXT:
