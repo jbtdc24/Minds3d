@@ -429,6 +429,13 @@ function frame(nowT) {
   items.sort((a, b) => a.y - b.y);
   g.strokeStyle = `rgba(255,255,255,${0.5 + 0.3 * Math.sin(Tm * 6)})`; g.lineWidth = 1;
   for (const j of queued()) g.strokeRect(kx(j.k) * T + 1.5, ky(j.k) * T + 1.5, T - 3, T - 3);
+  // ⏳ a loading bar on the tile while a Mind works it (from the moment it arrives, like adventures)
+  { const tn = now();
+    for (const j of queued()) if (j.s != null && tn >= j.s && tn < j.d) {
+      const x = kx(j.k) * T + 1, y = ky(j.k) * T - 4, u = (tn - j.s) / Math.max(1, j.d - j.s);
+      g.fillStyle = 'rgba(29,27,47,.85)'; g.fillRect(x, y, T - 2, 4);
+      g.fillStyle = '#d4ff1f'; g.fillRect(x + 1, y + 1, Math.max(1, (T - 4) * u), 2);
+    } }
   if (hover >= 0 && w.land[hover]) {   // tile cursor on the ground
     const ok = valid(tool, hover);
     g.fillStyle = tool === 'hand' ? 'rgba(255,255,255,.18)' : ok ? 'rgba(212,255,31,.35)' : 'rgba(255,90,74,.3)';

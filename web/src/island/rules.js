@@ -387,6 +387,10 @@ export const WORK_MS = { [COVER.WEEDS]: 2200, [COVER.BUSH]: 2500, [COVER.ROCK]: 
 const WORK = { clear: 1, till: 1, plant: 1, harvest: 1 }, QUEUE_MAX = 300;
 Object.setPrototypeOf(WORK, null);
 export const workLanes = minds => Math.max(1, Math.min(12, minds | 0));   // one job at a time per Mind you have (NFTs + Loaners), up to 12; no helpers (owner 2026-11-05)
+// the walk before a job (owner 2026-11-05: the timer starts only when the Mind is there, like adventures): from the
+// lane's last tile (or the house) at the Minds' walking speed (38 px/s on 16 px tiles), at most 8 s
+export const WALK_TILE_MS = 16 / 38 * 1000, WALK_MAX_MS = 8000;
+export const walkMs = (fromK, toK, home) => { const fx = fromK != null ? fromK % TW : home.x + 1, fy = fromK != null ? (fromK / TW) | 0 : home.y + 3; return Math.min(WALK_MAX_MS, Math.round(Math.hypot((toK % TW) - fx, ((toK / TW) | 0) - fy) * WALK_TILE_MS)); };
 export const workMs = (st, w, type, k) => (type === 'clear' ? WORK_MS[coverAt(st, w, k)] : WORK_MS[type]) || 2000;
 function queueWork(st, a, w, tiles, { now, minds }) {
   if (a.type === 'plant' && !CROPS[a.crop]) return { error: 'unknown seed' };
@@ -401,8 +405,9 @@ function queueWork(st, a, w, tiles, { now, minds }) {
     if (!ok) continue;
     let i = 0;
     for (let n = 1; n < free.length; n++) if (free[n] < free[i]) i = n;
-    free[i] += workMs(st, w, a.type, k);
-    const job = { y: a.type, k, d: free[i] };
+    const at = (st.qp ||= [])[i] ?? null, s = free[i] + walkMs(free[i] > now ? at : null, k, homeOf(st, w));   // a lane that sat idle starts from the house
+    free[i] = s + workMs(st, w, a.type, k); st.qp[i] = k;
+    const job = { y: a.type, k, s, d: free[i] };   // s = the Mind is there and starts, d = done
     if (a.type === 'plant') job.c = a.crop;
     if (a.type === 'clear') job.v = cov;   // what stood there, for the effects when it is done
     st.q.push(job); have.add(k); done++;
@@ -420,7 +425,7 @@ export function settleWork(st, { seed, now, minds = 0 }) {
     if (!WORK[j.y]) continue;
     out.push({ ...j, res: act(st, { type: j.y, tiles: [j.k], crop: j.c }, { seed, now: j.d, minds }) });
   }
-  if (!st.q.length) { delete st.q; delete st.ql; }
+  if (!st.q.length) { delete st.q; delete st.ql; delete st.qp; }
   return out;
 }
 
