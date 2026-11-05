@@ -109,7 +109,7 @@
       <div class="share-row"><button class="sharebtn px" id="hub-share"><b>📣 Invite friends</b><span>Share your link on X</span></button><button class="sharebtn xbtn px" id="hub-x"><b id="hub-x-t">𝕏 Connect X</b><span id="hub-x-s">Show your @</span></button></div>
       <button class="mode px soon" id="hub-train" hidden></button>
       <button class="mode px soon" id="hub-auto" hidden></button>
-      <div class="guest-note px" id="guest-note">Trial mode: play <b>Classic</b> with everyone and <b>Practice</b> vs bots using demo Minds. <a href="#" id="guest-connect">Connect a wallet</a> to play ranked with your own Minds.</div>
+      <div class="guest-note px" id="guest-note">⚠️ <b>TRIAL MODE: progress is NOT saved.</b> Your island, Dust and items are only for trying the game and will reset. They do <b>not</b> carry over to a wallet account. <a href="#" id="guest-connect">Connect a wallet</a> to keep your progress and play ranked.</div>
     </div>
     <button class="board-tab px" id="board-tab" title="Show leaderboard"><img src="assets/icon_trophy.png" alt=""><span>TOP</span><div class="tab-pfps" id="board-tab-pfps"></div><b>‹</b></button>
     <div class="col-board panel px" id="board">
@@ -260,6 +260,7 @@
 <!-- MIND ISLAND -->
 <section id="s-island" class="screen">
   <canvas id="island-cv"></canvas>
+  <div class="trial-bar px" id="isl-trial" hidden>⚠️ TRIAL: this island resets and does not move to a wallet. <a href="#" id="isl-trial-connect">Connect wallet</a></div>
   <div class="isl-top">
     <button class="btn px" id="isl-back" title="Back to the lobby">←<span class="lbl"> Lobby</span></button>
     <div class="isl-res px">

@@ -37,9 +37,8 @@ export async function walletLogin() {
   const { message } = await api('auth/nonce', { address });
   const hex = '0x' + Array.from(new TextEncoder().encode(message), b => b.toString(16).padStart(2, '0')).join('');
   const signature = await window.ethereum.request({ method: 'personal_sign', params: [hex, address] });
-  const out = await api('auth/verify', { address, signature, ref: refCode(), trial: trialToken() });
+  const out = await api('auth/verify', { address, signature, ref: refCode() });
   session.token = out.token;
-  try { localStorage.removeItem(TRIAL_KEY); } catch { /* private mode */ }
   return out;
 }
 export async function guestLogin() {
@@ -47,12 +46,7 @@ export async function guestLogin() {
   session.token = out.token;
   return out;
 }
-// 🧪 a trial account's token is kept when the player goes to Connect wallet, so its island moves over to the new wallet
-const TRIAL_KEY = 'mindclash.trial';
-const isGuestToken = t => { try { return !!JSON.parse(atob(t.split('.')[0].replace(/-/g, '+').replace(/_/g, '/'))).guest; } catch { return false; } };
-const trialToken = () => { try { return localStorage.getItem(TRIAL_KEY) || undefined; } catch { return undefined; } };
-export const logout = () => { const t = session.token; if (t && isGuestToken(t)) try { localStorage.setItem(TRIAL_KEY, t); } catch { /* private mode */ }
-  session.token = null; try { localStorage.removeItem('mindclash.account'); } catch { /* private mode */ } };
+export const logout = () => { session.token = null; try { localStorage.removeItem('mindclash.account'); } catch { /* private mode */ } };
 
 // ---------- live updates: Supabase Realtime broadcast ping + polling fallback ----------
 let rt = null;

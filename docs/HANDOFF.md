@@ -15,7 +15,7 @@ NEXT:
 Local preview: .claude/launch.json "mindclash-web" = node tools/video/serve.mjs web 5174 (no cache) → http://localhost:5174/play.html?debug (no /play rewrite locally).
 
 ROUND 25 (owner 2026-11-05, QA feedback) DONE:
-- Trial island MOVES to the wallet: logout() keeps a guest token in localStorage mindclash.trial; walletLogin sends it as `trial`; auth_verify moveTrial() re-points islands.player_id to the wallet, only if that wallet has no island yet (never overwrites). Toast "Your trial island moved". Not live-tested with a real wallet yet.
+- Trial island move REVERTED (owner: wallet may already have another account). Instead: loud red lobby note (#guest-note) + pulsing red bar on the island (#isl-trial, Connect wallet link) + 'Trial mode' modal on first island visit per page load: trial progress resets and never moves to a wallet.
 - Island: tapping a working Mind no longer stops it forever (tap kept m.job but set state idle; now only idle Minds stop).
 - Admin "Online now" card = 5 min, online list = 2.5 min (known mismatch, not fixed).
 ROUND 23 (owner 2026-11-04) DONE:

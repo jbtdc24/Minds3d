@@ -265,7 +265,6 @@ async function afterLogin(out) {
     settings.noMindsSeen = true; saveSettings();
     await modal(`<h3>No Minds in this wallet</h3><p>You're signed in with your wallet. Classic and Practice use loaner Minds.</p><p><b>🎟️ Want Ranked?</b> Get a Rank Pass in the Shop with Dust or Gems.</p>`, [['OK', 1, 'primary']]);
   }
-  if (out.moved) toast('🏝️ Your trial island moved to your wallet account.');
   if (out.isNew && !guest) return openSetup();
   enterHub();
   if (!guest && online) { refreshEnergy(); askHelloMinds(); }
@@ -579,9 +578,16 @@ async function ensureIsland() {
   try { await loadIsland({ online, guestSeed: me?.id || me?.name, minds: guest ? 0 : myMinds.length }); return true; }
   catch (e) { toast(e.message, true); return false; }
 }
+let trialWarned = false;
+$('#isl-trial-connect').onclick = e => { e.preventDefault(); logout(); show('login'); };
 async function goIsland() {
   if (!(await ensureIsland())) return;
   show('island'); stage.paused = true; music('cozy');
+  $('#isl-trial').hidden = !guest;
+  if (guest && !trialWarned) {   // 🧪 trial progress resets and never moves to a wallet: say it loudly once per visit
+    trialWarned = true;
+    modal(`<h3>⚠️ Trial mode</h3><p><b>Nothing you do here is saved for good.</b> This trial island, its Dust and items will reset, and they do <b>not</b> move to a wallet account.</p><p>Connect a wallet to start an island that keeps your progress.</p>`, [['Got it', 1, 'primary']]);
+  }
   openIsland({ minds: myMinds, toast: (m, bad) => toast(m, bad), shop: tab => openShop(tab), bag: () => { invTab = 'items'; openInventory(); }, mind: id => openDock(id), restore: openRestoreModal });   // a Mind on the island: its Hello Minds AI
   const worked = (isle.state?.jobLog || []).filter(e => e.at > (settings.jobSeen || 0)).slice(0, 6);
   if (worked.length) { settings.jobSeen = worked[0].at; saveSettings(); }
