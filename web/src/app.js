@@ -235,7 +235,7 @@ const playMinds = () => guest ? (myMinds.length ? myMinds : LOANERS) : [...myMin
 const picked = () => { const p = (settings.picks.minds || []).filter(id => playMinds().includes(id)); return p.length ? p : playMinds().slice(0, 3); };
 // the lobby line-up: your showcase (or picks), and your 🪪 Loaner always stands with them when there is room
 const showcaseIds = () => {
-  const s = (me?.showcase || []).filter(id => pfMinds().includes(id)), base = s.length ? s : picked().length ? picked().map(artOf) : [me?.pfp || 49];
+  const s = (me?.showcase || []).filter(id => pfMinds().includes(id)), base = s.length ? s : picked().length ? picked().map(artOf) : [me?.pfp ?? 49];
   const list = [...new Set(base)];
   return !guest && loaners.length && !list.includes(0) && list.length < 3 ? [...list, 0] : list.slice(0, 3);
 };
@@ -566,21 +566,22 @@ function openInventory() {
   if (online && !guest) refreshEnergy();
 }
 function paintInventory() {
-  const max = myMinds.reduce((s, id) => s + capFor(id), 0), shown = new Set(me?.showcase || []);
+  const all = guest ? myMinds : [...myMinds, ...loaners.map(l => l.id)];   // 🪪 Loaners too
+  const max = all.reduce((s, id) => s + capFor(id), 0), shown = new Set(me?.showcase || []);
   $$('#inv-tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === invTab));
   $('#inv-sum').innerHTML = guest
     ? '<b>Trial account</b><span>These are free demo Minds. Connect a wallet to see your own Minds and their ranked energy.</span>'
     : `<div class="inv-total"><i>⚡</i><div><b>${totalEnergy()}<small>/${max}</small></b><span>ranked energy today</span></div></div>
-       <div class="inv-facts"><span><b>${myMinds.length}</b> Minds</span><span>Refills in <b>${resetText()}</b> (00:00 UTC)</span><span>1 ⚡ per Mind per ranked match · Classic &amp; Practice are free</span></div>`;
-  const order = [...myMinds].sort((a, b) => energyOf(b) - energyOf(a) || a - b);
+       <div class="inv-facts"><span><b>${myMinds.length}</b> Minds${loaners.length && !guest ? ` + <b>${loaners.length}</b> Loaner${loaners.length > 1 ? 's' : ''}` : ''}</span><span>Refills in <b>${resetText()}</b> (00:00 UTC)</span><span>1 ⚡ per Mind per ranked match · Classic &amp; Practice are free</span></div>`;
+  const order = [...all].sort((a, b) => energyOf(b) - energyOf(a) || (isLoan(a) - isLoan(b)) || (isLoan(a) ? 0 : a - b));
   $('#inv-minds').innerHTML = order.map(id => {
-    const n = energyOf(id), c = capFor(id), r = rarityOf(id);
+    const n = energyOf(id), c = capFor(id), r = rarOf(id);
     const flags = (shown.has(id) ? '<em class="inv-flag">SHOWCASE</em>' : '') + (me?.pfp === id ? '<em class="inv-flag is-pfp">PROFILE</em>' : '');
     const bar = guest ? '<div class="inv-free">Demo · Classic &amp; Practice</div>'
       : `<div class="inv-en"><div class="enbar">${Array.from({ length: c }, (_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</div><span>⚡${n}/${c}</span></div>`;
     return `<div class="inv-mind ${!guest && !n ? 'tired' : ''}" data-id="${id}" style="--rar:${RAR_COLOR[r]}">
-      <div class="inv-img"><img src="${thumb(id)}" alt="" loading="lazy">${flags}</div>
-      <div class="inv-name"><b>#${id}</b><span>${r}</span></div>${bar}</div>`;
+      <div class="inv-img"><img src="${thumb(artOf(id))}" alt="" loading="lazy">${isLoan(id) ? '' : flags}</div>
+      <div class="inv-name"><b>${isLoan(id) ? `Loaner ${id.slice(1)}<span class="loaner-badge">LOANER</span>` : '#' + id}</b><span>${r}</span></div>${bar}</div>`;
   }).join('');
   $('#inv-items').innerHTML = invItems();
   if (invTab === 'items' && !isle.loaded) ensureIsland().then(ok => { if (ok && current === 'inventory') paintInventory(); });
@@ -892,7 +893,7 @@ function paintShop() {
     const cos = st.cos || { own: [] }, owns = k => cos.own.includes(k);
     const btn = (k, c) => owns(k) ? (cos[c.kind] === k ? `<button class="btn small" data-cos="none" data-kind="${c.kind}">✓ Wearing · take off</button>` : `<button class="btn small primary" data-cos="${k}" data-equip="1">Wear</button>`)
       : `<button class="btn small ${c.price.gems ? 'gem' : 'primary'}" data-cos="${k}" ${canAfford(st, c.price) ? '' : 'disabled'}>${costText(c.price)}</button>`;
-    const pfp = thumb(me?.pfp || 49);
+    const pfp = thumb(me?.pfp ?? 49);
     const look = (k, c) => c.kind === 'name' ? `<b class="cos-name ${NAME_CLASS[k]}">${esc(me?.name || 'You')}</b>` : c.kind === 'back' ? `<img class="cos-back" src="${BACK_IMG[k]}" alt="">` : c.kind === 'sky' ? `<img class="cos-sky" src="${SKY_IMG[k]}" alt="">`
       : c.kind === 'aura' ? `<img class="cos-pfp ${AURA_CLASS[k]}" src="${pfp}" alt="">` : c.kind === 'title' ? `<b class="cos-name">${esc(me?.name || 'You')}<small class="cos-title">${esc(c.name)}</small></b>`
       : c.kind === 'trail' ? `<b class="cos-trail">${TRAIL_ICON[k]}</b>` : `<img class="cos-pfp ${FRAME_CLASS[k]}" src="${pfp}" alt="">`;
@@ -999,6 +1000,15 @@ $('#shop-grid').onclick = e => {
 $('#inv-tabs').onclick = e => { const v = e.target.dataset.v; if (!v) return; invTab = v; paintInventory(); };
 $('#inv-minds').onclick = async e => {
   const m = e.target.closest('[data-id]'); if (!m || guest || !online) return;
+  if (isLoan(m.dataset.id)) {   // 🪪 a Loaner: refill it, use the Loaner picture, or buy another
+    const L = m.dataset.id, n = energyOf(L), c = capFor(L);
+    const r = await modal(`<img class="inv-big" src="${thumb(0)}" alt=""><h3>Loaner ${L.slice(1)} <span class="loaner-badge">LOANER</span></h3><p><b>Common</b> · ⚡${n}/${c} ranked games today · fixed to your account</p>`,
+      [['Use as profile picture', 1, 'primary'], ...(n < c ? [['⚡ Refill', 3]] : []), ['🪪 Buy another', 4], ['Close', 0]]);
+    if (r === 3) return refillEnergy(L);
+    if (r === 4) return buyLoaner();
+    if (r === 1) try { me = (await api('profile', { pfp: 0 })).player; toast('Profile picture updated!'); paintHub(); } catch (err) { toast(err.message, true); }
+    return;
+  }
   const id = +m.dataset.id, n = energyOf(id), c = capFor(id), inShow = (me.showcase || []).includes(id);
   const r = await modal(`<img class="inv-big" src="${thumb(id)}" alt=""><h3>Mind #${id}</h3><p><b style="color:${RAR_COLOR[rarityOf(id)]}">${rarityOf(id)}</b> · ⚡${n}/${c} ranked energy today${n ? '' : ` · refills in ${resetText()}`}</p>`,
     [['Set as profile picture', 1, 'primary'], [inShow ? 'Remove from showcase' : 'Add to lobby showcase', 2], ...(n < c ? [['⚡ Refill energy', 3]] : []), ['Close', 0]]);
@@ -1629,7 +1639,7 @@ const TUT = [
   { say: 'Every card is used once per round, so plan ahead. Last card: play your 6.', card: 6, rival: 1 },
 ];
 function startTutorial() {
-  const minds = picked().length ? picked().map(artOf) : [me?.pfp || 49];
+  const minds = picked().length ? picked().map(artOf) : [me?.pfp ?? 49];
   const state = createMatch({ seed: 7, players: [{ name: me?.name || 'You', minds: minds.slice(0, 1) }, { name: 'Coach Bot', minds: [1848] }] });
   state.crowns = [5, 3, 6, 7, 2, 4, 1]; state.pot = 5;
   let i = 0;
@@ -1752,7 +1762,7 @@ let apRefresh = 0;
 initAutopilot({ api, esc, toast, modal, sfx, babble, online: () => online, guest: () => guest,
   idle: () => (current === 'hub' || (!!watching && ['duel', 'island', 'result'].includes(current))) && !document.querySelector('#modal.on'),   // the AIs play in the lobby, and while you watch them
   watchDuel, watchIsland, stopWatch, watching: () => watching?.kind || null, connectWallet: () => { logout(); show('login'); },
-  mindId: () => me?.pfp || myMinds[0] || 1, mindName: () => me ? `${me.name}'s Mind #${me.pfp}` : 'Your Mind', pfp: () => thumb(me?.pfp || 49),
+  mindId: () => me?.pfp ?? (myMinds[0] || 1), mindName: () => me ? (me.pfp === 0 ? `${me.name}'s Loaner Mind` : `${me.name}'s Mind #${me.pfp}`) : 'Your Mind', pfp: () => thumb(me?.pfp ?? 49),
   myMinds: () => myMinds, loaners: () => loaners, buyLoaner: () => buyLoaner(), energyOf: id => energyOf(id), rankPass: () => rankPass, thumb, island: () => isle.state, home: () => { if (current !== 'hub') enterHub(); },
   refresh: () => { if (watching?.kind === 'island' && current === 'island') refreshIsland().catch(() => {}); else resetIsland(); if (Date.now() - apRefresh > 20e3) { apRefresh = Date.now(); refreshMe().then(() => { if (current === 'hub') paintHub(); }).catch(() => {}); } } });
 initTrade({ api, esc, toast, modal, sfx, island: () => isle.state, inTown: () => current === 'town' && online && !guest, inDuel: () => current === 'duel', openMatch: id => openMatch(id), refresh: () => { resetIsland(); ensureIsland(); } });

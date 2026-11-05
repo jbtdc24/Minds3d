@@ -56,3 +56,12 @@ I could not do a live wallet login in the browser pane (it needs the owner's wal
 - Badges DONE: leaderboard row + player card (pfp 0 = LOANER), Mind Town name tag ("Name · LOANER"; Loaner-only players walk as the grey Mind), duel plates, profile. The profile picture can be the Loaner Mind (server allows pfp 0 for wallets); the invite card renders it (card.js allows 0).
 - Re-audit: 649 tests pass; in the browser buildRig(0) draws grey pixels, rarityOf(0) = Common, the 3,333-Mind lists (tokenIds, Mind Town residents, bots) never include 0, thumbs/0.webp loads, no new console errors (the only 404 is /api locally, as before).
 - Still needs a live session: wallet login, buying for real, Awaken on a Loaner, phone and Safari.
+
+## Round 27g full QA sweep (fixed)
+- AI on a Loaner never refilled its games (browser ranked job, away play, op refill, agent energy all turned "L1" into 0): now refills like any Mind (shards, Dust, allowed Gems).
+- Siege Cup: one entry per Mind held now counts Loaners (maxEntries(minds, loaners)).
+- Inventory (⚡ bag): Loaners are listed with their games, LOANER tag, tap = refill / use as profile picture / buy another.
+- Profile picture 0 (Loaner) kept by every `pfp || 49` fallback (changed to ??), lobby mind name says "Loaner Mind".
+- Earlier today: demo Minds 49/14/8 no longer flash on refresh; AI panel never opens the old Rank Pass slot.
+- 651 tests pass. Left as is (by design): island farm plot bonus stays +1 per NFT held (holder perk).
+- Not tested (needs a live session): real wallet login, a real purchase, Awaken on a Loaner, phone and Safari.
