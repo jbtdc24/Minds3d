@@ -14,6 +14,10 @@ NEXT:
 5. Optional: share routes accept GET only (HEAD 405); plaza toy feel at full speed (preview pane runs ~2 fps); sleeping Minds only wake when touched.
 Local preview: .claude/launch.json "mindclash-web" = node tools/video/serve.mjs web 5174 (no cache) → http://localhost:5174/play.html?debug (no /play rewrite locally).
 
+ROUND 25 (owner 2026-11-05, QA feedback) DONE:
+- Trial island MOVES to the wallet: logout() keeps a guest token in localStorage mindclash.trial; walletLogin sends it as `trial`; auth_verify moveTrial() re-points islands.player_id to the wallet, only if that wallet has no island yet (never overwrites). Toast "Your trial island moved". Not live-tested with a real wallet yet.
+- Island: tapping a working Mind no longer stops it forever (tap kept m.job but set state idle; now only idle Minds stop).
+- Admin "Online now" card = 5 min, online list = 2.5 min (known mismatch, not fixed).
 ROUND 23 (owner 2026-11-04) DONE:
 - AI dock: opening/growing it puts it fully on screen (place() clamps the whole window; the bubble no longer saves a position). Job status shows only the current job's own result (ai.last.kind), switching clears the old text.
 - 📋 Job plans: "Mix jobs" in the dock, tap jobs in order (PLAN_MAX 7, training.js cleanJob plan + nextJob). Server op 'advance' {did}: a round that did nothing moves to the next job; a whole empty lap rests 15 min. Away play does the same (planOn in autopilot.js).

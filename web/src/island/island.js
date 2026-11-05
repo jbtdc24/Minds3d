@@ -534,7 +534,8 @@ function showDone(type, k, res, before) {
 // tap with the hand: do the obvious thing for that tile
 function smart(k, p) {
   const m = [...minds].sort((a, b) => b.y - a.y).find(m => Math.abs(p.x - m.x) < m.c.w / 2 && p.y < m.y + 2 && p.y > m.y - m.c.h);
-  if (m) { m.hop = 0.5; m.state = 'idle'; m.timer = 2; selected = m; selectedT = 3; emote(m, 'heart'); sfx('pop'); if (m.helper) cb.toast('A village helper. Own more Minds to have your own Minds work here.'); else cb.mind?.(m.id); return; }
+  if (m) { m.hop = 0.5; if (!m.job && !m.site) { m.state = 'idle'; m.timer = 2; } selected = m;   // a working Mind hops and carries on (it used to stop for good)
+    selectedT = 3; emote(m, 'heart'); sfx('pop'); if (m.helper) cb.toast('A village helper. Own more Minds to have your own Minds work here.'); else cb.mind?.(m.id); return; }
   if (k < 0 || !w.land[k] || pathSet().has(k)) return;
   const t = isle.state.tiles[k], cov = coverAt(isle.state, w, k);
   const bd = buildingAt(isle.state, k);

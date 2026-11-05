@@ -265,6 +265,7 @@ async function afterLogin(out) {
     settings.noMindsSeen = true; saveSettings();
     await modal(`<h3>No Minds in this wallet</h3><p>You're signed in with your wallet. Classic and Practice use loaner Minds.</p><p><b>🎟️ Want Ranked?</b> Get a Rank Pass in the Shop with Dust or Gems.</p>`, [['OK', 1, 'primary']]);
   }
+  if (out.moved) toast('🏝️ Your trial island moved to your wallet account.');
   if (out.isNew && !guest) return openSetup();
   enterHub();
   if (!guest && online) { refreshEnergy(); askHelloMinds(); }
