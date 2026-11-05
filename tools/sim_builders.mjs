@@ -5,7 +5,7 @@ import { gen, COVER } from '../web/src/island/gen.js';
 
 const ROUNDS = +process.argv[2] || 300, bugs = new Map(), did = {};
 const bug = (what, info) => { if (!bugs.has(what)) bugs.set(what, info); };
-let seedN = 1;
+let seedN = +process.argv[3] || 1;
 const rnd = () => { seedN = (seedN * 1103515245 + 12345) >>> 0; return seedN / 4294967296; };
 const pick = a => a[Math.floor(rnd() * a.length)];
 const BUILDS = Object.keys(R.BUILD).filter(k => (R.BUILD_SECS[k] || 0) > 0);
