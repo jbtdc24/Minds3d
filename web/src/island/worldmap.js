@@ -264,7 +264,7 @@ let drag = null;
 cv.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY, moved: 0 }; cv.setPointerCapture?.(e.pointerId); });
 cv.addEventListener('pointermove', e => { if (!drag) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.moved += Math.abs(dx) + Math.abs(dy); drag.x = e.clientX; drag.y = e.clientY; cam.x -= dx / cam.z; cam.y -= dy / cam.z; clamp(); });
 cv.addEventListener('pointerup', e => {
-  if (!drag || M?.fly) { drag = null; return; }
+  if (!drag || !M || M.fly) { drag = null; return; }   // map already closed
   const moved = drag.moved; drag = null;
   if (moved > 8) return;
   const p = toWorld(e.clientX, e.clientY);

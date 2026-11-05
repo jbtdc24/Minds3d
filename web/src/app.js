@@ -852,10 +852,12 @@ async function refillEnergy(id) {
 }
 const RAW_ICON = { wood: '🪵', stone: '🪨' };
 function paintShop() {
-  const st = isle.state, inv = st.inv;
+  const st = isle.state; if (!st) return;   // reloading
+  const inv = st.inv;
   $$('#shop-tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === shopTab));
   $('#shop-dust').textContent = st.dust.toLocaleString();
   $('#shop-gems').textContent = (st.gems || 0).toLocaleString();
+  for (const k of ['wood', 'stone', 'shard']) { const el = $('#shop-' + k); if (el) el.textContent = (st.inv?.[k] || 0).toLocaleString(); }   // supplies too
   $('#shop-note').textContent = guest ? 'Trial island: selling gives no leaderboard points.' : 'Selling crops: +1 leaderboard point per 100 ✨ (max 20 a day)';
   let html = '';
   if (shopTab === 'seeds') html = Object.entries(CROPS).map(([c, d]) => shopCard(`<img src="${cropImg(c)}" alt="">`, `${d.name} seeds`, `Grows in ${fmtTime(growMs(c, isle.minds))} · sells for ${d.sell} ✨`, inv['seed_' + c] || 0,
