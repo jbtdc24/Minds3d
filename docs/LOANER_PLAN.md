@@ -22,14 +22,20 @@ The only perk of holding Mind NFTs: you already have those Minds, so you don't n
 ## Loaners play like real Minds
 | | Real NFT Mind | Loaner Mind |
 |---|---|---|
-| Ranked games a day | **5** | **5** |
-| Refill | new 5 at 00:00 UTC, or buy a refill (3,000 Dust or 8 💎, max 3 a day per Mind) | same |
-| Rarity, rewards, jobs, AI | normal | same as a real Mind (by its artwork's rarity) |
+| Ranked games a day | by rarity, **Common = 5**, more for higher rarity (table below) | **5** (a Loaner always counts as **Common**) |
+| Refill | full again at 00:00 UTC, or buy a refill any time: 3,000 Dust or 8 💎, **no daily limit** | same |
+| Rewards, jobs, AI | normal | same as a Common Mind |
+| Trade / gift | yes | **no: fixed to the account** |
 | Label | its number | **LOANER** badge |
 
-- Energy is **per Mind**: 5 Loaners = 25 ranked games a day, 3 NFTs + 1 Loaner = 20.
-- This changes real NFTs too: today their daily energy is 3-5 by rarity (`ENERGY_CAP` in `web/src/energy.js`); it becomes a flat 5 for every Mind.
-- Assumption (confirm): Loaners cannot be traded or gifted, because they are not on-chain NFTs.
+Ranked games a day by rarity (`ENERGY_CAP` in `web/src/energy.js`, was 3/3/4/4/5):
+| Common | Uncommon | Rare | Epic | Legendary |
+|---|---|---|---|---|
+| 5 | 6 | 7 | 8 | 10 |
+(Suggested numbers: owner said "Common 5, more for higher rarity". Change in one place.)
+
+- Energy is **per Mind**: 5 Loaners = 25 ranked games a day; 2 Common NFTs + 1 Rare NFT + 1 Loaner = 5+5+7+5 = 22.
+- Refills: remove the 3-a-day limit (`REFILLS_PER_DAY` in `web/src/island/rules.js`) for every Mind.
 
 ## LOANER label: shown on
 Mind picture (badge corner), AI panel tabs ("Loaner 1"), duel screen, team picker, profile, leaderboard, Mind Town name tag, player card.
@@ -44,13 +50,14 @@ Mind picture (badge corner), AI panel tabs ("Loaner 1"), duel screen, team picke
 - An AI linked to the old Rank Pass slot (`'0'`) moves to the free Loaner's slot, with its job.
 
 ## Build notes (for the coding session)
-- Unlimited Loaners means they can't use the 3 on-chain loaner ids as identity. Give each its own game id (e.g. `L1`, `L2` per player, or a global sequence) and an artwork picked from the loaner art set (#49, #14, #8, cycled or random). Its rarity = its artwork's rarity. Store `st.loaners = [{ id, art, at }]` on the island.
+- Unlimited Loaners means they can't use the 3 on-chain loaner ids as identity. Give each its own game id (e.g. `L1`, `L2` per player, or a global sequence) and an artwork picked from the loaner art set (#49, #14, #8, cycled or random). A Loaner is always Common, whatever its artwork. Store `st.loaners = [{ id, art, at }]` on the island.
 - Energy per Mind = 5, refills as today; Loaner energy kept on the island like `st.rp`.
 - Ranked/queue (`queue_join.js`, `matchmaking.js`, `rankpass.js`, `owned.js`): a pick may mix real Minds and Loaners; one team never has the same Loaner twice.
 - AI: free AIs = real Minds + 1; each bought Loaner adds one AI (Round 26 Awaken: spares first, then a new AI). Client `slots()` in `web/src/autopilot.js` = owned Minds + Loaners.
 - Payment: reuse `claimPayment` checks in `lib/routes/gems.js` with product keys `loaner` / `loaner:usd`; Gems path = server op taking 120 `st.gems`. `lib/reconcile.js` + admin recovery must understand the key. Log with `logBuy` (real: true for money).
 - Tests in `tools/test_server.mjs`, then the owner does one small real USDG and one ETH purchase.
 
-## Still to confirm with the owner
-1. Loaners can't be traded or gifted: OK?
-2. Energy refills can still be bought with Dust (3,000) as well as Gems (8): keep that?
+## Confirmed by the owner (2026-11-05)
+- Loaners are fixed to the account (no trade, no gift).
+- Refills: unlimited, with Dust (3,000) or Gems (8).
+- Only open point: the exact games a day for Uncommon to Legendary (suggested 6/7/8/10 above).
